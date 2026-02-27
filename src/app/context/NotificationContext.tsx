@@ -221,7 +221,7 @@ const SEED_NOTIFICATIONS: Omit<AppNotification, "id">[] = [
     descriptionEn: "Use the AI-powered strategy tool to set goals and create action plans.",
     timestamp: new Date(Date.now() - 3600000),
     read: false,
-    actionUrl: "/goals/strategy/new",
+    actionUrl: "/strategy/new",
   },
 ];
 

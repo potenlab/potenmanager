@@ -267,7 +267,7 @@ export function GoalsPage() {
           </div>
           <PermissionGate permission="strategy.create">
             <button
-              onClick={() => navigate("/goals/strategy/new")}
+              onClick={() => navigate("/strategy/new")}
               className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl text-sm font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-md shadow-blue-200 shrink-0"
             >
               <Sparkles size={15} />

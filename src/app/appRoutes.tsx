@@ -7,6 +7,7 @@ import { AuthCallbackPage } from "./pages/AuthCallbackPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { TaskDetailPage } from "./pages/TaskDetailPage";
 import { GoalDetailPage } from "./pages/GoalDetailPage";
+import { GoalPage } from "./pages/GoalPage";
 import { GoalsPage } from "./pages/GoalsPage";
 import { GoalSetupWizardPage } from "./pages/GoalSetupWizardPage";
 import { StrategyCreationPage } from "./pages/StrategyCreationPage";
@@ -43,10 +44,11 @@ export const router = createBrowserRouter([
               { path: "tasks", Component: TasksPage },
               { path: "tasks/:taskId", Component: TaskDetailPage },
               { path: "calendar", Component: CalendarPage },
-              { path: "goals", Component: GoalsPage },
+              { path: "goals", Component: GoalPage },
               { path: "goals/setup", Component: GoalSetupWizardPage },
-              { path: "goals/strategy/new", Component: StrategyCreationPage },
               { path: "goals/:goalId", Component: GoalDetailPage },
+              { path: "strategy", Component: GoalsPage },
+              { path: "strategy/new", Component: StrategyCreationPage },
               { path: "team", Component: TeamPage },
               { path: "team/permissions", Component: PermissionsPage },
               { path: "team/:memberId", Component: TeamMemberPage },

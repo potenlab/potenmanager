@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
-import { 
-  LayoutDashboard, 
-  Calendar, 
-  Target, 
-  CheckSquare, 
-  Users, 
-  Settings, 
-  Zap, 
+import {
+  LayoutDashboard,
+  Calendar,
+  Target,
+  CheckSquare,
+  Users,
+  Settings,
+  Zap,
+  Lightbulb,
   Plus,
   Globe,
   ChevronDown,
@@ -71,7 +72,8 @@ export function Sidebar() {
         <nav className="space-y-1">
           <NavItem to="/tasks" icon={<CheckSquare size={20} />} label={t("my_tasks")} compact={isCompact} onClick={closeSidebar} />
           <NavItem to="/" icon={<LayoutDashboard size={20} />} label={t("dashboard")} compact={isCompact} onClick={closeSidebar} />
-          <NavItem to="/goals" icon={<Target size={20} />} label={t("goals_strategy")} compact={isCompact} onClick={closeSidebar} />
+          <NavItem to="/goals" icon={<Target size={20} />} label={t("tab_goal")} compact={isCompact} onClick={closeSidebar} />
+          <NavItem to="/strategy" icon={<Lightbulb size={20} />} label={t("goals_strategy")} compact={isCompact} onClick={closeSidebar} />
           <NavItem to="/calendar" icon={<Calendar size={20} />} label={t("calendar")} compact={isCompact} onClick={closeSidebar} />
 
           {/* Team with expandable sub-menu */}
