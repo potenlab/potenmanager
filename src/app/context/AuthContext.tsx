@@ -39,16 +39,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signInWithGoogle = async () => {
-    // Do not forget to complete setup at https://supabase.com/docs/guides/auth/social-login/auth-google
-    const isProd = !window.location.hostname.includes('localhost');
-    const redirectTo = isProd
-      ? `${window.location.origin}/auth/callback`
-      : `https://${projectId}.supabase.co/auth/v1/callback`;
-
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo,
+        redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
   };
