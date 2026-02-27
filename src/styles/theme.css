@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
+  
+  --color-primary: #0079FF;
+  --color-primary-hover: #006AE0;
+  --color-secondary: #4DA3FF;
+  --color-accent: #0066D2;
+  
+  --color-text-primary: #222222;
+  --color-text-secondary: #666666;
+  
+  --color-border: #E7E7E7;
+  --color-bg-base: #FFFFFF;
+  --color-bg-sidebar: #F8F9FA;
+  
+  --radius-xl: 12px;
+  
+  --shadow-card: 0px 2px 8px rgba(0,0,0,0.06);
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg-base);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+.shadow-card {
+  box-shadow: var(--shadow-card);
+}

@@ -1,0 +1,461 @@
+import { useState } from "react";
+import { useNavigate } from "react-router";
+import {
+  ArrowLeft,
+  Camera,
+  Mail,
+  Phone,
+  Briefcase,
+  MapPin,
+  Globe,
+  Bell,
+  Moon,
+  Shield,
+  LogOut,
+  ChevronRight,
+  Check,
+  Pencil,
+  X,
+  Palette,
+  Lock,
+} from "lucide-react";
+import { cn } from "../../lib/utils";
+import {
+  currentUser,
+  teamMembers,
+  getUserColor,
+  setUserColor,
+  getColorOwner,
+  getMemberColorConfig,
+  MEMBER_COLORS,
+} from "../../lib/mockData";
+import { useLanguage } from "../context/LanguageContext";
+
+interface ProfileField {
+  key: string;
+  label: string;
+  labelKo: string;
+  value: string;
+  icon: React.ReactNode;
+  editable?: boolean;
+}
+
+export function MyPage() {
+  const { language, t } = useLanguage();
+  const navigate = useNavigate();
+
+  const [name, setName] = useState(currentUser.name);
+  const [email, setEmail] = useState("kim@potenmanager.com");
+  const [phone, setPhone] = useState("010-1234-5678");
+  const [role] = useState(currentUser.role === "owner" ? "Founder / CEO" : "Team Member");
+  const [company, setCompany] = useState("포텐매니저");
+  const [location, setLocation] = useState(language === "ko" ? "서울, 대한민국" : "Seoul, South Korea");
+
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+
+  // Settings toggles
+  const [notifications, setNotifications] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
+
+  // Calendar color
+  const [myColor, setMyColor] = useState<string | null>(() => getUserColor(currentUser.id));
+  const myColorConfig = myColor ? getMemberColorConfig(myColor) : null;
+
+  const handleSelectMyColor = (hex: string) => {
+    const owner = getColorOwner(hex);
+    if (owner && owner !== currentUser.id) return; // taken by someone else
+    if (myColor === hex) {
+      // Deselect
+      setUserColor(currentUser.id, null);
+      setMyColor(null);
+    } else {
+      setUserColor(currentUser.id, hex);
+      setMyColor(hex);
+    }
+  };
+
+  const profileFields: ProfileField[] = [
+    { key: "name", label: "Name", labelKo: "이름", value: name, icon: <Pencil size={16} />, editable: true },
+    { key: "email", label: "Email", labelKo: "이메일", value: email, icon: <Mail size={16} />, editable: true },
+    { key: "phone", label: "Phone", labelKo: "전화번호", value: phone, icon: <Phone size={16} />, editable: true },
+    { key: "role", label: "Role", labelKo: "역할", value: role, icon: <Briefcase size={16} /> },
+    { key: "company", label: "Company", labelKo: "회사", value: company, icon: <Globe size={16} />, editable: true },
+    { key: "location", label: "Location", labelKo: "위치", value: location, icon: <MapPin size={16} />, editable: true },
+  ];
+
+  const startEdit = (key: string, currentValue: string) => {
+    setEditingField(key);
+    setEditValue(currentValue);
+  };
+
+  const commitEdit = () => {
+    if (!editingField || !editValue.trim()) {
+      setEditingField(null);
+      return;
+    }
+    const v = editValue.trim();
+    switch (editingField) {
+      case "name": setName(v); break;
+      case "email": setEmail(v); break;
+      case "phone": setPhone(v); break;
+      case "company": setCompany(v); break;
+      case "location": setLocation(v); break;
+    }
+    setEditingField(null);
+    setEditValue("");
+  };
+
+  const cancelEdit = () => {
+    setEditingField(null);
+    setEditValue("");
+  };
+
+  return (
+    <div className="min-h-full bg-gray-50/30">
+      {/* Page header with back button */}
+      <div className="flex items-center gap-3 mb-6">
+        <button
+          onClick={() => navigate(-1)}
+          className="p-2 rounded-xl hover:bg-gray-100 text-gray-500 transition-colors"
+        >
+          <ArrowLeft size={20} />
+        </button>
+        <h1 className="text-lg font-bold text-gray-900">
+          {language === "ko" ? "마이페이지" : "My Page"}
+        </h1>
+      </div>
+
+      <div className="max-w-2xl mx-auto px-0 sm:px-2 space-y-6">
+        {/* Profile Card */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          {/* Banner */}
+          <div className="h-28 bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-600 relative">
+            <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2240%22%20height%3D%2240%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Cpath%20d%3D%22M0%2020h40M20%200v40%22%20stroke%3D%22rgba(255%2C255%2C255%2C0.05)%22%20fill%3D%22none%22/%3E%3C/svg%3E')] opacity-50" />
+          </div>
+
+          {/* Avatar */}
+          <div className="px-6 -mt-14 relative z-[1]">
+            <div className="relative inline-block group">
+              <img
+                src={currentUser.avatar}
+                alt={name}
+                className="w-24 h-24 rounded-2xl object-cover border-4 border-white shadow-lg"
+              />
+              <button className="absolute bottom-1 right-1 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-700">
+                <Camera size={14} />
+              </button>
+            </div>
+          </div>
+
+          {/* Name & Role */}
+          <div className="px-6 pt-3 pb-5">
+            <h2 className="text-xl font-bold text-gray-900">{name}</h2>
+            <p className="text-sm text-gray-500 mt-0.5">{role}</p>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-600">
+                <Shield size={12} />
+                {currentUser.role === "owner"
+                  ? language === "ko" ? "관리자" : "Admin"
+                  : language === "ko" ? "멤버" : "Member"
+                }
+              </span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-600">
+                <Check size={12} />
+                {language === "ko" ? "활성" : "Active"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Profile Info */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <h3 className="text-sm font-bold text-gray-900">
+              {language === "ko" ? "기본 정보" : "Basic Info"}
+            </h3>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {profileFields.map((field) => (
+              <div
+                key={field.key}
+                className="px-6 py-3.5 flex items-center gap-4 hover:bg-gray-50/50 transition-colors group"
+              >
+                <span className="text-gray-400 shrink-0">{field.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-400 mb-0.5">
+                    {language === "ko" ? field.labelKo : field.label}
+                  </p>
+                  {editingField === field.key ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        autoFocus
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") commitEdit();
+                          if (e.key === "Escape") cancelEdit();
+                        }}
+                        className="flex-1 text-sm text-gray-900 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-100"
+                      />
+                      <button
+                        onClick={commitEdit}
+                        className="p-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                      >
+                        <Check size={14} />
+                      </button>
+                      <button
+                        onClick={cancelEdit}
+                        className="p-1.5 rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-900 truncate">{field.value}</p>
+                  )}
+                </div>
+                {field.editable && editingField !== field.key && (
+                  <button
+                    onClick={() => startEdit(field.key, field.value)}
+                    className="p-1.5 rounded-lg text-gray-300 hover:text-blue-600 hover:bg-blue-50 transition-colors opacity-0 group-hover:opacity-100"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Calendar Color */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Palette size={16} className="text-gray-400" />
+                <h3 className="text-sm font-bold text-gray-900">
+                  {language === "ko" ? "캘린더 색상" : "Calendar Color"}
+                </h3>
+              </div>
+              {myColor && myColorConfig && (
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                    style={{ backgroundColor: myColorConfig.bg, color: myColorConfig.text }}
+                  >
+                    {language === "ko" ? myColorConfig.labelKo : myColorConfig.label}
+                  </span>
+                  <button
+                    onClick={() => {
+                      setUserColor(currentUser.id, null);
+                      setMyColor(null);
+                    }}
+                    className="text-[10px] text-gray-400 hover:text-red-500 transition-colors font-medium"
+                  >
+                    {language === "ko" ? "초기화" : "Clear"}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="px-6 py-4">
+            {/* Color preview bar */}
+            {myColor && (
+              <div
+                className="h-2 rounded-full mb-4 transition-colors"
+                style={{ background: `linear-gradient(90deg, ${myColor}20, ${myColor}70, ${myColor}20)` }}
+              />
+            )}
+
+            {/* My color */}
+            <p className="text-xs text-gray-500 mb-3">
+              {language === "ko"
+                ? "캘린더에서 내 업무가 이 색상으로 표시됩니다."
+                : "Your tasks will appear with this color on the calendar."}
+            </p>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              {MEMBER_COLORS.map((mc) => {
+                const ownerOfColor = getColorOwner(mc.hex);
+                const isTaken = ownerOfColor !== null && ownerOfColor !== currentUser.id;
+                const ownerMember = isTaken ? teamMembers.find((m) => m.id === ownerOfColor) : null;
+                const isSelected = myColor === mc.hex;
+
+                return (
+                  <button
+                    key={mc.id}
+                    onClick={() => handleSelectMyColor(mc.hex)}
+                    disabled={isTaken}
+                    title={
+                      isTaken
+                        ? `${ownerMember?.name ?? ""} ${language === "ko" ? "사용 중" : "in use"}`
+                        : language === "ko" ? mc.labelKo : mc.label
+                    }
+                    className={cn(
+                      "relative w-8 h-8 rounded-full flex items-center justify-center transition-all",
+                      isTaken ? "opacity-25 cursor-not-allowed" : "hover:scale-110 cursor-pointer",
+                      isSelected && "ring-2 ring-offset-2 scale-110"
+                    )}
+                    style={isSelected ? { ringColor: mc.hex } : undefined}
+                  >
+                    <span
+                      className="w-full h-full rounded-full border border-black/5"
+                      style={{ backgroundColor: mc.hex }}
+                    />
+                    {isSelected && (
+                      <span className="absolute inset-0 flex items-center justify-center">
+                        <Check size={14} className="text-white drop-shadow-sm" strokeWidth={3} />
+                      </span>
+                    )}
+                    {isTaken && (
+                      <span className="absolute -bottom-0.5 -right-0.5">
+                        <Lock size={8} className="text-gray-500" />
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Team member colors overview */}
+            {currentUser.role === "owner" && (
+              <div className="mt-5 pt-4 border-t border-gray-100">
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                  {language === "ko" ? "팀원 색상" : "Team Colors"}
+                </p>
+                <div className="space-y-2">
+                  {teamMembers.filter(m => m.id !== currentUser.id).map((member) => {
+                    const mColor = getUserColor(member.id);
+                    const mConfig = mColor ? getMemberColorConfig(mColor) : null;
+                    return (
+                      <div key={member.id} className="flex items-center gap-3">
+                        <img src={member.avatar} alt={member.name} className="w-6 h-6 rounded-full object-cover" />
+                        <span className="text-sm text-gray-700 flex-1">{member.name}</span>
+                        {mColor && mConfig ? (
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className="w-3.5 h-3.5 rounded-full border border-black/5"
+                              style={{ backgroundColor: mColor }}
+                            />
+                            <span
+                              className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                              style={{ backgroundColor: mConfig.bg, color: mConfig.text }}
+                            >
+                              {language === "ko" ? mConfig.labelKo : mConfig.label}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-gray-400">
+                            {language === "ko" ? "미설정" : "Not set"}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Settings */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <h3 className="text-sm font-bold text-gray-900">
+              {language === "ko" ? "설정" : "Settings"}
+            </h3>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {/* Notifications */}
+            <div className="px-6 py-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Bell size={16} className="text-gray-400" />
+                <div>
+                  <p className="text-sm text-gray-900">
+                    {language === "ko" ? "알림" : "Notifications"}
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    {language === "ko" ? "푸시 알림 수신" : "Receive push notifications"}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setNotifications(!notifications)}
+                className={cn(
+                  "relative w-11 h-6 rounded-full transition-colors",
+                  notifications ? "bg-blue-600" : "bg-gray-200"
+                )}
+              >
+                <span
+                  className={cn(
+                    "absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform",
+                    notifications ? "translate-x-[22px]" : "translate-x-0.5"
+                  )}
+                />
+              </button>
+            </div>
+
+            {/* Dark Mode */}
+            <div className="px-6 py-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Moon size={16} className="text-gray-400" />
+                <div>
+                  <p className="text-sm text-gray-900">
+                    {language === "ko" ? "다크 모드" : "Dark Mode"}
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    {language === "ko" ? "어두운 테마 사용" : "Use dark theme"}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className={cn(
+                  "relative w-11 h-6 rounded-full transition-colors",
+                  darkMode ? "bg-blue-600" : "bg-gray-200"
+                )}
+              >
+                <span
+                  className={cn(
+                    "absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform",
+                    darkMode ? "translate-x-[22px]" : "translate-x-0.5"
+                  )}
+                />
+              </button>
+            </div>
+
+            {/* Language (read-only, controlled from sidebar) */}
+            <div className="px-6 py-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Globe size={16} className="text-gray-400" />
+                <div>
+                  <p className="text-sm text-gray-900">
+                    {language === "ko" ? "언어" : "Language"}
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    {language === "ko" ? "한국어" : "English"}
+                  </p>
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-gray-300" />
+            </div>
+          </div>
+        </div>
+
+        {/* Logout */}
+        <button className="w-full bg-white rounded-2xl border border-gray-100 shadow-sm px-6 py-4 flex items-center gap-4 hover:bg-red-50 hover:border-red-100 transition-colors group">
+          <LogOut size={16} className="text-gray-400 group-hover:text-red-500 transition-colors" />
+          <span className="text-sm text-gray-700 group-hover:text-red-600 font-medium transition-colors">
+            {language === "ko" ? "로그아웃" : "Log out"}
+          </span>
+        </button>
+
+        <div className="text-center pb-8">
+          <p className="text-xs text-gray-300">
+            Poten Manager v1.0.0
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
