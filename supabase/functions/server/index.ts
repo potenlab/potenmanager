@@ -990,8 +990,8 @@ app.post("/make-server-f580d5ca/demo/setup", async (c) => {
 
     const userId = demoUser.id;
 
-    // 2. Check if already seeded
-    const seeded = await kv.get(`demo-seeded:${userId}`);
+    // 2. Check if already seeded (demo: prefix for v2 isolation)
+    const seeded = await kv.get(`demo:seeded:${userId}`);
     if (seeded) {
       return c.json({ success: true, message: "Demo already set up", userId });
     }
@@ -1055,8 +1055,7 @@ app.post("/make-server-f580d5ca/demo/setup", async (c) => {
     });
 
     // Mark as seeded
-    await kv.set(`demo-seeded:${userId}`, { seeded: true, timestamp: now.toISOString() });
-    await kv.set("meta:seeded", { seeded: true, timestamp: now.toISOString() });
+    await kv.set(`demo:seeded:${userId}`, { seeded: true, timestamp: now.toISOString() });
 
     console.log("[Demo] Seeded all sample data for demo user:", userId);
     return c.json({ success: true, userId });

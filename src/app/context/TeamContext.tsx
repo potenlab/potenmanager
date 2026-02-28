@@ -74,10 +74,11 @@ export function TeamProvider({ children }: { children: ReactNode }) {
           if (foundMe) setCurrentUser(foundMe);
         }
       } else if (authUser) {
-        // 서버에 멤버가 없으면 인증된 유저를 sole member로 설정
+        // 서버에 멤버가 없으면 인증된 유저를 sole member로 설정 + 서버에 저장
         const me = userFromAuth(authUser);
         setMembers([me]);
         setCurrentUser(me);
+        try { await api.createTeamMember(me); } catch {}
       }
       setIsSynced(true);
     } catch (err) {
@@ -88,10 +89,11 @@ export function TeamProvider({ children }: { children: ReactNode }) {
   }, [authUser]);
 
   useEffect(() => {
+    if (!authUser) return;          // auth 로드 전이면 대기
     if (initRef.current) return;
     initRef.current = true;
     fetchMembers();
-  }, [fetchMembers]);
+  }, [fetchMembers, authUser]);
 
   const addMember = useCallback(async (member: User) => {
     setMembers((prev) => [...prev, member]);
