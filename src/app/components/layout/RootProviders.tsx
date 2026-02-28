@@ -10,6 +10,7 @@ import { InviteProvider } from "../../context/InviteContext";
 import { OpportunityProvider } from "../../context/OpportunityContext";
 import { MeetingProvider } from "../../context/MeetingContext";
 import { NotificationProvider } from "../../context/NotificationContext";
+import { TrashProvider } from "../../context/TrashContext";
 
 /**
  * RootProviders - Centralized context providers for the application.
@@ -29,7 +30,9 @@ export function RootProviders() {
                 <PermissionProvider>
                   <NotificationProvider>
                     <InviteProvider>
-                      <Outlet />
+                      <TrashProvider>
+                        <Outlet />
+                      </TrashProvider>
                     </InviteProvider>
                   </NotificationProvider>
                 </PermissionProvider>

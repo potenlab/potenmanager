@@ -16,6 +16,7 @@ import {
   X,
   LogOut,
   FlaskConical,
+  Trash2,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { useLanguage } from "../../context/LanguageContext";
@@ -253,6 +254,18 @@ export function Sidebar() {
               </button>
             )}
           </div>
+
+          {/* 휴지통 */}
+          <button
+            onClick={() => { navigate("/trash"); closeSidebar(); }}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors w-full",
+              isCompact && "justify-center"
+            )}
+          >
+            <Trash2 size={14} className="shrink-0" />
+            {!isCompact && <span className="text-xs">{language === 'ko' ? '휴지통' : 'Trash'}</span>}
+          </button>
         </div>
       </div>
 

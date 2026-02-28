@@ -22,6 +22,7 @@ import { OnboardingPage } from "./pages/OnboardingPage";
 import { InviteAcceptPage } from "./pages/InviteAcceptPage";
 import { MeetingPage } from "./pages/MeetingPage";
 import { MeetingDetailPage } from "./pages/MeetingDetailPage";
+import { TrashPage } from "./pages/TrashPage";
 
 export const router = createBrowserRouter([
   {
@@ -60,6 +61,7 @@ export const router = createBrowserRouter([
               { path: "team/:memberId", Component: TeamMemberPage },
               { path: "notifications", Component: NotificationsPage },
               { path: "mypage", Component: MyPage },
+              { path: "trash", Component: TrashPage },
               { path: "*", Component: DashboardPage },
             ],
           },

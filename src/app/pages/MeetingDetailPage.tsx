@@ -12,6 +12,7 @@ import { useTeam } from "../context/TeamContext";
 import { useTaskContext } from "../context/TaskContext";
 import { cn } from "../../lib/utils";
 import { createPortal } from "react-dom";
+import { useTrash } from "../context/TrashContext";
 
 type MeetingStatus = Meeting['status'];
 type MeetingType = Meeting['type'];
@@ -198,6 +199,7 @@ export function MeetingDetailPage() {
   const { getMeeting, addMeeting, updateMeeting, removeMeeting } = useMeetingContext();
   const { members, currentUser } = useTeam();
   const { addTask } = useTaskContext();
+  const { moveToTrash } = useTrash();
   const createdRef = useRef(false);
 
   // Handle /meetings/new — create a meeting and redirect
@@ -296,6 +298,7 @@ export function MeetingDetailPage() {
 
   const handleDelete = () => {
     if (!confirm(ko ? '이 회의를 삭제하시겠습니까?' : 'Delete this meeting?')) return;
+    moveToTrash({ id: meeting.id, type: 'meeting', title: meeting.title, data: meeting, deletedAt: new Date().toISOString() });
     removeMeeting(meeting.id);
     navigate('/meetings');
   };
