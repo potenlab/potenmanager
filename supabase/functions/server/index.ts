@@ -741,52 +741,52 @@ app.get("/make-server-f580d5ca/org/:orgId/invites", async (c) => {
   }
 });
 
-// ─── Opportunity Routes ──────────────────────────────────────────────
-app.get("/make-server-f580d5ca/opportunities", async (c) => {
+// ─── Biz Radar Routes ────────────────────────────────────────────────
+app.get("/make-server-f580d5ca/radar", async (c) => {
   try {
-    const opportunities = await kv.getByPrefix(pfx(c, "opportunity:"));
-    return c.json(opportunities || []);
+    const items = await kv.getByPrefix(pfx(c, "radar:"));
+    return c.json(items || []);
   } catch (e) {
-    console.log("Error fetching opportunities:", e);
+    console.log("Error fetching radar items:", e);
     return c.json([]);
   }
 });
 
-app.post("/make-server-f580d5ca/opportunities", async (c) => {
+app.post("/make-server-f580d5ca/radar", async (c) => {
   try {
     const body = await c.req.json();
-    const id = body.id || `opp-${Date.now()}`;
-    const opp = { ...body, id, updatedAt: new Date().toISOString() };
-    await kv.set(`opportunity:${id}`, opp);
-    return c.json(opp);
+    const id = body.id || `biz-${Date.now()}`;
+    const item = { ...body, id, updatedAt: new Date().toISOString() };
+    await kv.set(`radar:${id}`, item);
+    return c.json(item);
   } catch (e) {
-    console.log("Error creating opportunity:", e);
-    return c.json({ error: "Failed to create opportunity", message: String(e) }, 500);
+    console.log("Error creating radar item:", e);
+    return c.json({ error: "Failed to create radar item", message: String(e) }, 500);
   }
 });
 
-app.put("/make-server-f580d5ca/opportunities/:id", async (c) => {
+app.put("/make-server-f580d5ca/radar/:id", async (c) => {
   try {
     const id = c.req.param("id");
     const body = await c.req.json();
-    const existing = await kv.get(`opportunity:${id}`);
+    const existing = await kv.get(`radar:${id}`);
     const updated = { ...(existing || {}), ...body, id, updatedAt: new Date().toISOString() };
-    await kv.set(`opportunity:${id}`, updated);
+    await kv.set(`radar:${id}`, updated);
     return c.json(updated);
   } catch (e) {
-    console.log("Error updating opportunity:", e);
-    return c.json({ error: "Failed to update opportunity", message: String(e) }, 500);
+    console.log("Error updating radar item:", e);
+    return c.json({ error: "Failed to update radar item", message: String(e) }, 500);
   }
 });
 
-app.delete("/make-server-f580d5ca/opportunities/:id", async (c) => {
+app.delete("/make-server-f580d5ca/radar/:id", async (c) => {
   try {
     const id = c.req.param("id");
-    await kv.del(`opportunity:${id}`);
+    await kv.del(`radar:${id}`);
     return c.json({ success: true });
   } catch (e) {
-    console.log("Error deleting opportunity:", e);
-    return c.json({ error: "Failed to delete opportunity", message: String(e) }, 500);
+    console.log("Error deleting radar item:", e);
+    return c.json({ error: "Failed to delete radar item", message: String(e) }, 500);
   }
 });
 
@@ -1081,18 +1081,20 @@ app.post("/make-server-f580d5ca/demo/setup", async (c) => {
       { id: "m-demo-3", name: "이준호", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=junho", role: "member", jobTitle: "프론트엔드 개발자" },
     ];
 
-    // Opportunities
-    const opportunities = [
-      { id: "opp-demo-1", title: "Partnership with TechCorp", titleKo: "TechCorp 파트너십 제안", type: "partnership", status: "active", value: 50000000, probability: 60, contactName: "박서연", createdAt: daysAgo(7) },
-      { id: "opp-demo-2", title: "Enterprise client lead", titleKo: "대기업 클라이언트 리드", type: "sales", status: "active", value: 30000000, probability: 40, contactName: "최영수", createdAt: daysAgo(3) },
-      { id: "opp-demo-3", title: "Government innovation program", titleKo: "정부 혁신 프로그램 선정", type: "grant", status: "won", value: 20000000, probability: 100, contactName: "정하은", createdAt: daysAgo(14) },
+    // Biz Radar Items
+    const radarItems = [
+      { id: "biz-demo-1", title: "TechCorp 파트너십 제안", type: "partnership", stage: "proposal", value: 50000000, probability: 60, contactName: "박서연", contactCompany: "TechCorp", assigneeId: userId, actionItems: [{ id: "ai-d1", title: "파트너십 제안서 작성", done: false }, { id: "ai-d2", title: "미팅 일정 잡기", done: true }], createdAt: daysAgo(7) },
+      { id: "biz-demo-2", title: "대기업 클라이언트 리드", type: "project", stage: "reviewing", value: 30000000, probability: 40, contactName: "최영수", contactCompany: "삼성전자", assigneeId: userId, actionItems: [], deadline: daysFromNow(14), createdAt: daysAgo(3) },
+      { id: "biz-demo-3", title: "정부 혁신 프로그램 선정", type: "funding", stage: "won", value: 20000000, probability: 100, contactName: "정하은", contactCompany: "중소벤처기업부", assigneeId: userId, actionItems: [{ id: "ai-d3", title: "사업계획서 제출", done: true }], createdAt: daysAgo(14) },
+      { id: "biz-demo-4", title: "시드 투자 미팅", type: "investment", stage: "negotiation", value: 100000000, probability: 30, contactName: "김투자", contactCompany: "ABC벤처스", assigneeId: userId, actionItems: [], deadline: daysFromNow(7), createdAt: daysAgo(5) },
+      { id: "biz-demo-5", title: "마케팅 대행 프로젝트", type: "project", stage: "discovered", value: 15000000, probability: 50, source: "소개", assigneeId: userId, actionItems: [], createdAt: daysAgo(1) },
     ];
 
     // Save all data with demo: prefix to isolate from real data
     for (const task of tasks) await kv.set(`demo:task:${task.id}`, { ...task, updatedAt: now.toISOString() });
     for (const goal of goals) await kv.set(`demo:goal:${goal.id}`, { ...goal, updatedAt: now.toISOString() });
     for (const member of members) await kv.set(`demo:member:${member.id}`, member);
-    for (const opp of opportunities) await kv.set(`demo:opportunity:${opp.id}`, { ...opp, updatedAt: now.toISOString() });
+    for (const r of radarItems) await kv.set(`demo:radar:${r.id}`, { ...r, updatedAt: now.toISOString() });
 
     // Mark onboarding as complete for demo user
     await kv.set(`onboarding:${userId}`, {

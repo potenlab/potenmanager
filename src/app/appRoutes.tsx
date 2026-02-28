@@ -22,6 +22,8 @@ import { OnboardingPage } from "./pages/OnboardingPage";
 import { InviteAcceptPage } from "./pages/InviteAcceptPage";
 import { MeetingPage } from "./pages/MeetingPage";
 import { MeetingDetailPage } from "./pages/MeetingDetailPage";
+import { BizRadarPage } from "./pages/BizRadarPage";
+import { BizRadarDetailPage } from "./pages/BizRadarDetailPage";
 import { TrashPage } from "./pages/TrashPage";
 
 export const router = createBrowserRouter([
@@ -56,6 +58,9 @@ export const router = createBrowserRouter([
               { path: "strategy/new", Component: StrategyCreationPage },
               { path: "meetings", Component: MeetingPage },
               { path: "meetings/:meetingId", Component: MeetingDetailPage },
+              { path: "radar", Component: BizRadarPage },
+              { path: "radar/new", Component: BizRadarDetailPage },
+              { path: "radar/:itemId", Component: BizRadarDetailPage },
               { path: "team", Component: TeamPage },
               { path: "team/permissions", Component: PermissionsPage },
               { path: "team/:memberId", Component: TeamMemberPage },

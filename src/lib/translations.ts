@@ -16,8 +16,9 @@ export const translations = {
     strategic_alignment: "Strategic Alignment",
     view_full_map: "View Full Map",
     view_all: "View All",
-    opportunity_feed: "Opportunity Feed",
+    opportunity_feed: "Biz Radar",
     ai_match: "AI Match",
+    biz_radar: "Biz Radar",
     view_details: "View Details",
     
     // Calendar
@@ -72,7 +73,7 @@ export const translations = {
     tab_goal: "Goal Overview",
     tab_performance: "Performance",
     tab_team: "Team",
-    tab_opportunity: "Opportunity Feed",
+    tab_opportunity: "Biz Radar",
 
     // Project Performance
     project_performance: "Project Performance",
@@ -155,8 +156,9 @@ export const translations = {
     strategic_alignment: "전략적 정렬",
     view_full_map: "전체 맵 보기",
     view_all: "모두 보기",
-    opportunity_feed: "기회 피드",
+    opportunity_feed: "비즈 레이더",
     ai_match: "AI 적합도",
+    biz_radar: "비즈 레이더",
     view_details: "상세 보기",
     
     // Calendar
@@ -211,7 +213,7 @@ export const translations = {
     tab_goal: "목표 개요",
     tab_performance: "성과",
     tab_team: "팀",
-    tab_opportunity: "기회 피드",
+    tab_opportunity: "비즈 레이더",
 
     // Project Performance
     project_performance: "프로젝트 성과",

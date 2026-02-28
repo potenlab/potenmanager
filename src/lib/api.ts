@@ -135,17 +135,17 @@ export const api = {
   getOrgInvites: (orgId: string) =>
     request<any[]>(`/org/${orgId}/invites`),
 
-  // ── Opportunities ──
-  getOpportunities: async () => {
-    const data = await request<any[]>('/opportunities');
+  // ── Biz Radar ──
+  getRadarItems: async () => {
+    const data = await request<any[]>('/radar');
     return data.map(parseItemDates);
   },
-  createOpportunity: (opp: any) =>
-    request<any>('/opportunities', { method: 'POST', body: JSON.stringify(opp) }),
-  updateOpportunity: (id: string, data: any) =>
-    request<any>(`/opportunities/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteOpportunity: (id: string) =>
-    request<any>(`/opportunities/${id}`, { method: 'DELETE' }),
+  createRadarItem: (item: any) =>
+    request<any>('/radar', { method: 'POST', body: JSON.stringify(item) }),
+  updateRadarItem: (id: string, data: any) =>
+    request<any>(`/radar/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteRadarItem: (id: string) =>
+    request<any>(`/radar/${id}`, { method: 'DELETE' }),
 
   // ── Meetings ──
   getMeetings: async () => {

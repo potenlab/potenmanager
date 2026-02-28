@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useCallback, ReactNode } from "rea
 
 export interface TrashedItem {
   id: string;
-  type: 'task' | 'meeting';
+  type: 'task' | 'meeting' | 'radar';
   title: string;
   data: any;
   deletedAt: string;

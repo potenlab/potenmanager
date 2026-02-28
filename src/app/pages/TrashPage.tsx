@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Trash2, RotateCcw, X, Video, CheckSquare, AlertTriangle } from "lucide-react";
+import { Trash2, RotateCcw, X, Video, CheckSquare, AlertTriangle, Radar } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
 import { useTrash, TrashedItem } from "../context/TrashContext";
 import { useTaskContext } from "../context/TaskContext";
 import { useMeetingContext } from "../context/MeetingContext";
+import { useBizRadar } from "../context/BizRadarContext";
 import { cn } from "../../lib/utils";
 
 export function TrashPage() {
@@ -12,6 +13,7 @@ export function TrashPage() {
   const { items, restoreFromTrash, permanentlyDelete, emptyTrash } = useTrash();
   const { setTasks } = useTaskContext();
   const { addMeeting } = useMeetingContext();
+  const { addItem: addRadarItem } = useBizRadar();
 
   const handleRestore = (item: TrashedItem) => {
     const restored = restoreFromTrash(item.id);
@@ -21,6 +23,8 @@ export function TrashPage() {
       setTasks(prev => [...prev, restored.data]);
     } else if (restored.type === 'meeting') {
       addMeeting(restored.data);
+    } else if (restored.type === 'radar') {
+      addRadarItem(restored.data);
     }
   };
 
@@ -80,10 +84,12 @@ export function TrashPage() {
             >
               <div className={cn(
                 "w-9 h-9 rounded-xl flex items-center justify-center shrink-0",
-                item.type === 'task' ? "bg-blue-50" : "bg-purple-50"
+                item.type === 'task' ? "bg-blue-50" : item.type === 'radar' ? "bg-amber-50" : "bg-purple-50"
               )}>
                 {item.type === 'task'
                   ? <CheckSquare size={18} className="text-blue-500" />
+                  : item.type === 'radar'
+                  ? <Radar size={18} className="text-amber-500" />
                   : <Video size={18} className="text-purple-500" />
                 }
               </div>
@@ -94,7 +100,7 @@ export function TrashPage() {
                 </p>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 uppercase">
-                    {item.type === 'task' ? (ko ? '업무' : 'Task') : (ko ? '회의' : 'Meeting')}
+                    {item.type === 'task' ? (ko ? '업무' : 'Task') : item.type === 'radar' ? (ko ? '레이더' : 'Radar') : (ko ? '회의' : 'Meeting')}
                   </span>
                   <span className="text-[11px] text-gray-400">
                     {ko ? '삭제: ' : 'Deleted: '}{formatDate(item.deletedAt)}
