@@ -241,9 +241,13 @@ function TaskColumn({
         )}
 
         {tasks.length === 0 && !isOver && !isAdding && (
-          <div className="flex items-center justify-center py-8 text-gray-300">
-            <p className="text-xs italic">{language === 'ko' ? '업무 없음' : 'No tasks'}</p>
-          </div>
+          <button
+            onClick={onStartAdd}
+            className="w-full flex flex-col items-center justify-center py-8 text-gray-300 hover:text-blue-500 hover:bg-blue-50/50 rounded-xl transition-all cursor-pointer group"
+          >
+            <Plus size={20} className="mb-1.5 opacity-50 group-hover:opacity-100 transition-opacity" />
+            <p className="text-xs font-medium">{language === 'ko' ? '업무를 추가해보세요' : 'Add a task'}</p>
+          </button>
         )}
 
         {tasks.map(task => (
