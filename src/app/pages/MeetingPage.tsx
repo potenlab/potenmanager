@@ -4,23 +4,23 @@ import { useDrag, useDrop } from "react-dnd";
 import {
   Plus, Search, Video, Clock, Calendar as CalendarIcon,
   LayoutGrid, List as ListIcon, Users, MapPin,
-  MoreHorizontal, CheckCircle2, Circle, XCircle,
-  ChevronRight,
+  MoreHorizontal, CheckCircle2, Circle,
+  Sun,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
 import { useMeetingContext, Meeting } from "../context/MeetingContext";
 import { useTeam } from "../context/TeamContext";
-import { CreateMeetingDialog } from "../components/meeting/CreateMeetingDialog";
 import { MeetingListView } from "../components/meeting/MeetingListView";
+import { isToday } from "date-fns";
 
 const DRAG_TYPE = "MEETING_CARD";
 
-type MeetingFilter = 'upcoming' | 'past' | 'all';
+type ColumnKey = 'today' | 'upcoming' | 'completed';
 
 interface DragItem {
   id: string;
-  status: Meeting['status'];
+  column: ColumnKey;
 }
 
 const TYPE_COLORS: Record<Meeting['type'], { bg: string; text: string; border: string; label: string; labelKo: string }> = {
@@ -32,19 +32,17 @@ const TYPE_COLORS: Record<Meeting['type'], { bg: string; text: string; border: s
 };
 
 // ─── Draggable Meeting Card ─────────────────────────────────────────
-function MeetingCard({ meeting }: { meeting: Meeting }) {
+function MeetingCard({ meeting, column }: { meeting: Meeting; column: ColumnKey }) {
   const { language } = useLanguage();
   const ko = language === 'ko';
   const navigate = useNavigate();
   const { members } = useTeam();
   const tc = TYPE_COLORS[meeting.type];
   const meetingDate = new Date(meeting.date);
-  const now = new Date();
-  const isPast = meetingDate < now && meeting.status === 'scheduled';
 
   const [{ isDragging }, dragRef] = useDrag<DragItem, void, { isDragging: boolean }>({
     type: DRAG_TYPE,
-    item: { id: meeting.id, status: meeting.status },
+    item: { id: meeting.id, column },
     collect: (monitor) => ({ isDragging: monitor.isDragging() }),
   });
 
@@ -58,7 +56,7 @@ function MeetingCard({ meeting }: { meeting: Meeting }) {
         "bg-white p-4 rounded-xl border shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group",
         isDragging
           ? "opacity-40 border-blue-300 shadow-lg scale-[0.97] ring-2 ring-blue-200"
-          : isPast ? "border-amber-200" : "border-gray-100"
+          : "border-gray-100"
       )}
     >
       <div className="flex justify-between items-start mb-2">
@@ -118,18 +116,11 @@ function MeetingCard({ meeting }: { meeting: Meeting }) {
             </div>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          {meeting.actionItems.length > 0 && (
-            <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-lg">
-              {meeting.actionItems.filter(a => a.done).length}/{meeting.actionItems.length}
-            </span>
-          )}
-          {isPast && (
-            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600">
-              {ko ? '지남' : 'Overdue'}
-            </span>
-          )}
-        </div>
+        {meeting.actionItems.length > 0 && (
+          <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-lg">
+            {meeting.actionItems.filter(a => a.done).length}/{meeting.actionItems.length}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -137,27 +128,50 @@ function MeetingCard({ meeting }: { meeting: Meeting }) {
 
 // ─── Droppable Meeting Column ───────────────────────────────────────
 function MeetingColumn({
-  title, count, meetings, icon, status, onDrop,
+  title, count, meetings, icon, columnKey, onDrop,
   isAdding, onStartAdd, onCancelAdd, onAddMeeting,
 }: {
   title: string;
   count: number;
   meetings: Meeting[];
   icon: React.ReactNode;
-  status: Meeting['status'];
-  onDrop: (meetingId: string, newStatus: Meeting['status']) => void;
+  columnKey: ColumnKey;
+  onDrop: (meetingId: string, targetColumn: ColumnKey) => void;
   isAdding?: boolean;
   onStartAdd?: () => void;
   onCancelAdd?: () => void;
-  onAddMeeting?: () => void;
+  onAddMeeting: (title: string, column: ColumnKey) => void;
 }) {
   const { language } = useLanguage();
   const ko = language === 'ko';
+  const [newTitle, setNewTitle] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isAdding && inputRef.current) inputRef.current.focus();
+  }, [isAdding]);
+
+  const handleSubmit = () => {
+    if (newTitle.trim()) {
+      onAddMeeting(newTitle.trim(), columnKey);
+      setNewTitle('');
+    }
+  };
+
+  const handleCancel = () => {
+    setNewTitle('');
+    onCancelAdd?.();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') { e.preventDefault(); handleSubmit(); }
+    else if (e.key === 'Escape') handleCancel();
+  };
 
   const [{ isOver, canDrop }, dropRef] = useDrop<DragItem, void, { isOver: boolean; canDrop: boolean }>({
     accept: DRAG_TYPE,
-    canDrop: (item) => item.status !== status,
-    drop: (item) => onDrop(item.id, status),
+    canDrop: (item) => item.column !== columnKey,
+    drop: (item) => onDrop(item.id, columnKey),
     collect: (monitor) => ({
       isOver: monitor.isOver(),
       canDrop: monitor.canDrop(),
@@ -185,33 +199,65 @@ function MeetingColumn({
             isOver && canDrop ? "bg-blue-200 text-blue-700" : "bg-gray-200 text-gray-600"
           )}>{count}</span>
         </div>
-        {status === 'scheduled' && onAddMeeting && (
-          <button
-            onClick={onAddMeeting}
-            className="text-gray-400 hover:text-blue-600 p-1 rounded hover:bg-blue-50 transition-colors"
-          >
-            <Plus size={16} />
-          </button>
-        )}
+        <button
+          onClick={onStartAdd}
+          className="text-gray-400 hover:text-blue-600 p-1 rounded hover:bg-blue-50 transition-colors"
+        >
+          <Plus size={16} />
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar min-h-[60px]">
+        {/* Inline add input */}
+        {isAdding && (
+          <div className="bg-white rounded-xl border border-blue-200 shadow-sm ring-2 ring-blue-100 overflow-hidden">
+            <input
+              ref={inputRef}
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onBlur={() => { if (newTitle.trim()) handleSubmit(); else handleCancel(); }}
+              placeholder={ko ? '회의 제목을 입력하세요...' : 'Enter meeting title...'}
+              className="w-full px-4 py-3 text-sm outline-none bg-transparent placeholder-gray-400 text-gray-900"
+            />
+            <div className="flex items-center justify-between px-3 py-2 bg-gray-50/80 border-t border-gray-100">
+              <span className="text-[10px] text-gray-400">
+                {ko ? 'Enter로 추가 · Esc로 취소' : 'Enter to add · Esc to cancel'}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Drop placeholder */}
         {meetings.length === 0 && isOver && canDrop && (
           <div className="border-2 border-dashed border-blue-300 rounded-xl p-6 text-center text-blue-500 text-xs font-medium animate-pulse">
             {ko ? '여기에 놓으세요' : 'Drop here'}
           </div>
         )}
 
-        {meetings.length === 0 && !isOver && (
-          <div className="flex flex-col items-center justify-center py-8 text-gray-300">
-            <Video size={20} className="mb-1.5 opacity-50" />
-            <p className="text-xs font-medium">{ko ? '회의 없음' : 'No meetings'}</p>
-          </div>
+        {meetings.length === 0 && !isOver && !isAdding && (
+          <button
+            onClick={onStartAdd}
+            className="w-full flex flex-col items-center justify-center py-8 text-gray-300 hover:text-blue-500 hover:bg-blue-50/50 rounded-xl transition-all cursor-pointer group"
+          >
+            <Plus size={20} className="mb-1.5 opacity-50 group-hover:opacity-100 transition-opacity" />
+            <p className="text-xs font-medium">{ko ? '회의를 추가해보세요' : 'Add a meeting'}</p>
+          </button>
         )}
 
         {meetings.map(meeting => (
-          <MeetingCard key={meeting.id} meeting={meeting} />
+          <MeetingCard key={meeting.id} meeting={meeting} column={columnKey} />
         ))}
+
+        {!isAdding && meetings.length > 0 && (
+          <button
+            onClick={onStartAdd}
+            className="w-full py-2.5 rounded-xl text-gray-400 text-sm hover:text-blue-600 hover:bg-gray-100/80 transition-all flex items-center gap-2 px-3"
+          >
+            <Plus size={14} />
+            <span>{ko ? '회의 추가' : 'Add Meeting'}</span>
+          </button>
+        )}
       </div>
     </div>
   );
@@ -219,44 +265,59 @@ function MeetingColumn({
 
 // ─── Board View ─────────────────────────────────────────────────────
 function BoardView({
-  scheduledMeetings, completedMeetings, cancelledMeetings,
-  onStatusChange, onAddMeeting, language,
+  todayMeetings, upcomingMeetings, completedMeetings,
+  onDrop, onAddMeeting, language,
+  addingInColumn, onStartAdd, onCancelAdd,
 }: {
-  scheduledMeetings: Meeting[];
+  todayMeetings: Meeting[];
+  upcomingMeetings: Meeting[];
   completedMeetings: Meeting[];
-  cancelledMeetings: Meeting[];
-  onStatusChange: (meetingId: string, newStatus: Meeting['status']) => void;
-  onAddMeeting: () => void;
+  onDrop: (meetingId: string, targetColumn: ColumnKey) => void;
+  onAddMeeting: (title: string, column: ColumnKey) => void;
   language: string;
+  addingInColumn: ColumnKey | null;
+  onStartAdd: (col: ColumnKey) => void;
+  onCancelAdd: () => void;
 }) {
   const ko = language === 'ko';
   return (
     <div className="h-full flex flex-col">
       <div className="flex flex-col md:flex-row gap-4 md:gap-6 md:min-w-[1000px] h-full">
         <MeetingColumn
-          title={ko ? "예정" : "Scheduled"}
-          count={scheduledMeetings.length}
-          meetings={scheduledMeetings}
-          icon={<CalendarIcon size={16} className="text-blue-500" />}
-          status="scheduled"
-          onDrop={onStatusChange}
+          title={ko ? "오늘" : "Today"}
+          count={todayMeetings.length}
+          meetings={todayMeetings}
+          icon={<Sun size={16} className="text-amber-500" />}
+          columnKey="today"
+          onDrop={onDrop}
           onAddMeeting={onAddMeeting}
+          isAdding={addingInColumn === 'today'}
+          onStartAdd={() => onStartAdd('today')}
+          onCancelAdd={onCancelAdd}
+        />
+        <MeetingColumn
+          title={ko ? "예정" : "Upcoming"}
+          count={upcomingMeetings.length}
+          meetings={upcomingMeetings}
+          icon={<CalendarIcon size={16} className="text-blue-500" />}
+          columnKey="upcoming"
+          onDrop={onDrop}
+          onAddMeeting={onAddMeeting}
+          isAdding={addingInColumn === 'upcoming'}
+          onStartAdd={() => onStartAdd('upcoming')}
+          onCancelAdd={onCancelAdd}
         />
         <MeetingColumn
           title={ko ? "완료" : "Completed"}
           count={completedMeetings.length}
           meetings={completedMeetings}
           icon={<CheckCircle2 size={16} className="text-emerald-500" />}
-          status="completed"
-          onDrop={onStatusChange}
-        />
-        <MeetingColumn
-          title={ko ? "취소" : "Cancelled"}
-          count={cancelledMeetings.length}
-          meetings={cancelledMeetings}
-          icon={<XCircle size={16} className="text-gray-400" />}
-          status="cancelled"
-          onDrop={onStatusChange}
+          columnKey="completed"
+          onDrop={onDrop}
+          onAddMeeting={onAddMeeting}
+          isAdding={addingInColumn === 'completed'}
+          onStartAdd={() => onStartAdd('completed')}
+          onCancelAdd={onCancelAdd}
         />
       </div>
     </div>
@@ -267,55 +328,92 @@ function BoardView({
 export function MeetingPage() {
   const { language } = useLanguage();
   const ko = language === 'ko';
-  const { meetings, updateMeeting, isLoading } = useMeetingContext();
+  const navigate = useNavigate();
+  const { meetings, addMeeting, updateMeeting, isLoading } = useMeetingContext();
+  const { currentUser } = useTeam();
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
-  const [filter, setFilter] = useState<MeetingFilter>('upcoming');
   const [searchQuery, setSearchQuery] = useState('');
-  const [dialogOpen, setDialogOpen] = useState(false);
-
-  const now = new Date();
+  const [addingInColumn, setAddingInColumn] = useState<ColumnKey | null>(null);
 
   const filteredMeetings = useMemo(() => {
-    let filtered = meetings;
+    if (!searchQuery.trim()) return meetings;
+    const q = searchQuery.toLowerCase();
+    return meetings.filter(m => m.title.toLowerCase().includes(q) || m.location?.toLowerCase().includes(q));
+  }, [meetings, searchQuery]);
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(m => m.title.toLowerCase().includes(q) || m.location?.toLowerCase().includes(q));
-    }
+  const todayMeetings = useMemo(() =>
+    filteredMeetings
+      .filter(m => m.status !== 'completed' && isToday(new Date(m.date)))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+    [filteredMeetings]
+  );
 
-    switch (filter) {
-      case 'upcoming':
-        filtered = filtered.filter(m => m.status === 'scheduled' || (m.status !== 'cancelled' && new Date(m.date) >= now));
-        break;
-      case 'past':
-        filtered = filtered.filter(m => m.status === 'completed' || new Date(m.date) < now);
-        break;
-      case 'all':
-        break;
-    }
+  const upcomingMeetings = useMemo(() =>
+    filteredMeetings
+      .filter(m => m.status !== 'completed' && !isToday(new Date(m.date)) && new Date(m.date) >= new Date())
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+    [filteredMeetings]
+  );
 
-    return filtered.sort((a, b) => {
-      if (filter === 'past') return new Date(b.date).getTime() - new Date(a.date).getTime();
-      return new Date(a.date).getTime() - new Date(b.date).getTime();
-    });
-  }, [meetings, filter, searchQuery]);
+  const completedMeetings = useMemo(() =>
+    filteredMeetings
+      .filter(m => m.status === 'completed')
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+    [filteredMeetings]
+  );
 
-  const scheduledMeetings = filteredMeetings.filter(m => m.status === 'scheduled');
-  const completedMeetings = filteredMeetings.filter(m => m.status === 'completed');
-  const cancelledMeetings = filteredMeetings.filter(m => m.status === 'cancelled');
-
-  const upcomingCount = meetings.filter(m => m.status === 'scheduled').length;
+  const todayCount = meetings.filter(m => m.status !== 'completed' && isToday(new Date(m.date))).length;
+  const upcomingCount = meetings.filter(m => m.status !== 'completed' && !isToday(new Date(m.date)) && new Date(m.date) >= new Date()).length;
   const completedCount = meetings.filter(m => m.status === 'completed').length;
 
-  const handleStatusChange = useCallback((meetingId: string, newStatus: Meeting['status']) => {
-    updateMeeting(meetingId, { status: newStatus });
+  const handleDrop = useCallback((meetingId: string, targetColumn: ColumnKey) => {
+    if (targetColumn === 'completed') {
+      updateMeeting(meetingId, { status: 'completed' });
+    } else if (targetColumn === 'today') {
+      const today = new Date();
+      today.setHours(10, 0, 0, 0);
+      updateMeeting(meetingId, { status: 'scheduled', date: today.toISOString() });
+    } else {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(10, 0, 0, 0);
+      updateMeeting(meetingId, { status: 'scheduled', date: tomorrow.toISOString() });
+    }
   }, [updateMeeting]);
 
-  const filters: { id: MeetingFilter; label: string; count?: number }[] = [
-    { id: 'upcoming', label: ko ? '예정' : 'Upcoming', count: upcomingCount },
-    { id: 'past', label: ko ? '지난 회의' : 'Past' },
-    { id: 'all', label: ko ? '전체' : 'All', count: meetings.length },
-  ];
+  const handleInlineAdd = useCallback((title: string, column: ColumnKey) => {
+    const now = new Date();
+    let meetingDate: Date;
+    let status: Meeting['status'] = 'scheduled';
+
+    if (column === 'today') {
+      meetingDate = new Date();
+      meetingDate.setHours(now.getHours() + 1, 0, 0, 0);
+    } else if (column === 'upcoming') {
+      meetingDate = new Date();
+      meetingDate.setDate(meetingDate.getDate() + 1);
+      meetingDate.setHours(10, 0, 0, 0);
+    } else {
+      meetingDate = new Date();
+      status = 'completed';
+    }
+
+    const meeting: Meeting = {
+      id: `mt-${Date.now()}`,
+      title,
+      date: meetingDate.toISOString(),
+      duration: 60,
+      type: 'other',
+      status,
+      attendeeIds: [currentUser.id],
+      organizerId: currentUser.id,
+      notes: '',
+      actionItems: [],
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    };
+    addMeeting(meeting);
+  }, [addMeeting, currentUser.id]);
 
   if (isLoading) {
     return (
@@ -333,43 +431,17 @@ export function MeetingPage() {
             <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">{ko ? '회의' : 'Meetings'}</h1>
             <p className="text-gray-500 text-xs sm:text-sm">
               {ko
-                ? `예정 ${upcomingCount}개 · 완료 ${completedCount}개`
-                : `${upcomingCount} upcoming · ${completedCount} completed`}
+                ? `오늘 ${todayCount}개 · 예정 ${upcomingCount}개 · 완료 ${completedCount}개`
+                : `${todayCount} today · ${upcomingCount} upcoming · ${completedCount} completed`}
             </p>
           </div>
           <button
-            onClick={() => setDialogOpen(true)}
+            onClick={() => navigate('/meetings/new')}
             className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm shadow-blue-200"
           >
             <Plus size={16} />
             {ko ? '새 회의' : 'New Meeting'}
           </button>
-        </div>
-
-        {/* Filter Tabs */}
-        <div className="flex gap-1 mb-4 bg-gray-100 p-1 rounded-xl w-full sm:w-fit overflow-x-auto">
-          {filters.map(f => (
-            <button
-              key={f.id}
-              onClick={() => setFilter(f.id)}
-              className={cn(
-                "flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-medium transition-all",
-                filter === f.id
-                  ? "bg-white shadow-sm text-gray-900"
-                  : "text-gray-500 hover:text-gray-700"
-              )}
-            >
-              {f.label}
-              {f.count !== undefined && (
-                <span className={cn(
-                  "text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center",
-                  filter === f.id ? "bg-blue-100 text-blue-700" : "bg-gray-200 text-gray-500"
-                )}>
-                  {f.count}
-                </span>
-              )}
-            </button>
-          ))}
         </div>
 
         {/* Search + View Toggle */}
@@ -416,22 +488,20 @@ export function MeetingPage() {
       <div className="flex-1 overflow-x-auto pb-4">
         {viewMode === 'board' ? (
           <BoardView
-            scheduledMeetings={scheduledMeetings}
+            todayMeetings={todayMeetings}
+            upcomingMeetings={upcomingMeetings}
             completedMeetings={completedMeetings}
-            cancelledMeetings={cancelledMeetings}
-            onStatusChange={handleStatusChange}
-            onAddMeeting={() => setDialogOpen(true)}
+            onDrop={handleDrop}
+            onAddMeeting={handleInlineAdd}
             language={language}
+            addingInColumn={addingInColumn}
+            onStartAdd={setAddingInColumn}
+            onCancelAdd={() => setAddingInColumn(null)}
           />
         ) : (
-          <MeetingListView
-            meetings={filteredMeetings}
-            onStatusChange={handleStatusChange}
-          />
+          <MeetingListView meetings={filteredMeetings} />
         )}
       </div>
-
-      <CreateMeetingDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );
 }

@@ -195,15 +195,51 @@ export function MeetingDetailPage() {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const ko = language === 'ko';
-  const { getMeeting, updateMeeting, removeMeeting } = useMeetingContext();
-  const { members } = useTeam();
+  const { getMeeting, addMeeting, updateMeeting, removeMeeting } = useMeetingContext();
+  const { members, currentUser } = useTeam();
   const { addTask } = useTaskContext();
+  const createdRef = useRef(false);
+
+  // Handle /meetings/new — create a meeting and redirect
+  useEffect(() => {
+    if (meetingId === 'new' && !createdRef.current) {
+      createdRef.current = true;
+      const id = `mt-${Date.now()}`;
+      const now = new Date();
+      const meetingDate = new Date();
+      meetingDate.setHours(now.getHours() + 1, 0, 0, 0);
+      const newMeeting: Meeting = {
+        id,
+        title: '',
+        date: meetingDate.toISOString(),
+        duration: 60,
+        type: 'other',
+        status: 'scheduled',
+        attendeeIds: [currentUser.id],
+        organizerId: currentUser.id,
+        notes: '',
+        actionItems: [],
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      };
+      addMeeting(newMeeting);
+      navigate(`/meetings/${id}`, { replace: true });
+    }
+  }, [meetingId]);
 
   const meeting = getMeeting(meetingId || '');
   const [notes, setNotes] = useState(meeting?.notes || '');
   const [notesSaved, setNotesSaved] = useState(false);
   const [newActionTitle, setNewActionTitle] = useState('');
   const [newActionAssignee, setNewActionAssignee] = useState('');
+
+  if (meetingId === 'new') {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (!meeting) {
     return (

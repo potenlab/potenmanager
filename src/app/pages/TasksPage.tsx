@@ -1,20 +1,16 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { useDrag, useDrop } from "react-dnd";
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  MoreHorizontal, 
-  Calendar as CalendarIcon, 
-  Clock, 
-  CheckCircle2, 
-  Circle, 
+import {
+  Plus,
+  Search,
+  MoreHorizontal,
+  Calendar as CalendarIcon,
+  Clock,
+  CheckCircle2,
+  Circle,
   LayoutGrid,
   List as ListIcon,
-  History,
-  ChevronDown,
-  ChevronRight,
   Sparkles,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -23,14 +19,11 @@ import { useLanguage } from "../context/LanguageContext";
 import { useTaskContext } from "../context/TaskContext";
 import { usePermission } from "../context/PermissionContext";
 import { PermissionGate } from "../components/layout/PermissionGate";
-import { format, isToday, isTomorrow, isYesterday, startOfWeek, isWithinInterval, isBefore, startOfDay, addDays } from "date-fns";
-import { ko } from "date-fns/locale";
+import { format } from "date-fns";
 import { TaskListView } from "../components/tasks/TaskListView";
 import { TaskRecommendationPanel } from "../components/tasks/TaskRecommendationPanel";
 
 const DRAG_TYPE = "TASK_CARD";
-
-type TimeFilter = 'today' | 'tomorrow' | 'yesterday' | 'this_week' | 'all';
 
 interface DragItem {
   id: string;
@@ -73,20 +66,20 @@ function TaskCard({ task, onStatusChange }: { task: Task; onStatusChange?: (task
         )}>
           {task.priority || 'low'}
         </span>
-        <button 
+        <button
           onClick={(e) => e.stopPropagation()}
           className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
         >
           <MoreHorizontal size={16} />
         </button>
       </div>
-      
+
       <h4 className={cn(
         "font-medium text-sm mb-1 leading-snug",
         task.status === 'completed' ? "text-gray-400 line-through" : "text-gray-900"
       )}>{title}</h4>
       <p className="text-xs text-gray-500 line-clamp-2 mb-3">{task.description}</p>
-      
+
       <div className="flex items-center justify-between border-t border-gray-50 pt-3 mt-2">
         <div className="flex items-center gap-2 text-xs text-gray-400">
           {task.dueDate && (
@@ -100,11 +93,11 @@ function TaskCard({ task, onStatusChange }: { task: Task; onStatusChange?: (task
           )}
         </div>
         {assignee && (
-          <img 
-            src={assignee.avatar} 
-            alt={assignee.name} 
+          <img
+            src={assignee.avatar}
+            alt={assignee.name}
             title={assignee.name}
-            className="w-6 h-6 rounded-full border border-white shadow-sm object-cover" 
+            className="w-6 h-6 rounded-full border border-white shadow-sm object-cover"
           />
         )}
       </div>
@@ -113,17 +106,16 @@ function TaskCard({ task, onStatusChange }: { task: Task; onStatusChange?: (task
 }
 
 // ─── Droppable Task Column ──────────────────────────────────────────
-function TaskColumn({ 
-  title, count, tasks, color, icon, onAddTask, compact = false, status, onDrop, onStatusChange,
+function TaskColumn({
+  title, count, tasks, color, icon, onAddTask, status, onDrop, onStatusChange,
   isAdding, onStartAdd, onCancelAdd
-}: { 
-  title: string; 
-  count: number; 
-  tasks: Task[]; 
-  color: string; 
-  icon: React.ReactNode; 
+}: {
+  title: string;
+  count: number;
+  tasks: Task[];
+  color: string;
+  icon: React.ReactNode;
   onAddTask: (title: string, status: Task['status']) => void;
-  compact?: boolean;
   status: Task['status'];
   onDrop: (taskId: string, newStatus: Task['status']) => void;
   onStatusChange?: (taskId: string, newStatus: Task['status']) => void;
@@ -145,7 +137,6 @@ function TaskColumn({
     if (newTitle.trim()) {
       onAddTask(newTitle.trim(), status);
       setNewTitle('');
-      // Keep input open for rapid entry
     }
   };
 
@@ -176,11 +167,10 @@ function TaskColumn({
   });
 
   return (
-    <div 
+    <div
       ref={dropRef}
       className={cn(
-        "flex-1 flex flex-col rounded-2xl border p-4 transition-all duration-200",
-        compact ? "max-h-[300px]" : "h-full",
+        "flex-1 flex flex-col rounded-2xl border p-4 transition-all duration-200 h-full",
         isOver && canDrop
           ? "bg-blue-50/80 border-blue-300 ring-2 ring-blue-200/50 shadow-lg"
           : canDrop
@@ -197,16 +187,14 @@ function TaskColumn({
             isOver && canDrop ? "bg-blue-200 text-blue-700" : "bg-gray-200 text-gray-600"
           )}>{count}</span>
         </div>
-        {!compact && (
-          <PermissionGate permission="task.create">
-            <button 
-              onClick={onStartAdd}
-              className="text-gray-400 hover:text-blue-600 p-1 rounded hover:bg-blue-50 transition-colors"
-            >
-              <Plus size={16} />
-            </button>
-          </PermissionGate>
-        )}
+        <PermissionGate permission="task.create">
+          <button
+            onClick={onStartAdd}
+            className="text-gray-400 hover:text-blue-600 p-1 rounded hover:bg-blue-50 transition-colors"
+          >
+            <Plus size={16} />
+          </button>
+        </PermissionGate>
       </div>
 
       <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar min-h-[60px]">
@@ -254,9 +242,9 @@ function TaskColumn({
           <TaskCard key={task.id} task={task} onStatusChange={onStatusChange} />
         ))}
 
-        {!compact && !isAdding && (
+        {!isAdding && tasks.length > 0 && (
           <PermissionGate permission="task.create">
-            <button 
+            <button
               onClick={onStartAdd}
               className="w-full py-2.5 rounded-xl text-gray-400 text-sm hover:text-blue-600 hover:bg-gray-100/80 transition-all flex items-center gap-2 px-3"
             >
@@ -271,8 +259,8 @@ function TaskColumn({
 }
 
 // ─── Board View ─────────────────────────────────────────────────────
-function BoardView({ 
-  pendingTasks, inProgressTasks, completedTasks, 
+function BoardView({
+  pendingTasks, inProgressTasks, completedTasks,
   onStatusChange, onAddTask, language,
   addingInColumn, onStartAdd, onCancelAdd
 }: {
@@ -289,10 +277,10 @@ function BoardView({
   return (
     <div className="h-full flex flex-col">
       <div className="flex flex-col md:flex-row gap-4 md:gap-6 md:min-w-[1000px] h-full">
-        <TaskColumn 
-          title={language === 'ko' ? "할 일" : "To Do"} 
-          count={pendingTasks.length} 
-          tasks={pendingTasks} 
+        <TaskColumn
+          title={language === 'ko' ? "할 일" : "To Do"}
+          count={pendingTasks.length}
+          tasks={pendingTasks}
           color="bg-gray-100"
           icon={<Circle size={16} className="text-gray-500" />}
           onAddTask={onAddTask}
@@ -303,10 +291,10 @@ function BoardView({
           onStartAdd={() => onStartAdd('pending')}
           onCancelAdd={onCancelAdd}
         />
-        <TaskColumn 
-          title={language === 'ko' ? "진행 중" : "In Progress"} 
-          count={inProgressTasks.length} 
-          tasks={inProgressTasks} 
+        <TaskColumn
+          title={language === 'ko' ? "진행 중" : "In Progress"}
+          count={inProgressTasks.length}
+          tasks={inProgressTasks}
           color="bg-blue-50"
           icon={<Clock size={16} className="text-blue-600" />}
           onAddTask={onAddTask}
@@ -317,10 +305,10 @@ function BoardView({
           onStartAdd={() => onStartAdd('in-progress')}
           onCancelAdd={onCancelAdd}
         />
-        <TaskColumn 
-          title={language === 'ko' ? "완료" : "Done"} 
-          count={completedTasks.length} 
-          tasks={completedTasks} 
+        <TaskColumn
+          title={language === 'ko' ? "완료" : "Done"}
+          count={completedTasks.length}
+          tasks={completedTasks}
           color="bg-emerald-50"
           icon={<CheckCircle2 size={16} className="text-emerald-600" />}
           onAddTask={onAddTask}
@@ -336,226 +324,30 @@ function BoardView({
   );
 }
 
-// ─── Grouped Board View ─────────────────────────────────────────────
-function GroupedBoardView({
-  groupedTasks,
-  expandedGroups,
-  toggleGroup,
-  onStatusChange,
-  onAddTask,
-  language,
-  addingInColumn,
-  onStartAdd,
-  onCancelAdd
-}: {
-  groupedTasks: { label: string; dateKey: string; tasks: Task[]; isToday: boolean }[];
-  expandedGroups: Record<string, boolean>;
-  toggleGroup: (dateKey: string) => void;
-  onStatusChange: (taskId: string, newStatus: Task['status']) => void;
-  onAddTask: (title: string, status: Task['status']) => void;
-  language: string;
-  addingInColumn: Task['status'] | null;
-  onStartAdd: (status: Task['status']) => void;
-  onCancelAdd: () => void;
-}) {
-  return (
-    <div className="space-y-6">
-      {groupedTasks.map(group => {
-        const isExpanded = expandedGroups[group.dateKey] !== false;
-        const groupPending = group.tasks.filter(t => t.status === 'pending');
-        const groupInProgress = group.tasks.filter(t => t.status === 'in-progress');
-        const groupCompleted = group.tasks.filter(t => t.status === 'completed');
-
-        return (
-          <div key={group.dateKey} className="space-y-3">
-            <button
-              onClick={() => toggleGroup(group.dateKey)}
-              className="flex items-center gap-2 group/header w-full text-left"
-            >
-              <div className={cn(
-                "flex items-center justify-center w-5 h-5 rounded transition-colors",
-                "text-gray-400 group-hover/header:text-gray-600"
-              )}>
-                {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-              </div>
-              <span className={cn(
-                "text-sm font-semibold",
-                group.isToday ? "text-blue-600" : "text-gray-700"
-              )}>
-                {group.label}
-              </span>
-              <span className="text-[11px] text-gray-400 font-medium">
-                {group.tasks.length} {language === 'ko' ? '개' : group.tasks.length === 1 ? 'task' : 'tasks'}
-              </span>
-              {!group.isToday && (
-                <div className="flex-1 border-t border-gray-100 ml-2" />
-              )}
-              {group.isToday && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
-                  {language === 'ko' ? '현재' : 'CURRENT'}
-                </span>
-              )}
-            </button>
-
-            {isExpanded && (
-              <div className="flex flex-col md:flex-row gap-4 md:gap-6 md:min-w-[1000px] pl-0 md:pl-7">
-                <TaskColumn 
-                  title={language === 'ko' ? "할 일" : "To Do"} 
-                  count={groupPending.length} 
-                  tasks={groupPending} 
-                  color="bg-gray-100"
-                  icon={<Circle size={16} className="text-gray-500" />}
-                  onAddTask={onAddTask}
-                  compact={!group.isToday}
-                  status="pending"
-                  onDrop={onStatusChange}
-                  onStatusChange={onStatusChange}
-                  isAdding={group.isToday && addingInColumn === 'pending'}
-                  onStartAdd={() => onStartAdd('pending')}
-                  onCancelAdd={onCancelAdd}
-                />
-                <TaskColumn 
-                  title={language === 'ko' ? "진행 중" : "In Progress"} 
-                  count={groupInProgress.length} 
-                  tasks={groupInProgress} 
-                  color="bg-blue-50"
-                  icon={<Clock size={16} className="text-blue-600" />}
-                  onAddTask={onAddTask}
-                  compact={!group.isToday}
-                  status="in-progress"
-                  onDrop={onStatusChange}
-                  onStatusChange={onStatusChange}
-                  isAdding={group.isToday && addingInColumn === 'in-progress'}
-                  onStartAdd={() => onStartAdd('in-progress')}
-                  onCancelAdd={onCancelAdd}
-                />
-                <TaskColumn 
-                  title={language === 'ko' ? "완료" : "Done"} 
-                  count={groupCompleted.length} 
-                  tasks={groupCompleted} 
-                  color="bg-emerald-50"
-                  icon={<CheckCircle2 size={16} className="text-emerald-600" />}
-                  onAddTask={onAddTask}
-                  compact={!group.isToday}
-                  status="completed"
-                  onDrop={onStatusChange}
-                  onStatusChange={onStatusChange}
-                  isAdding={group.isToday && addingInColumn === 'completed'}
-                  onStartAdd={() => onStartAdd('completed')}
-                  onCancelAdd={onCancelAdd}
-                />
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 // ─── Main Page ──────────────────────────────────────────────────────
 export function TasksPage() {
   const { t, language } = useLanguage();
   const { tasks: allTasks, setTasks: setAllTasks } = useTaskContext();
   const { currentUser } = usePermission();
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>('today');
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [addingInColumn, setAddingInColumn] = useState<Task['status'] | null>(null);
   const [showRecommendPanel, setShowRecommendPanel] = useState(false);
 
   const filteredTasks = useMemo(() => {
-    let filtered = allTasks;
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(task => {
-        const title = language === 'ko' ? (task.titleKo || task.title) : task.title;
-        return title.toLowerCase().includes(q) || 
-               (task.description?.toLowerCase().includes(q));
-      });
-    }
-
-    const now = new Date();
-    switch (timeFilter) {
-      case 'today':
-        filtered = filtered.filter(task => task.dueDate && isToday(new Date(task.dueDate)));
-        break;
-      case 'tomorrow':
-        filtered = filtered.filter(task => task.dueDate && isTomorrow(new Date(task.dueDate)));
-        break;
-      case 'yesterday':
-        filtered = filtered.filter(task => task.dueDate && isYesterday(new Date(task.dueDate)));
-        break;
-      case 'this_week': {
-        const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-        filtered = filtered.filter(task => {
-          if (!task.dueDate) return false;
-          const d = new Date(task.dueDate);
-          return isWithinInterval(d, { start: weekStart, end: now }) || isToday(d);
-        });
-        break;
-      }
-      case 'all':
-        break;
-    }
-
-    return filtered;
-  }, [allTasks, timeFilter, searchQuery, language]);
-
-  const groupedTasks = useMemo(() => {
-    if (timeFilter === 'today' || timeFilter === 'tomorrow' || timeFilter === 'yesterday') {
-      return null;
-    }
-
-    const groups: { label: string; dateKey: string; tasks: Task[]; isToday: boolean }[] = [];
-    const tasksByDate = new Map<string, Task[]>();
-
-    const sorted = [...filteredTasks].sort((a, b) => {
-      const dateA = a.dueDate ? new Date(a.dueDate).getTime() : 0;
-      const dateB = b.dueDate ? new Date(b.dueDate).getTime() : 0;
-      return dateB - dateA;
+    if (!searchQuery.trim()) return allTasks;
+    const q = searchQuery.toLowerCase();
+    return allTasks.filter(task => {
+      const title = language === 'ko' ? (task.titleKo || task.title) : task.title;
+      return title.toLowerCase().includes(q) || (task.description?.toLowerCase().includes(q));
     });
-
-    sorted.forEach(task => {
-      if (!task.dueDate) return;
-      const d = new Date(task.dueDate);
-      const key = format(d, 'yyyy-MM-dd');
-      if (!tasksByDate.has(key)) tasksByDate.set(key, []);
-      tasksByDate.get(key)!.push(task);
-    });
-
-    tasksByDate.forEach((tasks, dateKey) => {
-      const d = new Date(dateKey);
-      let label: string;
-      const todayFlag = isToday(d);
-      
-      if (todayFlag) {
-        label = language === 'ko' ? '오늘' : 'Today';
-      } else if (isYesterday(d)) {
-        label = language === 'ko' ? '어제' : 'Yesterday';
-      } else {
-        label = format(d, language === 'ko' ? 'M월 d일 (EEE)' : 'EEE, MMM d', 
-          { locale: language === 'ko' ? ko : undefined });
-      }
-
-      groups.push({ label, dateKey, tasks, isToday: todayFlag });
-    });
-
-    return groups;
-  }, [filteredTasks, timeFilter, language]);
+  }, [allTasks, searchQuery, language]);
 
   const pendingTasks = filteredTasks.filter(task => task.status === 'pending');
   const inProgressTasks = filteredTasks.filter(task => task.status === 'in-progress');
   const completedTasks = filteredTasks.filter(task => task.status === 'completed');
 
-  const todayCount = allTasks.filter(t => t.dueDate && isToday(new Date(t.dueDate))).length;
-  const tomorrowCount = allTasks.filter(t => t.dueDate && isTomorrow(new Date(t.dueDate))).length;
-  const pastCount = allTasks.filter(t => t.dueDate && isBefore(startOfDay(new Date(t.dueDate)), startOfDay(new Date()))).length;
-
   const handleAddTask = useCallback((title: string, status: Task['status']) => {
-    const dueDate = timeFilter === 'tomorrow' ? addDays(new Date(), 1) : new Date();
     const newTask: Task = {
       id: `t${Date.now()}`,
       title,
@@ -563,35 +355,23 @@ export function TasksPage() {
       level: 'Day' as const,
       progress: status === 'completed' ? 100 : status === 'in-progress' ? 50 : 0,
       status,
-      dueDate,
+      dueDate: new Date(),
       assigneeId: currentUser.id,
       assigneeIds: [currentUser.id],
       priority: 'medium',
     };
     setAllTasks(prev => [...prev, newTask]);
-  }, [timeFilter, currentUser.id]);
+  }, [currentUser.id]);
 
   const handleStatusChange = useCallback((taskId: string, newStatus: Task['status']) => {
-    setAllTasks(prevTasks => 
-      prevTasks.map(task => 
-        task.id === taskId 
-          ? { ...task, status: newStatus, progress: newStatus === 'completed' ? 100 : newStatus === 'in-progress' ? 50 : 0 } 
+    setAllTasks(prevTasks =>
+      prevTasks.map(task =>
+        task.id === taskId
+          ? { ...task, status: newStatus, progress: newStatus === 'completed' ? 100 : newStatus === 'in-progress' ? 50 : 0 }
           : task
       )
     );
   }, []);
-
-  const toggleGroup = useCallback((dateKey: string) => {
-    setExpandedGroups(prev => ({ ...prev, [dateKey]: prev[dateKey] === false ? true : false }));
-  }, []);
-
-  const timeFilters: { id: TimeFilter; labelKey: string; count?: number }[] = [
-    { id: 'today', labelKey: 'task_filter_today', count: todayCount },
-    { id: 'tomorrow', labelKey: 'task_filter_tomorrow', count: tomorrowCount },
-    { id: 'yesterday', labelKey: 'task_filter_yesterday' },
-    { id: 'this_week', labelKey: 'task_filter_this_week' },
-    { id: 'all', labelKey: 'task_filter_all' },
-  ];
 
   return (
       <div className="h-full flex flex-col">
@@ -600,9 +380,9 @@ export function TasksPage() {
             <div>
               <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">{t("my_tasks")}</h1>
               <p className="text-gray-500 text-xs sm:text-sm">
-                {language === 'ko' 
-                  ? `오늘 ${todayCount}개 · 내일 ${tomorrowCount}개 · 지난 업무 ${pastCount}개` 
-                  : `${todayCount} today · ${tomorrowCount} tomorrow · ${pastCount} ${t("task_past_summary")}`}
+                {language === 'ko'
+                  ? `할 일 ${pendingTasks.length}개 · 진행 중 ${inProgressTasks.length}개 · 완료 ${completedTasks.length}개`
+                  : `${pendingTasks.length} to do · ${inProgressTasks.length} in progress · ${completedTasks.length} completed`}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -619,40 +399,11 @@ export function TasksPage() {
             </div>
           </div>
 
-          {/* Time Filter Tabs */}
-          <div className="flex gap-1 mb-4 bg-gray-100 p-1 rounded-xl w-full sm:w-fit overflow-x-auto">
-            {timeFilters.map(tf => (
-              <button
-                key={tf.id}
-                onClick={() => setTimeFilter(tf.id)}
-                className={cn(
-                  "flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-medium transition-all",
-                  timeFilter === tf.id
-                    ? "bg-white shadow-sm text-gray-900"
-                    : "text-gray-500 hover:text-gray-700"
-                )}
-              >
-                {tf.id === 'yesterday' && <History size={13} />}
-                {t(tf.labelKey as any)}
-                {tf.count !== undefined && (
-                  <span className={cn(
-                    "text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center",
-                    timeFilter === tf.id
-                      ? "bg-blue-100 text-blue-700"
-                      : "bg-gray-200 text-gray-500"
-                  )}>
-                    {tf.count}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center">
             <div className="flex-1 sm:max-w-md">
               <div className="flex items-center w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-400 transition-all shadow-sm">
                 <Search className="text-gray-400 mr-2 shrink-0" size={18} />
-                <input 
+                <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -663,7 +414,7 @@ export function TasksPage() {
             </div>
             <div className="flex items-center gap-3">
               <div className="flex bg-gray-100 p-1 rounded-xl">
-                <button 
+                <button
                   onClick={() => setViewMode('board')}
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
@@ -673,7 +424,7 @@ export function TasksPage() {
                   <LayoutGrid size={14} />
                   Board
                 </button>
-                <button 
+                <button
                   onClick={() => setViewMode('list')}
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
@@ -690,75 +441,21 @@ export function TasksPage() {
 
         <div className="flex-1 overflow-x-auto pb-4">
           {viewMode === 'board' ? (
-            (timeFilter === 'all' || timeFilter === 'this_week') && groupedTasks ? (
-              <GroupedBoardView
-                groupedTasks={groupedTasks}
-                expandedGroups={expandedGroups}
-                toggleGroup={toggleGroup}
-                onStatusChange={handleStatusChange}
-                onAddTask={handleAddTask}
-                language={language}
-                addingInColumn={addingInColumn}
-                onStartAdd={setAddingInColumn}
-                onCancelAdd={() => setAddingInColumn(null)}
-              />
-            ) : (
-              <BoardView
-                pendingTasks={pendingTasks}
-                inProgressTasks={inProgressTasks}
-                completedTasks={completedTasks}
-                onStatusChange={handleStatusChange}
-                onAddTask={handleAddTask}
-                language={language}
-                addingInColumn={addingInColumn}
-                onStartAdd={setAddingInColumn}
-                onCancelAdd={() => setAddingInColumn(null)}
-              />
-            )
+            <BoardView
+              pendingTasks={pendingTasks}
+              inProgressTasks={inProgressTasks}
+              completedTasks={completedTasks}
+              onStatusChange={handleStatusChange}
+              onAddTask={handleAddTask}
+              language={language}
+              addingInColumn={addingInColumn}
+              onStartAdd={setAddingInColumn}
+              onCancelAdd={() => setAddingInColumn(null)}
+            />
           ) : (
-            (timeFilter === 'all' || timeFilter === 'this_week') && groupedTasks ? (
-              <div className="space-y-4">
-                {groupedTasks.map(group => {
-                  const isExpanded = expandedGroups[group.dateKey] !== false;
-                  return (
-                    <div key={group.dateKey}>
-                      <button
-                        onClick={() => toggleGroup(group.dateKey)}
-                        className="flex items-center gap-2 group/header w-full text-left mb-2"
-                      >
-                        <div className="flex items-center justify-center w-5 h-5 rounded text-gray-400 group-hover/header:text-gray-600">
-                          {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                        </div>
-                        <span className={cn(
-                          "text-sm font-semibold",
-                          group.isToday ? "text-blue-600" : "text-gray-700"
-                        )}>
-                          {group.label}
-                        </span>
-                        <span className="text-[11px] text-gray-400 font-medium">
-                          {group.tasks.length} {language === 'ko' ? '개' : group.tasks.length === 1 ? 'task' : 'tasks'}
-                        </span>
-                        <div className="flex-1 border-t border-gray-100 ml-2" />
-                        {group.isToday && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
-                            {language === 'ko' ? '현재' : 'CURRENT'}
-                          </span>
-                        )}
-                      </button>
-                      {isExpanded && (
-                        <div className="pl-7">
-                          <TaskListView tasks={group.tasks} onStatusChange={handleStatusChange} />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="h-full">
-                <TaskListView tasks={filteredTasks} onStatusChange={handleStatusChange} />
-              </div>
-            )
+            <div className="h-full">
+              <TaskListView tasks={filteredTasks} onStatusChange={handleStatusChange} />
+            </div>
           )}
         </div>
 
