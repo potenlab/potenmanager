@@ -60,6 +60,31 @@ export function MyPage() {
   const [notifications, setNotifications] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
 
+  // Avatar upload
+  const [customAvatar, setCustomAvatar] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    const img = new Image();
+    img.onload = () => {
+      canvas.width = 200;
+      canvas.height = 200;
+      const size = Math.min(img.width, img.height);
+      const sx = (img.width - size) / 2;
+      const sy = (img.height - size) / 2;
+      ctx?.drawImage(img, sx, sy, size, size, 0, 0, 200, 200);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+      setCustomAvatar(dataUrl);
+      updateMember(currentUser.id, { avatar: dataUrl });
+      api.updateProfile(currentUser.id, { avatar: dataUrl }).catch(() => {});
+    };
+    img.src = URL.createObjectURL(file);
+  };
+
   // Calendar color
   const [myColor, setMyColor] = useState<string | null>(() => getUserColor(currentUser.id));
   const myColorConfig = myColor ? getMemberColorConfig(myColor) : null;
@@ -69,17 +94,18 @@ export function MyPage() {
   useEffect(() => {
     if (!currentUser.id || profileLoaded.current) return;
     profileLoaded.current = true;
-    api.getProfile(currentUser.id).then((profile) => {
+    api.getProfile(currentUser.id).then((profile: any) => {
       if (profile.phone) setPhone(profile.phone);
       if (profile.company) setCompany(profile.company);
       if (profile.location) setLocation(profile.location);
+      if (profile.avatar) setCustomAvatar(profile.avatar);
     }).catch(() => {});
   }, [currentUser.id]);
 
   // Derived values from auth
   const name = currentUser.name || authUser?.user_metadata?.full_name || authUser?.email || "User";
   const email = authUser?.email || "";
-  const avatar = currentUser.avatar || authUser?.user_metadata?.avatar_url || "";
+  const avatar = customAvatar || currentUser.avatar || authUser?.user_metadata?.avatar_url || "";
   const role = currentUser.role === "owner" ? "Founder / CEO" : "Team Member";
 
   const handleSelectMyColor = (hex: string) => {
@@ -183,9 +209,19 @@ export function MyPage() {
                   <UserIcon size={40} className="text-blue-400" />
                 </div>
               )}
-              <button className="absolute bottom-1 right-1 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-700">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute bottom-1 right-1 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-700"
+              >
                 <Camera size={14} />
               </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarChange}
+              />
             </div>
           </div>
 
