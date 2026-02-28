@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { motion } from 'motion/react';
-import { Zap, FlaskConical, ChevronDown, ChevronUp } from 'lucide-react';
+import { Zap, FlaskConical, ChevronDown, ChevronUp, Play } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { api } from '../../lib/api';
@@ -31,6 +31,7 @@ export function LoginPage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,6 +53,22 @@ export function LoginPage() {
       }
     }
     setSubmitting(false);
+  };
+
+  const handleDemoLogin = async () => {
+    setError('');
+    setMessage('');
+    setDemoLoading(true);
+    try {
+      await api.setupDemo();
+      const result = await signInWithEmail('demo@potenmanager.com', 'demo1234');
+      if (result.error) {
+        setError(ko ? '데모 계정 로그인에 실패했습니다.' : 'Demo login failed.');
+      }
+    } catch {
+      setError(ko ? '데모 계정 설정에 실패했습니다.' : 'Demo setup failed.');
+    }
+    setDemoLoading(false);
   };
 
   useEffect(() => {
@@ -257,6 +274,18 @@ export function LoginPage() {
               >
                 <GoogleLogo />
                 {ko ? 'Google로 계속하기' : 'Continue with Google'}
+              </button>
+
+              {/* Demo Account */}
+              <button
+                onClick={handleDemoLogin}
+                disabled={demoLoading}
+                className="w-full flex items-center justify-center gap-2 px-5 py-3.5 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-2xl text-sm font-semibold hover:from-purple-600 hover:to-blue-600 transition-all duration-200 shadow-sm disabled:opacity-50"
+              >
+                <Play size={16} fill="currentColor" />
+                {demoLoading
+                  ? (ko ? '데모 준비 중...' : 'Setting up demo...')
+                  : (ko ? '데모 계정으로 체험하기' : 'Try with Demo Account')}
               </button>
             </div>
 

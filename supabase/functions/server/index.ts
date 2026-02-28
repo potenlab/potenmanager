@@ -945,4 +945,119 @@ app.post("/make-server-f580d5ca/ai/strategy", async (c) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Demo Account Setup
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const DEMO_EMAIL = "demo@potenmanager.com";
+const DEMO_PASSWORD = "demo1234";
+
+app.post("/make-server-f580d5ca/demo/setup", async (c) => {
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // 1. Check if demo user exists, create if not
+    const listRes = await fetch(`${supabaseUrl}/auth/v1/admin/users?page=1&per_page=50`, {
+      headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey },
+    });
+    const { users = [] } = await listRes.json();
+    let demoUser = users.find((u: any) => u.email === DEMO_EMAIL);
+
+    if (!demoUser) {
+      const createRes = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${serviceRoleKey}`,
+          apikey: serviceRoleKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: DEMO_EMAIL,
+          password: DEMO_PASSWORD,
+          email_confirm: true,
+        }),
+      });
+      demoUser = await createRes.json();
+      console.log("[Demo] Created demo user:", demoUser.id);
+    }
+
+    const userId = demoUser.id;
+
+    // 2. Check if already seeded
+    const seeded = await kv.get(`demo-seeded:${userId}`);
+    if (seeded) {
+      return c.json({ success: true, message: "Demo already set up", userId });
+    }
+
+    // 3. Seed sample data
+    const now = new Date();
+    const daysFromNow = (d: number) => new Date(now.getTime() + d * 86400000).toISOString();
+    const daysAgo = (d: number) => new Date(now.getTime() - d * 86400000).toISOString();
+
+    // Tasks
+    const tasks = [
+      { id: `t-demo-1`, title: "Prepare investor pitch deck", titleKo: "투자자 피치덱 준비", status: "in-progress", priority: "high", dueDate: daysFromNow(3), assigneeId: userId, progress: 60, createdAt: daysAgo(5) },
+      { id: `t-demo-2`, title: "Setup Google Analytics", titleKo: "Google Analytics 설정", status: "completed", priority: "medium", dueDate: daysAgo(1), assigneeId: userId, progress: 100, createdAt: daysAgo(7) },
+      { id: `t-demo-3`, title: "Design landing page mockup", titleKo: "랜딩 페이지 목업 디자인", status: "in-progress", priority: "high", dueDate: daysFromNow(5), assigneeId: userId, progress: 40, createdAt: daysAgo(3) },
+      { id: `t-demo-4`, title: "Write blog post about product launch", titleKo: "제품 출시 블로그 포스트 작성", status: "pending", priority: "medium", dueDate: daysFromNow(7), assigneeId: userId, progress: 0, createdAt: daysAgo(1) },
+      { id: `t-demo-5`, title: "Competitive analysis report", titleKo: "경쟁사 분석 리포트", status: "completed", priority: "high", dueDate: daysAgo(3), assigneeId: userId, progress: 100, createdAt: daysAgo(10) },
+      { id: `t-demo-6`, title: "Customer interview scheduling", titleKo: "고객 인터뷰 일정 잡기", status: "pending", priority: "low", dueDate: daysFromNow(10), assigneeId: userId, progress: 0, createdAt: daysAgo(2) },
+      { id: `t-demo-7`, title: "Update pricing page", titleKo: "가격 페이지 업데이트", status: "in-progress", priority: "medium", dueDate: daysFromNow(2), assigneeId: userId, progress: 75, createdAt: daysAgo(4) },
+    ];
+
+    // Goals
+    const goals = [
+      { id: `g-demo-year`, title: "Achieve 100M ARR", titleKo: "연간 매출 1억 달성", level: "Year", progress: 35, status: "in-progress", startDate: `${now.getFullYear()}-01-01`, endDate: `${now.getFullYear()}-12-31`, children: ["g-demo-q1", "g-demo-q2"] },
+      { id: `g-demo-q1`, title: "Launch MVP and get 50 users", titleKo: "MVP 출시 및 유저 50명 확보", level: "Quarter", progress: 70, status: "in-progress", parentId: "g-demo-year", children: ["g-demo-m1", "g-demo-m2", "g-demo-m3"] },
+      { id: `g-demo-q2`, title: "Secure seed funding", titleKo: "시드 투자 유치", level: "Quarter", progress: 10, status: "pending", parentId: "g-demo-year" },
+      { id: `g-demo-m1`, title: "Complete core features", titleKo: "핵심 기능 개발 완료", level: "Month", progress: 90, status: "in-progress", parentId: "g-demo-q1" },
+      { id: `g-demo-m2`, title: "Beta testing with 10 users", titleKo: "10명 베타 테스트", level: "Month", progress: 50, status: "in-progress", parentId: "g-demo-q1" },
+      { id: `g-demo-m3`, title: "Marketing website launch", titleKo: "마케팅 웹사이트 오픈", level: "Month", progress: 30, status: "pending", parentId: "g-demo-q1" },
+      // Urgent goals
+      { id: `g-demo-u1`, title: "Submit grant application", titleKo: "정부 지원사업 신청서 제출", level: "Urgent", isUrgent: true, urgentCategory: "submission", deadline: daysFromNow(5), progress: 60, status: "in-progress" },
+      { id: `g-demo-u2`, title: "Demo Day presentation", titleKo: "데모데이 발표", level: "Urgent", isUrgent: true, urgentCategory: "event", deadline: daysFromNow(14), progress: 20, status: "pending" },
+    ];
+
+    // Team members
+    const members = [
+      { id: userId, name: "Demo User", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=demo", role: "owner", jobTitle: "CEO / Founder", email: DEMO_EMAIL },
+      { id: "m-demo-2", name: "김민지", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=minji", role: "member", jobTitle: "디자이너" },
+      { id: "m-demo-3", name: "이준호", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=junho", role: "member", jobTitle: "프론트엔드 개발자" },
+    ];
+
+    // Opportunities
+    const opportunities = [
+      { id: "opp-demo-1", title: "Partnership with TechCorp", titleKo: "TechCorp 파트너십 제안", type: "partnership", status: "active", value: 50000000, probability: 60, contactName: "박서연", createdAt: daysAgo(7) },
+      { id: "opp-demo-2", title: "Enterprise client lead", titleKo: "대기업 클라이언트 리드", type: "sales", status: "active", value: 30000000, probability: 40, contactName: "최영수", createdAt: daysAgo(3) },
+      { id: "opp-demo-3", title: "Government innovation program", titleKo: "정부 혁신 프로그램 선정", type: "grant", status: "won", value: 20000000, probability: 100, contactName: "정하은", createdAt: daysAgo(14) },
+    ];
+
+    // Save all data
+    for (const task of tasks) await kv.set(`task:${task.id}`, { ...task, updatedAt: now.toISOString() });
+    for (const goal of goals) await kv.set(`goal:${goal.id}`, { ...goal, updatedAt: now.toISOString() });
+    for (const member of members) await kv.set(`member:${member.id}`, member);
+    for (const opp of opportunities) await kv.set(`opportunity:${opp.id}`, { ...opp, updatedAt: now.toISOString() });
+
+    // Mark onboarding as complete for demo user
+    await kv.set(`onboarding:${userId}`, {
+      userId,
+      completedAt: now.toISOString(),
+      companyName: "Poten Lab",
+      industry: "SaaS",
+      teamSize: "2-5",
+    });
+
+    // Mark as seeded
+    await kv.set(`demo-seeded:${userId}`, { seeded: true, timestamp: now.toISOString() });
+    await kv.set("meta:seeded", { seeded: true, timestamp: now.toISOString() });
+
+    console.log("[Demo] Seeded all sample data for demo user:", userId);
+    return c.json({ success: true, userId });
+  } catch (e) {
+    console.log("[Demo] Setup error:", e);
+    return c.json({ error: "Demo setup failed", message: String(e) }, 500);
+  }
+});
+
 Deno.serve(app.fetch);

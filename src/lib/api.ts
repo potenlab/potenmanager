@@ -152,4 +152,8 @@ export const api = {
     action?: string;
   }) =>
     request<any>('/ai/strategy', { method: 'POST', body: JSON.stringify(data) }),
+
+  // ── Demo ──
+  setupDemo: () =>
+    request<{ success: boolean; userId: string }>('/demo/setup', { method: 'POST' }),
 };
