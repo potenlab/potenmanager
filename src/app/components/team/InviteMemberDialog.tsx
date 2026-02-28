@@ -50,6 +50,7 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Determine initial step
@@ -63,6 +64,7 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
       setGeneratedCode(null);
       setExpiresAt(null);
       setCopied(false);
+      setLinkCopied(false);
       setError(null);
       setRole('member');
       setOrgName('');
@@ -122,6 +124,30 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
       document.body.removeChild(textarea);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const getInviteLink = () => {
+    if (!generatedCode) return '';
+    return `${window.location.origin}/invite/${generatedCode}`;
+  };
+
+  const handleCopyLink = async () => {
+    const link = getInviteLink();
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = link;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
     }
   };
 
@@ -208,17 +234,46 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
           </h2>
           <p className="text-gray-500 text-sm mb-6">
             {ko
-              ? "아래 코드를 팀원에게 전달해주세요. 온보딩 시 입력하면 조직에 합류할 수 있습니다."
-              : "Share this code with your team member. They can enter it during onboarding to join."}
+              ? "아래 링크를 팀원에게 공유하세요. 링크를 통해 바로 팀에 참여할 수 있습니다."
+              : "Share the link below with your team member. They can join your team directly."}
           </p>
 
+          {/* Invite Link */}
+          <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100 mb-3">
+            <p className="text-xs text-blue-500 mb-2 uppercase tracking-wider font-medium flex items-center gap-1.5">
+              <Link2 size={12} />
+              {ko ? "초대 링크" : "Invite Link"}
+            </p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-xs font-mono text-blue-800 bg-white px-3 py-2 rounded-lg border border-blue-100 truncate">
+                {getInviteLink()}
+              </code>
+              <button
+                onClick={handleCopyLink}
+                className={cn(
+                  "p-2 rounded-lg transition-all shrink-0",
+                  linkCopied
+                    ? "bg-green-100 text-green-600"
+                    : "bg-blue-100 text-blue-600 hover:bg-blue-200"
+                )}
+              >
+                {linkCopied ? <Check size={16} /> : <Copy size={16} />}
+              </button>
+            </div>
+            {linkCopied && (
+              <p className="text-xs text-green-600 mt-1.5 font-medium">
+                {ko ? "링크가 복사되었습니다!" : "Link copied!"}
+              </p>
+            )}
+          </div>
+
           {/* Code display */}
-          <div className="bg-gray-50 rounded-2xl p-5 border border-gray-200 mb-4">
+          <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200 mb-4">
             <p className="text-xs text-gray-400 mb-2 uppercase tracking-wider font-medium">
               {ko ? "초대 코드" : "Invite Code"}
             </p>
             <div className="flex items-center justify-center gap-3">
-              <code className="text-3xl font-mono font-bold text-gray-900 tracking-[0.3em]">
+              <code className="text-2xl font-mono font-bold text-gray-900 tracking-[0.3em]">
                 {generatedCode}
               </code>
               <button
@@ -230,12 +285,12 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
                     : "bg-gray-200 text-gray-600 hover:bg-gray-300"
                 )}
               >
-                {copied ? <Check size={18} /> : <Copy size={18} />}
+                {copied ? <Check size={16} /> : <Copy size={16} />}
               </button>
             </div>
             {copied && (
-              <p className="text-xs text-green-600 mt-2 font-medium">
-                {ko ? "클립보드에 복사됨!" : "Copied to clipboard!"}
+              <p className="text-xs text-green-600 mt-1.5 font-medium">
+                {ko ? "코드가 복사되었습니다!" : "Code copied!"}
               </p>
             )}
           </div>
@@ -350,10 +405,9 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
               {ko ? "초대 방식" : "How it works"}
             </p>
             <ol className="text-xs text-gray-500 space-y-1.5 list-decimal list-inside">
-              <li>{ko ? "초대 코드를 생성합니다 (유효기간 7일)" : "Generate an invite code (valid for 7 days)"}</li>
-              <li>{ko ? "코드를 팀원에게 전달합니다" : "Share the code with your team member"}</li>
-              <li>{ko ? "팀원이 온보딩에서 코드를 입력하면 합류 요청이 전송됩니다" : "They enter the code during onboarding to request access"}</li>
-              <li>{ko ? "관리자가 승인하면 합류 완료!" : "Admin approves and they're in!"}</li>
+              <li>{ko ? "초대 링크를 생성합니다 (유효기간 7일)" : "Generate an invite link (valid for 7 days)"}</li>
+              <li>{ko ? "링크를 팀원에게 공유합니다" : "Share the link with your team member"}</li>
+              <li>{ko ? "팀원이 링크를 통해 로그인하면 바로 합류됩니다" : "They sign in via the link and join instantly"}</li>
             </ol>
           </div>
 

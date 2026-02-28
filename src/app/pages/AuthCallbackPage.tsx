@@ -13,6 +13,12 @@ export function AuthCallbackPage() {
   const navigate = useNavigate();
 
   const resolveDestination = async (userId: string) => {
+    // 0. 대기 중인 초대 코드 확인 (초대 링크 → 로그인 → 복귀)
+    const pendingInvite = localStorage.getItem('poten_pending_invite');
+    if (pendingInvite) {
+      return `/invite/${pendingInvite}`;
+    }
+
     // 1. localStorage 먼저 체크 (빠름)
     const localDone = localStorage.getItem('poten_onboarding_complete');
     if (localDone) return '/dashboard';

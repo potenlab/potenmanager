@@ -19,6 +19,7 @@ import { PermissionsPage } from "./pages/PermissionsPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
 import { MyPage } from "./pages/MyPage";
 import { OnboardingPage } from "./pages/OnboardingPage";
+import { InviteAcceptPage } from "./pages/InviteAcceptPage";
 
 export const router = createBrowserRouter([
   {
@@ -29,6 +30,7 @@ export const router = createBrowserRouter([
       { path: "login", Component: LoginPage },
       { path: "auth/callback", Component: AuthCallbackPage },
       { path: "onboarding", Component: OnboardingPage },
+      { path: "invite/:code", Component: InviteAcceptPage },
 
       // ── Protected routes (AuthGuard) ───────────────────
       {
