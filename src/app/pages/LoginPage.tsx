@@ -20,11 +20,39 @@ function GoogleLogo() {
 }
 
 export function LoginPage() {
-  const { user, isLoading, signInWithGoogle } = useAuth();
+  const { user, isLoading, signInWithGoogle, signInWithEmail, signUp } = useAuth();
   const { language } = useLanguage();
   const navigate = useNavigate();
   const ko = language === 'ko';
   const [showDevTools, setShowDevTools] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setMessage('');
+    setSubmitting(true);
+
+    if (isSignUp) {
+      const result = await signUp(email, password);
+      if (result.error) {
+        setError(result.error);
+      } else if (result.needsConfirmation) {
+        setMessage(ko ? '확인 이메일을 보냈습니다. 이메일을 확인해주세요.' : 'Confirmation email sent. Please check your inbox.');
+      }
+    } else {
+      const result = await signInWithEmail(email, password);
+      if (result.error) {
+        setError(ko ? '이메일 또는 비밀번호가 올바르지 않습니다.' : 'Invalid email or password.');
+      }
+    }
+    setSubmitting(false);
+  };
 
   useEffect(() => {
     if (!isLoading && user) {
@@ -158,15 +186,71 @@ export function LoginPage() {
           <div className="bg-white rounded-3xl p-8 shadow-card border border-gray-100">
             <div className="mb-8">
               <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                {ko ? '시작하기' : 'Get Started'}
+                {isSignUp ? (ko ? '회원가입' : 'Sign Up') : (ko ? '로그인' : 'Sign In')}
               </h2>
               <p className="text-sm text-gray-500">
-                {ko ? 'Google 계정으로 간편하게 로그인하세요.' : 'Sign in quickly with your Google account.'}
+                {isSignUp
+                  ? (ko ? '이메일과 비밀번호로 계정을 만드세요.' : 'Create an account with email and password.')
+                  : (ko ? '계정에 로그인하세요.' : 'Sign in to your account.')}
               </p>
             </div>
 
+            {/* Email / Password Form */}
+            <form onSubmit={handleEmailAuth} className="space-y-3 mb-4">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={ko ? '이메일 주소' : 'Email address'}
+                required
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              />
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={ko ? '비밀번호 (6자 이상)' : 'Password (min 6 characters)'}
+                required
+                minLength={6}
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              />
+              {error && (
+                <p className="text-xs text-red-500 px-1">{error}</p>
+              )}
+              {message && (
+                <p className="text-xs text-green-600 px-1">{message}</p>
+              )}
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full px-5 py-3.5 bg-[#0079FF] text-white rounded-2xl text-sm font-semibold hover:bg-blue-700 transition-all duration-200 shadow-sm disabled:opacity-50"
+              >
+                {submitting
+                  ? (ko ? '처리 중...' : 'Processing...')
+                  : isSignUp
+                    ? (ko ? '회원가입' : 'Sign Up')
+                    : (ko ? '로그인' : 'Sign In')}
+              </button>
+            </form>
+
+            <button
+              onClick={() => { setIsSignUp(!isSignUp); setError(''); setMessage(''); }}
+              className="w-full text-center text-xs text-gray-500 hover:text-blue-600 transition-colors mb-5"
+            >
+              {isSignUp
+                ? (ko ? '이미 계정이 있나요? 로그인' : 'Already have an account? Sign In')
+                : (ko ? '계정이 없나요? 회원가입' : "Don't have an account? Sign Up")}
+            </button>
+
+            {/* Divider */}
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-xs text-gray-400">{ko ? '또는' : 'or'}</span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
+
             <div className="space-y-3">
-              {/* Google OAuth — Primary CTA */}
+              {/* Google OAuth */}
               <button
                 onClick={signInWithGoogle}
                 className="w-full flex items-center justify-center gap-3 px-5 py-3.5 bg-white border-2 border-gray-200 rounded-2xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 shadow-sm"
