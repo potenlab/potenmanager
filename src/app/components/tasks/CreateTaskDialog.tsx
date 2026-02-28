@@ -38,11 +38,11 @@ interface CreateTaskDialogProps {
 
 export function CreateTaskDialog({ open, onOpenChange, onSubmit }: CreateTaskDialogProps) {
   const { language } = useLanguage();
-  const { members } = usePermission();
+  const { members, currentUser } = usePermission();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<string>("medium");
-  const [assigneeId, setAssigneeId] = useState<string>(members[0]?.id || "");
+  const [assigneeId, setAssigneeId] = useState<string>(currentUser?.id || members[0]?.id || "");
   const [dueDate, setDueDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -153,7 +153,7 @@ export function CreateTaskDialog({ open, onOpenChange, onSubmit }: CreateTaskDia
           <div className="space-y-3">
             <Label htmlFor="assignee" className="text-gray-700 flex items-center gap-2">
               <User size={16} className="text-gray-400" />
-              {language === 'ko' ? "담당자" : "Assignee"}
+              {language === 'ko' ? "참여자" : "Participant"}
             </Label>
             <Select value={assigneeId} onValueChange={setAssigneeId}>
               <SelectTrigger className="h-11 bg-gray-50 border-gray-200 focus:bg-white">

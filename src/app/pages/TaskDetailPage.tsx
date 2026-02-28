@@ -255,7 +255,7 @@ function MultiAssigneePicker({
         )}
       >
         {selectedMembers.length === 0 ? (
-          <span className="text-sm text-gray-400">{language === "ko" ? "미배정" : "Unassigned"}</span>
+          <span className="text-sm text-gray-400">{language === "ko" ? "나" : "Me"}</span>
         ) : (
           <div className="flex items-center gap-1.5">
             <div className="flex -space-x-1.5">
@@ -594,7 +594,7 @@ export function TaskDetailPage() {
                 />
               </PropertyItem>
 
-              <PropertyItem icon={<UserIcon size={14} />} label={language === "ko" ? "담당자" : "Assignees"}>
+              <PropertyItem icon={<UserIcon size={14} />} label={language === "ko" ? "참여자" : "Participants"}>
                 <MultiAssigneePicker selectedIds={assigneeIds} onChange={setAssigneeIds} language={language} disabled={!canEdit} />
               </PropertyItem>
 

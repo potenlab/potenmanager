@@ -612,7 +612,7 @@ function TaskQuickViewModal({
             <div className="flex items-center gap-1.5 w-[80px] shrink-0 text-gray-400">
               <UserIcon size={12} />
               <span className="text-[11px] font-medium">
-                {language === "ko" ? "담당자" : "Assignee"}
+                {language === "ko" ? "참여자" : "Participant"}
               </span>
             </div>
             {mainAssignee ? (
@@ -657,7 +657,7 @@ function TaskQuickViewModal({
               </div>
             ) : (
               <span className="text-xs text-gray-400">
-                {language === "ko" ? "미배정" : "Unassigned"}
+                {language === "ko" ? "나" : "Me"}
               </span>
             )}
           </div>

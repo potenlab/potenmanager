@@ -60,7 +60,7 @@ export function TaskListView({ tasks, onStatusChange }: TaskListViewProps) {
                 {language === 'ko' ? "우선순위" : "Priority"}
               </th>
               <th className="px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                {language === 'ko' ? "담당자" : "Assignee"}
+                {language === 'ko' ? "참여자" : "Participant"}
               </th>
               <th className="px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 {language === 'ko' ? "마감일" : "Due Date"}
@@ -147,7 +147,7 @@ export function TaskListView({ tasks, onStatusChange }: TaskListViewProps) {
                       ) : (
                         <div className="flex items-center gap-2 text-gray-400">
                           <User size={14} />
-                          <span className="text-[11px] italic">Unassigned</span>
+                          <span className="text-[11px] italic">{language === 'ko' ? '나' : 'Me'}</span>
                         </div>
                       )}
                     </td>
