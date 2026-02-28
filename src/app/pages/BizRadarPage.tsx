@@ -5,11 +5,11 @@ import {
   Plus, Search, Compass, Eye, Send, MessageSquare, Trophy,
   LayoutGrid, List as ListIcon, MoreHorizontal,
   Trash2, X, Check, Building2, User as UserIcon, Calendar,
-  DollarSign, Percent, Tag,
+  DollarSign, Percent, Tag, Briefcase, Link2,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
-import { useBizRadar, BizRadarItem, BizStage, BizType } from "../context/BizRadarContext";
+import { useBizRadar, BizRadarItem, BizStage, BizType, BizCategory, ConnectionType } from "../context/BizRadarContext";
 import { useTeam } from "../context/TeamContext";
 import { useTrash } from "../context/TrashContext";
 
@@ -34,6 +34,15 @@ const TYPE_COLORS: Record<BizType, { bg: string; text: string; label: string; la
   other:       { bg: 'bg-gray-50',   text: 'text-gray-600',    label: 'Other',       labelKo: '기타' },
 };
 
+const CONNECTION_TYPE_COLORS: Record<ConnectionType, { bg: string; text: string; label: string; labelKo: string }> = {
+  agent:       { bg: 'bg-indigo-50',  text: 'text-indigo-600',  label: 'Agent',       labelKo: '대리점' },
+  distributor: { bg: 'bg-teal-50',    text: 'text-teal-600',    label: 'Distributor', labelKo: '유통' },
+  supplier:    { bg: 'bg-orange-50',  text: 'text-orange-600',  label: 'Supplier',    labelKo: '공급사' },
+  partner:     { bg: 'bg-purple-50',  text: 'text-purple-600',  label: 'Partner',     labelKo: '파트너' },
+  client:      { bg: 'bg-blue-50',    text: 'text-blue-600',    label: 'Client',      labelKo: '고객사' },
+  other:       { bg: 'bg-gray-50',    text: 'text-gray-600',    label: 'Other',       labelKo: '기타' },
+};
+
 const ACTIVE_STAGES: BizStage[] = ['discovered', 'reviewing', 'proposal', 'negotiation', 'won'];
 
 function formatValue(v?: number): string {
@@ -52,7 +61,9 @@ function BizCard({ item, column, isSelecting, isSelected, onToggleSelect }: {
   const ko = language === 'ko';
   const navigate = useNavigate();
   const { members } = useTeam();
-  const tc = TYPE_COLORS[item.type];
+  const tc = item.category === 'connection' && item.connectionType
+    ? CONNECTION_TYPE_COLORS[item.connectionType]
+    : TYPE_COLORS[item.type];
 
   const [{ isDragging }, dragRef] = useDrag<DragItem, void, { isDragging: boolean }>({
     type: DRAG_TYPE,
@@ -165,12 +176,14 @@ function PipelineColumn({
   stage, items, onDrop,
   isAdding, onStartAdd, onCancelAdd, onAddItem,
   isSelecting, selectedIds, onToggleSelect,
+  category,
 }: {
   stage: BizStage; items: BizRadarItem[];
   onDrop: (itemId: string, targetStage: BizStage) => void;
   isAdding?: boolean; onStartAdd?: () => void; onCancelAdd?: () => void;
   onAddItem: (title: string, stage: BizStage) => void;
   isSelecting: boolean; selectedIds: Set<string>; onToggleSelect: (id: string) => void;
+  category: BizCategory;
 }) {
   const { language } = useLanguage();
   const ko = language === 'ko';
@@ -226,7 +239,9 @@ function PipelineColumn({
             <input ref={inputRef} value={newTitle} onChange={(e) => setNewTitle(e.target.value)}
               onKeyDown={handleKeyDown}
               onBlur={() => { if (newTitle.trim()) handleSubmit(); else handleCancel(); }}
-              placeholder={ko ? '기회 제목을 입력하세요...' : 'Enter opportunity title...'}
+              placeholder={ko
+                ? (category === 'connection' ? '연결 제목을 입력하세요...' : '기회 제목을 입력하세요...')
+                : (category === 'connection' ? 'Enter connection title...' : 'Enter opportunity title...')}
               className="w-full px-4 py-3 text-sm outline-none bg-transparent placeholder-gray-400 text-gray-900" />
             <div className="flex items-center px-3 py-2 bg-gray-50/80 border-t border-gray-100">
               <span className="text-[10px] text-gray-400">{ko ? 'Enter로 추가 · Esc로 취소' : 'Enter to add · Esc to cancel'}</span>
@@ -242,7 +257,9 @@ function PipelineColumn({
           <button onClick={onStartAdd}
             className="w-full flex flex-col items-center justify-center py-8 text-gray-300 hover:text-blue-500 hover:bg-blue-50/50 rounded-xl transition-all cursor-pointer group">
             <Plus size={20} className="mb-1.5 opacity-50 group-hover:opacity-100 transition-opacity" />
-            <p className="text-xs font-medium">{ko ? '기회를 추가해보세요' : 'Add an opportunity'}</p>
+            <p className="text-xs font-medium">{ko
+              ? (category === 'connection' ? '연결을 추가해보세요' : '기회를 추가해보세요')
+              : (category === 'connection' ? 'Add a connection' : 'Add an opportunity')}</p>
           </button>
         )}
         {items.map(item => (
@@ -304,7 +321,9 @@ function BizListView({ items }: { items: BizRadarItem[] }) {
         <tbody>
           {items.map((item, i) => {
             const sc = STAGE_CONFIG[item.stage];
-            const tc = TYPE_COLORS[item.type];
+            const tc = item.category === 'connection' && item.connectionType
+              ? CONNECTION_TYPE_COLORS[item.connectionType]
+              : TYPE_COLORS[item.type];
             const assignee = item.assigneeId ? members.find(m => m.id === item.assigneeId) : null;
             return (
               <tr key={item.id} onClick={() => navigate(`/radar/${item.id}`)}
@@ -356,6 +375,7 @@ export function BizRadarPage() {
   const { items, addItem, updateItem, removeItem, getItem, isLoading } = useBizRadar();
   const { moveToTrash } = useTrash();
   const { currentUser } = useTeam();
+  const [activeCategory, setActiveCategory] = useState<BizCategory>('sales');
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
   const [searchQuery, setSearchQuery] = useState('');
   const [addingInColumn, setAddingInColumn] = useState<BizStage | null>(null);
@@ -384,16 +404,21 @@ export function BizRadarPage() {
     clearSelection();
   }, [selectedIds, removeItem, getItem, moveToTrash, clearSelection]);
 
+  const categoryItems = useMemo(() =>
+    items.filter(i => (i.category || 'sales') === activeCategory),
+    [items, activeCategory]
+  );
+
   const filteredItems = useMemo(() => {
-    if (!searchQuery.trim()) return items;
+    if (!searchQuery.trim()) return categoryItems;
     const q = searchQuery.toLowerCase();
-    return items.filter(i =>
+    return categoryItems.filter(i =>
       i.title.toLowerCase().includes(q) ||
       i.contactCompany?.toLowerCase().includes(q) ||
       i.contactName?.toLowerCase().includes(q) ||
       i.tags?.some(t => t.toLowerCase().includes(q))
     );
-  }, [items, searchQuery]);
+  }, [categoryItems, searchQuery]);
 
   const itemsByStage = useMemo(() => {
     const map: Record<BizStage, BizRadarItem[]> = {
@@ -403,13 +428,12 @@ export function BizRadarPage() {
     return map;
   }, [filteredItems]);
 
-  // Summary stats
-  const totalValue = items.reduce((s, i) => s + (i.value || 0), 0);
-  const weightedValue = items
+  // Summary stats (per category)
+  const weightedValue = categoryItems
     .filter(i => i.stage !== 'lost')
     .reduce((s, i) => s + (i.value || 0) * ((i.probability || 0) / 100), 0);
-  const activeCount = items.filter(i => i.stage !== 'won' && i.stage !== 'lost').length;
-  const wonCount = items.filter(i => i.stage === 'won').length;
+  const activeCount = categoryItems.filter(i => i.stage !== 'won' && i.stage !== 'lost').length;
+  const wonCount = categoryItems.filter(i => i.stage === 'won').length;
 
   const handleDrop = useCallback((itemId: string, targetStage: BizStage) => {
     updateItem(itemId, { stage: targetStage });
@@ -420,14 +444,16 @@ export function BizRadarPage() {
     addItem({
       id: `biz-${Date.now()}`,
       title,
+      category: activeCategory,
       type: 'other',
+      connectionType: activeCategory === 'connection' ? 'other' : undefined,
       stage,
       actionItems: [],
       assigneeId: currentUser.id,
       createdAt: now,
       updatedAt: now,
     });
-  }, [addItem, currentUser.id]);
+  }, [addItem, currentUser.id, activeCategory]);
 
   if (isLoading) {
     return <div className="h-full flex items-center justify-center"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>;
@@ -447,17 +473,58 @@ export function BizRadarPage() {
                 : `${activeCount} active · ${wonCount} won · weighted ${formatValue(weightedValue)}`}
             </p>
           </div>
-          <button onClick={() => navigate('/radar/new')}
+          <button onClick={() => navigate(`/radar/new?category=${activeCategory}`)}
             className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm shadow-blue-200">
-            <Plus size={16} /> {ko ? '새 기회' : 'New Opportunity'}
+            <Plus size={16} /> {ko ? '기회찾기' : 'Find Opportunity'}
           </button>
         </div>
+
+        {/* Category Tabs: 영업 / 연결 */}
+        <div className="flex items-center gap-3 mb-4">
+          <button
+            onClick={() => { setActiveCategory('sales'); clearSelection(); setSearchQuery(''); }}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border",
+              activeCategory === 'sales'
+                ? "bg-blue-50 text-blue-700 border-blue-200 shadow-sm"
+                : "bg-white text-gray-500 border-gray-100 hover:border-gray-300 hover:text-gray-700"
+            )}
+          >
+            <Briefcase size={16} />
+            {ko ? '영업' : 'Sales'}
+            <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-bold",
+              activeCategory === 'sales' ? "bg-blue-200 text-blue-700" : "bg-gray-100 text-gray-500"
+            )}>
+              {items.filter(i => (i.category || 'sales') === 'sales').length}
+            </span>
+          </button>
+          <button
+            onClick={() => { setActiveCategory('connection'); clearSelection(); setSearchQuery(''); }}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border",
+              activeCategory === 'connection'
+                ? "bg-purple-50 text-purple-700 border-purple-200 shadow-sm"
+                : "bg-white text-gray-500 border-gray-100 hover:border-gray-300 hover:text-gray-700"
+            )}
+          >
+            <Link2 size={16} />
+            {ko ? '연결' : 'Connections'}
+            <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-bold",
+              activeCategory === 'connection' ? "bg-purple-200 text-purple-700" : "bg-gray-100 text-gray-500"
+            )}>
+              {items.filter(i => i.category === 'connection').length}
+            </span>
+          </button>
+        </div>
+
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center">
           <div className="flex-1 sm:max-w-md">
             <div className="flex items-center w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-400 transition-all shadow-sm">
               <Search className="text-gray-400 mr-2 shrink-0" size={18} />
               <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={ko ? "기회 검색..." : "Search opportunities..."}
+                placeholder={ko
+                  ? (activeCategory === 'sales' ? "영업 기회 검색..." : "연결 검색...")
+                  : (activeCategory === 'sales' ? "Search sales..." : "Search connections...")}
                 className="w-full text-sm outline-none bg-transparent placeholder-gray-400 text-gray-900" />
             </div>
           </div>
@@ -493,6 +560,7 @@ export function BizRadarPage() {
                   isSelecting={isSelecting}
                   selectedIds={selectedIds}
                   onToggleSelect={toggleSelect}
+                  category={activeCategory}
                 />
               ))}
             </div>

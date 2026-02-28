@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect } from "react";
-import { useParams, useNavigate } from "react-router";
+import { useParams, useNavigate, useSearchParams } from "react-router";
 import {
   ArrowLeft, Calendar, Compass, Eye, Send, MessageSquare, Trophy,
   CheckCircle2, Plus, Trash2, ArrowRightCircle, Check, X,
   ChevronDown, Building2, User as UserIcon, DollarSign,
-  Percent, Tag, FileText, Users, Clock,
+  Percent, Tag, FileText, Users, Clock, Link2,
 } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
-import { useBizRadar, BizRadarItem, BizStage, BizType, BizActionItem } from "../context/BizRadarContext";
+import { useBizRadar, BizRadarItem, BizStage, BizType, BizCategory, ConnectionType, BizActionItem } from "../context/BizRadarContext";
 import { useTeam } from "../context/TeamContext";
 import { useTaskContext } from "../context/TaskContext";
 import { useTrash } from "../context/TrashContext";
@@ -28,6 +28,15 @@ const TYPE_CONFIG: Record<BizType, { label: string; labelKo: string; color: stri
   funding:     { label: "Funding",     labelKo: "지원사업", color: "text-green-600",  bg: "bg-green-50" },
   partnership: { label: "Partnership", labelKo: "파트너십", color: "text-purple-600", bg: "bg-purple-50" },
   investment:  { label: "Investment",  labelKo: "투자",     color: "text-amber-600",  bg: "bg-amber-50" },
+  other:       { label: "Other",       labelKo: "기타",     color: "text-gray-600",   bg: "bg-gray-50" },
+};
+
+const CONNECTION_TYPE_CONFIG: Record<ConnectionType, { label: string; labelKo: string; color: string; bg: string }> = {
+  agent:       { label: "Agent",       labelKo: "대리점",   color: "text-indigo-600", bg: "bg-indigo-50" },
+  distributor: { label: "Distributor", labelKo: "유통",     color: "text-teal-600",   bg: "bg-teal-50" },
+  supplier:    { label: "Supplier",    labelKo: "공급사",   color: "text-orange-600", bg: "bg-orange-50" },
+  partner:     { label: "Partner",     labelKo: "파트너",   color: "text-purple-600", bg: "bg-purple-50" },
+  client:      { label: "Client",      labelKo: "고객사",   color: "text-blue-600",   bg: "bg-blue-50" },
   other:       { label: "Other",       labelKo: "기타",     color: "text-gray-600",   bg: "bg-gray-50" },
 };
 
@@ -192,6 +201,7 @@ function formatValue(v?: number): string {
 // ─── Main Detail Page ───────────────────────────────────────────
 export function BizRadarDetailPage() {
   const { itemId } = useParams<{ itemId: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { language } = useLanguage();
   const ko = language === 'ko';
@@ -207,10 +217,13 @@ export function BizRadarDetailPage() {
       createdRef.current = true;
       const id = `biz-${Date.now()}`;
       const now = new Date().toISOString();
+      const cat = (searchParams.get('category') as BizCategory) || 'sales';
       const newItem: BizRadarItem = {
         id,
         title: '',
+        category: cat,
         type: 'other',
+        connectionType: cat === 'connection' ? 'other' : undefined,
         stage: 'discovered',
         assigneeId: currentUser.id,
         actionItems: [],
@@ -251,9 +264,11 @@ export function BizRadarDetailPage() {
     );
   }
 
+  const isConnection = (item.category || 'sales') === 'connection';
   const handleTitleChange = (v: string) => updateItem(item.id, { title: v });
   const handleStageChange = (s: BizStage) => updateItem(item.id, { stage: s });
   const handleTypeChange = (t: BizType) => updateItem(item.id, { type: t });
+  const handleConnectionTypeChange = (t: ConnectionType) => updateItem(item.id, { connectionType: t });
   const handleAssigneeChange = (id: string | undefined) => updateItem(item.id, { assigneeId: id });
   const handleDeadlineChange = (dateStr: string) => {
     updateItem(item.id, { deadline: dateStr ? new Date(dateStr).toISOString() : undefined });
@@ -331,8 +346,19 @@ export function BizRadarDetailPage() {
         <div className="max-w-3xl">
           <div className="space-y-6">
 
+            {/* Category Badge */}
+            {isConnection && (
+              <div className="flex items-center gap-1.5 mb-1">
+                <Link2 size={14} className="text-purple-500" />
+                <span className="text-xs font-semibold text-purple-600">{ko ? '연결' : 'Connection'}</span>
+              </div>
+            )}
+
             {/* Title */}
-            <InlineTitle value={item.title} onChange={handleTitleChange} placeholder={ko ? '기회 제목' : 'Opportunity Title'} />
+            <InlineTitle value={item.title} onChange={handleTitleChange}
+              placeholder={ko
+                ? (isConnection ? '연결 제목' : '기회 제목')
+                : (isConnection ? 'Connection Title' : 'Opportunity Title')} />
 
             {/* Properties */}
             <div className="bg-gray-50/50 rounded-2xl border border-gray-100 divide-y divide-gray-100 overflow-hidden">
@@ -350,13 +376,26 @@ export function BizRadarDetailPage() {
               </PropertyItem>
 
               <PropertyItem icon={<Tag size={14} />} label={ko ? '유형' : 'Type'}>
-                <InlineDropdown
-                  value={item.type}
-                  options={['project', 'funding', 'partnership', 'investment', 'other'] as BizType[]}
-                  onChange={handleTypeChange}
-                  renderValue={(v) => <span className={cn("px-2 py-0.5 rounded-md font-bold", TYPE_CONFIG[v].bg, TYPE_CONFIG[v].color)}>{ko ? TYPE_CONFIG[v].labelKo : TYPE_CONFIG[v].label}</span>}
-                  renderOption={(o) => <span className={TYPE_CONFIG[o].color}>{ko ? TYPE_CONFIG[o].labelKo : TYPE_CONFIG[o].label}</span>}
-                />
+                {isConnection ? (
+                  <InlineDropdown
+                    value={item.connectionType || 'other'}
+                    options={['agent', 'distributor', 'supplier', 'partner', 'client', 'other'] as ConnectionType[]}
+                    onChange={handleConnectionTypeChange}
+                    renderValue={(v) => {
+                      const cfg = CONNECTION_TYPE_CONFIG[v];
+                      return <span className={cn("px-2 py-0.5 rounded-md font-bold", cfg.bg, cfg.color)}>{ko ? cfg.labelKo : cfg.label}</span>;
+                    }}
+                    renderOption={(o) => <span className={CONNECTION_TYPE_CONFIG[o].color}>{ko ? CONNECTION_TYPE_CONFIG[o].labelKo : CONNECTION_TYPE_CONFIG[o].label}</span>}
+                  />
+                ) : (
+                  <InlineDropdown
+                    value={item.type}
+                    options={['project', 'funding', 'partnership', 'investment', 'other'] as BizType[]}
+                    onChange={handleTypeChange}
+                    renderValue={(v) => <span className={cn("px-2 py-0.5 rounded-md font-bold", TYPE_CONFIG[v].bg, TYPE_CONFIG[v].color)}>{ko ? TYPE_CONFIG[v].labelKo : TYPE_CONFIG[v].label}</span>}
+                    renderOption={(o) => <span className={TYPE_CONFIG[o].color}>{ko ? TYPE_CONFIG[o].labelKo : TYPE_CONFIG[o].label}</span>}
+                  />
+                )}
               </PropertyItem>
 
               <PropertyItem icon={<DollarSign size={14} />} label={ko ? '예상 가치' : 'Value'}>

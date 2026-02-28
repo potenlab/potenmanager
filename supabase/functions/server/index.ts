@@ -1081,13 +1081,18 @@ app.post("/make-server-f580d5ca/demo/setup", async (c) => {
       { id: "m-demo-3", name: "이준호", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=junho", role: "member", jobTitle: "프론트엔드 개발자" },
     ];
 
-    // Biz Radar Items
+    // Biz Radar Items - Sales
     const radarItems = [
-      { id: "biz-demo-1", title: "TechCorp 파트너십 제안", type: "partnership", stage: "proposal", value: 50000000, probability: 60, contactName: "박서연", contactCompany: "TechCorp", assigneeId: userId, actionItems: [{ id: "ai-d1", title: "파트너십 제안서 작성", done: false }, { id: "ai-d2", title: "미팅 일정 잡기", done: true }], createdAt: daysAgo(7) },
-      { id: "biz-demo-2", title: "대기업 클라이언트 리드", type: "project", stage: "reviewing", value: 30000000, probability: 40, contactName: "최영수", contactCompany: "삼성전자", assigneeId: userId, actionItems: [], deadline: daysFromNow(14), createdAt: daysAgo(3) },
-      { id: "biz-demo-3", title: "정부 혁신 프로그램 선정", type: "funding", stage: "won", value: 20000000, probability: 100, contactName: "정하은", contactCompany: "중소벤처기업부", assigneeId: userId, actionItems: [{ id: "ai-d3", title: "사업계획서 제출", done: true }], createdAt: daysAgo(14) },
-      { id: "biz-demo-4", title: "시드 투자 미팅", type: "investment", stage: "negotiation", value: 100000000, probability: 30, contactName: "김투자", contactCompany: "ABC벤처스", assigneeId: userId, actionItems: [], deadline: daysFromNow(7), createdAt: daysAgo(5) },
-      { id: "biz-demo-5", title: "마케팅 대행 프로젝트", type: "project", stage: "discovered", value: 15000000, probability: 50, source: "소개", assigneeId: userId, actionItems: [], createdAt: daysAgo(1) },
+      { id: "biz-demo-1", title: "TechCorp 파트너십 제안", category: "sales", type: "partnership", stage: "proposal", value: 50000000, probability: 60, contactName: "박서연", contactCompany: "TechCorp", assigneeId: userId, actionItems: [{ id: "ai-d1", title: "파트너십 제안서 작성", done: false }, { id: "ai-d2", title: "미팅 일정 잡기", done: true }], createdAt: daysAgo(7) },
+      { id: "biz-demo-2", title: "대기업 클라이언트 리드", category: "sales", type: "project", stage: "reviewing", value: 30000000, probability: 40, contactName: "최영수", contactCompany: "삼성전자", assigneeId: userId, actionItems: [], deadline: daysFromNow(14), createdAt: daysAgo(3) },
+      { id: "biz-demo-3", title: "정부 혁신 프로그램 선정", category: "sales", type: "funding", stage: "won", value: 20000000, probability: 100, contactName: "정하은", contactCompany: "중소벤처기업부", assigneeId: userId, actionItems: [{ id: "ai-d3", title: "사업계획서 제출", done: true }], createdAt: daysAgo(14) },
+      { id: "biz-demo-4", title: "시드 투자 미팅", category: "sales", type: "investment", stage: "negotiation", value: 100000000, probability: 30, contactName: "김투자", contactCompany: "ABC벤처스", assigneeId: userId, actionItems: [], deadline: daysFromNow(7), createdAt: daysAgo(5) },
+      { id: "biz-demo-5", title: "마케팅 대행 프로젝트", category: "sales", type: "project", stage: "discovered", value: 15000000, probability: 50, source: "소개", assigneeId: userId, actionItems: [], createdAt: daysAgo(1) },
+      // Biz Radar Items - Connections
+      { id: "biz-demo-c1", title: "그린솔루션 유통 파트너", category: "connection", connectionType: "distributor", type: "other", stage: "proposal", value: 80000000, probability: 50, contactName: "이동현", contactCompany: "그린솔루션", assigneeId: userId, actionItems: [{ id: "ai-c1", title: "유통 계약 조건 검토", done: false }], createdAt: daysAgo(6) },
+      { id: "biz-demo-c2", title: "디자인랩 외주 공급사", category: "connection", connectionType: "supplier", type: "other", stage: "reviewing", value: 20000000, probability: 60, contactName: "한지민", contactCompany: "디자인랩", assigneeId: userId, actionItems: [], createdAt: daysAgo(4) },
+      { id: "biz-demo-c3", title: "스타트업허브 대리점", category: "connection", connectionType: "agent", type: "other", stage: "won", value: 35000000, probability: 100, contactName: "조민수", contactCompany: "스타트업허브", assigneeId: userId, actionItems: [{ id: "ai-c2", title: "대리점 계약 체결", done: true }], createdAt: daysAgo(20) },
+      { id: "biz-demo-c4", title: "메가코프 고객사 연결", category: "connection", connectionType: "client", type: "other", stage: "discovered", contactName: "김수현", contactCompany: "메가코프", assigneeId: userId, actionItems: [], source: "전시회", createdAt: daysAgo(2) },
     ];
 
     // Save all data with demo: prefix to isolate from real data

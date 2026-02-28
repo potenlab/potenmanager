@@ -3,6 +3,10 @@ import { api } from "../../lib/api";
 
 export type BizStage = 'discovered' | 'reviewing' | 'proposal' | 'negotiation' | 'won' | 'lost';
 export type BizType = 'project' | 'funding' | 'partnership' | 'investment' | 'other';
+export type BizCategory = 'sales' | 'connection';
+
+// Connection-specific type options
+export type ConnectionType = 'agent' | 'distributor' | 'supplier' | 'partner' | 'client' | 'other';
 
 export interface BizActionItem {
   id: string;
@@ -16,7 +20,9 @@ export interface BizRadarItem {
   id: string;
   title: string;
   description?: string;
+  category: BizCategory;     // 'sales' or 'connection'
   type: BizType;
+  connectionType?: ConnectionType;  // used when category === 'connection'
   stage: BizStage;
   value?: number;
   probability?: number;       // 0-100

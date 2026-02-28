@@ -18,7 +18,7 @@ import { cn } from "../../lib/utils";
 import { RevenueOverview } from "../components/dashboard/RevenueOverview";
 import { UserOverview } from "../components/dashboard/UserOverview";
 import { useLanguage } from "../context/LanguageContext";
-import { useBizRadar, BizStage } from "../context/BizRadarContext";
+import { useBizRadar, BizStage, BizCategory } from "../context/BizRadarContext";
 
 type DashboardTab = "performance" | "team" | "radar";
 
@@ -53,12 +53,16 @@ function BizRadarWidget() {
   const navigate = useNavigate();
   const { items } = useBizRadar();
 
+  const salesItems = items.filter(i => (i.category || 'sales') === 'sales');
+  const connectionItems = items.filter(i => i.category === 'connection');
+
+  const salesActive = salesItems.filter(i => i.stage !== 'won' && i.stage !== 'lost').length;
+  const salesWonValue = salesItems.filter(i => i.stage === 'won').reduce((s, i) => s + (i.value || 0), 0);
+  const connActive = connectionItems.filter(i => i.stage !== 'won' && i.stage !== 'lost').length;
+  const connWonCount = connectionItems.filter(i => i.stage === 'won').length;
+
   const stages: BizStage[] = ['discovered', 'reviewing', 'proposal', 'negotiation', 'won'];
   const countByStage = stages.map(s => ({ stage: s, count: items.filter(i => i.stage === s).length }));
-  const totalActive = items.filter(i => i.stage !== 'won' && i.stage !== 'lost').length;
-  const totalValue = items.filter(i => i.stage !== 'lost').reduce((s, i) => s + (i.value || 0), 0);
-  const weightedValue = items.filter(i => i.stage !== 'won' && i.stage !== 'lost').reduce((s, i) => s + (i.value || 0) * ((i.probability || 0) / 100), 0);
-  const wonValue = items.filter(i => i.stage === 'won').reduce((s, i) => s + (i.value || 0), 0);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden h-full flex flex-col">
@@ -76,19 +80,23 @@ function BizRadarWidget() {
       </div>
 
       <div className="p-5 flex-1">
-        {/* Summary Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-blue-50 rounded-xl p-4 text-center">
-            <p className="text-2xl font-bold text-blue-600">{totalActive}</p>
-            <p className="text-xs text-blue-500 mt-1">{ko ? '진행 중' : 'Active'}</p>
+        {/* Summary Stats - Two rows: Sales + Connections */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <div className="bg-blue-50 rounded-xl p-3 text-center">
+            <p className="text-xl font-bold text-blue-600">{salesActive}</p>
+            <p className="text-[10px] text-blue-500 mt-0.5">{ko ? '영업 진행' : 'Sales Active'}</p>
           </div>
-          <div className="bg-emerald-50 rounded-xl p-4 text-center">
-            <p className="text-2xl font-bold text-emerald-600">{formatValue(wonValue)}</p>
-            <p className="text-xs text-emerald-500 mt-1">{ko ? '성사 금액' : 'Won'}</p>
+          <div className="bg-emerald-50 rounded-xl p-3 text-center">
+            <p className="text-xl font-bold text-emerald-600">{formatValue(salesWonValue)}</p>
+            <p className="text-[10px] text-emerald-500 mt-0.5">{ko ? '영업 성사' : 'Sales Won'}</p>
           </div>
-          <div className="bg-amber-50 rounded-xl p-4 text-center">
-            <p className="text-2xl font-bold text-amber-600">{formatValue(weightedValue)}</p>
-            <p className="text-xs text-amber-500 mt-1">{ko ? '가중 가치' : 'Weighted'}</p>
+          <div className="bg-purple-50 rounded-xl p-3 text-center">
+            <p className="text-xl font-bold text-purple-600">{connActive}</p>
+            <p className="text-[10px] text-purple-500 mt-0.5">{ko ? '연결 진행' : 'Conn. Active'}</p>
+          </div>
+          <div className="bg-amber-50 rounded-xl p-3 text-center">
+            <p className="text-xl font-bold text-amber-600">{connWonCount}</p>
+            <p className="text-[10px] text-amber-500 mt-0.5">{ko ? '연결 성사' : 'Conn. Won'}</p>
           </div>
         </div>
 
@@ -151,7 +159,14 @@ function BizRadarWidget() {
                     <div className="shrink-0">{STAGE_ICON[item.stage]}</div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-800 truncate">{item.title || (ko ? '제목 없음' : 'Untitled')}</p>
-                      {item.contactCompany && <p className="text-[11px] text-gray-400">{item.contactCompany}</p>}
+                      <div className="flex items-center gap-1.5">
+                        {item.contactCompany && <p className="text-[11px] text-gray-400">{item.contactCompany}</p>}
+                        <span className={cn("text-[9px] px-1 py-0.5 rounded font-bold",
+                          item.category === 'connection' ? "bg-purple-50 text-purple-500" : "bg-blue-50 text-blue-500"
+                        )}>
+                          {item.category === 'connection' ? (ko ? '연결' : 'Conn') : (ko ? '영업' : 'Sales')}
+                        </span>
+                      </div>
                     </div>
                     {item.value && (
                       <span className="text-xs font-semibold text-gray-500 shrink-0 flex items-center gap-0.5">
