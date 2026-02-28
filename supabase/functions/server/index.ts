@@ -40,6 +40,12 @@ const checkPermission = (permission: Permission) => {
   };
 };
 
+// Helper: get key prefix based on demo scope
+const pfx = (c: any, base: string) => {
+  const scope = c.req.query("scope");
+  return scope === "demo" ? `demo:${base}` : base;
+};
+
 // ─── Health ──────────────────────────────────────────────────────────
 app.get("/make-server-f580d5ca/health", (c) => c.json({ status: "ok" }));
 
@@ -102,7 +108,7 @@ app.post("/make-server-f580d5ca/seed", async (c) => {
 // ─── Task Routes ─────────────────────────────────────────────────────
 app.get("/make-server-f580d5ca/tasks", async (c) => {
   try {
-    const tasks = await kv.getByPrefix("task:");
+    const tasks = await kv.getByPrefix(pfx(c, "task:"));
     return c.json(tasks || []);
   } catch (e) {
     console.log("Error fetching tasks:", e);
@@ -197,7 +203,7 @@ app.delete("/make-server-f580d5ca/tasks/:id", async (c) => {
 // ─── Goal Routes ─────────────────────────────────────────────────────
 app.get("/make-server-f580d5ca/goals", async (c) => {
   try {
-    const goals = await kv.getByPrefix("goal:");
+    const goals = await kv.getByPrefix(pfx(c, "goal:"));
     return c.json(goals || []);
   } catch (e) {
     console.log("Error fetching goals:", e);
@@ -302,7 +308,7 @@ app.post("/make-server-f580d5ca/logs", async (c) => {
 // ─── Team Routes ─────────────────────────────────────────────────────
 app.get("/make-server-f580d5ca/team/members", async (c) => {
   try {
-    const members = await kv.getByPrefix("member:");
+    const members = await kv.getByPrefix(pfx(c, "member:"));
     return c.json(members || []);
   } catch (e) {
     console.log("Error fetching members:", e);
@@ -738,7 +744,7 @@ app.get("/make-server-f580d5ca/org/:orgId/invites", async (c) => {
 // ─── Opportunity Routes ──────────────────────────────────────────────
 app.get("/make-server-f580d5ca/opportunities", async (c) => {
   try {
-    const opportunities = await kv.getByPrefix("opportunity:");
+    const opportunities = await kv.getByPrefix(pfx(c, "opportunity:"));
     return c.json(opportunities || []);
   } catch (e) {
     console.log("Error fetching opportunities:", e);
@@ -1033,11 +1039,11 @@ app.post("/make-server-f580d5ca/demo/setup", async (c) => {
       { id: "opp-demo-3", title: "Government innovation program", titleKo: "정부 혁신 프로그램 선정", type: "grant", status: "won", value: 20000000, probability: 100, contactName: "정하은", createdAt: daysAgo(14) },
     ];
 
-    // Save all data
-    for (const task of tasks) await kv.set(`task:${task.id}`, { ...task, updatedAt: now.toISOString() });
-    for (const goal of goals) await kv.set(`goal:${goal.id}`, { ...goal, updatedAt: now.toISOString() });
-    for (const member of members) await kv.set(`member:${member.id}`, member);
-    for (const opp of opportunities) await kv.set(`opportunity:${opp.id}`, { ...opp, updatedAt: now.toISOString() });
+    // Save all data with demo: prefix to isolate from real data
+    for (const task of tasks) await kv.set(`demo:task:${task.id}`, { ...task, updatedAt: now.toISOString() });
+    for (const goal of goals) await kv.set(`demo:goal:${goal.id}`, { ...goal, updatedAt: now.toISOString() });
+    for (const member of members) await kv.set(`demo:member:${member.id}`, member);
+    for (const opp of opportunities) await kv.set(`demo:opportunity:${opp.id}`, { ...opp, updatedAt: now.toISOString() });
 
     // Mark onboarding as complete for demo user
     await kv.set(`onboarding:${userId}`, {

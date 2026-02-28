@@ -11,8 +11,14 @@ const AUTH_HEADERS: Record<string, string> = {
   'Authorization': `Bearer ${publicAnonKey}`,
 };
 
+function isDemo() {
+  try { return localStorage.getItem('poten_demo_mode') === 'true'; } catch { return false; }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
+  const sep = path.includes('?') ? '&' : '?';
+  const url = isDemo() ? `${BASE}${path}${sep}scope=demo` : `${BASE}${path}`;
+  const res = await fetch(url, {
     ...init,
     headers: { ...AUTH_HEADERS, ...init?.headers },
   });

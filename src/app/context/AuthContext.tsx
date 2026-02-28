@@ -41,6 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signInWithGoogle = async () => {
+    try { localStorage.removeItem('poten_demo_mode'); } catch {}
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {

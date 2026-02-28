@@ -38,6 +38,7 @@ export function LoginPage() {
     setError('');
     setMessage('');
     setSubmitting(true);
+    localStorage.removeItem('poten_demo_mode');
 
     if (isSignUp) {
       const result = await signUp(email, password);
@@ -61,8 +62,10 @@ export function LoginPage() {
     setDemoLoading(true);
     try {
       await api.setupDemo();
+      localStorage.setItem('poten_demo_mode', 'true');
       const result = await signInWithEmail('demo@potenmanager.com', 'demo1234');
       if (result.error) {
+        localStorage.removeItem('poten_demo_mode');
         setError(ko ? '데모 계정 로그인에 실패했습니다.' : 'Demo login failed.');
       }
     } catch {

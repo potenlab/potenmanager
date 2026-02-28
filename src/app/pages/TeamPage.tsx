@@ -157,7 +157,7 @@ export function TeamPage() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {members.map((member) => (
+        {[...members].sort((a, b) => a.id === currentUser.id ? -1 : b.id === currentUser.id ? 1 : 0).map((member) => (
           <TeamMemberCard
             key={member.id}
             member={member}
@@ -292,7 +292,10 @@ function TeamMemberCard({
         />
       </div>
 
-      <h3 className="text-lg font-bold text-gray-900 mb-1">{member.name}</h3>
+      <h3 className="text-lg font-bold text-gray-900 mb-1">
+        {member.name}
+        {isMe && <span className="ml-1.5 text-sm font-medium text-gray-400">({language === 'ko' ? '나' : 'Me'})</span>}
+      </h3>
       <div className="flex items-center gap-1.5 mb-4">
         {(() => {
           const ri = getRoleInfo(member.role as Role);
