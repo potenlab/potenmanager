@@ -99,6 +99,12 @@ export const api = {
   deleteTeamMember: (id: string) =>
     request<any>(`/team/members/${id}`, { method: 'DELETE' }),
 
+  // ── Profile ──
+  getProfile: (userId: string) =>
+    request<{ phone: string; company: string; location: string; jobTitle: string }>(`/profile/${userId}`),
+  updateProfile: (userId: string, data: { phone?: string; company?: string; location?: string; jobTitle?: string }) =>
+    request<{ success: boolean }>(`/profile/${userId}`, { method: 'PUT', body: JSON.stringify(data) }),
+
   // ── Organization ──
   createOrg: (data: { name: string; ownerId: string; ownerName?: string }) =>
     request<any>('/org', { method: 'POST', body: JSON.stringify(data) }),

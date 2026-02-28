@@ -186,10 +186,18 @@ export function InviteProvider({ children }: { children: ReactNode }) {
   const approveRequest = useCallback(async (userId: string): Promise<boolean> => {
     if (!org) return false;
     try {
+      const request = joinRequests.find(r => r.userId === userId);
       await api.processJoinRequest(org.id, userId, 'approve');
       setJoinRequests(prev => prev.map(r =>
         r.userId === userId ? { ...r, status: 'approved' as const } : r
       ));
+      // Emit notification for the new member joining
+      if (request) {
+        notificationBus.emit({
+          type: 'team.member_joined',
+          data: { memberId: userId, memberName: request.userName || userId },
+        });
+      }
       // Refresh team members
       await refreshMembers();
       return true;
@@ -197,7 +205,7 @@ export function InviteProvider({ children }: { children: ReactNode }) {
       console.error("[InviteContext] Failed to approve request:", err);
       return false;
     }
-  }, [org, refreshMembers]);
+  }, [org, joinRequests, refreshMembers]);
 
   // ── Reject Request ────────────────────────────────────────────────
   const rejectRequest = useCallback(async (userId: string): Promise<boolean> => {

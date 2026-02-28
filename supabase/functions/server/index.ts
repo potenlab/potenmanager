@@ -384,6 +384,41 @@ app.put("/make-server-f580d5ca/onboarding/:userId", async (c) => {
   }
 });
 
+// ─── User Profile ────────────────────────────────────────────────────────────
+// Stores extra profile fields (phone, company, location, jobTitle) per user.
+// Key format: profile:{userId}
+
+app.get("/make-server-f580d5ca/profile/:userId", async (c) => {
+  try {
+    const userId = c.req.param("userId");
+    const data = await kv.get(`profile:${userId}`);
+    return c.json(data || { phone: "", company: "", location: "", jobTitle: "" });
+  } catch (e) {
+    console.log("Error fetching profile:", e);
+    return c.json({ phone: "", company: "", location: "", jobTitle: "" });
+  }
+});
+
+app.put("/make-server-f580d5ca/profile/:userId", async (c) => {
+  try {
+    const userId = c.req.param("userId");
+    const body = await c.req.json();
+    const existing = (await kv.get(`profile:${userId}`)) || {};
+    const record = {
+      ...existing,
+      ...body,
+      userId,
+      updatedAt: new Date().toISOString(),
+    };
+    await kv.set(`profile:${userId}`, record);
+    console.log(`[Profile] Saved profile for user ${userId}`);
+    return c.json({ success: true, data: record });
+  } catch (e) {
+    console.log("Error saving profile:", e);
+    return c.json({ error: "Failed to save profile", message: String(e) }, 500);
+  }
+});
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Organization & Invite System
 // ═══════════════════════════════════════════════════════════════════════════════

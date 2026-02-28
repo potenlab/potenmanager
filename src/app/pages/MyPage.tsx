@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import {
   ArrowLeft,
@@ -18,11 +18,10 @@ import {
   X,
   Palette,
   Lock,
+  User as UserIcon,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import {
-  currentUser,
-  teamMembers,
   getUserColor,
   setUserColor,
   getColorOwner,
@@ -30,6 +29,9 @@ import {
   MEMBER_COLORS,
 } from "../../lib/mockData";
 import { useLanguage } from "../context/LanguageContext";
+import { useTeam } from "../context/TeamContext";
+import { useAuth } from "../context/AuthContext";
+import { api } from "../../lib/api";
 
 interface ProfileField {
   key: string;
@@ -43,13 +45,13 @@ interface ProfileField {
 export function MyPage() {
   const { language, t } = useLanguage();
   const navigate = useNavigate();
+  const { currentUser, members, updateMember } = useTeam();
+  const { user: authUser, signOut } = useAuth();
 
-  const [name, setName] = useState(currentUser.name);
-  const [email, setEmail] = useState("kim@potenmanager.com");
-  const [phone, setPhone] = useState("010-1234-5678");
-  const [role] = useState(currentUser.role === "owner" ? "Founder / CEO" : "Team Member");
-  const [company, setCompany] = useState("포텐매니저");
-  const [location, setLocation] = useState(language === "ko" ? "서울, 대한민국" : "Seoul, South Korea");
+  // Profile fields from server
+  const [phone, setPhone] = useState("");
+  const [company, setCompany] = useState("");
+  const [location, setLocation] = useState("");
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -62,11 +64,28 @@ export function MyPage() {
   const [myColor, setMyColor] = useState<string | null>(() => getUserColor(currentUser.id));
   const myColorConfig = myColor ? getMemberColorConfig(myColor) : null;
 
+  // Load profile from server on mount
+  const profileLoaded = useRef(false);
+  useEffect(() => {
+    if (!currentUser.id || profileLoaded.current) return;
+    profileLoaded.current = true;
+    api.getProfile(currentUser.id).then((profile) => {
+      if (profile.phone) setPhone(profile.phone);
+      if (profile.company) setCompany(profile.company);
+      if (profile.location) setLocation(profile.location);
+    }).catch(() => {});
+  }, [currentUser.id]);
+
+  // Derived values from auth
+  const name = currentUser.name || authUser?.user_metadata?.full_name || authUser?.email || "User";
+  const email = authUser?.email || "";
+  const avatar = currentUser.avatar || authUser?.user_metadata?.avatar_url || "";
+  const role = currentUser.role === "owner" ? "Founder / CEO" : "Team Member";
+
   const handleSelectMyColor = (hex: string) => {
     const owner = getColorOwner(hex);
-    if (owner && owner !== currentUser.id) return; // taken by someone else
+    if (owner && owner !== currentUser.id) return;
     if (myColor === hex) {
-      // Deselect
       setUserColor(currentUser.id, null);
       setMyColor(null);
     } else {
@@ -76,31 +95,42 @@ export function MyPage() {
   };
 
   const profileFields: ProfileField[] = [
-    { key: "name", label: "Name", labelKo: "이름", value: name, icon: <Pencil size={16} />, editable: true },
-    { key: "email", label: "Email", labelKo: "이메일", value: email, icon: <Mail size={16} />, editable: true },
-    { key: "phone", label: "Phone", labelKo: "전화번호", value: phone, icon: <Phone size={16} />, editable: true },
+    { key: "name", label: "Name", labelKo: "이름", value: name, icon: <UserIcon size={16} />, editable: true },
+    { key: "email", label: "Email", labelKo: "이메일", value: email, icon: <Mail size={16} /> },
+    { key: "phone", label: "Phone", labelKo: "전화번호", value: phone || (language === "ko" ? "미설정" : "Not set"), icon: <Phone size={16} />, editable: true },
     { key: "role", label: "Role", labelKo: "역할", value: role, icon: <Briefcase size={16} /> },
-    { key: "company", label: "Company", labelKo: "회사", value: company, icon: <Globe size={16} />, editable: true },
-    { key: "location", label: "Location", labelKo: "위치", value: location, icon: <MapPin size={16} />, editable: true },
+    { key: "company", label: "Company", labelKo: "회사", value: company || (language === "ko" ? "미설정" : "Not set"), icon: <Globe size={16} />, editable: true },
+    { key: "location", label: "Location", labelKo: "위치", value: location || (language === "ko" ? "미설정" : "Not set"), icon: <MapPin size={16} />, editable: true },
   ];
 
   const startEdit = (key: string, currentValue: string) => {
+    const isPlaceholder = currentValue === "미설정" || currentValue === "Not set";
     setEditingField(key);
-    setEditValue(currentValue);
+    setEditValue(isPlaceholder ? "" : currentValue);
   };
 
-  const commitEdit = () => {
-    if (!editingField || !editValue.trim()) {
+  const commitEdit = async () => {
+    if (!editingField) {
       setEditingField(null);
       return;
     }
     const v = editValue.trim();
     switch (editingField) {
-      case "name": setName(v); break;
-      case "email": setEmail(v); break;
-      case "phone": setPhone(v); break;
-      case "company": setCompany(v); break;
-      case "location": setLocation(v); break;
+      case "name":
+        if (v) await updateMember(currentUser.id, { name: v });
+        break;
+      case "phone":
+        setPhone(v);
+        api.updateProfile(currentUser.id, { phone: v }).catch(() => {});
+        break;
+      case "company":
+        setCompany(v);
+        api.updateProfile(currentUser.id, { company: v }).catch(() => {});
+        break;
+      case "location":
+        setLocation(v);
+        api.updateProfile(currentUser.id, { location: v }).catch(() => {});
+        break;
     }
     setEditingField(null);
     setEditValue("");
@@ -109,6 +139,11 @@ export function MyPage() {
   const cancelEdit = () => {
     setEditingField(null);
     setEditValue("");
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
   };
 
   return (
@@ -137,11 +172,17 @@ export function MyPage() {
           {/* Avatar */}
           <div className="px-6 -mt-14 relative z-[1]">
             <div className="relative inline-block group">
-              <img
-                src={currentUser.avatar}
-                alt={name}
-                className="w-24 h-24 rounded-2xl object-cover border-4 border-white shadow-lg"
-              />
+              {avatar ? (
+                <img
+                  src={avatar}
+                  alt={name}
+                  className="w-24 h-24 rounded-2xl object-cover border-4 border-white shadow-lg"
+                />
+              ) : (
+                <div className="w-24 h-24 rounded-2xl border-4 border-white shadow-lg bg-blue-100 flex items-center justify-center">
+                  <UserIcon size={40} className="text-blue-400" />
+                </div>
+              )}
               <button className="absolute bottom-1 right-1 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-700">
                 <Camera size={14} />
               </button>
@@ -212,7 +253,10 @@ export function MyPage() {
                       </button>
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-900 truncate">{field.value}</p>
+                    <p className={cn(
+                      "text-sm truncate",
+                      (field.value === "미설정" || field.value === "Not set") ? "text-gray-400 italic" : "text-gray-900"
+                    )}>{field.value}</p>
                   )}
                 </div>
                 {field.editable && editingField !== field.key && (
@@ -278,7 +322,7 @@ export function MyPage() {
               {MEMBER_COLORS.map((mc) => {
                 const ownerOfColor = getColorOwner(mc.hex);
                 const isTaken = ownerOfColor !== null && ownerOfColor !== currentUser.id;
-                const ownerMember = isTaken ? teamMembers.find((m) => m.id === ownerOfColor) : null;
+                const ownerMember = isTaken ? members.find((m) => m.id === ownerOfColor) : null;
                 const isSelected = myColor === mc.hex;
 
                 return (
@@ -324,12 +368,18 @@ export function MyPage() {
                   {language === "ko" ? "팀원 색상" : "Team Colors"}
                 </p>
                 <div className="space-y-2">
-                  {teamMembers.filter(m => m.id !== currentUser.id).map((member) => {
+                  {members.filter(m => m.id !== currentUser.id).map((member) => {
                     const mColor = getUserColor(member.id);
                     const mConfig = mColor ? getMemberColorConfig(mColor) : null;
                     return (
                       <div key={member.id} className="flex items-center gap-3">
-                        <img src={member.avatar} alt={member.name} className="w-6 h-6 rounded-full object-cover" />
+                        {member.avatar ? (
+                          <img src={member.avatar} alt={member.name} className="w-6 h-6 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
+                            <UserIcon size={12} className="text-gray-400" />
+                          </div>
+                        )}
                         <span className="text-sm text-gray-700 flex-1">{member.name}</span>
                         {mColor && mConfig ? (
                           <div className="flex items-center gap-1.5">
@@ -443,7 +493,10 @@ export function MyPage() {
         </div>
 
         {/* Logout */}
-        <button className="w-full bg-white rounded-2xl border border-gray-100 shadow-sm px-6 py-4 flex items-center gap-4 hover:bg-red-50 hover:border-red-100 transition-colors group">
+        <button
+          onClick={handleSignOut}
+          className="w-full bg-white rounded-2xl border border-gray-100 shadow-sm px-6 py-4 flex items-center gap-4 hover:bg-red-50 hover:border-red-100 transition-colors group"
+        >
           <LogOut size={16} className="text-gray-400 group-hover:text-red-500 transition-colors" />
           <span className="text-sm text-gray-700 group-hover:text-red-600 font-medium transition-colors">
             {language === "ko" ? "로그아웃" : "Log out"}
