@@ -689,21 +689,7 @@ export function TasksPage() {
         </header>
 
         <div className="flex-1 overflow-x-auto pb-4">
-          {filteredTasks.length === 0 && !addingInColumn ? (
-            <div className="flex flex-col items-center justify-center h-64 text-gray-400">
-              <History size={48} className="mb-4 text-gray-300" />
-              <p className="text-sm font-medium">{t("task_no_tasks_period")}</p>
-              <PermissionGate permission="task.create">
-                <button
-                  onClick={() => setAddingInColumn('pending')}
-                  className="mt-4 flex items-center gap-2 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
-                >
-                  <Plus size={16} />
-                  {language === 'ko' ? '새 업무 추가' : 'Add new task'}
-                </button>
-              </PermissionGate>
-            </div>
-          ) : viewMode === 'board' ? (
+          {viewMode === 'board' ? (
             (timeFilter === 'all' || timeFilter === 'this_week') && groupedTasks ? (
               <GroupedBoardView
                 groupedTasks={groupedTasks}
