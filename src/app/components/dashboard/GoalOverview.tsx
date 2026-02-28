@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Link } from "react-router";
 import {
@@ -12,6 +12,7 @@ import { GoalItem, UrgentCategory } from "../../../lib/mockData";
 import { useLanguage } from "../../context/LanguageContext";
 import { useGoalContext } from "../../context/GoalContext";
 import { usePermission } from "../../context/PermissionContext";
+import { useTeam } from "../../context/TeamContext";
 
 // ─── Urgent Category Config ────────────────────────────────────────
 const URGENT_CATEGORY_CONFIG: Record<UrgentCategory, { icon: React.ReactNode; color: string; bg: string; border: string }> = {
@@ -34,12 +35,13 @@ export function GoalOverview() {
   const [activeTab, setActiveTab] = useState<TabType>("Quarter");
   const { language, t } = useLanguage();
   const { members } = usePermission();
+  const { currentUser } = useTeam();
   const [showAddForm, setShowAddForm] = useState(false);
   const [newGoalTitle, setNewGoalTitle] = useState("");
 
-  // *** Use GoalContext instead of static mock imports ***
-  const { goals: ctxGoals, urgentGoals: ctxUrgentGoals, addGoal } = useGoalContext();
+  const { goals: ctxGoals, urgentGoals: ctxUrgentGoals, addGoal, allGoals: everyGoal } = useGoalContext();
   const allGoals = ctxGoals;
+  const hasNoGoals = everyGoal.length === 0;
 
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -341,7 +343,28 @@ export function GoalOverview() {
                 </div>
               )
             ) : (
-              filteredGoals.length > 0 ? (
+              hasNoGoals ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="text-4xl mb-4">🎯</div>
+                  <p className="text-base font-semibold text-gray-700 mb-2">
+                    {language === "ko"
+                      ? `${currentUser.name}님은 어떤 멋진 목표를 갖고 계신가요?`
+                      : `What amazing goals do you have, ${currentUser.name}?`}
+                  </p>
+                  <p className="text-xs text-gray-400 mb-4">
+                    {language === "ko"
+                      ? "목표를 설정하고 체계적으로 관리해보세요"
+                      : "Set your goals and manage them systematically"}
+                  </p>
+                  <Link
+                    to="/goals/setup"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-500 text-white text-xs font-semibold hover:bg-blue-600 transition-all shadow-sm"
+                  >
+                    <Plus size={14} />
+                    {language === "ko" ? "목표 설정하기" : "Set Goals"}
+                  </Link>
+                </div>
+              ) : filteredGoals.length > 0 ? (
                 filteredGoals.map((goal) => (
                   <Link
                     to={`/goals/${goal.id}`}
