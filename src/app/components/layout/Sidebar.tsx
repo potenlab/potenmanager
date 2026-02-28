@@ -9,6 +9,7 @@ import {
   Settings,
   Zap,
   Lightbulb,
+  Video,
   Plus,
   Globe,
   ChevronDown,
@@ -75,6 +76,7 @@ export function Sidebar() {
           <NavItem to="/goals" icon={<Target size={20} />} label={t("tab_goal")} compact={isCompact} onClick={closeSidebar} />
           <NavItem to="/strategy" icon={<Lightbulb size={20} />} label={t("goals_strategy")} compact={isCompact} onClick={closeSidebar} />
           <NavItem to="/calendar" icon={<Calendar size={20} />} label={t("calendar")} compact={isCompact} onClick={closeSidebar} />
+          <NavItem to="/meetings" icon={<Video size={20} />} label={language === 'ko' ? '회의' : 'Meetings'} compact={isCompact} onClick={closeSidebar} />
 
           {/* Team with expandable sub-menu */}
           <div>

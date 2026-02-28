@@ -147,6 +147,18 @@ export const api = {
   deleteOpportunity: (id: string) =>
     request<any>(`/opportunities/${id}`, { method: 'DELETE' }),
 
+  // ── Meetings ──
+  getMeetings: async () => {
+    const data = await request<any[]>('/meetings');
+    return data.map(parseItemDates);
+  },
+  createMeeting: (meeting: any) =>
+    request<any>('/meetings', { method: 'POST', body: JSON.stringify(meeting) }),
+  updateMeeting: (id: string, data: any) =>
+    request<any>(`/meetings/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteMeeting: (id: string) =>
+    request<any>(`/meetings/${id}`, { method: 'DELETE' }),
+
   // ── AI Strategy ──
   generateStrategy: (data: {
     goal: string;

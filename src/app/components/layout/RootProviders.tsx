@@ -8,6 +8,7 @@ import { TeamProvider } from "../../context/TeamContext";
 import { AuthProvider } from "../../context/AuthContext";
 import { InviteProvider } from "../../context/InviteContext";
 import { OpportunityProvider } from "../../context/OpportunityContext";
+import { MeetingProvider } from "../../context/MeetingContext";
 import { NotificationProvider } from "../../context/NotificationContext";
 
 /**
@@ -24,6 +25,7 @@ export function RootProviders() {
             <TaskProvider>
               <GoalProvider>
                 <OpportunityProvider>
+                <MeetingProvider>
                 <PermissionProvider>
                   <NotificationProvider>
                     <InviteProvider>
@@ -31,6 +33,7 @@ export function RootProviders() {
                     </InviteProvider>
                   </NotificationProvider>
                 </PermissionProvider>
+                </MeetingProvider>
                 </OpportunityProvider>
               </GoalProvider>
             </TaskProvider>

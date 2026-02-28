@@ -20,6 +20,8 @@ import { NotificationsPage } from "./pages/NotificationsPage";
 import { MyPage } from "./pages/MyPage";
 import { OnboardingPage } from "./pages/OnboardingPage";
 import { InviteAcceptPage } from "./pages/InviteAcceptPage";
+import { MeetingPage } from "./pages/MeetingPage";
+import { MeetingDetailPage } from "./pages/MeetingDetailPage";
 
 export const router = createBrowserRouter([
   {
@@ -51,6 +53,8 @@ export const router = createBrowserRouter([
               { path: "goals/:goalId", Component: GoalDetailPage },
               { path: "strategy", Component: GoalsPage },
               { path: "strategy/new", Component: StrategyCreationPage },
+              { path: "meetings", Component: MeetingPage },
+              { path: "meetings/:meetingId", Component: MeetingDetailPage },
               { path: "team", Component: TeamPage },
               { path: "team/permissions", Component: PermissionsPage },
               { path: "team/:memberId", Component: TeamMemberPage },

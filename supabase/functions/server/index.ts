@@ -790,6 +790,55 @@ app.delete("/make-server-f580d5ca/opportunities/:id", async (c) => {
   }
 });
 
+// ─── Meeting Routes ─────────────────────────────────────────────────
+app.get("/make-server-f580d5ca/meetings", async (c) => {
+  try {
+    const meetings = await kv.getByPrefix(pfx(c, "meeting:"));
+    return c.json(meetings || []);
+  } catch (e) {
+    console.log("Error fetching meetings:", e);
+    return c.json([]);
+  }
+});
+
+app.post("/make-server-f580d5ca/meetings", async (c) => {
+  try {
+    const body = await c.req.json();
+    const id = body.id || `mt-${Date.now()}`;
+    const meeting = { ...body, id, updatedAt: new Date().toISOString() };
+    await kv.set(`meeting:${id}`, meeting);
+    return c.json(meeting);
+  } catch (e) {
+    console.log("Error creating meeting:", e);
+    return c.json({ error: "Failed to create meeting", message: String(e) }, 500);
+  }
+});
+
+app.put("/make-server-f580d5ca/meetings/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const body = await c.req.json();
+    const existing = await kv.get(`meeting:${id}`);
+    const updated = { ...(existing || {}), ...body, id, updatedAt: new Date().toISOString() };
+    await kv.set(`meeting:${id}`, updated);
+    return c.json(updated);
+  } catch (e) {
+    console.log("Error updating meeting:", e);
+    return c.json({ error: "Failed to update meeting", message: String(e) }, 500);
+  }
+});
+
+app.delete("/make-server-f580d5ca/meetings/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    await kv.del(`meeting:${id}`);
+    return c.json({ success: true });
+  } catch (e) {
+    console.log("Error deleting meeting:", e);
+    return c.json({ error: "Failed to delete meeting", message: String(e) }, 500);
+  }
+});
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // AI Strategy Generation (Gemini API)
 // ═══════════════════════════════════════════════════════════════════════════════
