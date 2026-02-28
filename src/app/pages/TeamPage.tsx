@@ -271,16 +271,6 @@ function TeamMemberCard({
       onClick={onViewTasks}
       className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all p-6 flex flex-col items-center relative group cursor-pointer hover:border-blue-200"
     >
-      {/* Top-right menu */}
-      <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          onClick={(e) => { e.stopPropagation(); }}
-          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
-        >
-          <MoreHorizontal size={20} />
-        </button>
-      </div>
-
       {/* Avatar with color ring */}
       <div className="relative mb-4">
         <div

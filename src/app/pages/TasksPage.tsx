@@ -662,10 +662,6 @@ export function TasksPage() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <button className="flex items-center gap-2 px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm">
-                <Filter size={16} />
-                {t("filter")}
-              </button>
               <div className="flex bg-gray-100 p-1 rounded-xl">
                 <button 
                   onClick={() => setViewMode('board')}

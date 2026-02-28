@@ -8,8 +8,6 @@ import {
   Briefcase,
   MapPin,
   Globe,
-  Bell,
-  Moon,
   Shield,
   LogOut,
   ChevronRight,
@@ -55,10 +53,6 @@ export function MyPage() {
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
-
-  // Settings toggles
-  const [notifications, setNotifications] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
 
   // Avatar upload
   const [customAvatar, setCustomAvatar] = useState<string | null>(null);
@@ -452,64 +446,6 @@ export function MyPage() {
             </h3>
           </div>
           <div className="divide-y divide-gray-50">
-            {/* Notifications */}
-            <div className="px-6 py-3.5 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Bell size={16} className="text-gray-400" />
-                <div>
-                  <p className="text-sm text-gray-900">
-                    {language === "ko" ? "알림" : "Notifications"}
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    {language === "ko" ? "푸시 알림 수신" : "Receive push notifications"}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setNotifications(!notifications)}
-                className={cn(
-                  "relative w-11 h-6 rounded-full transition-colors",
-                  notifications ? "bg-blue-600" : "bg-gray-200"
-                )}
-              >
-                <span
-                  className={cn(
-                    "absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform",
-                    notifications ? "translate-x-[22px]" : "translate-x-0.5"
-                  )}
-                />
-              </button>
-            </div>
-
-            {/* Dark Mode */}
-            <div className="px-6 py-3.5 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Moon size={16} className="text-gray-400" />
-                <div>
-                  <p className="text-sm text-gray-900">
-                    {language === "ko" ? "다크 모드" : "Dark Mode"}
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    {language === "ko" ? "어두운 테마 사용" : "Use dark theme"}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setDarkMode(!darkMode)}
-                className={cn(
-                  "relative w-11 h-6 rounded-full transition-colors",
-                  darkMode ? "bg-blue-600" : "bg-gray-200"
-                )}
-              >
-                <span
-                  className={cn(
-                    "absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform",
-                    darkMode ? "translate-x-[22px]" : "translate-x-0.5"
-                  )}
-                />
-              </button>
-            </div>
-
             {/* Language (read-only, controlled from sidebar) */}
             <div className="px-6 py-3.5 flex items-center justify-between">
               <div className="flex items-center gap-4">
