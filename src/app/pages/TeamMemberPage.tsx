@@ -16,6 +16,8 @@ import { usePermission } from "../context/PermissionContext";
 import { PermissionGate } from "../components/layout/PermissionGate";
 import { getRoleInfo, ROLE_INFO, Role } from "../../lib/permissions";
 import { useTaskContext } from "../context/TaskContext";
+import { useMeetingContext } from "../context/MeetingContext";
+import { useAuth } from "../context/AuthContext";
 import {
   format,
   isToday,
@@ -46,6 +48,8 @@ import {
   Trash2,
   Crown,
   Eye as EyeIcon,
+  Video,
+  Clock,
 } from "lucide-react";
 
 type FilterTab = "all" | "in-progress" | "pending" | "completed";
@@ -102,6 +106,8 @@ export function TeamMemberPage() {
   const navigate = useNavigate();
   const { can, canManage, getMemberRole, changeMemberRole, members, currentUser } = usePermission();
   const { tasks } = useTaskContext();
+  const { meetings } = useMeetingContext();
+  const { user: authUser } = useAuth();
   const [filter, setFilter] = useState<FilterTab>("all");
   const [memberColor, setMemberColor] = useState<string | null>(() =>
     getUserColor(memberId ?? "")
@@ -166,6 +172,13 @@ export function TeamMemberPage() {
     return { total, completed, inProgress, pending, overdue };
   }, [memberTasks]);
 
+  // Member meetings
+  const memberMeetings = useMemo(() => {
+    return meetings
+      .filter((m) => m.attendeeIds.includes(memberId ?? "") || m.organizerId === memberId)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [meetings, memberId]);
+
   // Sort: in-progress first, then pending, then completed
   const sortedTasks = useMemo(() => {
     const order = { "in-progress": 0, pending: 1, completed: 2 };
@@ -198,7 +211,7 @@ export function TeamMemberPage() {
     );
   }
 
-  const email = `${member.name.toLowerCase().replace(" ", ".")}@company.com`;
+  const email = isMe ? authUser?.email : null;
   const colorConfig = memberColor ? getMemberColorConfig(memberColor) : null;
 
   const filterTabs: {
@@ -285,10 +298,12 @@ export function TeamMemberPage() {
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm text-gray-500">
-                  <span className="flex items-center gap-1.5">
-                    <Mail size={14} className="text-gray-400" />
-                    {email}
-                  </span>
+                  {email && (
+                    <span className="flex items-center gap-1.5">
+                      <Mail size={14} className="text-gray-400" />
+                      {email}
+                    </span>
+                  )}
                   <span className="flex items-center gap-1.5">
                     <Briefcase size={14} className="text-gray-400" />
                     {member.jobTitle ?? "Product Team"}
@@ -416,6 +431,89 @@ export function TeamMemberPage() {
               />
             ))
           )}
+        </div>
+
+        {/* ── Meetings ── */}
+        <div className="mt-8">
+          <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2 mb-3">
+            <Video size={16} className="text-purple-500" />
+            {language === "ko" ? "회의" : "Meetings"}
+            <span className="text-xs font-medium text-gray-400 ml-1">
+              {memberMeetings.length}
+            </span>
+          </h3>
+          <div className="space-y-2">
+            {memberMeetings.length === 0 ? (
+              <div className="text-center py-10 bg-white rounded-2xl border border-gray-100">
+                <Video size={32} className="text-gray-200 mx-auto mb-2" />
+                <p className="text-gray-400 text-sm">
+                  {language === "ko" ? "참여한 회의가 없습니다." : "No meetings found."}
+                </p>
+              </div>
+            ) : (
+              memberMeetings.slice(0, 10).map((meeting) => {
+                const meetingDate = new Date(meeting.date);
+                const dateStr = format(
+                  meetingDate,
+                  language === "ko" ? "M월 d일 HH:mm" : "MMM d, HH:mm",
+                  language === "ko" ? { locale: ko } : undefined
+                );
+                const durationStr = meeting.duration >= 60
+                  ? `${Math.floor(meeting.duration / 60)}h${meeting.duration % 60 ? ` ${meeting.duration % 60}m` : ""}`
+                  : `${meeting.duration}m`;
+                const typeLabels: Record<string, { ko: string; en: string }> = {
+                  standup: { ko: "스탠드업", en: "Standup" },
+                  planning: { ko: "기획", en: "Planning" },
+                  review: { ko: "리뷰", en: "Review" },
+                  brainstorm: { ko: "브레인스토밍", en: "Brainstorm" },
+                  other: { ko: "기타", en: "Other" },
+                };
+                const typeLabel = typeLabels[meeting.type] || typeLabels.other;
+
+                return (
+                  <button
+                    key={meeting.id}
+                    onClick={() => navigate(`/meetings/${meeting.id}`)}
+                    className="w-full flex items-center gap-4 p-4 bg-white rounded-xl border border-purple-100 transition-all text-left group hover:shadow-md hover:border-purple-200"
+                  >
+                    <div className="shrink-0 text-purple-500">
+                      <Video size={14} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate group-hover:text-purple-600 transition-colors">
+                        {meeting.title}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[11px] text-gray-400 flex items-center gap-1">
+                          <Calendar size={10} />
+                          {dateStr}
+                        </span>
+                        <span className="text-[11px] text-gray-400 flex items-center gap-1">
+                          <Clock size={10} />
+                          {durationStr}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-600">
+                      {language === "ko" ? typeLabel.ko : typeLabel.en}
+                    </span>
+                    <span className={cn(
+                      "shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full",
+                      meeting.status === "completed" ? "bg-emerald-50 text-emerald-600" :
+                      meeting.status === "cancelled" ? "bg-gray-100 text-gray-400" :
+                      "bg-blue-50 text-blue-600"
+                    )}>
+                      {meeting.status === "completed"
+                        ? (language === "ko" ? "완료" : "Done")
+                        : meeting.status === "cancelled"
+                        ? (language === "ko" ? "취소" : "Cancelled")
+                        : (language === "ko" ? "예정" : "Scheduled")}
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
 
