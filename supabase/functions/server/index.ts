@@ -459,8 +459,17 @@ app.post("/make-server-f580d5ca/org", async (c) => {
     };
     await kv.set(`org:${orgId}`, org);
 
-    // Also map user → org
-    await kv.set(`user-org:${ownerId}`, { orgId, role: 'owner', joinedAt: new Date().toISOString() });
+    // Also map user → org (multi-org: append to orgs array)
+    const existing = await kv.get(`user-org:${ownerId}`) as any;
+    let orgs: any[] = [];
+    if (existing?.orgs) {
+      orgs = existing.orgs;
+    } else if (existing?.orgId) {
+      // migrate legacy single-org format
+      orgs = [{ orgId: existing.orgId, role: existing.role, joinedAt: existing.joinedAt }];
+    }
+    orgs.push({ orgId, role: 'owner', joinedAt: new Date().toISOString() });
+    await kv.set(`user-org:${ownerId}`, { orgs, activeOrgId: orgId });
 
     console.log(`[Org] Created org "${name}" (${orgId}) by ${ownerId}`);
     return c.json(org);
@@ -488,14 +497,70 @@ app.get("/make-server-f580d5ca/user-org/:userId", async (c) => {
   try {
     const userId = c.req.param("userId");
     const userOrg = await kv.get(`user-org:${userId}`) as any;
-    if (!userOrg || !userOrg.orgId) {
-      return c.json({ org: null });
+    if (!userOrg) {
+      return c.json({ org: null, allOrgs: [] });
     }
-    const org = await kv.get(`org:${userOrg.orgId}`);
-    return c.json({ org, userRole: userOrg.role });
+
+    // Support both legacy single-org and new multi-org format
+    let orgs: any[] = [];
+    let activeOrgId: string | null = null;
+
+    if (userOrg.orgs) {
+      // New multi-org format
+      orgs = userOrg.orgs;
+      activeOrgId = userOrg.activeOrgId || orgs[0]?.orgId || null;
+    } else if (userOrg.orgId) {
+      // Legacy single-org format — migrate
+      orgs = [{ orgId: userOrg.orgId, role: userOrg.role, joinedAt: userOrg.joinedAt }];
+      activeOrgId = userOrg.orgId;
+      // Auto-migrate to new format
+      await kv.set(`user-org:${userId}`, { orgs, activeOrgId });
+    }
+
+    if (!activeOrgId) {
+      return c.json({ org: null, allOrgs: [] });
+    }
+
+    const activeEntry = orgs.find((o: any) => o.orgId === activeOrgId) || orgs[0];
+    const org = await kv.get(`org:${activeEntry.orgId}`);
+
+    // Fetch all org names for switcher
+    const allOrgs = await Promise.all(
+      orgs.map(async (o: any) => {
+        const orgData = await kv.get(`org:${o.orgId}`) as any;
+        return { orgId: o.orgId, orgName: orgData?.name || 'Unknown', role: o.role };
+      })
+    );
+
+    return c.json({ org, userRole: activeEntry.role, allOrgs, activeOrgId });
   } catch (e) {
     console.log("Error fetching user org:", e);
-    return c.json({ org: null });
+    return c.json({ org: null, allOrgs: [] });
+  }
+});
+
+// ─── Switch active organization ──────────────────────────────────────
+app.put("/make-server-f580d5ca/user-org/:userId/active", async (c) => {
+  try {
+    const userId = c.req.param("userId");
+    const body = await c.req.json();
+    const { orgId } = body;
+    if (!orgId) return c.json({ error: "orgId is required" }, 400);
+
+    const userOrg = await kv.get(`user-org:${userId}`) as any;
+    if (!userOrg?.orgs) return c.json({ error: "No organizations found" }, 404);
+
+    const exists = userOrg.orgs.find((o: any) => o.orgId === orgId);
+    if (!exists) return c.json({ error: "User is not a member of this organization" }, 403);
+
+    await kv.set(`user-org:${userId}`, { ...userOrg, activeOrgId: orgId });
+
+    const org = await kv.get(`org:${orgId}`);
+    console.log(`[Org] User ${userId} switched active org to ${orgId}`);
+    return c.json({ org, userRole: exists.role });
+  } catch (e) {
+    console.log("Error switching org:", e);
+    return c.json({ error: "Failed to switch organization", message: String(e) }, 500);
   }
 });
 
@@ -623,8 +688,18 @@ app.post("/make-server-f580d5ca/invite/:code/direct-join", async (c) => {
       await kv.set(`org:${invite.orgId}`, { ...org, memberIds });
     }
 
-    // Map user → org
-    await kv.set(`user-org:${userId}`, { orgId: invite.orgId, role: invite.role || 'member', joinedAt: new Date().toISOString() });
+    // Map user → org (multi-org: append to orgs array)
+    const existingUserOrg = await kv.get(`user-org:${userId}`) as any;
+    let userOrgs: any[] = [];
+    if (existingUserOrg?.orgs) {
+      userOrgs = existingUserOrg.orgs;
+    } else if (existingUserOrg?.orgId) {
+      userOrgs = [{ orgId: existingUserOrg.orgId, role: existingUserOrg.role, joinedAt: existingUserOrg.joinedAt }];
+    }
+    if (!userOrgs.some((o: any) => o.orgId === invite.orgId)) {
+      userOrgs.push({ orgId: invite.orgId, role: invite.role || 'member', joinedAt: new Date().toISOString() });
+    }
+    await kv.set(`user-org:${userId}`, { orgs: userOrgs, activeOrgId: invite.orgId });
 
     // Create member record
     const member = {
@@ -688,8 +763,18 @@ app.put("/make-server-f580d5ca/org/:orgId/join-requests/:userId", async (c) => {
         }
       }
 
-      // Map user → org
-      await kv.set(`user-org:${userId}`, { orgId, role: jr.requestedRole || 'member', joinedAt: new Date().toISOString() });
+      // Map user → org (multi-org: append to orgs array)
+      const existingUserOrg = await kv.get(`user-org:${userId}`) as any;
+      let userOrgs: any[] = [];
+      if (existingUserOrg?.orgs) {
+        userOrgs = existingUserOrg.orgs;
+      } else if (existingUserOrg?.orgId) {
+        userOrgs = [{ orgId: existingUserOrg.orgId, role: existingUserOrg.role, joinedAt: existingUserOrg.joinedAt }];
+      }
+      if (!userOrgs.some((o: any) => o.orgId === orgId)) {
+        userOrgs.push({ orgId, role: jr.requestedRole || 'member', joinedAt: new Date().toISOString() });
+      }
+      await kv.set(`user-org:${userId}`, { orgs: userOrgs, activeOrgId: orgId });
 
       // Create member record
       const member = {

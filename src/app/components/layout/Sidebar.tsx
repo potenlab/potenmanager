@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useCallback, useRef, ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
+import { useDrag, useDrop } from "react-dnd";
 import {
   LayoutDashboard,
   Calendar,
@@ -14,6 +15,10 @@ import {
   Plus,
   Globe,
   ChevronDown,
+  ChevronsUpDown,
+  Check,
+  Building2,
+  GripVertical,
   X,
   LogOut,
   FlaskConical,
@@ -24,18 +29,80 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useSidebar } from "../../context/SidebarContext";
 import { usePermission } from "../../context/PermissionContext";
 import { useAuth } from "../../context/AuthContext";
+import { useInvite } from "../../context/InviteContext";
+
+const NAV_ORDER_KEY = "poten_nav_order";
+const SIDEBAR_NAV_TYPE = "SIDEBAR_NAV_ITEM";
+
+interface NavItemData {
+  id: string;
+  to: string;
+  icon: ReactNode;
+  label: string;
+}
+
+function getDefaultNavIds() {
+  return ["tasks", "dashboard", "goals", "strategy", "calendar", "meetings", "radar", "team"];
+}
+
+function loadNavOrder(): string[] {
+  try {
+    const stored = localStorage.getItem(NAV_ORDER_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored) as string[];
+      const defaults = getDefaultNavIds();
+      // 새로 추가된 메뉴가 있으면 끝에 추가
+      const missing = defaults.filter(id => !parsed.includes(id));
+      return [...parsed.filter(id => defaults.includes(id)), ...missing];
+    }
+  } catch { /* ignore */ }
+  return getDefaultNavIds();
+}
+
+function saveNavOrder(order: string[]) {
+  localStorage.setItem(NAV_ORDER_KEY, JSON.stringify(order));
+}
 
 export function Sidebar() {
   const { language, setLanguage, t } = useLanguage();
   const { width, startResizing, isMobile, isOpen, setIsOpen } = useSidebar();
   const { currentUser, members } = usePermission();
   const { signOut } = useAuth();
+  const { org, allOrgs, activeOrgId, switchOrg } = useInvite();
   const location = useLocation();
   const navigate = useNavigate();
   const [teamExpanded, setTeamExpanded] = useState(true);
+  const [orgSwitcherOpen, setOrgSwitcherOpen] = useState(false);
+  const [navOrder, setNavOrder] = useState<string[]>(loadNavOrder);
 
   const isCompact = !isMobile && width < 240;
   const isTeamActive = location.pathname.startsWith("/team");
+
+  const moveNavItem = useCallback((fromId: string, toId: string) => {
+    setNavOrder(prev => {
+      const next = [...prev];
+      const fromIdx = next.indexOf(fromId);
+      const toIdx = next.indexOf(toId);
+      if (fromIdx === -1 || toIdx === -1) return prev;
+      next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, fromId);
+      saveNavOrder(next);
+      return next;
+    });
+  }, []);
+
+  const navItemDefs: NavItemData[] = [
+    { id: "tasks", to: "/tasks", icon: <CheckSquare size={20} />, label: t("my_tasks") },
+    { id: "dashboard", to: "/", icon: <LayoutDashboard size={20} />, label: t("dashboard") },
+    { id: "goals", to: "/goals", icon: <Target size={20} />, label: t("tab_goal") },
+    { id: "strategy", to: "/strategy", icon: <Lightbulb size={20} />, label: t("goals_strategy") },
+    { id: "calendar", to: "/calendar", icon: <Calendar size={20} />, label: t("calendar") },
+    { id: "meetings", to: "/meetings", icon: <Video size={20} />, label: language === 'ko' ? '회의' : 'Meetings' },
+    { id: "radar", to: "/radar", icon: <Radar size={20} />, label: language === 'ko' ? '비즈 레이더' : 'Biz Radar' },
+  ];
+
+  const navItemMap = new Map(navItemDefs.map(item => [item.id, item]));
+  const sortedNavIds = navOrder.filter(id => id === "team" || navItemMap.has(id));
 
   const closeSidebar = () => {
     if (isMobile) setIsOpen(false);
@@ -71,104 +138,164 @@ export function Sidebar() {
           )}
         </div>
 
-        {/* Navigation */}
-        <nav className="space-y-1">
-          <NavItem to="/tasks" icon={<CheckSquare size={20} />} label={t("my_tasks")} compact={isCompact} onClick={closeSidebar} />
-          <NavItem to="/" icon={<LayoutDashboard size={20} />} label={t("dashboard")} compact={isCompact} onClick={closeSidebar} />
-          <NavItem to="/goals" icon={<Target size={20} />} label={t("tab_goal")} compact={isCompact} onClick={closeSidebar} />
-          <NavItem to="/strategy" icon={<Lightbulb size={20} />} label={t("goals_strategy")} compact={isCompact} onClick={closeSidebar} />
-          <NavItem to="/calendar" icon={<Calendar size={20} />} label={t("calendar")} compact={isCompact} onClick={closeSidebar} />
-          <NavItem to="/meetings" icon={<Video size={20} />} label={language === 'ko' ? '회의' : 'Meetings'} compact={isCompact} onClick={closeSidebar} />
-          <NavItem to="/radar" icon={<Radar size={20} />} label={language === 'ko' ? '비즈 레이더' : 'Biz Radar'} compact={isCompact} onClick={closeSidebar} />
-
-          {/* Team with expandable sub-menu */}
-          <div>
-            <div className="flex items-center">
-              <NavLink 
-                to="/team" 
-                end
-                onClick={closeSidebar}
-                className={({ isActive }) => cn(
-                  "flex-1 flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 overflow-hidden whitespace-nowrap",
-                  isTeamActive
-                    ? "bg-blue-50 text-blue-600 shadow-sm border border-blue-100" 
-                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 border border-transparent"
-                )}
-                title={isCompact ? t("team") : undefined}
-              >
-                <div className="shrink-0"><Users size={20} /></div>
-                <span className={cn("transition-opacity duration-200 flex-1", isCompact ? "opacity-0 w-0" : "opacity-100")}>{t("team")}</span>
-              </NavLink>
-              {!isCompact && (
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setTeamExpanded(!teamExpanded);
-                  }}
-                  className={cn(
-                    "p-1.5 rounded-lg transition-all mr-1 shrink-0",
-                    isTeamActive
-                      ? "text-blue-400 hover:text-blue-600 hover:bg-blue-100"
-                      : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-                  )}
-                >
-                  <ChevronDown
-                    size={14}
-                    className={cn(
-                      "transition-transform duration-200",
-                      !teamExpanded && "-rotate-90"
-                    )}
-                  />
-                </button>
+        {/* Organization Switcher */}
+        {org && !isCompact && (
+          <div className="relative mb-4">
+            <button
+              onClick={() => allOrgs.length > 1 && setOrgSwitcherOpen(!orgSwitcherOpen)}
+              className={cn(
+                "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-all",
+                allOrgs.length > 1
+                  ? "hover:bg-gray-100 cursor-pointer"
+                  : "cursor-default"
               )}
-            </div>
-
-            {/* Team members sub-items */}
-            {!isCompact && teamExpanded && (
-              <div className="ml-4 mt-0.5 space-y-0.5 border-l-2 border-gray-200 pl-3 animate-in slide-in-from-top-1 fade-in duration-200">
-                {members.map((member) => (
-                  <NavLink
-                    key={member.id}
-                    to={`/team/${member.id}`}
-                    onClick={closeSidebar}
-                    className={({ isActive }) => cn(
-                      "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-150 group/member",
-                      isActive
-                        ? "bg-blue-50/80 text-blue-600 font-medium"
-                        : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-                    )}
-                  >
-                    <div className="relative shrink-0">
-                      <img
-                        src={member.avatar}
-                        alt={member.name}
-                        className="w-6 h-6 rounded-full object-cover border border-gray-200 group-hover/member:border-blue-200 transition-colors"
-                      />
-                      <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-500 border-[1.5px] border-white rounded-full" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1">
-                        <span className="truncate text-[13px]">
-                          {member.name}
-                        </span>
-                        {member.id === currentUser.id && (
-                          <span className="text-[10px] text-blue-400 font-medium shrink-0">
-                            {language === "ko" ? "(나)" : "(me)"}
-                          </span>
-                        )}
-                      </div>
-                      {member.jobTitle && (
-                        <span className="text-[11px] text-gray-400 truncate block leading-tight">
-                          {member.jobTitle}
-                        </span>
-                      )}
-                    </div>
-                  </NavLink>
-                ))}
+            >
+              <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
+                <Building2 size={14} className="text-blue-600" />
               </div>
+              <span className="font-medium text-gray-800 truncate flex-1 text-left">{org.name}</span>
+              {allOrgs.length > 1 && (
+                <ChevronsUpDown size={14} className="text-gray-400 shrink-0" />
+              )}
+            </button>
+
+            {/* Dropdown */}
+            {orgSwitcherOpen && allOrgs.length > 1 && (
+              <>
+                <div className="fixed inset-0 z-[70]" onClick={() => setOrgSwitcherOpen(false)} />
+                <div className="absolute left-2 right-2 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-[71] py-1 animate-in fade-in slide-in-from-top-1 duration-150">
+                  {allOrgs.map((o) => (
+                    <button
+                      key={o.orgId}
+                      onClick={() => {
+                        if (o.orgId !== activeOrgId) switchOrg(o.orgId);
+                        setOrgSwitcherOpen(false);
+                      }}
+                      className={cn(
+                        "w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors",
+                        o.orgId === activeOrgId
+                          ? "bg-blue-50 text-blue-600"
+                          : "text-gray-600 hover:bg-gray-50"
+                      )}
+                    >
+                      <div className="w-6 h-6 bg-blue-100 rounded-md flex items-center justify-center shrink-0">
+                        <Building2 size={12} className="text-blue-600" />
+                      </div>
+                      <span className="truncate flex-1 text-left">{o.orgName}</span>
+                      {o.orgId === activeOrgId && <Check size={14} className="text-blue-600 shrink-0" />}
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
           </div>
+        )}
+
+        {/* Navigation */}
+        <nav className="space-y-1">
+          {sortedNavIds.map((id) => {
+            if (id === "team") {
+              return (
+                <DraggableNavWrapper key="team" id="team" moveItem={moveNavItem}>
+                  <div>
+                    <div className="flex items-center">
+                      <NavLink
+                        to="/team"
+                        end
+                        onClick={closeSidebar}
+                        className={({ isActive }) => cn(
+                          "flex-1 flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 overflow-hidden whitespace-nowrap",
+                          isTeamActive
+                            ? "bg-blue-50 text-blue-600 shadow-sm border border-blue-100"
+                            : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 border border-transparent"
+                        )}
+                        title={isCompact ? t("team") : undefined}
+                      >
+                        <div className="shrink-0"><Users size={20} /></div>
+                        <span className={cn("transition-opacity duration-200 flex-1", isCompact ? "opacity-0 w-0" : "opacity-100")}>{t("team")}</span>
+                      </NavLink>
+                      {!isCompact && (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setTeamExpanded(!teamExpanded);
+                          }}
+                          className={cn(
+                            "p-1.5 rounded-lg transition-all mr-1 shrink-0",
+                            isTeamActive
+                              ? "text-blue-400 hover:text-blue-600 hover:bg-blue-100"
+                              : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                          )}
+                        >
+                          <ChevronDown
+                            size={14}
+                            className={cn(
+                              "transition-transform duration-200",
+                              !teamExpanded && "-rotate-90"
+                            )}
+                          />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Team members sub-items */}
+                    {!isCompact && teamExpanded && (
+                      <div className="ml-4 mt-0.5 space-y-0.5 border-l-2 border-gray-200 pl-3 animate-in slide-in-from-top-1 fade-in duration-200">
+                        {members.map((member) => (
+                          <NavLink
+                            key={member.id}
+                            to={`/team/${member.id}`}
+                            onClick={closeSidebar}
+                            className={({ isActive }) => cn(
+                              "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-150 group/member",
+                              isActive
+                                ? "bg-blue-50/80 text-blue-600 font-medium"
+                                : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                            )}
+                          >
+                            <div className="relative shrink-0">
+                              <img
+                                src={member.avatar}
+                                alt={member.name}
+                                className="w-6 h-6 rounded-full object-cover border border-gray-200 group-hover/member:border-blue-200 transition-colors"
+                              />
+                              <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-500 border-[1.5px] border-white rounded-full" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1">
+                                <span className="truncate text-[13px]">
+                                  {member.name}
+                                </span>
+                                {member.id === currentUser.id && (
+                                  <span className="text-[10px] text-blue-400 font-medium shrink-0">
+                                    {language === "ko" ? "(나)" : "(me)"}
+                                  </span>
+                                )}
+                              </div>
+                              {member.jobTitle && (
+                                <span className="text-[11px] text-gray-400 truncate block leading-tight">
+                                  {member.jobTitle}
+                                </span>
+                              )}
+                            </div>
+                          </NavLink>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </DraggableNavWrapper>
+              );
+            }
+
+            const item = navItemMap.get(id);
+            if (!item) return null;
+            return (
+              <DraggableNavWrapper key={item.id} id={item.id} moveItem={moveNavItem}>
+                <NavItem to={item.to} icon={item.icon} label={item.label} compact={isCompact} onClick={closeSidebar} />
+              </DraggableNavWrapper>
+            );
+          })}
         </nav>
       </div>
 
@@ -307,6 +434,39 @@ export function Sidebar() {
 
   // Desktop: fixed sidebar
   return sidebarContent;
+}
+
+function DraggableNavWrapper({ id, moveItem, children }: { id: string; moveItem: (fromId: string, toId: string) => void; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  const [{ isDragging }, drag, preview] = useDrag({
+    type: SIDEBAR_NAV_TYPE,
+    item: { id },
+    collect: (monitor) => ({ isDragging: monitor.isDragging() }),
+  });
+
+  const [, drop] = useDrop({
+    accept: SIDEBAR_NAV_TYPE,
+    hover(dragItem: { id: string }) {
+      if (dragItem.id !== id) {
+        moveItem(dragItem.id, id);
+      }
+    },
+  });
+
+  preview(drop(ref));
+
+  return (
+    <div ref={ref} className={cn("relative group/drag", isDragging && "opacity-40")}>
+      <div
+        ref={(node) => { drag(node); }}
+        className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-5 h-8 flex items-center justify-center cursor-grab active:cursor-grabbing opacity-0 group-hover/drag:opacity-100 transition-opacity z-10"
+      >
+        <GripVertical size={12} className="text-gray-300" />
+      </div>
+      {children}
+    </div>
+  );
 }
 
 function NavItem({ to, icon, label, compact, onClick }: { to: string; icon: React.ReactNode; label: string; compact: boolean; onClick?: () => void }) {

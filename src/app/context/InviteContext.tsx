@@ -39,10 +39,21 @@ export interface JoinRequest {
   processedAt?: string;
 }
 
+export interface OrgSummary {
+  orgId: string;
+  orgName: string;
+  role: string;
+}
+
 interface InviteContextType {
   // Org state
   org: Organization | null;
   isLoading: boolean;
+
+  // Multi-org
+  allOrgs: OrgSummary[];
+  activeOrgId: string | null;
+  switchOrg: (orgId: string) => Promise<void>;
 
   // Org actions
   createOrg: (name: string) => Promise<Organization | null>;
@@ -69,6 +80,8 @@ const InviteContext = createContext<InviteContextType | null>(null);
 export function InviteProvider({ children }: { children: ReactNode }) {
   const { currentUser, refreshMembers } = useTeam();
   const [org, setOrg] = useState<Organization | null>(null);
+  const [allOrgs, setAllOrgs] = useState<OrgSummary[]>([]);
+  const [activeOrgId, setActiveOrgId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
@@ -81,11 +94,13 @@ export function InviteProvider({ children }: { children: ReactNode }) {
 
     const init = async () => {
       try {
-        const { org: userOrg } = await api.getUserOrg(currentUser.id);
-        if (userOrg) {
-          setOrg(userOrg);
-          console.log(`[InviteContext] User belongs to org: ${userOrg.name}`);
+        const result = await api.getUserOrg(currentUser.id);
+        if (result.org) {
+          setOrg(result.org);
+          console.log(`[InviteContext] User belongs to org: ${result.org.name}`);
         }
+        if (result.allOrgs) setAllOrgs(result.allOrgs);
+        if (result.activeOrgId) setActiveOrgId(result.activeOrgId);
       } catch (err) {
         console.error("[InviteContext] Failed to fetch user org:", err);
       } finally {
@@ -94,6 +109,21 @@ export function InviteProvider({ children }: { children: ReactNode }) {
     };
     init();
   }, [currentUser.id]);
+
+  // ── Switch active organization ────────────────────────────────────
+  const switchOrg = useCallback(async (orgId: string) => {
+    try {
+      const result = await api.switchActiveOrg(currentUser.id, orgId);
+      if (result.org) {
+        setOrg(result.org);
+        setActiveOrgId(orgId);
+        console.log(`[InviteContext] Switched to org: ${result.org.name}`);
+        await refreshMembers();
+      }
+    } catch (err) {
+      console.error("[InviteContext] Failed to switch org:", err);
+    }
+  }, [currentUser.id, refreshMembers]);
 
   // ── Create Organization ───────────────────────────────────────────
   const createOrgFn = useCallback(async (name: string): Promise<Organization | null> => {
@@ -104,6 +134,8 @@ export function InviteProvider({ children }: { children: ReactNode }) {
         ownerName: currentUser.name,
       });
       setOrg(newOrg);
+      setActiveOrgId(newOrg.id);
+      setAllOrgs(prev => [...prev, { orgId: newOrg.id, orgName: newOrg.name, role: 'owner' }]);
       console.log(`[InviteContext] Created org: ${name}`);
       return newOrg;
     } catch (err) {
@@ -161,8 +193,10 @@ export function InviteProvider({ children }: { children: ReactNode }) {
           data: { userId: currentUser.id, userName: currentUser.name, code },
         });
         // Refresh org data
-        const { org: userOrg } = await api.getUserOrg(currentUser.id);
-        if (userOrg) setOrg(userOrg);
+        const refreshed = await api.getUserOrg(currentUser.id);
+        if (refreshed.org) setOrg(refreshed.org);
+        if (refreshed.allOrgs) setAllOrgs(refreshed.allOrgs);
+        if (refreshed.activeOrgId) setActiveOrgId(refreshed.activeOrgId);
       }
       return { success: true };
     } catch (err: any) {
@@ -246,6 +280,9 @@ export function InviteProvider({ children }: { children: ReactNode }) {
     <InviteContext.Provider value={{
       org,
       isLoading,
+      allOrgs,
+      activeOrgId,
+      switchOrg,
       createOrg: createOrgFn,
       generateInvite: generateInviteFn,
       lookupInvite: lookupInviteFn,

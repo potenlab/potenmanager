@@ -117,7 +117,9 @@ export const api = {
   getOrg: (orgId: string) =>
     request<any>(`/org/${orgId}`),
   getUserOrg: (userId: string) =>
-    request<{ org: any; userRole?: string }>(`/user-org/${userId}`),
+    request<{ org: any; userRole?: string; allOrgs?: Array<{ orgId: string; orgName: string; role: string }>; activeOrgId?: string }>(`/user-org/${userId}`),
+  switchActiveOrg: (userId: string, orgId: string) =>
+    request<{ org: any; userRole?: string }>(`/user-org/${userId}/active`, { method: 'PUT', body: JSON.stringify({ orgId }) }),
 
   // ── Invite System ──
   generateInvite: (orgId: string, data: { createdBy: string; createdByName?: string; role?: string }) =>
