@@ -75,7 +75,7 @@ const CATEGORIES: Category[] = [
   {
     key: "customers",
     emoji: "👥",
-    labelKo: "고객",
+    labelKo: "고객확보",
     labelEn: "Customers",
     color: "ring-blue-400",
     colorBg: "bg-blue-50 dark:bg-blue-950/30",
@@ -105,8 +105,8 @@ const CATEGORIES: Category[] = [
   {
     key: "team",
     emoji: "👤",
-    labelKo: "팀원",
-    labelEn: "Team",
+    labelKo: "채용/팀원",
+    labelEn: "Hiring/Team",
     color: "ring-pink-400",
     colorBg: "bg-pink-50 dark:bg-pink-950/30",
     colorText: "text-pink-600 dark:text-pink-400",
@@ -120,7 +120,7 @@ const CATEGORIES: Category[] = [
   {
     key: "market",
     emoji: "🌍",
-    labelKo: "시장",
+    labelKo: "판로확보",
     labelEn: "Market",
     color: "ring-indigo-400",
     colorBg: "bg-indigo-50 dark:bg-indigo-950/30",
@@ -135,8 +135,8 @@ const CATEGORIES: Category[] = [
   {
     key: "brand",
     emoji: "⭐",
-    labelKo: "브랜드",
-    labelEn: "Brand",
+    labelKo: "브랜딩",
+    labelEn: "Branding",
     color: "ring-yellow-400",
     colorBg: "bg-yellow-50 dark:bg-yellow-950/30",
     colorText: "text-yellow-600 dark:text-yellow-400",
@@ -149,17 +149,17 @@ const CATEGORIES: Category[] = [
   },
   {
     key: "other",
-    emoji: "📋",
-    labelKo: "기타",
-    labelEn: "Other",
-    color: "ring-gray-400",
-    colorBg: "bg-gray-50 dark:bg-gray-900/30",
-    colorText: "text-gray-600 dark:text-gray-400",
-    questionKo: "그 외 달성하고 싶은 목표는?",
-    questionEn: "Any other goals you want to achieve?",
+    emoji: "📣",
+    labelKo: "마케팅",
+    labelEn: "Marketing",
+    color: "ring-rose-400",
+    colorBg: "bg-rose-50 dark:bg-rose-950/30",
+    colorText: "text-rose-600 dark:text-rose-400",
+    questionKo: "올해 마케팅 목표는 무엇인가요?",
+    questionEn: "What is your marketing goal this year?",
     inputType: "text",
-    placeholderKo: "자유롭게 적어보세요",
-    placeholderEn: "Write freely",
+    placeholderKo: "예: SNS 팔로워 1만명 달성",
+    placeholderEn: "e.g. Reach 10K social media followers",
     urgentCategory: "other",
   },
 ];
@@ -401,10 +401,17 @@ export default function GoalSetupWizardPage() {
               transition={pageTransition}
               className="w-full max-w-lg px-6 flex flex-col items-center"
             >
+              {/* Encouraging message */}
+              <div className="mb-6 px-5 py-3 rounded-2xl bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50">
+                <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 text-center">
+                  "{coreGoal}" {ko ? "좋은 목표네요!" : "Great goal!"}
+                </p>
+              </div>
+
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white text-center leading-snug">
                 {ko
-                  ? "그 목표를 달성하기 위해\n필요한 것들"
-                  : "What you need\nto achieve that goal"}
+                  ? "그 목표를 달성하기 위해\n다음 항목을 선택하세요"
+                  : "Select the areas you need\nto achieve that goal"}
               </h1>
               <p className="mt-2 text-gray-400 dark:text-gray-500 text-sm text-center">
                 {ko
