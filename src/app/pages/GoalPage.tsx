@@ -19,6 +19,8 @@ import { useLanguage } from "../context/LanguageContext";
 import { useInvite } from "../context/InviteContext";
 import { usePermission } from "../context/PermissionContext";
 import { hasPermission, type Role } from "../../lib/permissions";
+import { useGoalContext } from "../context/GoalContext";
+import { Target } from "lucide-react";
 
 export function GoalPage() {
   const { language } = useLanguage();
@@ -26,6 +28,13 @@ export function GoalPage() {
   const navigate = useNavigate();
   const { org, createOrg, isLoading } = useInvite();
   const { currentUser, members } = usePermission();
+  const { goals, urgentGoals } = useGoalContext();
+
+  // Find core goal (Year level, no parent)
+  const coreGoal = goals.find((g) => g.level === "Year" && !g.parentId);
+  // Category goals (children of core goal)
+  const categoryGoals = urgentGoals.filter((g) => g.parentId === coreGoal?.id);
+  const hasGoals = !!coreGoal;
 
   const [orgName, setOrgName] = useState("");
   const [creating, setCreating] = useState(false);
@@ -240,44 +249,85 @@ export function GoalPage() {
         </div>
       </div>
 
-      {/* Goal Setup / Edit */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Goal Section */}
+      {hasGoals ? (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+              <Target size={16} className="text-blue-500" />
+              {ko ? `${new Date().getFullYear()}년 목표` : `${new Date().getFullYear()} Goal`}
+            </h3>
+            <Link
+              to="/goals/setup"
+              className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+            >
+              <Pencil size={12} />
+              {ko ? "수정" : "Edit"}
+            </Link>
+          </div>
+          <div className="px-6 py-5">
+            {/* Core goal */}
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0 shadow-sm">
+                <Sparkles size={18} className="text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-gray-400 font-medium mb-0.5">
+                  {ko ? "핵심 목표" : "Core Goal"}
+                </p>
+                <p className="text-lg font-bold text-gray-900">
+                  {ko ? (coreGoal.titleKo || coreGoal.title) : coreGoal.title}
+                </p>
+              </div>
+            </div>
+
+            {/* Category goals */}
+            {categoryGoals.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <p className="text-xs text-gray-400 font-medium mb-3">
+                  {ko ? "세부 항목" : "Categories"}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {categoryGoals.map((g) => (
+                    <div
+                      key={g.id}
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-gray-50"
+                    >
+                      <div className={cn(
+                        "w-2 h-2 rounded-full shrink-0",
+                        g.status === "completed" ? "bg-emerald-500" :
+                        g.status === "in-progress" ? "bg-blue-500" :
+                        "bg-gray-300"
+                      )} />
+                      <p className="text-sm text-gray-700 truncate">
+                        {ko ? (g.titleKo || g.title) : g.title}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
         <Link
           to="/goals/setup"
-          className="group flex items-center gap-4 px-5 py-4 rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md hover:shadow-lg hover:from-blue-600 hover:to-blue-700 transition-all"
+          className="group flex items-center gap-4 px-5 py-5 rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md hover:shadow-lg hover:from-blue-600 hover:to-blue-700 transition-all"
         >
           <div className="p-2.5 rounded-xl bg-white/20 shrink-0">
             <Sparkles size={20} className="text-white" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sm">
-              {ko ? "목표 설정하기" : "Set Goals"}
+              {ko ? "올해의 목표를 설정해주세요" : "Set your goals for this year"}
             </p>
             <p className="text-blue-100 text-xs mt-0.5">
-              {ko ? "핵심 목표와 카테고리별 계획" : "Core goal & category plans"}
+              {ko ? "핵심 목표와 카테고리별 계획을 세워보세요" : "Define your core goal & category plans"}
             </p>
           </div>
           <ArrowRight size={18} className="text-white/70 group-hover:translate-x-1 transition-transform shrink-0" />
         </Link>
-
-        <Link
-          to="/goals/setup"
-          className="group flex items-center gap-4 px-5 py-4 rounded-2xl bg-white border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-200 transition-all"
-        >
-          <div className="p-2.5 rounded-xl bg-gray-100 shrink-0 group-hover:bg-blue-50 transition-colors">
-            <Pencil size={18} className="text-gray-500 group-hover:text-blue-600 transition-colors" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm text-gray-900">
-              {ko ? "목표 수정" : "Edit Goals"}
-            </p>
-            <p className="text-gray-400 text-xs mt-0.5">
-              {ko ? "스킵한 항목도 다시 설정 가능" : "Update or complete skipped items"}
-            </p>
-          </div>
-          <ArrowRight size={18} className="text-gray-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all shrink-0" />
-        </Link>
-      </div>
+      )}
 
       {/* Members Preview */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
