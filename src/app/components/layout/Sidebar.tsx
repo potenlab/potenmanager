@@ -438,16 +438,10 @@ function DraggableNavWrapper({ id, moveItem, children }: { id: string; moveItem:
     },
   });
 
-  preview(drop(ref));
+  drag(drop(ref));
 
   return (
-    <div ref={ref} className={cn("relative group/drag", isDragging && "opacity-40")}>
-      <div
-        ref={(node) => { drag(node); }}
-        className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-5 h-8 flex items-center justify-center cursor-grab active:cursor-grabbing opacity-0 group-hover/drag:opacity-100 transition-opacity z-10"
-      >
-        <GripVertical size={12} className="text-gray-300" />
-      </div>
+    <div ref={ref} className={cn("cursor-grab active:cursor-grabbing", isDragging && "opacity-40")}>
       {children}
     </div>
   );
