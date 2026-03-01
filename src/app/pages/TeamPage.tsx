@@ -331,7 +331,7 @@ function TeamMemberCard({
       <div className="w-full space-y-3 mb-5">
         <div className="flex items-center gap-3 text-sm text-gray-600">
           <Mail size={16} className="text-gray-400" />
-          <span className="truncate">{member.name.toLowerCase().replace(' ', '.')}@company.com</span>
+          <span className="truncate text-gray-400 italic">{language === 'ko' ? '이메일 미설정' : 'No email set'}</span>
         </div>
         <div className="flex items-center gap-3 text-sm text-gray-600">
           <Briefcase size={16} className="text-gray-400" />

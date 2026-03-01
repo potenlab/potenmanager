@@ -18,6 +18,13 @@ import {
   Palette,
   Lock,
   User as UserIcon,
+  CheckSquare,
+  Circle,
+  CircleDot,
+  CheckCircle2,
+  Video,
+  Calendar,
+  ArrowRight,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import {
@@ -31,6 +38,8 @@ import { useLanguage } from "../context/LanguageContext";
 import { useTeam } from "../context/TeamContext";
 import { useAuth } from "../context/AuthContext";
 import { useInvite } from "../context/InviteContext";
+import { useTaskContext } from "../context/TaskContext";
+import { useMeetingContext } from "../context/MeetingContext";
 import { api } from "../../lib/api";
 
 interface ProfileField {
@@ -48,6 +57,35 @@ export function MyPage() {
   const { currentUser, members, updateMember } = useTeam();
   const { user: authUser, signOut } = useAuth();
   const { org } = useInvite();
+  const { tasks } = useTaskContext();
+  const { meetings } = useMeetingContext();
+
+  const ko = language === "ko";
+
+  // My tasks (recent 5, sorted by due date)
+  const myTasks = tasks
+    .filter(t => t.assigneeId === currentUser.id)
+    .sort((a, b) => {
+      if (a.status === "completed" && b.status !== "completed") return 1;
+      if (a.status !== "completed" && b.status === "completed") return -1;
+      const da = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+      const db = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+      return da - db;
+    })
+    .slice(0, 5);
+
+  const myTaskStats = {
+    total: tasks.filter(t => t.assigneeId === currentUser.id).length,
+    pending: tasks.filter(t => t.assigneeId === currentUser.id && t.status === "pending").length,
+    inProgress: tasks.filter(t => t.assigneeId === currentUser.id && t.status === "in-progress").length,
+    completed: tasks.filter(t => t.assigneeId === currentUser.id && t.status === "completed").length,
+  };
+
+  // My meetings (upcoming, sorted by date)
+  const myMeetings = meetings
+    .filter(m => m.attendeeIds.includes(currentUser.id) || m.organizerId === currentUser.id)
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .slice(0, 5);
 
   // Profile fields from server
   const [phone, setPhone] = useState("");
@@ -344,6 +382,115 @@ export function MyPage() {
                   {language === "ko" ? "가입하기" : "Join"}
                 </button>
               </div>
+            )}
+          </div>
+        </div>
+
+        {/* My Tasks */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+              <CheckSquare size={16} className="text-gray-400" />
+              {ko ? "내 업무" : "My Tasks"}
+            </h3>
+            <div className="flex items-center gap-3 text-[11px] font-medium">
+              <span className="text-gray-400">{myTaskStats.pending} {ko ? "할 일" : "to do"}</span>
+              <span className="text-blue-500">{myTaskStats.inProgress} {ko ? "진행" : "active"}</span>
+              <span className="text-emerald-500">{myTaskStats.completed} {ko ? "완료" : "done"}</span>
+            </div>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {myTasks.length === 0 ? (
+              <div className="px-6 py-8 text-center text-sm text-gray-400">
+                {ko ? "배정된 업무가 없습니다" : "No tasks assigned"}
+              </div>
+            ) : (
+              myTasks.map(task => (
+                <div
+                  key={task.id}
+                  onClick={() => navigate(`/tasks/${task.id}`)}
+                  className="px-6 py-3 flex items-center gap-3 hover:bg-gray-50/50 transition-colors cursor-pointer"
+                >
+                  <span className="shrink-0">
+                    {task.status === "completed" ? <CheckCircle2 size={16} className="text-emerald-500" /> :
+                     task.status === "in-progress" ? <CircleDot size={16} className="text-blue-500" /> :
+                     <Circle size={16} className="text-gray-300" />}
+                  </span>
+                  <span className={cn("text-sm flex-1 truncate", task.status === "completed" && "line-through text-gray-400")}>
+                    {task.title}
+                  </span>
+                  {task.dueDate && (
+                    <span className={cn("text-[11px] shrink-0",
+                      new Date(task.dueDate) < new Date() && task.status !== "completed" ? "text-red-500 font-medium" : "text-gray-400"
+                    )}>
+                      {new Date(task.dueDate).toLocaleDateString(ko ? "ko-KR" : "en-US", { month: "short", day: "numeric" })}
+                    </span>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+          {myTaskStats.total > 5 && (
+            <div className="px-6 py-3 border-t border-gray-100">
+              <button onClick={() => navigate("/tasks")} className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
+                {ko ? "전체 보기" : "View all"} ({myTaskStats.total})
+                <ArrowRight size={12} />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* My Meetings */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+              <Video size={16} className="text-gray-400" />
+              {ko ? "내 회의" : "My Meetings"}
+            </h3>
+            <button onClick={() => navigate("/meetings")} className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
+              {ko ? "전체 보기" : "View all"}
+              <ArrowRight size={12} />
+            </button>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {myMeetings.length === 0 ? (
+              <div className="px-6 py-8 text-center text-sm text-gray-400">
+                {ko ? "예정된 회의가 없습니다" : "No meetings scheduled"}
+              </div>
+            ) : (
+              myMeetings.map(meeting => {
+                const meetDate = new Date(meeting.date);
+                const typeColors: Record<string, string> = {
+                  standup: "bg-green-50 text-green-600",
+                  planning: "bg-blue-50 text-blue-600",
+                  review: "bg-purple-50 text-purple-600",
+                  brainstorm: "bg-amber-50 text-amber-600",
+                  other: "bg-gray-50 text-gray-600",
+                };
+                return (
+                  <div
+                    key={meeting.id}
+                    onClick={() => navigate(`/meetings/${meeting.id}`)}
+                    className="px-6 py-3 flex items-center gap-3 hover:bg-gray-50/50 transition-colors cursor-pointer"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center shrink-0">
+                      <Video size={14} className="text-purple-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{meeting.title}</p>
+                      <p className="text-[11px] text-gray-400 flex items-center gap-1.5">
+                        <Calendar size={10} />
+                        {meetDate.toLocaleDateString(ko ? "ko-KR" : "en-US", { month: "short", day: "numeric" })}
+                        <span className="mx-0.5">·</span>
+                        {meeting.duration}{ko ? "분" : "min"}
+                      </p>
+                    </div>
+                    <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded-full", typeColors[meeting.type] || typeColors.other)}>
+                      {meeting.type}
+                    </span>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>

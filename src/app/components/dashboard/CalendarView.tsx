@@ -20,6 +20,7 @@ import {
   Maximize2,
   User as UserIcon,
   CircleDot,
+  Video,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import {
@@ -48,6 +49,7 @@ import {
 import { ko } from "date-fns/locale";
 import { useLanguage } from "../../context/LanguageContext";
 import { useTaskContext } from "../../context/TaskContext";
+import { useMeetingContext, Meeting } from "../../context/MeetingContext";
 import { usePermission } from "../../context/PermissionContext";
 import { useDrag, useDrop } from "react-dnd";
 import { createPortal } from "react-dom";
@@ -326,6 +328,7 @@ function DroppableDayCell({
   isCurrentMonth,
   isTodayDate,
   dayTasks,
+  dayMeetings,
   viewMode,
   language,
   selectedIds,
@@ -336,12 +339,14 @@ function DroppableDayCell({
   onResizeStart,
   onAddTask,
   onDeselectAll,
+  onMeetingClick,
   canDragTaskFn,
 }: {
   day: Date;
   isCurrentMonth: boolean;
   isTodayDate: boolean;
   dayTasks: { task: Task | null; position: "single" | "start" | "middle" | "end" }[];
+  dayMeetings: Meeting[];
   viewMode: ViewMode;
   language: string;
   selectedIds: Set<string>;
@@ -352,6 +357,7 @@ function DroppableDayCell({
   onResizeStart: (taskId: string, edge: "left" | "right", e: React.MouseEvent) => void;
   onAddTask: (day: Date, rect: DOMRect) => void;
   onDeselectAll: () => void;
+  onMeetingClick: (meetingId: string) => void;
   canDragTaskFn?: (task: Task) => boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -402,14 +408,43 @@ function DroppableDayCell({
         >
           {format(day, "d")}
         </span>
-        {dayTasks.filter(t => t.task !== null).length > 0 && (
+        {(dayTasks.filter(t => t.task !== null).length + dayMeetings.length) > 0 && (
           <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-1.5 rounded-full">
-            {dayTasks.filter(t => t.task !== null).length}
+            {dayTasks.filter(t => t.task !== null).length + dayMeetings.length}
           </span>
         )}
       </div>
 
       <div className="flex flex-col gap-0.5 flex-1 overflow-y-auto no-scrollbar">
+        {/* Meetings rendered before tasks */}
+        {dayMeetings.map((meeting) => {
+          const meetingDate = new Date(meeting.date);
+          const timeStr = format(meetingDate, "HH:mm");
+          const durationStr = meeting.duration >= 60
+            ? `${Math.floor(meeting.duration / 60)}h${meeting.duration % 60 > 0 ? meeting.duration % 60 + 'm' : ''}`
+            : `${meeting.duration}m`;
+          return (
+            <div
+              key={`meeting-${meeting.id}`}
+              className="mx-1.5 cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                onMeetingClick(meeting.id);
+              }}
+            >
+              <div
+                className="text-[10px] font-medium py-1.5 rounded shadow-sm border border-purple-200/60 bg-purple-50 text-purple-700 border-l-[3px] border-l-purple-500 hover:bg-purple-100 transition-colors"
+              >
+                <div className="flex items-center gap-1 px-2 overflow-hidden">
+                  <Video size={14} className="text-purple-500 shrink-0" />
+                  <span className="truncate">{meeting.title}</span>
+                  <span className="ml-auto text-[9px] text-purple-400 shrink-0 whitespace-nowrap">{timeStr} · {durationStr}</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
         {dayTasks.map(({ task, position }, idx) =>
           task ? (
             <div
@@ -838,6 +873,7 @@ export function CalendarView() {
   const { language, t } = useLanguage();
   const navigate = useNavigate();
   const { tasks: calTasks, setTasks: setCalTasks, addTask: addTaskToContext } = useTaskContext();
+  const { meetings } = useMeetingContext();
   const { can, members: teamMembers } = usePermission();
 
   // Calendar edit permission: can edit any = full drag, can edit own = own tasks only
@@ -1539,6 +1575,7 @@ export function CalendarView() {
             const isCurrentMonth = isSameMonth(day, currentDate);
             const isTodayDate = isToday(day);
             const dayTasks = slottedDayTasks.get(format(day, "yyyy-MM-dd")) || [];
+            const dayMeetings = meetings.filter(m => isSameDay(new Date(m.date), day));
 
             return (
               <DroppableDayCell
@@ -1547,6 +1584,7 @@ export function CalendarView() {
                 isCurrentMonth={isCurrentMonth}
                 isTodayDate={isTodayDate}
                 dayTasks={dayTasks}
+                dayMeetings={dayMeetings}
                 viewMode={viewMode}
                 language={language}
                 selectedIds={selectedIds}
@@ -1559,6 +1597,9 @@ export function CalendarView() {
                   navigate(`/tasks/new?date=${format(d, "yyyy-MM-dd")}`);
                 }}
                 onDeselectAll={onDeselectAll}
+                onMeetingClick={(meetingId) => {
+                  navigate(`/meetings/${meetingId}`);
+                }}
                 canDragTaskFn={(task: Task) => {
                   if (canEditAnyCalendar) return true;
                   if (canEditOwnCalendar) {
