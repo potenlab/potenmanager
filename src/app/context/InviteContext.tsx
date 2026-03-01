@@ -85,14 +85,18 @@ export function InviteProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
-  const initRef = useRef(false);
+  const initRef = useRef<string | null>(null);
 
-  // ── Load current user's org on mount ──────────────────────────────
+  // ── Load current user's org when userId is available ─────────────
   useEffect(() => {
-    if (initRef.current) return;
-    initRef.current = true;
+    // Skip if no real user id yet
+    if (!currentUser.id) return;
+    // Only fetch once per user id
+    if (initRef.current === currentUser.id) return;
+    initRef.current = currentUser.id;
 
     const init = async () => {
+      setIsLoading(true);
       try {
         const result = await api.getUserOrg(currentUser.id);
         if (result.org) {
