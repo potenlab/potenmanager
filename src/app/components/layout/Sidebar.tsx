@@ -126,7 +126,17 @@ export function Sidebar() {
           </div>
           <div className={cn("transition-opacity duration-200", isCompact ? "opacity-0" : "opacity-100")}>
             <h1 className="font-bold text-lg text-gray-900 leading-tight whitespace-nowrap">Poten Manager</h1>
-            <p className="text-xs text-gray-500 whitespace-nowrap">{t("ai_assistant")}</p>
+            {org && allOrgs.length > 1 ? (
+              <button
+                onClick={() => setOrgSwitcherOpen(!orgSwitcherOpen)}
+                className="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600 transition-colors whitespace-nowrap"
+              >
+                <span className="truncate max-w-[140px]">{org.name}</span>
+                <ChevronsUpDown size={10} className="shrink-0" />
+              </button>
+            ) : (
+              <p className="text-xs text-gray-500 whitespace-nowrap">{org ? org.name : t("ai_assistant")}</p>
+            )}
           </div>
           {isMobile && (
             <button
@@ -138,57 +148,31 @@ export function Sidebar() {
           )}
         </div>
 
-        {/* Organization Switcher */}
-        {org && !isCompact && (
-          <div className="relative mb-4">
-            <button
-              onClick={() => allOrgs.length > 1 && setOrgSwitcherOpen(!orgSwitcherOpen)}
-              className={cn(
-                "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-all",
-                allOrgs.length > 1
-                  ? "hover:bg-gray-100 cursor-pointer"
-                  : "cursor-default"
-              )}
-            >
-              <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
-                <Building2 size={14} className="text-blue-600" />
-              </div>
-              <span className="font-medium text-gray-800 truncate flex-1 text-left">{org.name}</span>
-              {allOrgs.length > 1 && (
-                <ChevronsUpDown size={14} className="text-gray-400 shrink-0" />
-              )}
-            </button>
-
-            {/* Dropdown */}
-            {orgSwitcherOpen && allOrgs.length > 1 && (
-              <>
-                <div className="fixed inset-0 z-[70]" onClick={() => setOrgSwitcherOpen(false)} />
-                <div className="absolute left-2 right-2 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-[71] py-1 animate-in fade-in slide-in-from-top-1 duration-150">
-                  {allOrgs.map((o) => (
-                    <button
-                      key={o.orgId}
-                      onClick={() => {
-                        if (o.orgId !== activeOrgId) switchOrg(o.orgId);
-                        setOrgSwitcherOpen(false);
-                      }}
-                      className={cn(
-                        "w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors",
-                        o.orgId === activeOrgId
-                          ? "bg-blue-50 text-blue-600"
-                          : "text-gray-600 hover:bg-gray-50"
-                      )}
-                    >
-                      <div className="w-6 h-6 bg-blue-100 rounded-md flex items-center justify-center shrink-0">
-                        <Building2 size={12} className="text-blue-600" />
-                      </div>
-                      <span className="truncate flex-1 text-left">{o.orgName}</span>
-                      {o.orgId === activeOrgId && <Check size={14} className="text-blue-600 shrink-0" />}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
+        {/* Organization Switcher Dropdown */}
+        {orgSwitcherOpen && allOrgs.length > 1 && (
+          <>
+            <div className="fixed inset-0 z-[70]" onClick={() => setOrgSwitcherOpen(false)} />
+            <div className="absolute left-6 right-6 top-[70px] bg-white border border-gray-200 rounded-xl shadow-lg z-[71] py-1 animate-in fade-in slide-in-from-top-1 duration-150">
+              {allOrgs.map((o) => (
+                <button
+                  key={o.orgId}
+                  onClick={() => {
+                    if (o.orgId !== activeOrgId) switchOrg(o.orgId);
+                    setOrgSwitcherOpen(false);
+                  }}
+                  className={cn(
+                    "w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors",
+                    o.orgId === activeOrgId
+                      ? "bg-blue-50 text-blue-600"
+                      : "text-gray-600 hover:bg-gray-50"
+                  )}
+                >
+                  <span className="truncate flex-1 text-left">{o.orgName}</span>
+                  {o.orgId === activeOrgId && <Check size={14} className="text-blue-600 shrink-0" />}
+                </button>
+              ))}
+            </div>
+          </>
         )}
 
         {/* Navigation */}
