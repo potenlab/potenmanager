@@ -70,7 +70,7 @@ export const translations = {
     opp_o3_title: "Partnership Proposal",
 
     // Dashboard Tabs & Widgets
-    tab_goal: "Goal Overview",
+    tab_goal: "My Organization",
     tab_performance: "Performance",
     tab_team: "Team",
     tab_opportunity: "Biz Radar",
@@ -210,7 +210,7 @@ export const translations = {
     opp_o3_title: "포텐매니저 파트너십 제안",
     
     // Dashboard Tabs & Widgets
-    tab_goal: "목표 개요",
+    tab_goal: "내 조직",
     tab_performance: "성과",
     tab_team: "팀",
     tab_opportunity: "비즈 레이더",

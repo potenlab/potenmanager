@@ -4,7 +4,6 @@ import { useDrag, useDrop } from "react-dnd";
 import {
   LayoutDashboard,
   Calendar,
-  Target,
   CheckSquare,
   Users,
   Settings,
@@ -12,13 +11,11 @@ import {
   Lightbulb,
   Video,
   Radar,
-  Plus,
   Globe,
   ChevronDown,
   ChevronsUpDown,
   Check,
   Building2,
-  GripVertical,
   X,
   LogOut,
   FlaskConical,
@@ -94,7 +91,7 @@ export function Sidebar() {
   const navItemDefs: NavItemData[] = [
     { id: "tasks", to: "/tasks", icon: <CheckSquare size={20} />, label: t("my_tasks") },
     { id: "dashboard", to: "/", icon: <LayoutDashboard size={20} />, label: t("dashboard") },
-    { id: "goals", to: "/goals", icon: <Target size={20} />, label: t("tab_goal") },
+    { id: "goals", to: "/goals", icon: <Building2 size={20} />, label: t("tab_goal") },
     { id: "strategy", to: "/strategy", icon: <Lightbulb size={20} />, label: t("goals_strategy") },
     { id: "calendar", to: "/calendar", icon: <Calendar size={20} />, label: t("calendar") },
     { id: "meetings", to: "/meetings", icon: <Video size={20} />, label: language === 'ko' ? '회의' : 'Meetings' },
@@ -423,7 +420,7 @@ export function Sidebar() {
 function DraggableNavWrapper({ id, moveItem, children }: { id: string; moveItem: (fromId: string, toId: string) => void; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
 
-  const [{ isDragging }, drag, preview] = useDrag({
+  const [{ isDragging }, drag] = useDrag({
     type: SIDEBAR_NAV_TYPE,
     item: { id },
     collect: (monitor) => ({ isDragging: monitor.isDragging() }),

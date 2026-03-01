@@ -8,6 +8,7 @@ import {
   Briefcase,
   MapPin,
   Globe,
+  Building2,
   Shield,
   LogOut,
   ChevronRight,
@@ -29,6 +30,7 @@ import {
 import { useLanguage } from "../context/LanguageContext";
 import { useTeam } from "../context/TeamContext";
 import { useAuth } from "../context/AuthContext";
+import { useInvite } from "../context/InviteContext";
 import { api } from "../../lib/api";
 
 interface ProfileField {
@@ -45,6 +47,7 @@ export function MyPage() {
   const navigate = useNavigate();
   const { currentUser, members, updateMember } = useTeam();
   const { user: authUser, signOut } = useAuth();
+  const { org } = useInvite();
 
   // Profile fields from server
   const [phone, setPhone] = useState("");
@@ -299,6 +302,49 @@ export function MyPage() {
                 )}
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Organization */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+              <Building2 size={16} className="text-gray-400" />
+              {language === "ko" ? "소속 조직" : "Organization"}
+            </h3>
+          </div>
+          <div className="px-6 py-4">
+            {org ? (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+                    <Building2 size={18} className="text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{org.name}</p>
+                    <p className="text-xs text-gray-400 capitalize">{currentUser.role}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => navigate("/goals")}
+                  className="text-xs text-blue-600 hover:text-blue-700 font-medium px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+                >
+                  {language === "ko" ? "보기" : "View"}
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-400 italic">
+                  {language === "ko" ? "소속된 조직이 없습니다" : "No organization"}
+                </p>
+                <button
+                  onClick={() => navigate("/goals")}
+                  className="text-xs text-blue-600 hover:text-blue-700 font-medium px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+                >
+                  {language === "ko" ? "가입하기" : "Join"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

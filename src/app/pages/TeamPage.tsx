@@ -36,12 +36,9 @@ export function TeamPage() {
   const navigate = useNavigate();
   const { members, currentUser } = usePermission();
   const { tasks } = useTaskContext();
-  const { org, createOrg, joinRequests, pendingCount, approveRequest, rejectRequest } = useInvite();
+  const { org, joinRequests, pendingCount, approveRequest, rejectRequest } = useInvite();
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [showCreateOrg, setShowCreateOrg] = useState(false);
-  const [newOrgName, setNewOrgName] = useState("");
-  const [creatingOrg, setCreatingOrg] = useState(false);
 
   const pendingRequests = joinRequests.filter(r => r.status === 'pending');
 
@@ -172,80 +169,19 @@ export function TeamPage() {
         
         {/* Invite / Create Org Card */}
         {!org ? (
-          <div className="flex flex-col items-center justify-center p-8 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl h-full min-h-[280px]">
-            {!showCreateOrg ? (
-              <>
-                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4">
-                  <Users size={32} className="text-blue-500" />
-                </div>
-                <h3 className="font-medium text-gray-900 mb-1">
-                  {ko ? "조직을 먼저 생성하세요" : "Create an Organization First"}
-                </h3>
-                <p className="text-sm text-gray-500 text-center px-4 mb-4">
-                  {ko ? "팀원을 초대하려면 조직이 필요합니다." : "You need an organization to invite team members."}
-                </p>
-                <button
-                  onClick={() => setShowCreateOrg(true)}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm"
-                >
-                  <Plus size={16} />
-                  {ko ? "조직 생성" : "Create Organization"}
-                </button>
-              </>
-            ) : (
-              <>
-                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4">
-                  <Users size={32} className="text-blue-500" />
-                </div>
-                <h3 className="font-medium text-gray-900 mb-3">
-                  {ko ? "새 조직 만들기" : "Create New Organization"}
-                </h3>
-                <div className="w-full max-w-[240px] space-y-3">
-                  <input
-                    type="text"
-                    value={newOrgName}
-                    onChange={(e) => setNewOrgName(e.target.value)}
-                    placeholder={ko ? "조직 이름 입력" : "Organization name"}
-                    className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && newOrgName.trim() && !creatingOrg) {
-                        setCreatingOrg(true);
-                        createOrg(newOrgName.trim()).then(() => {
-                          setCreatingOrg(false);
-                          setShowCreateOrg(false);
-                          setNewOrgName("");
-                        });
-                      }
-                    }}
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => { setShowCreateOrg(false); setNewOrgName(""); }}
-                      className="flex-1 px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
-                    >
-                      {ko ? "취소" : "Cancel"}
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (!newOrgName.trim() || creatingOrg) return;
-                        setCreatingOrg(true);
-                        createOrg(newOrgName.trim()).then(() => {
-                          setCreatingOrg(false);
-                          setShowCreateOrg(false);
-                          setNewOrgName("");
-                        });
-                      }}
-                      disabled={!newOrgName.trim() || creatingOrg}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"
-                    >
-                      {creatingOrg && <Loader2 size={14} className="animate-spin" />}
-                      {ko ? "생성" : "Create"}
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
+          <div
+            onClick={() => navigate("/goals")}
+            className="flex flex-col items-center justify-center p-8 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer group h-full min-h-[280px]"
+          >
+            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <Users size={32} className="text-blue-500" />
+            </div>
+            <h3 className="font-medium text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
+              {ko ? "조직을 먼저 생성하세요" : "Create an Organization First"}
+            </h3>
+            <p className="text-sm text-gray-500 text-center px-4">
+              {ko ? "내 조직 페이지에서 조직을 생성하세요." : "Go to My Organization page to create one."}
+            </p>
           </div>
         ) : (
           <button

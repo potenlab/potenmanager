@@ -29,6 +29,9 @@ export type Permission =
   // Calendar
   | 'calendar.editAny'
   | 'calendar.editOwn'
+  // Organization
+  | 'org.edit'
+  | 'org.delete'
   // Settings / Workspace
   | 'settings.manage'
   | 'settings.billing'
@@ -45,6 +48,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'task.assignOthers', 'task.changeStatus',
     'goal.create', 'goal.editAny', 'goal.editOwn', 'goal.delete',
     'strategy.create', 'strategy.edit',
+    'org.edit', 'org.delete',
     'calendar.editAny', 'calendar.editOwn',
     'settings.manage', 'settings.billing', 'settings.workspace',
     'ai.recommend', 'ai.strategy',
@@ -55,6 +59,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'task.assignOthers', 'task.changeStatus',
     'goal.create', 'goal.editAny', 'goal.editOwn', 'goal.delete',
     'strategy.create', 'strategy.edit',
+    'org.edit',
     'calendar.editAny', 'calendar.editOwn',
     'settings.manage',
     'ai.recommend', 'ai.strategy',
