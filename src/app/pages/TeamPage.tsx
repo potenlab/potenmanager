@@ -170,7 +170,7 @@ export function TeamPage() {
         {/* Invite / Create Org Card */}
         {!org ? (
           <div
-            onClick={() => navigate("/goals")}
+            onClick={() => navigate("/organization")}
             className="flex flex-col items-center justify-center p-8 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer group h-full min-h-[280px]"
           >
             <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">

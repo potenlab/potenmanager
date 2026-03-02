@@ -169,7 +169,7 @@ export function GoalEditPage() {
           {ko ? "먼저 목표를 설정해주세요" : "Set your goals first"}
         </p>
         <button
-          onClick={() => navigate("/goals/setup")}
+          onClick={() => navigate("/organization/setup")}
           className="inline-flex items-center gap-2 px-5 py-3 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
         >
           <Sparkles size={16} />
@@ -225,7 +225,7 @@ export function GoalEditPage() {
       {/* Header */}
       <div className="flex items-center gap-3 mb-8">
         <button
-          onClick={() => navigate("/goals")}
+          onClick={() => navigate("/organization")}
           className="p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
         >
           <ArrowLeft size={20} />
@@ -371,7 +371,7 @@ export function GoalEditPage() {
       {/* Bottom action */}
       <div className="border-t border-gray-100 pt-4">
         <button
-          onClick={() => navigate("/goals/setup")}
+          onClick={() => navigate("/organization/setup")}
           className="text-xs text-gray-400 hover:text-gray-600 transition-colors px-1"
         >
           {ko ? "처음부터 다시 설정하기 →" : "Redo setup from scratch →"}

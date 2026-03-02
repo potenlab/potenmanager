@@ -70,7 +70,7 @@ export function BottomNav() {
   ];
 
   const moreItems: MoreItem[] = [
-    { to: "/goals", icon: <Building2 size={20} />, label: ko ? "조직" : "Organization" },
+    { to: "/organization", icon: <Building2 size={20} />, label: ko ? "조직" : "Organization" },
     { to: "/strategy", icon: <Lightbulb size={20} />, label: ko ? "전략" : "Strategy" },
     { to: "/meetings", icon: <Video size={20} />, label: ko ? "회의" : "Meetings" },
     { to: "/radar", icon: <Radar size={20} />, label: ko ? "비즈 레이더" : "Biz Radar" },

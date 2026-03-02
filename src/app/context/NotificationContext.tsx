@@ -104,7 +104,7 @@ function eventToNotification(event: NotificationEvent): Omit<AppNotification, "i
         titleEn: "Goal progress updated",
         descriptionKo: `'${data.titleKo || data.title}' 목표가 ${data.progress}%로 업데이트되었습니다.`,
         descriptionEn: `Goal '${data.title}' updated to ${data.progress}%.`,
-        actionUrl: `/goals/${data.goalId}`,
+        actionUrl: `/organization/${data.goalId}`,
       };
 
     case "goal.completed":
@@ -115,7 +115,7 @@ function eventToNotification(event: NotificationEvent): Omit<AppNotification, "i
         titleEn: "🎉 Goal achieved!",
         descriptionKo: `'${data.titleKo || data.title}' 목표를 달성했습니다!`,
         descriptionEn: `Goal '${data.title}' has been achieved!`,
-        actionUrl: `/goals/${data.goalId}`,
+        actionUrl: `/organization/${data.goalId}`,
       };
 
     case "goal.created":
@@ -126,7 +126,7 @@ function eventToNotification(event: NotificationEvent): Omit<AppNotification, "i
         titleEn: "New goal created",
         descriptionKo: `'${data.titleKo || data.title}' 목표가 추가되었습니다.`,
         descriptionEn: `Goal '${data.title}' has been created.`,
-        actionUrl: `/goals/${data.goalId}`,
+        actionUrl: `/organization/${data.goalId}`,
       };
 
     case "team.member_joined":

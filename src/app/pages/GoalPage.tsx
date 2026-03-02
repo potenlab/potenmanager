@@ -52,7 +52,7 @@ export function GoalPage() {
     const newOrg = await createOrg(name.trim());
     setCreating(false);
     if (newOrg) {
-      navigate("/goals/setup");
+      navigate("/organization/setup");
     }
   };
 
@@ -258,7 +258,7 @@ export function GoalPage() {
               {ko ? `${new Date().getFullYear()}년 목표` : `${new Date().getFullYear()} Goal`}
             </h3>
             <Link
-              to="/goals/edit"
+              to="/organization/edit"
               className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
             >
               <Pencil size={12} />
@@ -311,7 +311,7 @@ export function GoalPage() {
         </div>
       ) : (
         <Link
-          to="/goals/setup"
+          to="/organization/setup"
           className="group flex items-center gap-4 px-5 py-5 rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md hover:shadow-lg hover:from-blue-600 hover:to-blue-700 transition-all"
         >
           <div className="p-2.5 rounded-xl bg-white/20 shrink-0">

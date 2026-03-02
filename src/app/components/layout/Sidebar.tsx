@@ -41,7 +41,7 @@ interface NavItemData {
 }
 
 function getDefaultNavIds() {
-  return ["tasks", "dashboard", "goals", "strategy", "calendar", "meetings", "radar", "team"];
+  return ["tasks", "dashboard", "organization", "strategy", "calendar", "meetings", "radar", "team"];
 }
 
 function loadNavOrder(): string[] {
@@ -93,7 +93,7 @@ export function Sidebar() {
   const navItemDefs: NavItemData[] = [
     { id: "tasks", to: "/tasks", icon: <CheckSquare size={20} />, label: t("my_tasks") },
     { id: "dashboard", to: "/", icon: <LayoutDashboard size={20} />, label: t("dashboard") },
-    { id: "goals", to: "/goals", icon: <Building2 size={20} />, label: t("tab_goal") },
+    { id: "organization", to: "/organization", icon: <Building2 size={20} />, label: t("tab_goal") },
     { id: "strategy", to: "/strategy", icon: <Lightbulb size={20} />, label: t("goals_strategy") },
     { id: "calendar", to: "/calendar", icon: <Calendar size={20} />, label: t("calendar") },
     { id: "meetings", to: "/meetings", icon: <Video size={20} />, label: language === 'ko' ? '회의' : 'Meetings' },

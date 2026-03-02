@@ -625,7 +625,7 @@ export function StrategyCreationPage() {
   };
 
   const handleSaveStrategy = () => {
-    navigate("/goals");
+    navigate("/organization");
   };
 
   const progress = isComplete ? 100 : Math.round((currentStep / STEPS.length) * 100);
@@ -636,7 +636,7 @@ export function StrategyCreationPage() {
       {/* ── Header ── */}
       <div className="shrink-0 flex items-center gap-4 pb-5 border-b border-gray-100">
         <button
-          onClick={() => navigate("/goals")}
+          onClick={() => navigate("/organization")}
           className="p-2 rounded-xl hover:bg-gray-100 text-gray-500 transition-colors"
         >
           <ArrowLeft size={20} />

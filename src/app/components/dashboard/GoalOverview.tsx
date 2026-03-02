@@ -215,14 +215,14 @@ export function GoalOverview() {
           </h3>
           <div className="flex items-center gap-2">
             <Link
-              to="/goals/setup"
+              to="/organization/setup"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500 text-white text-xs font-semibold hover:bg-blue-600 transition-all shadow-sm hover:shadow-md"
             >
               <Plus size={13} />
               {language === "ko" ? "\uBAA9\uD45C \uC124\uC815" : "Set Goals"}
             </Link>
             <Link
-              to="/goals"
+              to="/organization"
               className="text-xs font-medium text-gray-500 hover:text-blue-600 flex items-center gap-1 transition-colors"
             >
               {t("view_all")} <ArrowRight size={14} />
@@ -287,7 +287,7 @@ export function GoalOverview() {
                   return (
                     <Link
                       key={goal.id}
-                      to={`/goals/${goal.id}`}
+                      to={`/organization/${goal.id}`}
                       className={cn(
                         "block bg-white p-3 rounded-xl border shadow-sm hover:shadow-md transition-all duration-200 group relative overflow-hidden",
                         isOverdue ? "border-red-200" : isUrgentSoon ? "border-orange-200" : "border-gray-100 hover:border-blue-200"
@@ -357,7 +357,7 @@ export function GoalOverview() {
                       : "Set your goals and manage them systematically"}
                   </p>
                   <Link
-                    to="/goals/setup"
+                    to="/organization/setup"
                     className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-500 text-white text-xs font-semibold hover:bg-blue-600 transition-all shadow-sm"
                   >
                     <Plus size={14} />
@@ -367,7 +367,7 @@ export function GoalOverview() {
               ) : filteredGoals.length > 0 ? (
                 filteredGoals.map((goal) => (
                   <Link
-                    to={`/goals/${goal.id}`}
+                    to={`/organization/${goal.id}`}
                     key={goal.id}
                     className="block bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 group"
                   >
@@ -501,7 +501,7 @@ export function GoalOverview() {
 
         {activeTab === "Urgent" && (
           <Link
-            to="/goals/new?level=Urgent"
+            to="/organization/new?level=Urgent"
             className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 border-dashed border-orange-200 text-orange-400 hover:border-orange-300 hover:text-orange-600 hover:bg-orange-50/30 transition-all text-xs font-medium group"
           >
             <Plus size={14} className="group-hover:rotate-90 transition-transform duration-200" />

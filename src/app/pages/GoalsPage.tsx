@@ -118,7 +118,7 @@ function UrgentGoalCard({ goal }: { goal: GoalItem }) {
 
   return (
     <Link
-      to={`/goals/${goal.id}`}
+      to={`/organization/${goal.id}`}
       className={cn(
         "block bg-white rounded-2xl border shadow-sm hover:shadow-md transition-all group relative overflow-hidden",
         isOverdue ? "border-red-200 ring-1 ring-red-100" :
@@ -216,7 +216,7 @@ export function GoalsPage() {
   
   const handleCreateGoal = (defaultLevel?: GoalLevel) => {
     const params = defaultLevel ? `?level=${defaultLevel}` : "";
-    navigate(`/goals/new${params}`);
+    navigate(`/organization/new${params}`);
   };
   
   // Build the hierarchy tree from context data
@@ -394,7 +394,7 @@ function GoalNodeCard({ node, level }: { node: HierarchyItem; level: number }) {
               </span>
             )}
           </div>
-          <Link to={`/goals/${node.id}`}>
+          <Link to={`/organization/${node.id}`}>
             <h3 className={cn(
               "font-semibold text-gray-900 truncate hover:text-blue-600 transition-colors cursor-pointer",
               isYear ? "text-lg" : "text-sm"
@@ -423,7 +423,7 @@ function GoalNodeCard({ node, level }: { node: HierarchyItem; level: number }) {
           </div>
 
           <div className="flex items-center gap-2">
-            <Link to={`/goals/${node.id}`} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
+            <Link to={`/organization/${node.id}`} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
               <ArrowUpRight size={18} />
             </Link>
             <button className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">

@@ -364,7 +364,7 @@ export function MyPage() {
                   </div>
                 </div>
                 <button
-                  onClick={() => navigate("/goals")}
+                  onClick={() => navigate("/organization")}
                   className="text-xs text-blue-600 hover:text-blue-700 font-medium px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
                 >
                   {language === "ko" ? "보기" : "View"}
@@ -376,7 +376,7 @@ export function MyPage() {
                   {language === "ko" ? "소속된 조직이 없습니다" : "No organization"}
                 </p>
                 <button
-                  onClick={() => navigate("/goals")}
+                  onClick={() => navigate("/organization")}
                   className="text-xs text-blue-600 hover:text-blue-700 font-medium px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
                 >
                   {language === "ko" ? "가입하기" : "Join"}

@@ -1,7 +1,14 @@
 import { defineConfig } from 'vite'
 import path from 'path'
+import { execSync } from 'child_process'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
+
+// Auto-increment build number from git commit count
+const commitCount = (() => {
+  try { return execSync('git rev-list --count HEAD').toString().trim(); }
+  catch { return '0'; }
+})();
 
 export default defineConfig({
   plugins: [
@@ -11,7 +18,7 @@ export default defineConfig({
     tailwindcss(),
   ],
   define: {
-    __APP_VERSION__: JSON.stringify(process.env.npm_package_version || '0.2.0'),
+    __APP_VERSION__: JSON.stringify(`0.2.${commitCount}`),
   },
   resolve: {
     alias: {

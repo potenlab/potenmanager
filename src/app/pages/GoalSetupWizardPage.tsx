@@ -686,7 +686,7 @@ export default function GoalSetupWizardPage() {
               <div className="mt-8 flex flex-col gap-3 w-full max-w-xs">
                 <motion.button
                   whileTap={{ scale: 0.97 }}
-                  onClick={() => navigate("/goals")}
+                  onClick={() => navigate("/organization")}
                   className="w-full py-4 rounded-2xl text-base font-semibold bg-black text-white dark:bg-white dark:text-black hover:opacity-90 transition-opacity"
                 >
                   {ko ? "내 조직으로 돌아가기" : "Go to my goals"}
