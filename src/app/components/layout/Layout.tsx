@@ -24,9 +24,11 @@ export function Layout() {
   // *** Use GoalContext (server-synced) instead of static import ***
   const { goals } = useGoalContext();
 
-  // Find annual goal for selected year
+  // Find annual goal — prefer matching startDate year, fallback to any Year-level core goal
   const annualGoal = goals.find(
     (g) => g.level === "Year" && g.startDate && new Date(g.startDate).getFullYear() === selectedYear
+  ) || goals.find(
+    (g) => g.level === "Year" && !g.parentId
   );
   const annualGoalTitle = annualGoal
     ? (language === "ko" ? annualGoal.titleKo || annualGoal.title : annualGoal.title)
