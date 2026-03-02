@@ -949,6 +949,98 @@ app.delete("/make-server-f580d5ca/meetings/:id", async (c) => {
   }
 });
 
+// ─── Library Routes ──────────────────────────────────────────────────
+app.get("/make-server-f580d5ca/library", async (c) => {
+  try {
+    const items = await kv.getByPrefix(pfx(c, "library:"));
+    return c.json(items || []);
+  } catch (e) {
+    console.log("Error fetching library items:", e);
+    return c.json([]);
+  }
+});
+
+app.post("/make-server-f580d5ca/library", async (c) => {
+  try {
+    const body = await c.req.json();
+    const id = body.id || `lib-${Date.now()}`;
+    const item = { ...body, id, updatedAt: new Date().toISOString() };
+    await kv.set(`${pfx(c, "library:")}${id}`, item);
+    return c.json(item);
+  } catch (e) {
+    console.log("Error creating library item:", e);
+    return c.json({ error: "Failed to create library item", message: String(e) }, 500);
+  }
+});
+
+app.put("/make-server-f580d5ca/library/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const body = await c.req.json();
+    const key = `${pfx(c, "library:")}${id}`;
+    const existing = await kv.get(key);
+    const updated = { ...(existing || {}), ...body, id, updatedAt: new Date().toISOString() };
+    await kv.set(key, updated);
+    return c.json(updated);
+  } catch (e) {
+    console.log("Error updating library item:", e);
+    return c.json({ error: "Failed to update library item", message: String(e) }, 500);
+  }
+});
+
+app.delete("/make-server-f580d5ca/library/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    await kv.del(`${pfx(c, "library:")}${id}`);
+    return c.json({ success: true });
+  } catch (e) {
+    console.log("Error deleting library item:", e);
+    return c.json({ error: "Failed to delete library item", message: String(e) }, 500);
+  }
+});
+
+// ─── OG Metadata Fetch (server-side proxy) ──────────────────────────
+app.post("/make-server-f580d5ca/library/og", async (c) => {
+  try {
+    const { url } = await c.req.json();
+    if (!url) return c.json({ error: "URL required" }, 400);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'PotenManager/1.0 (OG Fetcher)' },
+      redirect: 'follow',
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    const html = await res.text();
+
+    const getMetaContent = (property: string): string | undefined => {
+      const regex = new RegExp(
+        `<meta[^>]*(?:property|name)=["']${property}["'][^>]*content=["']([^"']*)["']` +
+        `|<meta[^>]*content=["']([^"']*)["'][^>]*(?:property|name)=["']${property}["']`,
+        'i'
+      );
+      const match = html.match(regex);
+      return match?.[1] || match?.[2] || undefined;
+    };
+
+    const ogMetadata = {
+      ogTitle: getMetaContent('og:title') || getMetaContent('twitter:title'),
+      ogDescription: getMetaContent('og:description') || getMetaContent('description'),
+      ogImage: getMetaContent('og:image') || getMetaContent('twitter:image'),
+      ogSiteName: getMetaContent('og:site_name'),
+      favicon: new URL('/favicon.ico', url).href,
+    };
+
+    return c.json(ogMetadata);
+  } catch (e) {
+    console.log("Error fetching OG metadata:", e);
+    return c.json({ ogTitle: undefined, ogDescription: undefined, ogImage: undefined }, 200);
+  }
+});
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // AI Strategy Generation (Gemini API)
 // ═══════════════════════════════════════════════════════════════════════════════

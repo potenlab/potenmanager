@@ -26,6 +26,8 @@ import { MeetingPage } from "./pages/MeetingPage";
 import { MeetingDetailPage } from "./pages/MeetingDetailPage";
 import { BizRadarPage } from "./pages/BizRadarPage";
 import { BizRadarDetailPage } from "./pages/BizRadarDetailPage";
+import { LibraryPage } from "./pages/LibraryPage";
+import { LibraryDetailPage } from "./pages/LibraryDetailPage";
 import { TrashPage } from "./pages/TrashPage";
 
 export const router = createBrowserRouter([
@@ -65,6 +67,9 @@ export const router = createBrowserRouter([
               { path: "radar", Component: BizRadarPage },
               { path: "radar/new", Component: BizRadarDetailPage },
               { path: "radar/:itemId", Component: BizRadarDetailPage },
+              { path: "library", Component: LibraryPage },
+              { path: "library/new", Component: LibraryDetailPage },
+              { path: "library/:itemId", Component: LibraryDetailPage },
               { path: "team", Component: TeamPage },
               { path: "team/permissions", Component: PermissionsPage },
               { path: "team/:memberId", Component: TeamMemberPage },

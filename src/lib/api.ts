@@ -163,6 +163,20 @@ export const api = {
   deleteMeeting: (id: string) =>
     request<any>(`/meetings/${id}`, { method: 'DELETE' }),
 
+  // ── Library ──
+  getLibraryItems: async () => {
+    const data = await request<any[]>('/library');
+    return data;
+  },
+  createLibraryItem: (item: any) =>
+    request<any>('/library', { method: 'POST', body: JSON.stringify(item) }),
+  updateLibraryItem: (id: string, data: any) =>
+    request<any>(`/library/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteLibraryItem: (id: string) =>
+    request<any>(`/library/${id}`, { method: 'DELETE' }),
+  fetchOgMetadata: (url: string) =>
+    request<any>('/library/og', { method: 'POST', body: JSON.stringify({ url }) }),
+
   // ── AI Strategy ──
   generateStrategy: (data: {
     goal: string;

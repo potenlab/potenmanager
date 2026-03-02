@@ -10,6 +10,7 @@ import { InviteProvider } from "../../context/InviteContext";
 import { BizRadarProvider } from "../../context/BizRadarContext";
 import { MeetingProvider } from "../../context/MeetingContext";
 import { NotificationProvider } from "../../context/NotificationContext";
+import { LibraryProvider } from "../../context/LibraryContext";
 import { TrashProvider } from "../../context/TrashContext";
 
 /**
@@ -26,6 +27,7 @@ export function RootProviders() {
             <TaskProvider>
               <GoalProvider>
                 <BizRadarProvider>
+                <LibraryProvider>
                 <MeetingProvider>
                 <PermissionProvider>
                   <NotificationProvider>
@@ -37,6 +39,7 @@ export function RootProviders() {
                   </NotificationProvider>
                 </PermissionProvider>
                 </MeetingProvider>
+                </LibraryProvider>
                 </BizRadarProvider>
               </GoalProvider>
             </TaskProvider>

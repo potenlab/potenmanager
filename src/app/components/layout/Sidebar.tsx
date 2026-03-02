@@ -10,6 +10,7 @@ import {
   Zap,
   Video,
   Radar,
+  BookMarked,
   Globe,
   ChevronDown,
   ChevronsUpDown,
@@ -40,7 +41,7 @@ interface NavItemData {
 }
 
 function getDefaultNavIds() {
-  return ["tasks", "dashboard", "organization", "calendar", "meetings", "radar", "team"];
+  return ["tasks", "dashboard", "organization", "calendar", "meetings", "radar", "library", "team"];
 }
 
 function loadNavOrder(): string[] {
@@ -96,6 +97,7 @@ export function Sidebar() {
     { id: "calendar", to: "/calendar", icon: <Calendar size={20} />, label: t("calendar") },
     { id: "meetings", to: "/meetings", icon: <Video size={20} />, label: language === 'ko' ? '회의' : 'Meetings' },
     { id: "radar", to: "/radar", icon: <Radar size={20} />, label: language === 'ko' ? '비즈 레이더' : 'Biz Radar' },
+    { id: "library", to: "/library", icon: <BookMarked size={20} />, label: language === 'ko' ? '자료모음집' : 'Library' },
   ];
 
   const navItemMap = new Map(navItemDefs.map(item => [item.id, item]));

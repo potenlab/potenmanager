@@ -9,6 +9,7 @@ import {
   Building2,
   Video,
   Radar,
+  BookMarked,
   User,
   Trash2,
 } from "lucide-react";
@@ -72,6 +73,7 @@ export function BottomNav() {
     { to: "/organization", icon: <Building2 size={20} />, label: ko ? "조직" : "Organization" },
     { to: "/meetings", icon: <Video size={20} />, label: ko ? "회의" : "Meetings" },
     { to: "/radar", icon: <Radar size={20} />, label: ko ? "비즈 레이더" : "Biz Radar" },
+    { to: "/library", icon: <BookMarked size={20} />, label: ko ? "자료모음집" : "Library" },
     { to: "/mypage", icon: <User size={20} />, label: ko ? "마이페이지" : "My Page" },
     { to: "/trash", icon: <Trash2 size={20} />, label: ko ? "휴지통" : "Trash" },
   ];
