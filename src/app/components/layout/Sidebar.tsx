@@ -8,7 +8,6 @@ import {
   Users,
   Settings,
   Zap,
-  Lightbulb,
   Video,
   Radar,
   Globe,
@@ -41,7 +40,7 @@ interface NavItemData {
 }
 
 function getDefaultNavIds() {
-  return ["tasks", "dashboard", "organization", "strategy", "calendar", "meetings", "radar", "team"];
+  return ["tasks", "dashboard", "organization", "calendar", "meetings", "radar", "team"];
 }
 
 function loadNavOrder(): string[] {
@@ -94,7 +93,6 @@ export function Sidebar() {
     { id: "tasks", to: "/tasks", icon: <CheckSquare size={20} />, label: t("my_tasks") },
     { id: "dashboard", to: "/", icon: <LayoutDashboard size={20} />, label: t("dashboard") },
     { id: "organization", to: "/organization", icon: <Building2 size={20} />, label: t("tab_goal") },
-    { id: "strategy", to: "/strategy", icon: <Lightbulb size={20} />, label: t("goals_strategy") },
     { id: "calendar", to: "/calendar", icon: <Calendar size={20} />, label: t("calendar") },
     { id: "meetings", to: "/meetings", icon: <Video size={20} />, label: language === 'ko' ? '회의' : 'Meetings' },
     { id: "radar", to: "/radar", icon: <Radar size={20} />, label: language === 'ko' ? '비즈 레이더' : 'Biz Radar' },

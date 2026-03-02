@@ -268,9 +268,9 @@ export function GoalDetailPage() {
         
         {/* Navigation & Header */}
         <div className="flex items-center justify-between mb-6">
-          <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-gray-400 hover:text-gray-900 transition-colors text-sm group">
+          <button onClick={() => navigate("/organization")} className="flex items-center gap-2 text-gray-400 hover:text-gray-900 transition-colors text-sm group">
             <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-            {language === "ko" ? "돌아가기" : "Back"}
+            {language === "ko" ? "조직으로" : "Organization"}
           </button>
           <div className="flex items-center gap-2">
             {canDelete && !isNew && (

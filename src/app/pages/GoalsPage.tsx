@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, Navigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   ChevronDown, 
@@ -201,8 +201,13 @@ function UrgentGoalCard({ goal }: { goal: GoalItem }) {
   );
 }
 
-// ─── Main Page ──────────────────────────────────────────────────────
+// ─── Redirect: /strategy → /organization ────────────────────────────
 export function GoalsPage() {
+  return <Navigate to="/organization" replace />;
+}
+
+// ─── Strategy Tab Content (embedded in GoalPage) ────────────────────
+export function StrategyTabContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showCompletedUrgent, setShowCompletedUrgent] = useState(false);
   const { language, t } = useLanguage();
@@ -258,27 +263,12 @@ export function GoalsPage() {
   }
 
   return (
-    <div className="min-h-full">
-      <header className="mb-6 md:mb-8">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
-          <div>
-            <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">{t("goals_strategy")}</h1>
-            <p className="text-gray-500 text-sm">{t("align_vision")}</p>
-          </div>
-          <PermissionGate permission="strategy.create">
-            <button
-              onClick={() => navigate("/strategy/new")}
-              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl text-sm font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-md shadow-blue-200 shrink-0"
-            >
-              <Sparkles size={15} />
-              AI {language === 'ko' ? '\uC804\uB7B5 \uC0DD\uC131' : 'Strategy'}
-            </button>
-          </PermissionGate>
-        </div>
-
-        <div className="flex items-center w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-400 transition-all shadow-sm">
+    <div>
+      {/* Search + AI Strategy Button */}
+      <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center flex-1 px-4 py-3 bg-white border border-gray-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-400 transition-all shadow-sm">
           <Search className="text-gray-400 mr-3 shrink-0" size={18} />
-          <input 
+          <input
             type="text"
             placeholder={t("search_goals")}
             className="w-full text-sm outline-none bg-transparent placeholder-gray-400 text-gray-900"
@@ -286,14 +276,23 @@ export function GoalsPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-      </header>
+        <PermissionGate permission="strategy.create">
+          <button
+            onClick={() => navigate("/strategy/new")}
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl text-sm font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-md shadow-blue-200 shrink-0"
+          >
+            <Sparkles size={15} />
+            AI {language === 'ko' ? '\uC804\uB7B5 \uC0DD\uC131' : 'Strategy'}
+          </button>
+        </PermissionGate>
+      </div>
 
-      {/* Urgent Goals Section - now context-connected */}
-      <UrgentGoalsSection 
+      {/* Urgent Goals Section */}
+      <UrgentGoalsSection
         urgentGoals={ctxUrgentGoals}
-        showCompleted={showCompletedUrgent} 
-        onToggleCompleted={() => setShowCompletedUrgent(!showCompletedUrgent)} 
-        onAddUrgent={() => handleCreateGoal('Urgent')} 
+        showCompleted={showCompletedUrgent}
+        onToggleCompleted={() => setShowCompletedUrgent(!showCompletedUrgent)}
+        onAddUrgent={() => handleCreateGoal('Urgent')}
       />
 
       {/* Strategic Goals (Hierarchy) */}

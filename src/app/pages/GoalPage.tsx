@@ -11,6 +11,8 @@ import {
   Calendar,
   User as UserIcon,
   Settings,
+  Target,
+  Lightbulb,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
@@ -18,7 +20,7 @@ import { useInvite } from "../context/InviteContext";
 import { usePermission } from "../context/PermissionContext";
 import { hasPermission, type Role } from "../../lib/permissions";
 import { useGoalContext } from "../context/GoalContext";
-import { Target } from "lucide-react";
+import { StrategyTabContent } from "./GoalsPage";
 
 export function GoalPage() {
   const { language } = useLanguage();
@@ -27,6 +29,7 @@ export function GoalPage() {
   const { org, createOrg, isLoading } = useInvite();
   const { currentUser, members } = usePermission();
   const { goals, urgentGoals } = useGoalContext();
+  const [activeTab, setActiveTab] = useState<"goals" | "strategy">("goals");
 
   // Find core goal (Year level, no parent)
   const coreGoal = goals.find((g) => g.level === "Year" && !g.parentId);
@@ -38,6 +41,7 @@ export function GoalPage() {
   const [creating, setCreating] = useState(false);
 
   const canEdit = hasPermission(currentUser.role as Role, "org.edit");
+  const currentYear = new Date().getFullYear();
 
   const handleCreateOrg = async (name: string) => {
     if (!name.trim() || creating) return;
@@ -144,7 +148,6 @@ export function GoalPage() {
         {/* Banner */}
         <div className="h-24 bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-600 relative">
           <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2240%22%20height%3D%2240%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Cpath%20d%3D%22M0%2020h40M20%200v40%22%20stroke%3D%22rgba(255%2C255%2C255%2C0.05)%22%20fill%3D%22none%22/%3E%3C/svg%3E')] opacity-50" />
-          {/* Settings gear (top-right on banner) */}
           {canEdit && (
             <button
               onClick={() => navigate("/organization/settings")}
@@ -188,85 +191,140 @@ export function GoalPage() {
         </div>
       </div>
 
-      {/* Goal Section */}
-      {hasGoals ? (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-              <Target size={16} className="text-blue-500" />
-              {ko ? `${new Date().getFullYear()}년 목표` : `${new Date().getFullYear()} Goal`}
-            </h3>
-            <Link
-              to="/organization/edit"
-              className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
-            >
-              <Pencil size={12} />
-              {ko ? "수정" : "Edit"}
-            </Link>
-          </div>
-          <div className="px-6 py-5">
-            {/* Core goal */}
-            <div className="flex items-start gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0 shadow-sm">
-                <Sparkles size={18} className="text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-gray-400 font-medium mb-0.5">
+      {/* Tab Bar */}
+      <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
+        <button
+          onClick={() => setActiveTab("goals")}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-lg transition-all",
+            activeTab === "goals"
+              ? "bg-white text-gray-900 shadow-sm"
+              : "text-gray-500 hover:text-gray-700"
+          )}
+        >
+          <Target size={15} />
+          {ko ? `${currentYear}년 목표` : `${currentYear} Goals`}
+        </button>
+        <button
+          onClick={() => setActiveTab("strategy")}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-lg transition-all",
+            activeTab === "strategy"
+              ? "bg-white text-gray-900 shadow-sm"
+              : "text-gray-500 hover:text-gray-700"
+          )}
+        >
+          <Lightbulb size={15} />
+          {ko ? "전략" : "Strategy"}
+        </button>
+      </div>
+
+      {/* Goals Tab Content */}
+      {activeTab === "goals" && (
+        <>
+          {hasGoals ? (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <Sparkles size={16} className="text-blue-500" />
                   {ko ? "핵심 목표" : "Core Goal"}
-                </p>
-                <p className="text-lg font-bold text-gray-900">
-                  {ko ? (coreGoal.titleKo || coreGoal.title) : coreGoal.title}
-                </p>
+                </h3>
+                {canEdit && (
+                  <Link
+                    to="/organization/edit"
+                    className="text-xs text-gray-400 hover:text-blue-600 font-medium flex items-center gap-1 transition-colors"
+                  >
+                    <Pencil size={12} />
+                    {ko ? "수정" : "Edit"}
+                  </Link>
+                )}
+              </div>
+              <div className="px-6 py-5">
+                {/* Core goal - clickable to detail */}
+                <Link
+                  to={`/organization/${coreGoal.id}`}
+                  className="flex items-start gap-3 group cursor-pointer"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0 shadow-sm">
+                    <Sparkles size={18} className="text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                      {ko ? (coreGoal.titleKo || coreGoal.title) : coreGoal.title}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {ko ? "클릭하여 상세 보기" : "Click to view details"}
+                    </p>
+                  </div>
+                  <ArrowRight size={16} className="text-gray-300 group-hover:text-blue-500 mt-2 shrink-0 opacity-0 group-hover:opacity-100 transition-all" />
+                </Link>
+
+                {/* Category goals - clickable to detail */}
+                {categoryGoals.length > 0 && (
+                  <div className="mt-5 pt-5 border-t border-gray-100">
+                    <p className="text-xs text-gray-400 font-medium mb-3">
+                      {ko ? "세부 항목" : "Categories"}
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {categoryGoals.map((g) => (
+                        <Link
+                          key={g.id}
+                          to={`/organization/${g.id}`}
+                          className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-gray-50 hover:bg-blue-50 transition-colors group"
+                        >
+                          <div
+                            className={cn(
+                              "w-2 h-2 rounded-full shrink-0",
+                              g.status === "completed"
+                                ? "bg-emerald-500"
+                                : g.status === "in-progress"
+                                ? "bg-blue-500"
+                                : "bg-gray-300"
+                            )}
+                          />
+                          <p className="text-sm text-gray-700 truncate flex-1 group-hover:text-blue-600 transition-colors">
+                            {ko ? (g.titleKo || g.title) : g.title}
+                          </p>
+                          <ArrowRight
+                            size={12}
+                            className="text-gray-300 group-hover:text-blue-400 shrink-0 opacity-0 group-hover:opacity-100 transition-all"
+                          />
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-
-            {/* Category goals */}
-            {categoryGoals.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-gray-100">
-                <p className="text-xs text-gray-400 font-medium mb-3">
-                  {ko ? "세부 항목" : "Categories"}
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {categoryGoals.map((g) => (
-                    <div
-                      key={g.id}
-                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-gray-50"
-                    >
-                      <div className={cn(
-                        "w-2 h-2 rounded-full shrink-0",
-                        g.status === "completed" ? "bg-emerald-500" :
-                        g.status === "in-progress" ? "bg-blue-500" :
-                        "bg-gray-300"
-                      )} />
-                      <p className="text-sm text-gray-700 truncate">
-                        {ko ? (g.titleKo || g.title) : g.title}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+          ) : (
+            <Link
+              to="/organization/setup"
+              className="group flex items-center gap-4 px-5 py-5 rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md hover:shadow-lg hover:from-blue-600 hover:to-blue-700 transition-all"
+            >
+              <div className="p-2.5 rounded-xl bg-white/20 shrink-0">
+                <Sparkles size={20} className="text-white" />
               </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        <Link
-          to="/organization/setup"
-          className="group flex items-center gap-4 px-5 py-5 rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md hover:shadow-lg hover:from-blue-600 hover:to-blue-700 transition-all"
-        >
-          <div className="p-2.5 rounded-xl bg-white/20 shrink-0">
-            <Sparkles size={20} className="text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm">
-              {ko ? "올해의 목표를 설정해주세요" : "Set your goals for this year"}
-            </p>
-            <p className="text-blue-100 text-xs mt-0.5">
-              {ko ? "핵심 목표와 카테고리별 계획을 세워보세요" : "Define your core goal & category plans"}
-            </p>
-          </div>
-          <ArrowRight size={18} className="text-white/70 group-hover:translate-x-1 transition-transform shrink-0" />
-        </Link>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm">
+                  {ko ? "올해의 목표를 설정해주세요" : "Set your goals for this year"}
+                </p>
+                <p className="text-blue-100 text-xs mt-0.5">
+                  {ko
+                    ? "핵심 목표와 카테고리별 계획을 세워보세요"
+                    : "Define your core goal & category plans"}
+                </p>
+              </div>
+              <ArrowRight
+                size={18}
+                className="text-white/70 group-hover:translate-x-1 transition-transform shrink-0"
+              />
+            </Link>
+          )}
+        </>
       )}
+
+      {/* Strategy Tab Content */}
+      {activeTab === "strategy" && <StrategyTabContent />}
 
       {/* Members Preview */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
