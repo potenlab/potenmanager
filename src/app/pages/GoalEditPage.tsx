@@ -1,14 +1,12 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
 import {
   ArrowLeft,
   Sparkles,
-  Pencil,
-  Check,
-  X,
   Trash2,
   Plus,
   Target,
+  Check,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
@@ -55,11 +53,79 @@ function parseGoalTitle(title: string): { label: string; value: string } {
   return { label: "", value: title };
 }
 
+/* ── Inline editable field (Notion-style) ── */
+function InlineField({
+  value,
+  placeholder,
+  onSave,
+  className,
+  inputClassName,
+}: {
+  value: string;
+  placeholder?: string;
+  onSave: (v: string) => void;
+  className?: string;
+  inputClassName?: string;
+}) {
+  const [text, setText] = useState(value);
+  const [focused, setFocused] = useState(false);
+  const ref = useRef<HTMLInputElement>(null);
+  const savedRef = useRef(value);
+
+  // Sync when external value changes
+  useEffect(() => { setText(value); savedRef.current = value; }, [value]);
+
+  const commit = useCallback(() => {
+    const trimmed = text.trim();
+    if (trimmed && trimmed !== savedRef.current) {
+      onSave(trimmed);
+      savedRef.current = trimmed;
+    } else {
+      setText(savedRef.current);
+    }
+  }, [text, onSave]);
+
+  return (
+    <input
+      ref={ref}
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => { setFocused(false); commit(); }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") { e.currentTarget.blur(); }
+        if (e.key === "Escape") { setText(savedRef.current); e.currentTarget.blur(); }
+      }}
+      placeholder={placeholder}
+      className={cn(
+        "bg-transparent outline-none w-full transition-all duration-150",
+        "border-b-2",
+        focused
+          ? "border-blue-400"
+          : "border-transparent hover:border-gray-200",
+        className,
+        inputClassName,
+      )}
+    />
+  );
+}
+
 export function GoalEditPage() {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const ko = language === "ko";
   const { goals, urgentGoals, addGoal, updateGoal, removeGoal } = useGoalContext();
+  const [saved, setSaved] = useState(false);
+
+  // Adding new category state
+  const [addingKey, setAddingKey] = useState<string | null>(null);
+  const [addValue, setAddValue] = useState("");
+  const addRef = useRef<HTMLInputElement>(null);
+
+  // Focus input when adding new category
+  useEffect(() => {
+    if (addingKey && addRef.current) addRef.current.focus();
+  }, [addingKey]);
 
   // Find core goal
   const coreGoal = useMemo(
@@ -91,17 +157,6 @@ export function GoalEditPage() {
     [usedCategoryKeys]
   );
 
-  // Editing state
-  const [editingCore, setEditingCore] = useState(false);
-  const [coreValue, setCoreValue] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState("");
-  const [saved, setSaved] = useState(false);
-
-  // Adding new category state
-  const [addingKey, setAddingKey] = useState<string | null>(null);
-  const [addValue, setAddValue] = useState("");
-
   // No goals → redirect to setup
   if (!coreGoal) {
     return (
@@ -124,19 +179,19 @@ export function GoalEditPage() {
     );
   }
 
-  const handleSaveCore = () => {
-    if (!coreValue.trim()) return;
-    updateGoal(coreGoal.id, { title: coreValue.trim(), titleKo: coreValue.trim() });
-    setEditingCore(false);
+  const flashSaved = () => {
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  };
+
+  const handleSaveCore = (v: string) => {
+    updateGoal(coreGoal.id, { title: v, titleKo: v });
     flashSaved();
   };
 
-  const handleSaveCategory = (goalId: string, oldTitle: string) => {
-    if (!editValue.trim()) return;
-    const { label } = parseGoalTitle(oldTitle);
-    const newTitle = label ? `${label}: ${editValue.trim()}` : editValue.trim();
+  const handleSaveCategory = (goalId: string, label: string, newValue: string) => {
+    const newTitle = label ? `${label}: ${newValue}` : newValue;
     updateGoal(goalId, { title: newTitle, titleKo: newTitle });
-    setEditingId(null);
     flashSaved();
   };
 
@@ -165,15 +220,10 @@ export function GoalEditPage() {
     flashSaved();
   };
 
-  const flashSaved = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
-  };
-
   return (
     <div className="max-w-2xl mx-auto py-6 px-4 pb-20">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-3 mb-8">
         <button
           onClick={() => navigate("/goals")}
           className="p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
@@ -185,7 +235,7 @@ export function GoalEditPage() {
             {ko ? "목표 수정" : "Edit Goals"}
           </h1>
           <p className="text-xs text-gray-400">
-            {ko ? "핵심 목표와 세부 항목을 수정하세요" : "Edit your core goal and categories"}
+            {ko ? "클릭해서 바로 수정하세요" : "Click any field to edit inline"}
           </p>
         </div>
         {saved && (
@@ -197,145 +247,61 @@ export function GoalEditPage() {
       </div>
 
       {/* Core Goal */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-4">
-        <div className="px-5 py-3 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
-          <p className="text-xs font-semibold text-blue-600 flex items-center gap-1.5">
-            <Sparkles size={12} />
-            {ko ? `${new Date().getFullYear()}년 핵심 목표` : `${new Date().getFullYear()} Core Goal`}
-          </p>
-        </div>
-        <div className="px-5 py-4">
-          {editingCore ? (
-            <div className="flex items-center gap-2">
-              <input
-                autoFocus
-                value={coreValue}
-                onChange={(e) => setCoreValue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSaveCore();
-                  if (e.key === "Escape") setEditingCore(false);
-                }}
-                className="flex-1 text-base font-semibold text-gray-900 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-100"
-              />
-              <button
-                onClick={handleSaveCore}
-                className="p-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-              >
-                <Check size={16} />
-              </button>
-              <button
-                onClick={() => setEditingCore(false)}
-                className="p-2 rounded-xl bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          ) : (
-            <div
-              className="flex items-center gap-3 group cursor-pointer rounded-xl px-1 -mx-1 py-1 hover:bg-gray-50 transition-colors"
-              onClick={() => {
-                setCoreValue(ko ? (coreGoal.titleKo || coreGoal.title) : coreGoal.title);
-                setEditingCore(true);
-              }}
-            >
-              <p className="text-base font-bold text-gray-900 flex-1">
-                {ko ? (coreGoal.titleKo || coreGoal.title) : coreGoal.title}
-              </p>
-              <Pencil size={14} className="text-gray-300 group-hover:text-blue-500 transition-colors shrink-0" />
-            </div>
-          )}
-        </div>
+      <div className="mb-8">
+        <p className="text-[11px] font-semibold text-blue-500 flex items-center gap-1.5 mb-2 px-1">
+          <Sparkles size={12} />
+          {ko ? `${new Date().getFullYear()}년 핵심 목표` : `${new Date().getFullYear()} Core Goal`}
+        </p>
+        <InlineField
+          value={ko ? (coreGoal.titleKo || coreGoal.title) : coreGoal.title}
+          onSave={handleSaveCore}
+          placeholder={ko ? "핵심 목표를 입력하세요" : "Enter your core goal"}
+          className="text-xl font-bold text-gray-900 py-1.5 px-1"
+        />
       </div>
 
+      {/* Divider */}
+      <div className="border-t border-gray-100 mb-6" />
+
       {/* Category Goals */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-4">
-        <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-          <p className="text-xs font-semibold text-gray-500">
-            {ko ? "세부 항목" : "Categories"}
-          </p>
-          <span className="text-[10px] text-gray-400">
-            {categoryGoals.length}{ko ? "개" : " items"}
-          </span>
-        </div>
+      <div className="mb-6">
+        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-4 px-1">
+          {ko ? "세부 항목" : "Categories"}{" "}
+          <span className="text-gray-300 normal-case">({categoryGoals.length})</span>
+        </p>
 
         {categoryGoals.length === 0 ? (
-          <div className="px-5 py-8 text-center">
-            <p className="text-sm text-gray-400 mb-3">
-              {ko ? "세부 항목이 없습니다" : "No category goals"}
-            </p>
-          </div>
+          <p className="text-sm text-gray-300 px-1 py-4">
+            {ko ? "아래에서 항목을 추가하세요" : "Add categories below"}
+          </p>
         ) : (
-          <div className="divide-y divide-gray-50">
+          <div className="space-y-1">
             {categoryGoals.map((goal) => {
               const title = ko ? (goal.titleKo || goal.title) : goal.title;
               const { label, value } = parseGoalTitle(title);
               const meta = META_BY_LABEL[label];
-              const isEditing = editingId === goal.id;
 
               return (
-                <div key={goal.id} className="px-5 py-3">
-                  {isEditing ? (
-                    <div className="flex items-center gap-2">
-                      {label && (
-                        <span className={cn(
-                          "text-xs font-semibold px-2 py-1 rounded-lg shrink-0",
-                          meta?.colorBg || "bg-gray-50",
-                          meta?.colorText || "text-gray-600"
-                        )}>
-                          {meta?.emoji} {label}
-                        </span>
-                      )}
-                      <input
-                        autoFocus
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleSaveCategory(goal.id, title);
-                          if (e.key === "Escape") setEditingId(null);
-                        }}
-                        className="flex-1 text-sm text-gray-900 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-200"
-                      />
-                      <button
-                        onClick={() => handleSaveCategory(goal.id, title)}
-                        className="p-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                      >
-                        <Check size={14} />
-                      </button>
-                      <button
-                        onClick={() => setEditingId(null)}
-                        className="p-1.5 rounded-lg bg-gray-100 text-gray-400 hover:bg-gray-200 transition-colors"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-3 group">
-                      <span className="text-lg shrink-0">{meta?.emoji || "📋"}</span>
-                      <div className="flex-1 min-w-0">
-                        {label && (
-                          <p className={cn("text-[11px] font-medium", meta?.colorText || "text-gray-500")}>
-                            {label}
-                          </p>
-                        )}
-                        <p className="text-sm text-gray-900 truncate">{value}</p>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setEditValue(value);
-                          setEditingId(goal.id);
-                        }}
-                        className="p-1.5 rounded-lg text-gray-300 hover:text-blue-500 hover:bg-blue-50 transition-colors opacity-0 group-hover:opacity-100"
-                      >
-                        <Pencil size={13} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteCategory(goal.id)}
-                        className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  )}
+                <div key={goal.id} className="group flex items-center gap-3 py-2 px-1 rounded-lg hover:bg-gray-50/50 transition-colors">
+                  <span className="text-lg shrink-0">{meta?.emoji || "📋"}</span>
+                  <span className={cn(
+                    "text-xs font-semibold shrink-0 min-w-[52px]",
+                    meta?.colorText || "text-gray-500"
+                  )}>
+                    {label}
+                  </span>
+                  <InlineField
+                    value={value}
+                    onSave={(v) => handleSaveCategory(goal.id, label, v)}
+                    placeholder={meta ? (ko ? meta.placeholderKo : meta.placeholderEn) : ""}
+                    className="text-sm text-gray-900 py-1 flex-1"
+                  />
+                  <button
+                    onClick={() => handleDeleteCategory(goal.id)}
+                    className="p-1 rounded-md text-gray-200 hover:text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100 shrink-0"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               );
             })}
@@ -345,27 +311,23 @@ export function GoalEditPage() {
 
       {/* Unselected Categories — Add new */}
       {unusedCategories.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-4">
-          <div className="px-5 py-3 border-b border-gray-100">
-            <p className="text-xs font-semibold text-gray-500">
-              {ko ? "항목 추가하기" : "Add Categories"}
-            </p>
-          </div>
-          <div className="px-5 py-3 space-y-2">
+        <div className="mb-8">
+          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3 px-1">
+            {ko ? "항목 추가" : "Add More"}
+          </p>
+          <div className="space-y-1">
             {unusedCategories.map((cat) => {
               const isAdding = addingKey === cat.key;
               return (
                 <div key={cat.key}>
                   {isAdding ? (
-                    <div className="flex items-center gap-2 py-1">
-                      <span className={cn(
-                        "text-xs font-semibold px-2 py-1 rounded-lg shrink-0",
-                        cat.colorBg, cat.colorText
-                      )}>
-                        {cat.emoji} {ko ? cat.labelKo : cat.labelEn}
+                    <div className="flex items-center gap-3 py-2 px-1">
+                      <span className="text-lg shrink-0">{cat.emoji}</span>
+                      <span className={cn("text-xs font-semibold shrink-0 min-w-[52px]", cat.colorText)}>
+                        {ko ? cat.labelKo : cat.labelEn}
                       </span>
                       <input
-                        autoFocus
+                        ref={addRef}
                         value={addValue}
                         onChange={(e) => setAddValue(e.target.value)}
                         placeholder={ko ? cat.placeholderKo : cat.placeholderEn}
@@ -373,32 +335,30 @@ export function GoalEditPage() {
                           if (e.key === "Enter") handleAddCategory(cat);
                           if (e.key === "Escape") { setAddingKey(null); setAddValue(""); }
                         }}
-                        className="flex-1 text-sm text-gray-900 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-200"
+                        onBlur={() => {
+                          if (addValue.trim()) {
+                            handleAddCategory(cat);
+                          } else {
+                            setAddingKey(null);
+                            setAddValue("");
+                          }
+                        }}
+                        className="flex-1 text-sm text-gray-900 py-1 bg-transparent outline-none border-b-2 border-blue-400 transition-all"
                       />
-                      <button
-                        onClick={() => handleAddCategory(cat)}
-                        disabled={!addValue.trim()}
-                        className="p-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-40"
-                      >
-                        <Check size={14} />
-                      </button>
-                      <button
-                        onClick={() => { setAddingKey(null); setAddValue(""); }}
-                        className="p-1.5 rounded-lg bg-gray-100 text-gray-400 hover:bg-gray-200 transition-colors"
-                      >
-                        <X size={14} />
-                      </button>
                     </div>
                   ) : (
                     <button
                       onClick={() => { setAddingKey(cat.key); setAddValue(""); }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-dashed border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 transition-colors text-left"
+                      className="w-full flex items-center gap-3 py-2 px-1 rounded-lg text-left hover:bg-gray-50 transition-colors group"
                     >
-                      <span className="text-lg shrink-0">{cat.emoji}</span>
-                      <span className="text-sm text-gray-500 flex-1">
+                      <span className="text-lg shrink-0 opacity-40 group-hover:opacity-100 transition-opacity">{cat.emoji}</span>
+                      <span className={cn("text-xs font-semibold shrink-0 min-w-[52px] opacity-40 group-hover:opacity-70 transition-opacity", cat.colorText)}>
                         {ko ? cat.labelKo : cat.labelEn}
                       </span>
-                      <Plus size={14} className="text-gray-300" />
+                      <span className="text-sm text-gray-300 flex-1 border-b-2 border-dashed border-gray-150 py-1">
+                        {ko ? cat.placeholderKo : cat.placeholderEn}
+                      </span>
+                      <Plus size={14} className="text-gray-200 group-hover:text-blue-400 transition-colors shrink-0" />
                     </button>
                   )}
                 </div>
@@ -408,21 +368,13 @@ export function GoalEditPage() {
         </div>
       )}
 
-      {/* Actions */}
-      <div className="flex gap-3">
+      {/* Bottom action */}
+      <div className="border-t border-gray-100 pt-4">
         <button
           onClick={() => navigate("/goals/setup")}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-200 transition-colors"
+          className="text-xs text-gray-400 hover:text-gray-600 transition-colors px-1"
         >
-          <Plus size={16} />
-          {ko ? "처음부터 다시 설정" : "Redo Setup"}
-        </button>
-        <button
-          onClick={() => navigate("/goals")}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
-        >
-          <Check size={16} />
-          {ko ? "완료" : "Done"}
+          {ko ? "처음부터 다시 설정하기 →" : "Redo setup from scratch →"}
         </button>
       </div>
     </div>
