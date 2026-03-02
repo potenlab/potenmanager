@@ -22,7 +22,6 @@ import {
   CalendarClock,
   Eye,
   EyeOff,
-  Sparkles,
   Loader2,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -264,7 +263,7 @@ export function StrategyTabContent() {
 
   return (
     <div>
-      {/* Search + AI Strategy Button */}
+      {/* Search */}
       <div className="flex items-center gap-3 mb-6">
         <div className="flex items-center flex-1 px-4 py-3 bg-white border border-gray-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-400 transition-all shadow-sm">
           <Search className="text-gray-400 mr-3 shrink-0" size={18} />
@@ -276,15 +275,6 @@ export function StrategyTabContent() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <PermissionGate permission="strategy.create">
-          <button
-            onClick={() => navigate("/strategy/new")}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl text-sm font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-md shadow-blue-200 shrink-0"
-          >
-            <Sparkles size={15} />
-            AI {language === 'ko' ? '\uC804\uB7B5 \uC0DD\uC131' : 'Strategy'}
-          </button>
-        </PermissionGate>
       </div>
 
       {/* Urgent Goals Section */}

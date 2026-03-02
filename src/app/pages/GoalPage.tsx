@@ -19,6 +19,7 @@ import { useInvite } from "../context/InviteContext";
 import { usePermission } from "../context/PermissionContext";
 import { hasPermission, type Role } from "../../lib/permissions";
 import { useGoalContext } from "../context/GoalContext";
+import { PermissionGate } from "../components/layout/PermissionGate";
 import { StrategyTabContent } from "./GoalsPage";
 
 export function GoalPage() {
@@ -170,7 +171,18 @@ export function GoalPage() {
         </div>
 
         <div className="px-6 pt-3 pb-6">
-          <h1 className="text-xl font-bold text-gray-900 mb-1">{org.name}</h1>
+          <div className="flex items-center justify-between mb-1">
+            <h1 className="text-xl font-bold text-gray-900">{org.name}</h1>
+            <PermissionGate permission="strategy.create">
+              <button
+                onClick={() => navigate("/strategy/new")}
+                className="flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl text-xs font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-md shadow-blue-200"
+              >
+                <Sparkles size={14} />
+                AI {ko ? '전략 생성' : 'Strategy'}
+              </button>
+            </PermissionGate>
+          </div>
 
           {/* Meta info */}
           <div className="flex items-center gap-4 text-sm text-gray-500">
