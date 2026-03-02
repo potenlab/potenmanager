@@ -7,6 +7,7 @@ import { notificationBus } from "../../lib/notificationEvents";
 export interface Organization {
   id: string;
   name: string;
+  logoUrl?: string;
   ownerId: string;
   ownerName?: string;
   memberIds: string[];
@@ -42,6 +43,7 @@ export interface JoinRequest {
 export interface OrgSummary {
   orgId: string;
   orgName: string;
+  logoUrl?: string;
   role: string;
 }
 
@@ -58,6 +60,7 @@ interface InviteContextType {
   // Org actions
   createOrg: (name: string) => Promise<Organization | null>;
   updateOrgName: (name: string) => Promise<boolean>;
+  updateOrgLogo: (logoUrl: string) => Promise<boolean>;
 
   // Invite actions
   generateInvite: (role?: string) => Promise<Invite | null>;
@@ -162,6 +165,20 @@ export function InviteProvider({ children }: { children: ReactNode }) {
       return true;
     } catch (err) {
       console.error("[InviteContext] Failed to update org name:", err);
+      return false;
+    }
+  }, [org]);
+
+  // ── Update Organization Logo ────────────────────────────────────────
+  const updateOrgLogoFn = useCallback(async (logoUrl: string): Promise<boolean> => {
+    if (!org) return false;
+    try {
+      await api.updateOrg(org.id, { logoUrl });
+      setOrg((prev) => prev ? { ...prev, logoUrl } : prev);
+      setAllOrgs((prev) => prev.map((o) => o.orgId === org.id ? { ...o, logoUrl } : o));
+      return true;
+    } catch (err) {
+      console.error("[InviteContext] Failed to update org logo:", err);
       return false;
     }
   }, [org]);
@@ -307,6 +324,7 @@ export function InviteProvider({ children }: { children: ReactNode }) {
       switchOrg,
       createOrg: createOrgFn,
       updateOrgName: updateOrgNameFn,
+      updateOrgLogo: updateOrgLogoFn,
       generateInvite: generateInviteFn,
       lookupInvite: lookupInviteFn,
       joinViaCode: joinViaCodeFn,

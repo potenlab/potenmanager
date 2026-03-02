@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Link, useNavigate } from "react-router";
 import {
   ArrowRight,
@@ -13,6 +13,7 @@ import {
   Loader2,
   Calendar,
   User as UserIcon,
+  Camera,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
@@ -26,7 +27,7 @@ export function GoalPage() {
   const { language } = useLanguage();
   const ko = language === "ko";
   const navigate = useNavigate();
-  const { org, createOrg, updateOrgName, isLoading } = useInvite();
+  const { org, createOrg, updateOrgName, updateOrgLogo, isLoading } = useInvite();
   const { currentUser, members } = usePermission();
   const { goals, urgentGoals } = useGoalContext();
 
@@ -38,6 +39,23 @@ export function GoalPage() {
 
   const [orgName, setOrgName] = useState("");
   const [creating, setCreating] = useState(false);
+
+  // Logo upload
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 200 * 1024) {
+      alert(ko ? "200KB 이하 이미지만 가능합니다" : "Max 200KB image allowed");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      updateOrgLogo(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Editing org name
   const [editingName, setEditingName] = useState(false);
@@ -154,9 +172,33 @@ export function GoalPage() {
         </div>
 
         <div className="px-6 -mt-8 relative z-[1]">
-          <div className="w-16 h-16 bg-white rounded-2xl border-4 border-white shadow-lg flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50">
-            <Building2 size={28} className="text-blue-600" />
-          </div>
+          <input
+            ref={logoInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleLogoUpload}
+          />
+          <button
+            onClick={() => canEdit && logoInputRef.current?.click()}
+            className={cn(
+              "w-16 h-16 rounded-2xl border-4 border-white shadow-lg overflow-hidden relative group",
+              canEdit && "cursor-pointer"
+            )}
+          >
+            {org.logoUrl ? (
+              <img src={org.logoUrl} alt="logo" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
+                <Building2 size={28} className="text-blue-600" />
+              </div>
+            )}
+            {canEdit && (
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-all">
+                <Camera size={16} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            )}
+          </button>
         </div>
 
         <div className="px-6 pt-3 pb-6">

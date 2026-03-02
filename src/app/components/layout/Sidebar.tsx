@@ -120,9 +120,13 @@ export function Sidebar() {
       {/* Brand Logo */}
       <div className="p-6 md:p-8 pb-4 overflow-hidden">
         <div className="flex items-center gap-3 mb-6 md:mb-8 min-w-[200px]">
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shrink-0">
-            <Zap size={20} fill="currentColor" />
-          </div>
+          {org?.logoUrl ? (
+            <img src={org.logoUrl} alt="logo" className="w-10 h-10 rounded-xl object-cover shrink-0" />
+          ) : (
+            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shrink-0">
+              <Zap size={20} fill="currentColor" />
+            </div>
+          )}
           <div className={cn("transition-opacity duration-200", isCompact ? "opacity-0" : "opacity-100")}>
             <h1 className="font-bold text-lg text-gray-900 leading-tight whitespace-nowrap">Poten Manager</h1>
             {org && allOrgs.length > 1 ? (

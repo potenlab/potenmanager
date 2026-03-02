@@ -116,7 +116,7 @@ export const api = {
     request<any>('/org', { method: 'POST', body: JSON.stringify(data) }),
   getOrg: (orgId: string) =>
     request<any>(`/org/${orgId}`),
-  updateOrg: (orgId: string, data: { name?: string }) =>
+  updateOrg: (orgId: string, data: { name?: string; logoUrl?: string }) =>
     request<any>(`/org/${orgId}/update`, { method: 'POST', body: JSON.stringify(data) }),
   getUserOrg: (userId: string) =>
     request<{ org: any; userRole?: string; allOrgs?: Array<{ orgId: string; orgName: string; role: string }>; activeOrgId?: string }>(`/user-org/${userId}`),

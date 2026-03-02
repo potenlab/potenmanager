@@ -500,8 +500,8 @@ app.post("/make-server-f580d5ca/org/:orgId/update", async (c) => {
     const org = await kv.get(`org:${orgId}`) as any;
     if (!org) return c.json({ error: "Organization not found" }, 404);
 
-    // Merge updates (only allow name for now)
     if (body.name) org.name = body.name;
+    if (body.logoUrl !== undefined) org.logoUrl = body.logoUrl;
     await kv.set(`org:${orgId}`, org);
 
     console.log(`[Org] Updated org "${org.name}" (${orgId})`);
@@ -548,7 +548,7 @@ app.get("/make-server-f580d5ca/user-org/:userId", async (c) => {
     const allOrgs = await Promise.all(
       orgs.map(async (o: any) => {
         const orgData = await kv.get(`org:${o.orgId}`) as any;
-        return { orgId: o.orgId, orgName: orgData?.name || 'Unknown', role: o.role };
+        return { orgId: o.orgId, orgName: orgData?.name || 'Unknown', logoUrl: orgData?.logoUrl || null, role: o.role };
       })
     );
 
