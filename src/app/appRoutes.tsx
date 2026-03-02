@@ -10,6 +10,7 @@ import { GoalDetailPage } from "./pages/GoalDetailPage";
 import { GoalPage } from "./pages/GoalPage";
 import { GoalsPage } from "./pages/GoalsPage";
 import { GoalSetupWizardPage } from "./pages/GoalSetupWizardPage";
+import { GoalEditPage } from "./pages/GoalEditPage";
 import { StrategyCreationPage } from "./pages/StrategyCreationPage";
 import { CalendarPage } from "./pages/CalendarPage";
 import { TasksPage } from "./pages/TasksPage";
@@ -53,6 +54,7 @@ export const router = createBrowserRouter([
               { path: "calendar", Component: CalendarPage },
               { path: "goals", Component: GoalPage },
               { path: "goals/setup", Component: GoalSetupWizardPage },
+              { path: "goals/edit", Component: GoalEditPage },
               { path: "goals/:goalId", Component: GoalDetailPage },
               { path: "strategy", Component: GoalsPage },
               { path: "strategy/new", Component: StrategyCreationPage },

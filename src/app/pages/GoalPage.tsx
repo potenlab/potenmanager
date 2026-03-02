@@ -258,7 +258,7 @@ export function GoalPage() {
               {ko ? `${new Date().getFullYear()}년 목표` : `${new Date().getFullYear()} Goal`}
             </h3>
             <Link
-              to="/goals/setup"
+              to="/goals/edit"
               className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
             >
               <Pencil size={12} />
