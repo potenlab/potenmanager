@@ -181,7 +181,7 @@ const uid = () => `goal_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 export default function GoalSetupWizardPage() {
   const navigate = useNavigate();
   const { language } = useLanguage();
-  const { addGoal } = useGoalContext();
+  const { addGoal, removeGoal, goals, urgentGoals } = useGoalContext();
   const ko = language === "ko";
 
   // wizard state
@@ -255,6 +255,17 @@ export default function GoalSetupWizardPage() {
 
   // ─── Save goals to context ───────────────────────────────────
   const saveGoals = () => {
+    // Remove existing Year-level goals and their Urgent children
+    const existingYearGoals = goals.filter((g) => g.level === "Year" && !g.parentId);
+    for (const yg of existingYearGoals) {
+      // Remove children first
+      const children = urgentGoals.filter((g) => g.parentId === yg.id);
+      for (const child of children) {
+        removeGoal(child.id);
+      }
+      removeGoal(yg.id);
+    }
+
     const coreId = uid();
 
     // Core goal (Year level)
