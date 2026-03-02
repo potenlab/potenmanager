@@ -117,7 +117,7 @@ export const api = {
   getOrg: (orgId: string) =>
     request<any>(`/org/${orgId}`),
   updateOrg: (orgId: string, data: { name?: string }) =>
-    request<any>(`/org/${orgId}`, { method: 'PUT', body: JSON.stringify(data) }),
+    request<any>(`/org/${orgId}/update`, { method: 'POST', body: JSON.stringify(data) }),
   getUserOrg: (userId: string) =>
     request<{ org: any; userRole?: string; allOrgs?: Array<{ orgId: string; orgName: string; role: string }>; activeOrgId?: string }>(`/user-org/${userId}`),
   switchActiveOrg: (userId: string, orgId: string) =>

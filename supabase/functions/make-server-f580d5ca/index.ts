@@ -493,7 +493,7 @@ app.get("/make-server-f580d5ca/org/:orgId", async (c) => {
 });
 
 // ─── Update Organization ─────────────────────────────────────────────
-app.put("/make-server-f580d5ca/org/:orgId", async (c) => {
+app.post("/make-server-f580d5ca/org/:orgId/update", async (c) => {
   try {
     const orgId = c.req.param("orgId");
     const body = await c.req.json();
@@ -1225,5 +1225,8 @@ app.post("/make-server-f580d5ca/demo/setup", async (c) => {
     return c.json({ error: "Demo setup failed", message: String(e) }, 500);
   }
 });
+
+// Version check endpoint
+app.get("/make-server-f580d5ca/version", (c) => c.json({ version: "0.2.0", routes: "full" }));
 
 Deno.serve(app.fetch);
