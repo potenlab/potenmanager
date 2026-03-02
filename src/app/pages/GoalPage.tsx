@@ -9,7 +9,6 @@ import {
   Pencil,
   Loader2,
   Calendar,
-  User as UserIcon,
   Settings,
   Target,
   Lightbulb,
@@ -325,64 +324,6 @@ export function GoalPage() {
 
       {/* Strategy Tab Content */}
       {activeTab === "strategy" && <StrategyTabContent />}
-
-      {/* Members Preview */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-            <Users size={16} className="text-gray-400" />
-            {ko ? "팀 멤버" : "Team Members"}
-          </h3>
-          <Link
-            to="/team"
-            className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
-          >
-            {ko ? "전체 보기" : "View all"}
-            <ArrowRight size={12} />
-          </Link>
-        </div>
-        <div className="px-6 py-4">
-          <div className="flex items-center gap-3 flex-wrap">
-            {members.slice(0, 6).map((member) => (
-              <div
-                key={member.id}
-                className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-gray-50 hover:bg-blue-50 transition-colors cursor-pointer"
-                onClick={() => navigate(`/team/${member.id}`)}
-              >
-                {member.avatar ? (
-                  <img
-                    src={member.avatar}
-                    alt={member.name}
-                    className="w-8 h-8 rounded-full object-cover border border-gray-200"
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                    <UserIcon size={14} className="text-gray-400" />
-                  </div>
-                )}
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    {member.name}
-                    {member.id === currentUser.id && (
-                      <span className="text-[10px] text-blue-400 ml-1">
-                        {ko ? "(나)" : "(me)"}
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-[11px] text-gray-400 capitalize">
-                    {member.role}
-                  </p>
-                </div>
-              </div>
-            ))}
-            {members.length > 6 && (
-              <span className="text-xs text-gray-400 px-2">
-                +{members.length - 6}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
