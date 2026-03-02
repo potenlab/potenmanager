@@ -10,6 +10,9 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  define: {
+    __APP_VERSION__: JSON.stringify(process.env.npm_package_version || '0.2.0'),
+  },
   resolve: {
     alias: {
       // Alias @ to the src directory

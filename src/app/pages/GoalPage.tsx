@@ -26,7 +26,7 @@ export function GoalPage() {
   const { language } = useLanguage();
   const ko = language === "ko";
   const navigate = useNavigate();
-  const { org, createOrg, isLoading } = useInvite();
+  const { org, createOrg, updateOrgName, isLoading } = useInvite();
   const { currentUser, members } = usePermission();
   const { goals, urgentGoals } = useGoalContext();
 
@@ -168,9 +168,9 @@ export function GoalPage() {
                   autoFocus
                   value={editValue}
                   onChange={(e) => setEditValue(e.target.value)}
-                  onKeyDown={(e) => {
+                  onKeyDown={async (e) => {
                     if (e.key === "Enter" && editValue.trim()) {
-                      // TODO: API call to update org name
+                      await updateOrgName(editValue.trim());
                       setEditingName(false);
                     }
                     if (e.key === "Escape") setEditingName(false);
@@ -178,9 +178,9 @@ export function GoalPage() {
                   className="text-xl font-bold text-gray-900 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1 outline-none focus:ring-2 focus:ring-blue-100 flex-1"
                 />
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     if (editValue.trim()) {
-                      // TODO: API call to update org name
+                      await updateOrgName(editValue.trim());
                       setEditingName(false);
                     }
                   }}

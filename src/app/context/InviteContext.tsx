@@ -57,6 +57,7 @@ interface InviteContextType {
 
   // Org actions
   createOrg: (name: string) => Promise<Organization | null>;
+  updateOrgName: (name: string) => Promise<boolean>;
 
   // Invite actions
   generateInvite: (role?: string) => Promise<Invite | null>;
@@ -147,6 +148,23 @@ export function InviteProvider({ children }: { children: ReactNode }) {
       return null;
     }
   }, [currentUser]);
+
+  // ── Update Organization Name ─────────────────────────────────────────
+  const updateOrgNameFn = useCallback(async (name: string): Promise<boolean> => {
+    if (!org) return false;
+    try {
+      const updated = await api.updateOrg(org.id, { name });
+      if (updated) {
+        setOrg((prev) => prev ? { ...prev, name } : prev);
+        setAllOrgs((prev) => prev.map((o) => o.orgId === org.id ? { ...o, orgName: name } : o));
+        console.log(`[InviteContext] Updated org name to: ${name}`);
+      }
+      return true;
+    } catch (err) {
+      console.error("[InviteContext] Failed to update org name:", err);
+      return false;
+    }
+  }, [org]);
 
   // ── Generate Invite Code ──────────────────────────────────────────
   const generateInviteFn = useCallback(async (role: string = 'member'): Promise<Invite | null> => {
@@ -288,6 +306,7 @@ export function InviteProvider({ children }: { children: ReactNode }) {
       activeOrgId,
       switchOrg,
       createOrg: createOrgFn,
+      updateOrgName: updateOrgNameFn,
       generateInvite: generateInviteFn,
       lookupInvite: lookupInviteFn,
       joinViaCode: joinViaCodeFn,

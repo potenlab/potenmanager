@@ -1,6 +1,7 @@
 import { Outlet, useNavigate, useLocation } from "react-router";
 import { Sidebar } from "./Sidebar";
-import { Bell, ChevronDown, Flag, Menu } from "lucide-react";
+import { Bell, ChevronDown, Flag } from "lucide-react";
+import { BottomNav } from "./BottomNav";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSidebar } from "../../context/SidebarContext";
 import { useGoalContext } from "../../context/GoalContext";
@@ -12,7 +13,7 @@ import { useNotifications } from "../../context/NotificationContext";
 
 export function Layout() {
   const { language } = useLanguage();
-  const { width, isMobile, toggleSidebar } = useSidebar();
+  const { width, isMobile } = useSidebar();
   const navigate = useNavigate();
   const { unreadCount } = useNotifications();
   const location = useLocation();
@@ -55,32 +56,13 @@ export function Layout() {
         style={isMobile ? undefined : { marginLeft: width }}
       >
         <main className="flex-1 p-4 md:p-8 overflow-y-auto bg-white shadow-xl md:rounded-l-[32px] border-l border-gray-100 h-screen">
-          {location.pathname === "/mypage" ? (
-            isMobile && (
-              <div className="flex items-center mb-4">
-                <button
-                  onClick={toggleSidebar}
-                  className="p-2 rounded-xl hover:bg-gray-100 text-gray-500 transition-colors shrink-0"
-                >
-                  <Menu size={22} />
-                </button>
-              </div>
-            )
-          ) : (
+          {location.pathname === "/mypage" ? null : (
           <header className={cn(
             "flex flex-col md:flex-row justify-between md:items-center mb-6 md:mb-8 pb-4 border-b border-gray-100 gap-3 md:gap-4",
             // Hide header on detail pages (sub-routes) and notifications
             (location.pathname.split("/").filter(Boolean).length > 1 || location.pathname === "/notifications") && "hidden"
           )}>
             <div className="flex items-center gap-3">
-              {isMobile && (
-                <button
-                  onClick={toggleSidebar}
-                  className="p-2 rounded-xl hover:bg-gray-100 text-gray-500 transition-colors shrink-0"
-                >
-                  <Menu size={22} />
-                </button>
-              )}
               <div className="p-2 rounded-xl bg-purple-50 border border-purple-100 shrink-0">
                 <Flag size={isMobile ? 16 : 20} className="text-purple-600" />
               </div>
@@ -138,6 +120,7 @@ export function Layout() {
           </div>
         </main>
       </div>
+      <BottomNav />
     </div>
   );
 }

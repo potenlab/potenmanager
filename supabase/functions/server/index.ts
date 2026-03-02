@@ -492,6 +492,26 @@ app.get("/make-server-f580d5ca/org/:orgId", async (c) => {
   }
 });
 
+// ─── Update Organization ─────────────────────────────────────────────
+app.put("/make-server-f580d5ca/org/:orgId", async (c) => {
+  try {
+    const orgId = c.req.param("orgId");
+    const body = await c.req.json();
+    const org = await kv.get(`org:${orgId}`) as any;
+    if (!org) return c.json({ error: "Organization not found" }, 404);
+
+    // Merge updates (only allow name for now)
+    if (body.name) org.name = body.name;
+    await kv.set(`org:${orgId}`, org);
+
+    console.log(`[Org] Updated org "${org.name}" (${orgId})`);
+    return c.json(org);
+  } catch (e) {
+    console.log("Error updating org:", e);
+    return c.json({ error: "Failed to update organization", message: String(e) }, 500);
+  }
+});
+
 // ─── Get current user's organization ─────────────────────────────────
 app.get("/make-server-f580d5ca/user-org/:userId", async (c) => {
   try {

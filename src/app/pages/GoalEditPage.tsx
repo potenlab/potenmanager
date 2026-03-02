@@ -15,16 +15,36 @@ import { useLanguage } from "../context/LanguageContext";
 import { useGoalContext } from "../context/GoalContext";
 import type { GoalItem } from "../../lib/mockData";
 
-// Category metadata (mirrors wizard)
-const CATEGORY_META: Record<
-  string,
-  { emoji: string; labelKo: string; labelEn: string; colorBg: string; colorText: string }
-> = {
-  funding: { emoji: "💰", labelKo: "매출", labelEn: "Revenue", colorBg: "bg-emerald-50", colorText: "text-emerald-600" },
-  investment: { emoji: "📈", labelKo: "투자", labelEn: "Funding", colorBg: "bg-orange-50", colorText: "text-orange-600" },
-  other: { emoji: "📋", labelKo: "기타", labelEn: "Other", colorBg: "bg-gray-50", colorText: "text-gray-600" },
-  contract: { emoji: "🤝", labelKo: "협약", labelEn: "Partnerships", colorBg: "bg-teal-50", colorText: "text-teal-600" },
-};
+// Full category list (mirrors wizard exactly)
+interface CategoryDef {
+  key: string;
+  emoji: string;
+  labelKo: string;
+  labelEn: string;
+  colorBg: string;
+  colorText: string;
+  urgentCategory: string;
+  placeholderKo: string;
+  placeholderEn: string;
+}
+
+const ALL_CATEGORIES: CategoryDef[] = [
+  { key: "revenue", emoji: "💰", labelKo: "매출", labelEn: "Revenue", colorBg: "bg-emerald-50", colorText: "text-emerald-600", urgentCategory: "funding", placeholderKo: "예: 10억원", placeholderEn: "e.g. $1M" },
+  { key: "funding", emoji: "📈", labelKo: "투자", labelEn: "Funding", colorBg: "bg-orange-50", colorText: "text-orange-600", urgentCategory: "investment", placeholderKo: "예: 시리즈 A", placeholderEn: "e.g. Series A" },
+  { key: "customers", emoji: "👥", labelKo: "고객확보", labelEn: "Customers", colorBg: "bg-blue-50", colorText: "text-blue-600", urgentCategory: "other", placeholderKo: "예: 1000명", placeholderEn: "e.g. 1000" },
+  { key: "partnerships", emoji: "🤝", labelKo: "협약", labelEn: "Partnerships", colorBg: "bg-teal-50", colorText: "text-teal-600", urgentCategory: "contract", placeholderKo: "예: 대기업 MOU 3건", placeholderEn: "e.g. 3 MOUs" },
+  { key: "team", emoji: "👤", labelKo: "채용/팀원", labelEn: "Hiring/Team", colorBg: "bg-pink-50", colorText: "text-pink-600", urgentCategory: "other", placeholderKo: "예: 15명", placeholderEn: "e.g. 15" },
+  { key: "market", emoji: "🌍", labelKo: "판로확보", labelEn: "Market", colorBg: "bg-indigo-50", colorText: "text-indigo-600", urgentCategory: "other", placeholderKo: "예: 일본, 동남아", placeholderEn: "e.g. Japan" },
+  { key: "brand", emoji: "⭐", labelKo: "브랜딩", labelEn: "Branding", colorBg: "bg-yellow-50", colorText: "text-yellow-600", urgentCategory: "other", placeholderKo: "예: 인지도 2배 향상", placeholderEn: "e.g. Double awareness" },
+  { key: "marketing", emoji: "📣", labelKo: "마케팅", labelEn: "Marketing", colorBg: "bg-rose-50", colorText: "text-rose-600", urgentCategory: "other", placeholderKo: "예: SNS 팔로워 1만명", placeholderEn: "e.g. 10K followers" },
+];
+
+// Build lookup by label
+const META_BY_LABEL: Record<string, CategoryDef> = {};
+for (const cat of ALL_CATEGORIES) {
+  META_BY_LABEL[cat.labelKo] = cat;
+  META_BY_LABEL[cat.labelEn] = cat;
+}
 
 // Parse "라벨: 값" format from goal title
 function parseGoalTitle(title: string): { label: string; value: string } {
@@ -39,7 +59,7 @@ export function GoalEditPage() {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const ko = language === "ko";
-  const { goals, urgentGoals, updateGoal, removeGoal } = useGoalContext();
+  const { goals, urgentGoals, addGoal, updateGoal, removeGoal } = useGoalContext();
 
   // Find core goal
   const coreGoal = useMemo(
@@ -53,12 +73,34 @@ export function GoalEditPage() {
     [urgentGoals, coreGoal]
   );
 
+  // Figure out which category keys are already set
+  const usedCategoryKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const goal of categoryGoals) {
+      const title = goal.titleKo || goal.title;
+      const { label } = parseGoalTitle(title);
+      const meta = META_BY_LABEL[label];
+      if (meta) keys.add(meta.key);
+    }
+    return keys;
+  }, [categoryGoals]);
+
+  // Unselected categories
+  const unusedCategories = useMemo(
+    () => ALL_CATEGORIES.filter((cat) => !usedCategoryKeys.has(cat.key)),
+    [usedCategoryKeys]
+  );
+
   // Editing state
   const [editingCore, setEditingCore] = useState(false);
   const [coreValue, setCoreValue] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [saved, setSaved] = useState(false);
+
+  // Adding new category state
+  const [addingKey, setAddingKey] = useState<string | null>(null);
+  const [addValue, setAddValue] = useState("");
 
   // No goals → redirect to setup
   if (!coreGoal) {
@@ -100,6 +142,26 @@ export function GoalEditPage() {
 
   const handleDeleteCategory = (goalId: string) => {
     removeGoal(goalId);
+    flashSaved();
+  };
+
+  const handleAddCategory = (cat: CategoryDef) => {
+    if (!addValue.trim()) return;
+    const label = ko ? cat.labelKo : cat.labelEn;
+    const title = `${label}: ${addValue.trim()}`;
+    const newGoal: GoalItem = {
+      id: `goal-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      title,
+      titleKo: `${cat.labelKo}: ${addValue.trim()}`,
+      level: "Urgent",
+      status: "not-started",
+      parentId: coreGoal.id,
+      isUrgent: true,
+      urgentCategory: cat.urgentCategory as GoalItem["urgentCategory"],
+    };
+    addGoal(newGoal);
+    setAddingKey(null);
+    setAddValue("");
     flashSaved();
   };
 
@@ -201,20 +263,13 @@ export function GoalEditPage() {
             <p className="text-sm text-gray-400 mb-3">
               {ko ? "세부 항목이 없습니다" : "No category goals"}
             </p>
-            <button
-              onClick={() => navigate("/goals/setup")}
-              className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium"
-            >
-              <Plus size={12} />
-              {ko ? "항목 추가하기" : "Add categories"}
-            </button>
           </div>
         ) : (
           <div className="divide-y divide-gray-50">
             {categoryGoals.map((goal) => {
               const title = ko ? (goal.titleKo || goal.title) : goal.title;
               const { label, value } = parseGoalTitle(title);
-              const meta = goal.urgentCategory ? CATEGORY_META[goal.urgentCategory] : null;
+              const meta = META_BY_LABEL[label];
               const isEditing = editingId === goal.id;
 
               return (
@@ -255,9 +310,7 @@ export function GoalEditPage() {
                     </div>
                   ) : (
                     <div className="flex items-center gap-3 group">
-                      {meta && (
-                        <span className="text-lg shrink-0">{meta.emoji}</span>
-                      )}
+                      <span className="text-lg shrink-0">{meta?.emoji || "📋"}</span>
                       <div className="flex-1 min-w-0">
                         {label && (
                           <p className={cn("text-[11px] font-medium", meta?.colorText || "text-gray-500")}>
@@ -289,6 +342,71 @@ export function GoalEditPage() {
           </div>
         )}
       </div>
+
+      {/* Unselected Categories — Add new */}
+      {unusedCategories.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-4">
+          <div className="px-5 py-3 border-b border-gray-100">
+            <p className="text-xs font-semibold text-gray-500">
+              {ko ? "항목 추가하기" : "Add Categories"}
+            </p>
+          </div>
+          <div className="px-5 py-3 space-y-2">
+            {unusedCategories.map((cat) => {
+              const isAdding = addingKey === cat.key;
+              return (
+                <div key={cat.key}>
+                  {isAdding ? (
+                    <div className="flex items-center gap-2 py-1">
+                      <span className={cn(
+                        "text-xs font-semibold px-2 py-1 rounded-lg shrink-0",
+                        cat.colorBg, cat.colorText
+                      )}>
+                        {cat.emoji} {ko ? cat.labelKo : cat.labelEn}
+                      </span>
+                      <input
+                        autoFocus
+                        value={addValue}
+                        onChange={(e) => setAddValue(e.target.value)}
+                        placeholder={ko ? cat.placeholderKo : cat.placeholderEn}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleAddCategory(cat);
+                          if (e.key === "Escape") { setAddingKey(null); setAddValue(""); }
+                        }}
+                        className="flex-1 text-sm text-gray-900 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-200"
+                      />
+                      <button
+                        onClick={() => handleAddCategory(cat)}
+                        disabled={!addValue.trim()}
+                        className="p-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-40"
+                      >
+                        <Check size={14} />
+                      </button>
+                      <button
+                        onClick={() => { setAddingKey(null); setAddValue(""); }}
+                        className="p-1.5 rounded-lg bg-gray-100 text-gray-400 hover:bg-gray-200 transition-colors"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => { setAddingKey(cat.key); setAddValue(""); }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-dashed border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 transition-colors text-left"
+                    >
+                      <span className="text-lg shrink-0">{cat.emoji}</span>
+                      <span className="text-sm text-gray-500 flex-1">
+                        {ko ? cat.labelKo : cat.labelEn}
+                      </span>
+                      <Plus size={14} className="text-gray-300" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Actions */}
       <div className="flex gap-3">

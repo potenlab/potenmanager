@@ -28,6 +28,8 @@ import { usePermission } from "../../context/PermissionContext";
 import { useAuth } from "../../context/AuthContext";
 import { useInvite } from "../../context/InviteContext";
 
+const APP_VERSION = __APP_VERSION__;
+
 const NAV_ORDER_KEY = "poten_nav_order";
 const SIDEBAR_NAV_TYPE = "SIDEBAR_NAV_ITEM";
 
@@ -376,6 +378,11 @@ export function Sidebar() {
             <Trash2 size={14} className="shrink-0" />
             {!isCompact && <span className="text-xs">{language === 'ko' ? '휴지통' : 'Trash'}</span>}
           </button>
+
+          {/* Version */}
+          {!isCompact && (
+            <p className="text-[10px] text-gray-300 text-center pt-2">v{APP_VERSION}</p>
+          )}
         </div>
       </div>
 
@@ -389,29 +396,8 @@ export function Sidebar() {
     </aside>
   );
 
-  // Mobile: slide-out drawer with overlay
-  if (isMobile) {
-    return (
-      <>
-        {/* Overlay */}
-        {isOpen && (
-          <div
-            className="fixed inset-0 bg-black/40 z-[998] animate-in fade-in duration-200"
-            onClick={closeSidebar}
-          />
-        )}
-        {/* Drawer */}
-        <div
-          className={cn(
-            "fixed left-0 top-0 h-full z-[999] transition-transform duration-300 ease-in-out",
-            isOpen ? "translate-x-0" : "-translate-x-full"
-          )}
-        >
-          {sidebarContent}
-        </div>
-      </>
-    );
-  }
+  // Mobile: bottom nav handles navigation, no sidebar needed
+  if (isMobile) return null;
 
   // Desktop: fixed sidebar
   return sidebarContent;
