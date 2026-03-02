@@ -502,6 +502,11 @@ app.post("/make-server-f580d5ca/org/:orgId/update", async (c) => {
 
     if (body.name) org.name = body.name;
     if (body.logoUrl !== undefined) org.logoUrl = body.logoUrl;
+    if (body.description !== undefined) org.description = body.description;
+    if (body.industry !== undefined) org.industry = body.industry;
+    if (body.contact !== undefined) org.contact = body.contact;
+    if (body.address !== undefined) org.address = body.address;
+    if (body.representative !== undefined) org.representative = body.representative;
     await kv.set(`org:${orgId}`, org);
 
     console.log(`[Org] Updated org "${org.name}" (${orgId})`);

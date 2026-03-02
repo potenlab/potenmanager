@@ -11,6 +11,7 @@ import { GoalPage } from "./pages/GoalPage";
 import { GoalsPage } from "./pages/GoalsPage";
 import { GoalSetupWizardPage } from "./pages/GoalSetupWizardPage";
 import { GoalEditPage } from "./pages/GoalEditPage";
+import { OrgSettingsPage } from "./pages/OrgSettingsPage";
 import { StrategyCreationPage } from "./pages/StrategyCreationPage";
 import { CalendarPage } from "./pages/CalendarPage";
 import { TasksPage } from "./pages/TasksPage";
@@ -55,6 +56,7 @@ export const router = createBrowserRouter([
               { path: "organization", Component: GoalPage },
               { path: "organization/setup", Component: GoalSetupWizardPage },
               { path: "organization/edit", Component: GoalEditPage },
+              { path: "organization/settings", Component: OrgSettingsPage },
               { path: "organization/:goalId", Component: GoalDetailPage },
               { path: "strategy", Component: GoalsPage },
               { path: "strategy/new", Component: StrategyCreationPage },

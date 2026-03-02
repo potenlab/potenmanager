@@ -61,6 +61,7 @@ interface InviteContextType {
   createOrg: (name: string) => Promise<Organization | null>;
   updateOrgName: (name: string) => Promise<boolean>;
   updateOrgLogo: (logoUrl: string) => Promise<boolean>;
+  updateOrgField: (field: string, value: string) => Promise<boolean>;
 
   // Invite actions
   generateInvite: (role?: string) => Promise<Invite | null>;
@@ -179,6 +180,19 @@ export function InviteProvider({ children }: { children: ReactNode }) {
       return true;
     } catch (err) {
       console.error("[InviteContext] Failed to update org logo:", err);
+      return false;
+    }
+  }, [org]);
+
+  // ── Update Organization Field (generic) ─────────────────────────────
+  const updateOrgFieldFn = useCallback(async (field: string, value: string): Promise<boolean> => {
+    if (!org) return false;
+    try {
+      await api.updateOrg(org.id, { [field]: value });
+      setOrg((prev) => prev ? { ...prev, [field]: value } as any : prev);
+      return true;
+    } catch (err) {
+      console.error(`[InviteContext] Failed to update org.${field}:`, err);
       return false;
     }
   }, [org]);
@@ -325,6 +339,7 @@ export function InviteProvider({ children }: { children: ReactNode }) {
       createOrg: createOrgFn,
       updateOrgName: updateOrgNameFn,
       updateOrgLogo: updateOrgLogoFn,
+      updateOrgField: updateOrgFieldFn,
       generateInvite: generateInviteFn,
       lookupInvite: lookupInviteFn,
       joinViaCode: joinViaCodeFn,

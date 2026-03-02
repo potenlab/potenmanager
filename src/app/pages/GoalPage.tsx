@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import {
   ArrowRight,
@@ -7,13 +7,10 @@ import {
   Users,
   Plus,
   Pencil,
-  Check,
-  X,
-  Trash2,
   Loader2,
   Calendar,
   User as UserIcon,
-  Camera,
+  Settings,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
@@ -27,7 +24,7 @@ export function GoalPage() {
   const { language } = useLanguage();
   const ko = language === "ko";
   const navigate = useNavigate();
-  const { org, createOrg, updateOrgName, updateOrgLogo, isLoading } = useInvite();
+  const { org, createOrg, isLoading } = useInvite();
   const { currentUser, members } = usePermission();
   const { goals, urgentGoals } = useGoalContext();
 
@@ -40,29 +37,7 @@ export function GoalPage() {
   const [orgName, setOrgName] = useState("");
   const [creating, setCreating] = useState(false);
 
-  // Logo upload
-  const logoInputRef = useRef<HTMLInputElement>(null);
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 200 * 1024) {
-      alert(ko ? "200KB 이하 이미지만 가능합니다" : "Max 200KB image allowed");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      updateOrgLogo(dataUrl);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // Editing org name
-  const [editingName, setEditingName] = useState(false);
-  const [editValue, setEditValue] = useState("");
-
   const canEdit = hasPermission(currentUser.role as Role, "org.edit");
-  const canDelete = hasPermission(currentUser.role as Role, "org.delete");
 
   const handleCreateOrg = async (name: string) => {
     if (!name.trim() || creating) return;
@@ -169,23 +144,19 @@ export function GoalPage() {
         {/* Banner */}
         <div className="h-24 bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-600 relative">
           <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2240%22%20height%3D%2240%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Cpath%20d%3D%22M0%2020h40M20%200v40%22%20stroke%3D%22rgba(255%2C255%2C255%2C0.05)%22%20fill%3D%22none%22/%3E%3C/svg%3E')] opacity-50" />
+          {/* Settings gear (top-right on banner) */}
+          {canEdit && (
+            <button
+              onClick={() => navigate("/organization/settings")}
+              className="absolute top-3 right-3 p-2 rounded-xl bg-white/20 hover:bg-white/30 text-white transition-colors backdrop-blur-sm"
+            >
+              <Settings size={16} />
+            </button>
+          )}
         </div>
 
         <div className="px-6 -mt-8 relative z-[1]">
-          <input
-            ref={logoInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleLogoUpload}
-          />
-          <button
-            onClick={() => canEdit && logoInputRef.current?.click()}
-            className={cn(
-              "w-16 h-16 rounded-2xl border-4 border-white shadow-lg overflow-hidden relative group",
-              canEdit && "cursor-pointer"
-            )}
-          >
+          <div className="w-16 h-16 rounded-2xl border-4 border-white shadow-lg overflow-hidden">
             {org.logoUrl ? (
               <img src={org.logoUrl} alt="logo" className="w-full h-full object-cover" />
             ) : (
@@ -193,67 +164,11 @@ export function GoalPage() {
                 <Building2 size={28} className="text-blue-600" />
               </div>
             )}
-            {canEdit && (
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-all">
-                <Camera size={16} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-            )}
-          </button>
+          </div>
         </div>
 
         <div className="px-6 pt-3 pb-6">
-          {/* Org name (editable) */}
-          <div className="flex items-center gap-2 mb-1">
-            {editingName ? (
-              <div className="flex items-center gap-2 flex-1">
-                <input
-                  autoFocus
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  onKeyDown={async (e) => {
-                    if (e.key === "Enter" && editValue.trim()) {
-                      await updateOrgName(editValue.trim());
-                      setEditingName(false);
-                    }
-                    if (e.key === "Escape") setEditingName(false);
-                  }}
-                  className="text-xl font-bold text-gray-900 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1 outline-none focus:ring-2 focus:ring-blue-100 flex-1"
-                />
-                <button
-                  onClick={async () => {
-                    if (editValue.trim()) {
-                      await updateOrgName(editValue.trim());
-                      setEditingName(false);
-                    }
-                  }}
-                  className="p-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                >
-                  <Check size={14} />
-                </button>
-                <button
-                  onClick={() => setEditingName(false)}
-                  className="p-1.5 rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ) : (
-              <>
-                <h1 className="text-xl font-bold text-gray-900">{org.name}</h1>
-                {canEdit && (
-                  <button
-                    onClick={() => {
-                      setEditValue(org.name);
-                      setEditingName(true);
-                    }}
-                    className="p-1.5 rounded-lg text-gray-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                  >
-                    <Pencil size={14} />
-                  </button>
-                )}
-              </>
-            )}
-          </div>
+          <h1 className="text-xl font-bold text-gray-900 mb-1">{org.name}</h1>
 
           {/* Meta info */}
           <div className="flex items-center gap-4 text-sm text-gray-500">
@@ -270,24 +185,6 @@ export function GoalPage() {
               </span>
             )}
           </div>
-
-          {/* Delete button (Owner only) */}
-          {canDelete && (
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <button
-                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-500 transition-colors"
-                onClick={() => {
-                  // TODO: implement org delete with confirmation
-                  if (window.confirm(ko ? "정말 조직을 삭제하시겠습니까?" : "Are you sure you want to delete this organization?")) {
-                    console.log("[OrgPage] Delete org requested");
-                  }
-                }}
-              >
-                <Trash2 size={12} />
-                {ko ? "조직 삭제" : "Delete Organization"}
-              </button>
-            </div>
-          )}
         </div>
       </div>
 
