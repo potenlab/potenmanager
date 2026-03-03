@@ -40,7 +40,7 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Task, TaskCategory } from "../../lib/mockData";
-import { TASK_CATEGORY_CONFIG } from "./TasksPage";
+import { TASK_CATEGORY_CONFIG } from "../../lib/jobRoles";
 import { useLanguage } from "../context/LanguageContext";
 import { useTaskContext } from "../context/TaskContext";
 import { usePermission } from "../context/PermissionContext";

@@ -14,6 +14,7 @@ export interface BizActionItem {
   assigneeId?: string;
   done: boolean;
   linkedTaskId?: string;
+  category?: import("../../lib/mockData").TaskCategory;
 }
 
 export interface BizRadarItem {

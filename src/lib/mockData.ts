@@ -5,6 +5,7 @@ export type User = {
   role: 'owner' | 'admin' | 'member' | 'viewer';
   color?: string;
   jobTitle?: string;
+  jobRole?: JobRole;
 };
 
 // ─── Member Color System ────────────────────────────────────────────
@@ -92,6 +93,8 @@ export type GoalLevel = 'Year' | 'Quarter' | 'Month' | 'Week' | 'Day' | 'Urgent'
 export type UrgentCategory = 'funding' | 'investment' | 'contract' | 'submission' | 'event' | 'other';
 
 export type TaskCategory = 'sales' | 'content_writing' | 'content_video' | 'marketing' | 'development' | 'design' | 'planning' | 'operations' | 'learning';
+
+export type JobRole = 'planner' | 'designer' | 'developer' | 'marketer' | 'content_creator' | 'salesperson' | 'operator' | 'pm' | 'data_analyst' | 'general';
 
 export interface GoalItem {
   id: string;

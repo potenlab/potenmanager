@@ -8,6 +8,7 @@ export interface ActionItem {
   assigneeId?: string;
   done: boolean;
   linkedTaskId?: string;
+  category?: import("../../lib/mockData").TaskCategory;
 }
 
 export interface Meeting {

@@ -4,15 +4,18 @@ import {
   ArrowLeft, Calendar, Compass, Eye, Send, MessageSquare, Trophy,
   CheckCircle2, Plus, Trash2, ArrowRightCircle, Check, X,
   ChevronDown, Building2, User as UserIcon, DollarSign,
-  Percent, Tag, FileText, Users, Clock, Link2,
+  Percent, Tag, FileText, Users, Clock, Link2, ClipboardList,
 } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
 import { useBizRadar, BizRadarItem, BizStage, BizType, BizCategory, ConnectionType, BizActionItem } from "../context/BizRadarContext";
 import { useTeam } from "../context/TeamContext";
 import { useTaskContext } from "../context/TaskContext";
+import { usePermission } from "../context/PermissionContext";
 import { useTrash } from "../context/TrashContext";
 import { cn } from "../../lib/utils";
 import { createPortal } from "react-dom";
+import { TaskCategory } from "../../lib/mockData";
+import { TASK_CATEGORY_CONFIG, findBestAssignee } from "../../lib/jobRoles";
 
 const STAGE_CONFIG: Record<BizStage, { label: string; labelKo: string; icon: React.ReactNode; color: string }> = {
   discovered: { label: "Discovered", labelKo: "발굴", icon: <Compass size={14} />, color: "text-purple-600" },
@@ -209,6 +212,7 @@ export function BizRadarDetailPage() {
   const { members, currentUser } = useTeam();
   const { addTask } = useTaskContext();
   const { moveToTrash } = useTrash();
+  const { can } = usePermission();
   const createdRef = useRef(false);
 
   // Handle /radar/new
@@ -240,6 +244,8 @@ export function BizRadarDetailPage() {
   const [notesSaved, setNotesSaved] = useState(false);
   const [newActionTitle, setNewActionTitle] = useState('');
   const [newActionAssignee, setNewActionAssignee] = useState('');
+  const [newActionCategory, setNewActionCategory] = useState<TaskCategory | ''>('');
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [valueInput, setValueInput] = useState(item?.value?.toString() || '');
   const [probInput, setProbInput] = useState(item?.probability?.toString() || '');
   const [tagsInput, setTagsInput] = useState(item?.tags?.join(', ') || '');
@@ -297,10 +303,15 @@ export function BizRadarDetailPage() {
 
   const addActionItem = () => {
     if (!newActionTitle.trim()) return;
-    const ai: BizActionItem = { id: `ai-${Date.now()}`, title: newActionTitle.trim(), assigneeId: newActionAssignee || undefined, done: false };
+    const ai: BizActionItem = {
+      id: `ai-${Date.now()}`, title: newActionTitle.trim(),
+      assigneeId: newActionAssignee || undefined, done: false,
+      category: newActionCategory || undefined,
+    };
     updateItem(item.id, { actionItems: [...item.actionItems, ai] });
     setNewActionTitle('');
     setNewActionAssignee('');
+    setNewActionCategory('');
   };
 
   const toggleActionDone = (aiId: string) => {
@@ -311,10 +322,26 @@ export function BizRadarDetailPage() {
     updateItem(item.id, { actionItems: item.actionItems.filter(a => a.id !== aiId) });
   };
 
-  const convertToTask = (ai: BizActionItem) => {
+  const convertToTask = (ai: BizActionItem, overrideAssignee?: string, overrideCategory?: TaskCategory) => {
     const taskId = `t${Date.now()}`;
-    addTask({ id: taskId, title: ai.title, status: ai.done ? 'completed' : 'pending', progress: ai.done ? 100 : 0, level: 'Month' as any, assigneeId: ai.assigneeId } as any);
+    const category = overrideCategory || ai.category;
+    const assigneeId = overrideAssignee || ai.assigneeId || (category ? findBestAssignee(members, category)?.id : undefined);
+    addTask({ id: taskId, title: ai.title, status: ai.done ? 'completed' : 'pending', progress: ai.done ? 100 : 0, level: 'Day' as any, assigneeId, category } as any);
     updateItem(item.id, { actionItems: item.actionItems.map(a => a.id === ai.id ? { ...a, linkedTaskId: taskId } : a) });
+  };
+
+  const canAssignTasks = can('task.assignOthers');
+  const unassignedItems = item.actionItems.filter(a => !a.linkedTaskId);
+
+  const handleBulkAssign = () => {
+    unassignedItems.forEach((ai, idx) => {
+      setTimeout(() => {
+        const category = ai.category;
+        const assignee = category ? findBestAssignee(members, category) : undefined;
+        convertToTask(ai, assignee?.id, category);
+      }, idx * 50);
+    });
+    setShowAssignDialog(false);
   };
 
   const handleDelete = () => {
@@ -485,9 +512,19 @@ export function BizRadarDetailPage() {
                 <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
                   {ko ? '액션 아이템' : 'Action Items'}
                 </span>
-                <span className="text-[11px] text-gray-300 ml-auto">
+                <span className="text-[11px] text-gray-300 ml-auto mr-2">
                   {item.actionItems.filter(a => a.done).length}/{item.actionItems.length}
                 </span>
+                {canAssignTasks && unassignedItems.length > 0 && (
+                  <button
+                    onClick={() => setShowAssignDialog(true)}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                  >
+                    <ClipboardList size={12} />
+                    {ko ? '업무 할당' : 'Assign Tasks'}
+                    <span className="ml-0.5 bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded-full">{unassignedItems.length}</span>
+                  </button>
+                )}
               </div>
 
               {item.actionItems.length > 0 && (
@@ -513,7 +550,13 @@ export function BizRadarDetailPage() {
                     </button>
                     <div className="flex-1 min-w-0">
                       <p className={cn("text-sm", ai.done ? "text-gray-400 line-through" : "text-gray-700")}>{ai.title}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        {ai.category && TASK_CATEGORY_CONFIG[ai.category] && (
+                          <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5", TASK_CATEGORY_CONFIG[ai.category].bg, TASK_CATEGORY_CONFIG[ai.category].color)}>
+                            {TASK_CATEGORY_CONFIG[ai.category].icon}
+                            {ko ? TASK_CATEGORY_CONFIG[ai.category].labelKo : TASK_CATEGORY_CONFIG[ai.category].label}
+                          </span>
+                        )}
                         {ai.assigneeId && <span className="text-[10px] text-gray-400">{members.find(m => m.id === ai.assigneeId)?.name}</span>}
                         {ai.linkedTaskId ? (
                           <span className="text-[10px] text-blue-500 flex items-center gap-0.5"><Check size={9} /> {ko ? '태스크 연결됨' : 'Linked'}</span>
@@ -540,6 +583,16 @@ export function BizRadarDetailPage() {
                   placeholder={ko ? '액션 아이템 추가...' : 'Add action item...'}
                   className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+                <select
+                  value={newActionCategory}
+                  onChange={e => setNewActionCategory(e.target.value as TaskCategory | '')}
+                  className="px-2 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[90px]"
+                >
+                  <option value="">{ko ? '카테고리' : 'Category'}</option>
+                  {(Object.entries(TASK_CATEGORY_CONFIG) as [TaskCategory, typeof TASK_CATEGORY_CONFIG[TaskCategory]][]).map(([key, cfg]) => (
+                    <option key={key} value={key}>{ko ? cfg.labelKo : cfg.label}</option>
+                  ))}
+                </select>
                 <select
                   value={newActionAssignee}
                   onChange={e => setNewActionAssignee(e.target.value)}
@@ -582,6 +635,83 @@ export function BizRadarDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Task Assignment Dialog */}
+      {showAssignDialog && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowAssignDialog(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <ClipboardList size={16} className="text-blue-600" />
+                  {ko ? '업무 할당' : 'Assign Tasks'}
+                </h3>
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  {ko ? '액션 아이템을 역할에 맞는 담당자에게 업무로 할당합니다' : 'Assign action items as tasks to matching team members'}
+                </p>
+              </div>
+              <button onClick={() => setShowAssignDialog(false)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="px-6 py-4 overflow-y-auto max-h-[50vh] space-y-2">
+              {unassignedItems.map(ai => {
+                const suggested = ai.category ? findBestAssignee(members, ai.category) : undefined;
+                const catCfg = ai.category ? TASK_CATEGORY_CONFIG[ai.category] : undefined;
+                return (
+                  <div key={ai.id} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-700 truncate">{ai.title}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        {catCfg && (
+                          <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5", catCfg.bg, catCfg.color)}>
+                            {catCfg.icon} {ko ? catCfg.labelKo : catCfg.label}
+                          </span>
+                        )}
+                        {suggested ? (
+                          <span className="text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-medium">
+                            → {suggested.name}
+                          </span>
+                        ) : ai.assigneeId ? (
+                          <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                            {members.find(m => m.id === ai.assigneeId)?.name}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-gray-400 italic">
+                            {ko ? '매칭 없음' : 'No match'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
+              <p className="text-[11px] text-gray-400">
+                {unassignedItems.length}{ko ? '개 아이템' : ' items'}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowAssignDialog(false)}
+                  className="px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  {ko ? '취소' : 'Cancel'}
+                </button>
+                <button
+                  onClick={handleBulkAssign}
+                  className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-1.5"
+                >
+                  <ClipboardList size={12} />
+                  {ko ? '전체 할당' : 'Assign All'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

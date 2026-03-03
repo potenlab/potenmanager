@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { Task, TaskCategory } from "../../../lib/mockData";
-import { TASK_CATEGORY_CONFIG } from "../../pages/TasksPage";
+import { TASK_CATEGORY_CONFIG } from "../../../lib/jobRoles";
 import { useLanguage } from "../../context/LanguageContext";
 import { usePermission } from "../../context/PermissionContext";
 import { format } from "date-fns";

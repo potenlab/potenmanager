@@ -33,7 +33,9 @@ import {
   getColorOwner,
   getMemberColorConfig,
   MEMBER_COLORS,
+  JobRole,
 } from "../../lib/mockData";
+import { JOB_ROLE_CONFIG, JOB_ROLES } from "../../lib/jobRoles";
 import { useLanguage } from "../context/LanguageContext";
 import { useTeam } from "../context/TeamContext";
 import { useAuth } from "../context/AuthContext";
@@ -91,6 +93,7 @@ export function MyPage() {
   const [phone, setPhone] = useState("");
   const [company, setCompany] = useState("");
   const [location, setLocation] = useState("");
+  const [jobRole, setJobRole] = useState<JobRole | undefined>(currentUser.jobRole);
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -134,6 +137,10 @@ export function MyPage() {
       if (profile.company) setCompany(profile.company);
       if (profile.location) setLocation(profile.location);
       if (profile.avatar) setCustomAvatar(profile.avatar);
+      if (profile.jobRole) {
+        setJobRole(profile.jobRole as JobRole);
+        updateMember(currentUser.id, { jobRole: profile.jobRole as JobRole });
+      }
     }).catch(() => {});
   }, [currentUser.id]);
 
@@ -200,6 +207,13 @@ export function MyPage() {
   const cancelEdit = () => {
     setEditingField(null);
     setEditValue("");
+  };
+
+  const handleJobRoleSelect = (role: JobRole) => {
+    const newRole = jobRole === role ? undefined : role;
+    setJobRole(newRole);
+    updateMember(currentUser.id, { jobRole: newRole });
+    api.updateProfile(currentUser.id, { jobRole: newRole || '' }).catch(() => {});
   };
 
   const handleSignOut = async () => {
@@ -340,6 +354,48 @@ export function MyPage() {
                 )}
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Job Role */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                <Briefcase size={16} className="text-gray-400" />
+                {ko ? "직무 역할" : "Job Role"}
+              </h3>
+              {jobRole && JOB_ROLE_CONFIG[jobRole] && (
+                <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                  {JOB_ROLE_CONFIG[jobRole].emoji} {ko ? JOB_ROLE_CONFIG[jobRole].labelKo : JOB_ROLE_CONFIG[jobRole].label}
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-gray-400 mt-1">
+              {ko ? "업무 할당 시 역할에 맞는 업무가 자동 배정됩니다" : "Tasks will be auto-assigned based on your role"}
+            </p>
+          </div>
+          <div className="px-6 py-4">
+            <div className="flex flex-wrap gap-2">
+              {JOB_ROLES.map((role) => {
+                const cfg = JOB_ROLE_CONFIG[role];
+                const isSelected = jobRole === role;
+                return (
+                  <button
+                    key={role}
+                    onClick={() => handleJobRoleSelect(role)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-full text-xs font-medium transition-all border",
+                      isSelected
+                        ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                        : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:bg-blue-50"
+                    )}
+                  >
+                    {cfg.emoji} {ko ? cfg.labelKo : cfg.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 

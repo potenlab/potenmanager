@@ -5,13 +5,14 @@ import {
   Plus, Search, Compass, Eye, Send, MessageSquare, Trophy,
   LayoutGrid, List as ListIcon, MoreHorizontal,
   Trash2, X, Check, Building2, User as UserIcon, Calendar,
-  DollarSign, Percent, Tag, Briefcase, Link2,
+  DollarSign, Percent, Tag, Briefcase, Link2, Globe, Loader2,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
 import { useBizRadar, BizRadarItem, BizStage, BizType, BizCategory, ConnectionType } from "../context/BizRadarContext";
 import { useTeam } from "../context/TeamContext";
 import { useTrash } from "../context/TrashContext";
+import { api } from "../../lib/api";
 
 const DRAG_TYPE = "BIZ_CARD";
 
@@ -380,6 +381,9 @@ export function BizRadarPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [addingInColumn, setAddingInColumn] = useState<BizStage | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [crawlUrl, setCrawlUrl] = useState('');
+  const [crawlLoading, setCrawlLoading] = useState(false);
 
   const isSelecting = selectedIds.size > 0;
   const toggleSelect = useCallback((id: string) => {
@@ -455,6 +459,58 @@ export function BizRadarPage() {
     });
   }, [addItem, currentUser.id, activeCategory]);
 
+  const handleCrawlUrl = useCallback(async () => {
+    if (!crawlUrl.trim()) return;
+    let url = crawlUrl.trim();
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    setCrawlLoading(true);
+    try {
+      const og = await api.fetchOgMetadata(url);
+      const now = new Date().toISOString();
+      const domain = new URL(url).hostname.replace('www.', '');
+      const id = `biz-${Date.now()}`;
+      addItem({
+        id,
+        title: og?.ogTitle || domain,
+        description: og?.ogDescription || '',
+        category: activeCategory,
+        type: 'project',
+        connectionType: activeCategory === 'connection' ? 'other' : undefined,
+        stage: 'discovered',
+        source: url,
+        actionItems: [],
+        assigneeId: currentUser.id,
+        createdAt: now,
+        updatedAt: now,
+      });
+      setCrawlUrl('');
+      setShowUrlInput(false);
+      navigate(`/radar/${id}`);
+    } catch {
+      // fallback: create item with URL as title
+      const now = new Date().toISOString();
+      const id = `biz-${Date.now()}`;
+      addItem({
+        id,
+        title: url,
+        category: activeCategory,
+        type: 'project',
+        connectionType: activeCategory === 'connection' ? 'other' : undefined,
+        stage: 'discovered',
+        source: url,
+        actionItems: [],
+        assigneeId: currentUser.id,
+        createdAt: now,
+        updatedAt: now,
+      });
+      setCrawlUrl('');
+      setShowUrlInput(false);
+      navigate(`/radar/${id}`);
+    } finally {
+      setCrawlLoading(false);
+    }
+  }, [crawlUrl, activeCategory, addItem, currentUser.id, navigate]);
+
   if (isLoading) {
     return <div className="h-full flex items-center justify-center"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>;
   }
@@ -473,10 +529,21 @@ export function BizRadarPage() {
                 : `${activeCount} active · ${wonCount} won · weighted ${formatValue(weightedValue)}`}
             </p>
           </div>
-          <button onClick={() => navigate(`/radar/new?category=${activeCategory}`)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm shadow-blue-200">
-            <Plus size={16} /> {ko ? '기회찾기' : 'Find Opportunity'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowUrlInput(!showUrlInput)}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors border",
+                showUrlInput
+                  ? "bg-purple-50 text-purple-700 border-purple-200"
+                  : "bg-white text-gray-600 border-gray-200 hover:border-purple-300 hover:text-purple-600"
+              )}>
+              <Globe size={16} /> {ko ? 'URL 가져오기' : 'Import URL'}
+            </button>
+            <button onClick={() => navigate(`/radar/new?category=${activeCategory}`)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm shadow-blue-200">
+              <Plus size={16} /> {ko ? '기회찾기' : 'Find Opportunity'}
+            </button>
+          </div>
         </div>
 
         {/* Category Tabs: 영업 / 연결 */}
@@ -541,6 +608,42 @@ export function BizRadarPage() {
             </button>
           </div>
         </div>
+
+        {/* URL Import Panel */}
+        {showUrlInput && (
+          <div className="mt-3 p-4 bg-purple-50/50 border border-purple-100 rounded-xl">
+            <p className="text-xs font-semibold text-purple-700 mb-2 flex items-center gap-1.5">
+              <Globe size={13} />
+              {ko ? '어디서 업무를 찾으시겠습니까?' : 'Where do you want to find opportunities?'}
+            </p>
+            <div className="flex gap-2">
+              <input
+                value={crawlUrl}
+                onChange={e => setCrawlUrl(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleCrawlUrl()}
+                placeholder={ko ? 'URL을 입력하세요 (예: https://example.com/project)' : 'Enter URL (e.g., https://example.com/project)'}
+                className="flex-1 px-4 py-2.5 bg-white border border-purple-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 focus:border-purple-400 placeholder-gray-400"
+              />
+              <button
+                onClick={handleCrawlUrl}
+                disabled={!crawlUrl.trim() || crawlLoading}
+                className="px-5 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-semibold hover:bg-purple-700 transition-colors disabled:opacity-40 flex items-center gap-2 shrink-0"
+              >
+                {crawlLoading ? <Loader2 size={14} className="animate-spin" /> : <Globe size={14} />}
+                {ko ? '가져오기' : 'Import'}
+              </button>
+              <button
+                onClick={() => { setShowUrlInput(false); setCrawlUrl(''); }}
+                className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <p className="text-[10px] text-purple-500/70 mt-2">
+              {ko ? 'URL의 제목과 설명을 자동으로 가져와 새로운 기회로 등록합니다' : 'Automatically extracts title and description from the URL to create a new opportunity'}
+            </p>
+          </div>
+        )}
       </header>
 
       <div className="flex-1 overflow-x-auto pb-4">

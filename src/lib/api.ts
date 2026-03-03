@@ -107,8 +107,8 @@ export const api = {
 
   // ── Profile ──
   getProfile: (userId: string) =>
-    request<{ phone: string; company: string; location: string; jobTitle: string }>(`/profile/${userId}`),
-  updateProfile: (userId: string, data: { phone?: string; company?: string; location?: string; jobTitle?: string }) =>
+    request<{ phone: string; company: string; location: string; jobTitle: string; jobRole?: string }>(`/profile/${userId}`),
+  updateProfile: (userId: string, data: { phone?: string; company?: string; location?: string; jobTitle?: string; jobRole?: string; avatar?: string }) =>
     request<{ success: boolean }>(`/profile/${userId}`, { method: 'PUT', body: JSON.stringify(data) }),
 
   // ── Organization ──
