@@ -886,7 +886,9 @@ export function TaskDetailPage() {
   const [dateStart, setDateStart] = useState<Date | null>(task?.startDate ? new Date(task.startDate) : new Date());
   const [dateEnd, setDateEnd] = useState<Date | null>(task?.endDate ? new Date(task.endDate) : null);
   const [estTime, setEstTime] = useState(task?.estimatedTime || 0);
-  const [category, setCategory] = useState<TaskCategory | undefined>(task?.category);
+  const [category, setCategory] = useState<TaskCategory | undefined>(
+    task?.category && TASK_CATEGORY_CONFIG[task.category] ? task.category : undefined
+  );
 
   // Sync to context on change
   useEffect(() => {
@@ -992,12 +994,12 @@ export function TaskDetailPage() {
                   onChange={(v) => setCategory(v ? v as TaskCategory : undefined)}
                   disabled={!canEdit}
                   renderValue={(v) => {
-                    if (!v) return <span className="text-sm text-gray-400">{language === "ko" ? "미설정" : "Not set"}</span>;
+                    if (!v || !TASK_CATEGORY_CONFIG[v as TaskCategory]) return <span className="text-sm text-gray-400">{language === "ko" ? "미설정" : "Not set"}</span>;
                     const cfg = TASK_CATEGORY_CONFIG[v as TaskCategory];
                     return <span className={cn("flex items-center gap-1.5 font-bold text-sm", cfg.color)}>{cfg.icon} {language === "ko" ? cfg.labelKo : cfg.label}</span>;
                   }}
                   renderOption={(o) => {
-                    if (!o) return <span className="text-gray-400">{language === "ko" ? "없음" : "None"}</span>;
+                    if (!o || !TASK_CATEGORY_CONFIG[o as TaskCategory]) return <span className="text-gray-400">{language === "ko" ? "없음" : "None"}</span>;
                     const cfg = TASK_CATEGORY_CONFIG[o as TaskCategory];
                     return <span className={cn("flex items-center gap-2", cfg.color)}>{cfg.icon} {language === "ko" ? cfg.labelKo : cfg.label}</span>;
                   }}
