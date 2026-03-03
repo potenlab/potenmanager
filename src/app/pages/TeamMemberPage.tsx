@@ -10,13 +10,17 @@ import {
   getSpecialColorOwner,
   SpecialColorOwner,
   Task,
+  JobRole,
 } from "../../lib/mockData";
+import { JOB_ROLE_CONFIG, JOB_ROLES } from "../../lib/jobRoles";
+import { api } from "../../lib/api";
 import { useLanguage } from "../context/LanguageContext";
 import { usePermission } from "../context/PermissionContext";
 import { PermissionGate } from "../components/layout/PermissionGate";
 import { getRoleInfo, ROLE_INFO, Role } from "../../lib/permissions";
 import { useTaskContext } from "../context/TaskContext";
 import { useMeetingContext } from "../context/MeetingContext";
+import { useTeam } from "../context/TeamContext";
 import { useAuth } from "../context/AuthContext";
 import {
   format,
@@ -108,6 +112,7 @@ export function TeamMemberPage() {
   const { tasks } = useTaskContext();
   const { meetings } = useMeetingContext();
   const { user: authUser } = useAuth();
+  const { updateMember } = useTeam();
   const [filter, setFilter] = useState<FilterTab>("all");
   const [memberColor, setMemberColor] = useState<string | null>(() =>
     getUserColor(memberId ?? "")
@@ -122,6 +127,7 @@ export function TeamMemberPage() {
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [showColorModal, setShowColorModal] = useState(false);
+  const [showJobRoleModal, setShowJobRoleModal] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const member = members.find((m) => m.id === memberId);
@@ -308,6 +314,12 @@ export function TeamMemberPage() {
                     <Briefcase size={14} className="text-gray-400" />
                     {member.jobTitle ?? "Product Team"}
                   </span>
+                  {member.jobRole && JOB_ROLE_CONFIG[member.jobRole] && (
+                    <span className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">
+                      <span>{JOB_ROLE_CONFIG[member.jobRole].emoji}</span>
+                      {language === "ko" ? JOB_ROLE_CONFIG[member.jobRole].labelKo : JOB_ROLE_CONFIG[member.jobRole].label}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -340,6 +352,10 @@ export function TeamMemberPage() {
                       onRemove={() => {
                         setShowMenu(false);
                         setShowRemoveModal(true);
+                      }}
+                      onChangeJobRole={() => {
+                        setShowMenu(false);
+                        setShowJobRoleModal(true);
                       }}
                       onCalendarColor={() => {
                         setShowMenu(false);
@@ -560,6 +576,22 @@ export function TeamMemberPage() {
           />,
           document.body
         )}
+
+      {/* Job Role Modal */}
+      {showJobRoleModal &&
+        member &&
+        createPortal(
+          <JobRoleModal
+            member={member}
+            language={language}
+            onClose={() => setShowJobRoleModal(false)}
+            onSave={(role) => {
+              updateMember(member.id, { jobRole: role });
+              api.updateProfile(member.id, { jobRole: role || '' }).catch(() => {});
+            }}
+          />,
+          document.body
+        )}
     </div>
   );
 }
@@ -575,6 +607,7 @@ function MemberMenu({
   memberColor,
   onMyPage,
   onChangeRole,
+  onChangeJobRole,
   onRemove,
   onCalendarColor,
   onClose,
@@ -588,6 +621,7 @@ function MemberMenu({
   memberColor: string | null;
   onMyPage: () => void;
   onChangeRole: () => void;
+  onChangeJobRole: () => void;
   onRemove: () => void;
   onCalendarColor: () => void;
   onClose: () => void;
@@ -644,6 +678,15 @@ function MemberMenu({
         >
           <UserCog size={14} className="text-gray-400" />
           {language === "ko" ? "역할 변경" : "Change role"}
+        </button>
+      )}
+      {canEditRole && !isMe && (
+        <button
+          onClick={onChangeJobRole}
+          className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+        >
+          <Briefcase size={14} className="text-gray-400" />
+          {language === "ko" ? "직무 역할" : "Job Role"}
         </button>
       )}
       {canRemove && !isMe && (
@@ -1255,6 +1298,122 @@ function ColorChangeModal({
             className="px-4 py-2 text-sm font-semibold text-white bg-blue-500 hover:bg-blue-600 rounded-xl transition-colors shadow-sm"
           >
             {language === "ko" ? "저장" : "Save"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Job Role Modal ──────────────────────────────────────────────────
+function JobRoleModal({
+  member,
+  language,
+  onClose,
+  onSave,
+}: {
+  member: { id: string; name: string; avatar: string; jobRole?: JobRole };
+  language: string;
+  onClose: () => void;
+  onSave: (role: JobRole | undefined) => void;
+}) {
+  const [selectedRole, setSelectedRole] = useState<JobRole | undefined>(member.jobRole);
+  const [saved, setSaved] = useState(false);
+
+  const handleSave = () => {
+    onSave(selectedRole);
+    setSaved(true);
+    setTimeout(() => onClose(), 1200);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-[420px] max-w-[90vw] overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 pt-5 pb-3">
+          <div className="flex items-center gap-3">
+            <img
+              src={member.avatar}
+              alt=""
+              className="w-9 h-9 rounded-full object-cover"
+            />
+            <div>
+              <h3 className="text-sm font-bold text-gray-900">
+                {language === "ko" ? "직무 역할 설정" : "Set Job Role"}
+              </h3>
+              <p className="text-xs text-gray-500">{member.name}</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="px-5 py-4">
+          <div className="grid grid-cols-2 gap-2">
+            {JOB_ROLES.map((role) => {
+              const cfg = JOB_ROLE_CONFIG[role];
+              const isSelected = selectedRole === role;
+              return (
+                <button
+                  key={role}
+                  onClick={() => setSelectedRole(isSelected ? undefined : role)}
+                  className={cn(
+                    "flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all text-left",
+                    isSelected
+                      ? "border-blue-500 bg-blue-50/50"
+                      : "border-gray-100 hover:border-gray-200"
+                  )}
+                >
+                  <span className="text-lg">{cfg.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 truncate">
+                      {language === "ko" ? cfg.labelKo : cfg.label}
+                    </p>
+                  </div>
+                  {isSelected && (
+                    <Check size={14} className="text-blue-500 shrink-0" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-100 bg-gray-50/50">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+          >
+            {language === "ko" ? "취소" : "Cancel"}
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saved || selectedRole === member.jobRole}
+            className={cn(
+              "px-4 py-2 text-sm font-semibold rounded-xl transition-colors shadow-sm",
+              saved
+                ? "bg-emerald-500 text-white"
+                : selectedRole === member.jobRole
+                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                : "bg-blue-500 hover:bg-blue-600 text-white"
+            )}
+          >
+            {saved
+              ? language === "ko"
+                ? "✓ 저장됨"
+                : "✓ Saved"
+              : language === "ko"
+              ? "저장"
+              : "Save"}
           </button>
         </div>
       </div>

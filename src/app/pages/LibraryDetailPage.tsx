@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import {
   ArrowLeft, Globe, Lock, Link as LinkIcon, FileText,
-  ExternalLink, Trash2, Tag, FolderOpen, Loader2,
+  Trash2, Tag, FolderOpen, Loader2,
   ChevronDown, Layout,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -259,15 +259,14 @@ export function LibraryDetailPage() {
                               placeholder="https://example.com"
                               className="flex-1 text-sm px-2 py-1 rounded-md border border-transparent hover:border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700"
                             />
-                            {item.url && (
-                              <a href={item.url} target="_blank" rel="noopener noreferrer"
-                                className="p-1 text-gray-400 hover:text-blue-600 rounded transition-colors"
-                                onClick={(e) => e.stopPropagation()}>
-                                <ExternalLink size={14} />
-                              </a>
-                            )}
                             {ogLoading && <Loader2 size={14} className="animate-spin text-blue-500" />}
                           </div>
+                          {item.url && (
+                            <a href={item.url} target="_blank" rel="noopener noreferrer"
+                              className="text-xs text-blue-600 hover:text-blue-700 underline underline-offset-2 mt-0.5 truncate block max-w-[300px]">
+                              {item.url}
+                            </a>
+                          )}
                         </PropertyItem>
                       )}
 
@@ -342,8 +341,8 @@ export function LibraryDetailPage() {
                   )}
                   {item.url && (
                     <a href={item.url} target="_blank" rel="noopener noreferrer"
-                      className="mt-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium">
-                      <ExternalLink size={12} /> {ko ? '링크 열기' : 'Open link'}
+                      className="mt-2 text-xs text-blue-600 hover:text-blue-700 underline underline-offset-2 truncate block">
+                      {item.url}
                     </a>
                   )}
                 </div>
