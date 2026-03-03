@@ -1203,6 +1203,199 @@ app.post("/make-server-f580d5ca/ai/strategy", async (c) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// AI Task Assistance Endpoints (Gemini API)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Helper: call Gemini and parse JSON response
+async function callGemini(prompt: string, maxTokens = 2048) {
+  const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+  if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.7,
+        topP: 0.9,
+        maxOutputTokens: maxTokens,
+        responseMimeType: "application/json",
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Gemini API ${res.status}: ${err.substring(0, 200)}`);
+  }
+
+  const data = await res.json();
+  const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!raw) throw new Error("Empty Gemini response");
+
+  const cleaned = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+  return JSON.parse(cleaned);
+}
+
+// ── Task Decomposition ──
+app.post("/make-server-f580d5ca/ai/task-decompose", async (c) => {
+  try {
+    const { taskTitle, taskDescription, taskCategory } = await c.req.json();
+    if (!taskTitle) return c.json({ error: "taskTitle is required" }, 400);
+
+    const prompt = `당신은 1인 기업/소규모 팀(2~10명)의 프로젝트 매니저입니다.
+주어진 업무를 3~7개의 실행 가능한 하위 작업으로 분해하세요.
+
+반드시 아래 JSON 스키마를 따르세요:
+{
+  "subtasks": [
+    {
+      "title": "하위 작업 제목 (한국어)",
+      "titleEn": "Subtask title (English)",
+      "estimatedMinutes": 30,
+      "priority": "low | medium | high"
+    }
+  ]
+}
+
+규칙:
+- 하위 작업은 3~7개
+- 각 작업은 구체적이고 바로 실행 가능해야 함
+- estimatedMinutes는 현실적인 소요 시간 (15~240분)
+- priority는 업무 전체 완료에 대한 중요도 기준
+
+업무 제목: ${taskTitle}
+${taskDescription ? `업무 설명: ${taskDescription}` : ""}
+${taskCategory ? `카테고리: ${taskCategory}` : ""}`;
+
+    const result = await callGemini(prompt);
+    return c.json(result);
+  } catch (e) {
+    console.log("[AI] task-decompose error:", e);
+    return c.json({ error: "Task decomposition failed", message: String(e) }, 500);
+  }
+});
+
+// ── Task Description Generation ──
+app.post("/make-server-f580d5ca/ai/task-describe", async (c) => {
+  try {
+    const { taskTitle, taskCategory, taskPriority, existingDescription } = await c.req.json();
+    if (!taskTitle) return c.json({ error: "taskTitle is required" }, 400);
+
+    const prompt = `당신은 1인 기업/소규모 팀의 업무 작성 도우미입니다.
+주어진 업무에 대한 구조화된 설명/액션 플랜을 작성하세요.
+
+반드시 아래 JSON 스키마를 따르세요:
+{
+  "description": "업무 설명 전체 텍스트 (줄바꿈은 \\n 사용)"
+}
+
+설명에 포함할 내용:
+1. 📋 개요 (2~3문장)
+2. ✅ 실행 단계 (번호 매기기, 각 단계는 구체적)
+3. 🎯 성공 기준 (측정 가능한 기준 2~3개)
+
+규칙:
+- 한국어로 작성
+- 간결하고 실행 가능하게
+- 소규모 팀/1인 기업 현실에 맞게
+${existingDescription ? "- 기존 설명을 참고하여 개선/보완하세요" : ""}
+
+업무 제목: ${taskTitle}
+${taskCategory ? `카테고리: ${taskCategory}` : ""}
+${taskPriority ? `우선순위: ${taskPriority}` : ""}
+${existingDescription ? `기존 설명: ${existingDescription}` : ""}`;
+
+    const result = await callGemini(prompt);
+    return c.json(result);
+  } catch (e) {
+    console.log("[AI] task-describe error:", e);
+    return c.json({ error: "Description generation failed", message: String(e) }, 500);
+  }
+});
+
+// ── Task Priority & Category Recommendation ──
+app.post("/make-server-f580d5ca/ai/task-recommend", async (c) => {
+  try {
+    const { taskTitle, taskDescription, availableCategories } = await c.req.json();
+    if (!taskTitle) return c.json({ error: "taskTitle is required" }, 400);
+
+    const prompt = `당신은 업무 분류 전문가입니다.
+주어진 업무의 우선순위와 카테고리를 추천하세요.
+
+반드시 아래 JSON 스키마를 따르세요:
+{
+  "priority": "low | medium | high",
+  "category": "카테고리 키 값",
+  "reasoning": "추천 이유 (한국어, 2~3문장)"
+}
+
+사용 가능한 카테고리:
+${(availableCategories || []).map((c: string) => `- ${c}`).join("\n")}
+
+카테고리 설명:
+- sales: 영업 관련 (고객 미팅, 제안서, 계약)
+- content_writing: 글 콘텐츠 (블로그, SNS 글, 뉴스레터)
+- content_video: 영상 콘텐츠 (촬영, 편집, 유튜브)
+- marketing: 마케팅 (광고, 캠페인, 브랜딩)
+- development: 개발 (코딩, 배포, 기술)
+- design: 디자인 (UI/UX, 그래픽, 브랜드)
+- planning: 기획 (전략, 리서치, 기획서)
+- operations: 운영/관리 (행정, 재무, HR)
+- learning: 학습 (교육, 자기개발, 리서치)
+
+업무 제목: ${taskTitle}
+${taskDescription ? `업무 설명: ${taskDescription}` : ""}`;
+
+    const result = await callGemini(prompt);
+    return c.json(result);
+  } catch (e) {
+    console.log("[AI] task-recommend error:", e);
+    return c.json({ error: "Recommendation failed", message: String(e) }, 500);
+  }
+});
+
+// ── External Resource Search ──
+app.post("/make-server-f580d5ca/ai/search-external", async (c) => {
+  try {
+    const { query, language } = await c.req.json();
+    if (!query) return c.json({ error: "query is required" }, 400);
+
+    const lang = language === "en" ? "영어" : "한국어";
+    const prompt = `당신은 리서치 전문가입니다.
+주어진 업무와 관련된 유용한 외부 자료를 추천하세요.
+
+반드시 아래 JSON 스키마를 따르세요:
+{
+  "resources": [
+    {
+      "title": "자료 제목 (${lang})",
+      "description": "자료 설명 (${lang}, 1~2문장)",
+      "type": "article | tool | template | reference",
+      "suggestedUrl": "관련 URL (있으면)"
+    }
+  ]
+}
+
+규칙:
+- 3~5개 추천
+- 실제 존재하는 유용한 자료/도구/사이트 위주
+- URL은 확실한 것만 (불확실하면 빈 문자열)
+- 소규모 팀/1인 기업에 실용적인 자료 우선
+
+업무: ${query}`;
+
+    const result = await callGemini(prompt);
+    return c.json(result);
+  } catch (e) {
+    console.log("[AI] search-external error:", e);
+    return c.json({ error: "External search failed", message: String(e) }, 500);
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Demo Account Setup
 // ═══════════════════════════════════════════════════════════════════════════════
 

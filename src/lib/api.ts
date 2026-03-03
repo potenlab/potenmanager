@@ -189,6 +189,24 @@ export const api = {
   }) =>
     request<any>('/ai/strategy', { method: 'POST', body: JSON.stringify(data) }),
 
+  // ── AI Task Assistance ──
+  aiDecomposeTask: (data: { taskTitle: string; taskDescription?: string; taskCategory?: string }) =>
+    request<{ subtasks: Array<{ title: string; titleEn: string; estimatedMinutes: number; priority: string }> }>(
+      '/ai/task-decompose', { method: 'POST', body: JSON.stringify(data) }
+    ),
+  aiDescribeTask: (data: { taskTitle: string; taskCategory?: string; taskPriority?: string; existingDescription?: string }) =>
+    request<{ description: string }>(
+      '/ai/task-describe', { method: 'POST', body: JSON.stringify(data) }
+    ),
+  aiRecommendTask: (data: { taskTitle: string; taskDescription?: string; availableCategories: string[] }) =>
+    request<{ priority: string; category: string; reasoning: string }>(
+      '/ai/task-recommend', { method: 'POST', body: JSON.stringify(data) }
+    ),
+  aiSearchExternal: (data: { query: string; language?: string }) =>
+    request<{ resources: Array<{ title: string; description: string; type: string; suggestedUrl?: string }> }>(
+      '/ai/search-external', { method: 'POST', body: JSON.stringify(data) }
+    ),
+
   // ── Demo ──
   setupDemo: () =>
     request<{ success: boolean; userId: string }>('/demo/setup', { method: 'POST' }),

@@ -29,6 +29,14 @@ import {
   Square,
   CheckSquare,
   Tag,
+  Layers,
+  AlignLeft,
+  Link2,
+  ExternalLink,
+  RefreshCw,
+  FileText,
+  Globe,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Task, TaskCategory } from "../../lib/mockData";
@@ -36,6 +44,8 @@ import { TASK_CATEGORY_CONFIG } from "./TasksPage";
 import { useLanguage } from "../context/LanguageContext";
 import { useTaskContext } from "../context/TaskContext";
 import { usePermission } from "../context/PermissionContext";
+import { useLibrary, LibraryItem } from "../context/LibraryContext";
+import { api } from "../../lib/api";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { NotionDateRangePicker } from "../components/NotionDateRangePicker";
 import { createPortal } from "react-dom";
@@ -495,13 +505,368 @@ function SubTaskSection({ taskId, language, canEdit }: { taskId: string; languag
   );
 }
 
+// ─── AI Assistance Bar ────────────────────────────────────────────────
+type AIFeature = "decompose" | "describe" | "recommend" | "resources" | null;
+
+interface SubtaskResult { title: string; titleEn: string; estimatedMinutes: number; priority: string; checked: boolean; }
+interface RecommendResult { priority: string; category: string; reasoning: string; }
+interface ExternalResource { title: string; description: string; type: string; suggestedUrl?: string; }
+
+function TaskAIBar({
+  taskTitle, taskDescription, taskCategory, taskPriority, taskId, language, canEdit,
+  onAddSubtasks, onApplyDescription, onApplyPriority, onApplyCategory,
+}: {
+  taskTitle: string; taskDescription: string; taskCategory?: TaskCategory; taskPriority: string;
+  taskId: string; language: string; canEdit: boolean;
+  onAddSubtasks: (subtasks: SubtaskResult[]) => void;
+  onApplyDescription: (desc: string) => void;
+  onApplyPriority: (p: string) => void;
+  onApplyCategory: (c: string) => void;
+}) {
+  const { items } = useLibrary();
+  const [activeFeature, setActiveFeature] = useState<AIFeature>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Feature results
+  const [subtasks, setSubtasks] = useState<SubtaskResult[] | null>(null);
+  const [generatedDesc, setGeneratedDesc] = useState<string | null>(null);
+  const [recommendation, setRecommendation] = useState<RecommendResult | null>(null);
+  const [libraryMatches, setLibraryMatches] = useState<LibraryItem[]>([]);
+  const [externalResources, setExternalResources] = useState<ExternalResource[]>([]);
+  const [externalSearchEnabled, setExternalSearchEnabled] = useState(false);
+  const [externalLoading, setExternalLoading] = useState(false);
+
+  const ko = language === "ko";
+
+  const handleFeatureClick = async (feature: AIFeature) => {
+    if (feature === activeFeature) { setActiveFeature(null); return; }
+    setActiveFeature(feature);
+    setError(null);
+
+    if (feature === "resources") {
+      // Client-side library search
+      const keywords = taskTitle.toLowerCase().split(/[\s,./·\-_]+/).filter(w => w.length > 1);
+      const matches = items.filter(item => {
+        const text = `${item.title} ${item.description || ""} ${(item.tags || []).join(" ")}`.toLowerCase();
+        return keywords.some(kw => text.includes(kw));
+      }).slice(0, 8);
+      setLibraryMatches(matches);
+      setExternalResources([]);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      if (feature === "decompose") {
+        const res = await api.aiDecomposeTask({ taskTitle, taskDescription: taskDescription || undefined, taskCategory });
+        setSubtasks((res.subtasks || []).map(s => ({ ...s, checked: true })));
+      } else if (feature === "describe") {
+        const res = await api.aiDescribeTask({ taskTitle, taskCategory, taskPriority, existingDescription: taskDescription || undefined });
+        setGeneratedDesc(res.description);
+      } else if (feature === "recommend") {
+        const res = await api.aiRecommendTask({ taskTitle, taskDescription: taskDescription || undefined, availableCategories: Object.keys(TASK_CATEGORY_CONFIG) });
+        setRecommendation(res);
+      }
+    } catch (e: any) {
+      setError(e.message || "AI request failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleExternalSearch = async () => {
+    setExternalLoading(true);
+    try {
+      const res = await api.aiSearchExternal({ query: taskTitle, language });
+      setExternalResources(res.resources || []);
+    } catch { /* ignore */ } finally {
+      setExternalLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (externalSearchEnabled && activeFeature === "resources") handleExternalSearch();
+  }, [externalSearchEnabled]);
+
+  const toggleSubtask = (idx: number) => {
+    setSubtasks(prev => prev?.map((s, i) => i === idx ? { ...s, checked: !s.checked } : s) || null);
+  };
+
+  if (!canEdit || !taskTitle.trim()) return null;
+
+  const features: { key: AIFeature; label: string; labelKo: string; icon: React.ReactNode }[] = [
+    { key: "decompose", label: "Decompose", labelKo: "업무 분해", icon: <Layers size={14} /> },
+    { key: "describe", label: "Description", labelKo: "설명 작성", icon: <AlignLeft size={14} /> },
+    { key: "recommend", label: "Recommend", labelKo: "추천", icon: <Flag size={14} /> },
+    { key: "resources", label: "Resources", labelKo: "관련 자료", icon: <Link2 size={14} /> },
+  ];
+
+  return (
+    <div className="rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50/80 to-indigo-50/40 overflow-hidden">
+      {/* Header bar */}
+      <div className="px-4 py-3 flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-1.5 text-blue-600">
+          <Sparkles size={15} />
+          <span className="text-xs font-bold">{ko ? "AI 어시스턴트" : "AI Assistant"}</span>
+        </div>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {features.map(f => (
+            <button
+              key={f.key}
+              onClick={() => handleFeatureClick(f.key)}
+              disabled={isLoading && activeFeature !== f.key}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                activeFeature === f.key
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "bg-white/80 text-gray-600 hover:bg-white hover:text-blue-600 border border-gray-200/60",
+                isLoading && activeFeature !== f.key && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              {f.icon}
+              {ko ? f.labelKo : f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Result panel */}
+      <AnimatePresence>
+        {activeFeature && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-4 pt-1 border-t border-blue-100/60">
+              {isLoading ? (
+                <div className="flex items-center gap-2 py-6 justify-center text-blue-500">
+                  <Loader2 size={18} className="animate-spin" />
+                  <span className="text-sm font-medium">{ko ? "AI가 분석 중..." : "AI is analyzing..."}</span>
+                </div>
+              ) : error ? (
+                <div className="flex items-center gap-2 py-4 text-red-500">
+                  <AlertTriangle size={16} />
+                  <span className="text-sm">{error}</span>
+                  <button onClick={() => handleFeatureClick(activeFeature)} className="ml-auto text-xs text-blue-600 hover:underline">
+                    {ko ? "재시도" : "Retry"}
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {/* ── Decompose Results ── */}
+                  {activeFeature === "decompose" && subtasks && (
+                    <div className="space-y-2">
+                      <p className="text-[11px] text-gray-500 mb-2">
+                        {ko ? `${subtasks.length}개의 하위 작업을 생성했습니다. 추가할 항목을 선택하세요.` : `Generated ${subtasks.length} subtasks. Select items to add.`}
+                      </p>
+                      {subtasks.map((s, i) => (
+                        <div key={i} className="flex items-center gap-3 bg-white/70 rounded-lg px-3 py-2">
+                          <button onClick={() => toggleSubtask(i)} className={cn(
+                            "shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-all",
+                            s.checked ? "bg-blue-600 border-blue-600" : "border-gray-300"
+                          )}>
+                            {s.checked && <Check size={10} className="text-white" strokeWidth={3} />}
+                          </button>
+                          <span className="flex-1 text-sm text-gray-700">{ko ? s.title : s.titleEn}</span>
+                          <span className="text-[10px] text-gray-400">{s.estimatedMinutes}min</span>
+                          <span className={cn(
+                            "text-[10px] font-bold px-1.5 py-0.5 rounded",
+                            s.priority === "high" ? "bg-red-50 text-red-600" :
+                            s.priority === "medium" ? "bg-amber-50 text-amber-600" : "bg-blue-50 text-blue-600"
+                          )}>
+                            {s.priority}
+                          </span>
+                        </div>
+                      ))}
+                      <div className="flex justify-end gap-2 pt-2">
+                        <button onClick={() => handleFeatureClick("decompose")} className="px-3 py-1.5 text-xs text-gray-500 hover:bg-white rounded-lg">
+                          <RefreshCw size={12} className="inline mr-1" />{ko ? "재생성" : "Regenerate"}
+                        </button>
+                        <button
+                          onClick={() => { onAddSubtasks(subtasks.filter(s => s.checked)); setActiveFeature(null); }}
+                          disabled={!subtasks.some(s => s.checked)}
+                          className="px-4 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                        >
+                          {ko ? "추가하기" : "Add"} ({subtasks.filter(s => s.checked).length})
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Description Results ── */}
+                  {activeFeature === "describe" && generatedDesc && (
+                    <div className="space-y-3">
+                      {taskDescription && (
+                        <p className="text-[11px] text-amber-600 bg-amber-50 px-2 py-1 rounded">
+                          {ko ? "⚠ 기존 설명을 대체합니다" : "⚠ Will replace existing description"}
+                        </p>
+                      )}
+                      <div className="bg-white/70 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap max-h-[200px] overflow-y-auto leading-relaxed">
+                        {generatedDesc}
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <button onClick={() => handleFeatureClick("describe")} className="px-3 py-1.5 text-xs text-gray-500 hover:bg-white rounded-lg">
+                          <RefreshCw size={12} className="inline mr-1" />{ko ? "재생성" : "Regenerate"}
+                        </button>
+                        <button
+                          onClick={() => { onApplyDescription(generatedDesc); setActiveFeature(null); }}
+                          className="px-4 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          {ko ? "적용하기" : "Apply"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Recommendation Results ── */}
+                  {activeFeature === "recommend" && recommendation && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        {/* Priority badge */}
+                        <div className="bg-white/70 rounded-lg px-3 py-2 flex items-center gap-2">
+                          <span className="text-[10px] text-gray-400 uppercase font-bold">{ko ? "우선순위" : "Priority"}</span>
+                          <span className={cn(
+                            "text-xs font-bold px-2 py-0.5 rounded-md",
+                            recommendation.priority === "high" ? "bg-red-50 text-red-600" :
+                            recommendation.priority === "medium" ? "bg-amber-50 text-amber-600" : "bg-blue-50 text-blue-600"
+                          )}>
+                            {PRIORITY_CONFIG[recommendation.priority as TaskPriority]
+                              ? (ko ? PRIORITY_CONFIG[recommendation.priority as TaskPriority].labelKo : PRIORITY_CONFIG[recommendation.priority as TaskPriority].label)
+                              : recommendation.priority}
+                          </span>
+                        </div>
+                        {/* Category badge */}
+                        {recommendation.category && TASK_CATEGORY_CONFIG[recommendation.category as TaskCategory] && (
+                          <div className="bg-white/70 rounded-lg px-3 py-2 flex items-center gap-2">
+                            <span className="text-[10px] text-gray-400 uppercase font-bold">{ko ? "카테고리" : "Category"}</span>
+                            <span className={cn(
+                              "text-xs font-bold px-2 py-0.5 rounded-md flex items-center gap-1",
+                              TASK_CATEGORY_CONFIG[recommendation.category as TaskCategory].bg,
+                              TASK_CATEGORY_CONFIG[recommendation.category as TaskCategory].color
+                            )}>
+                              {TASK_CATEGORY_CONFIG[recommendation.category as TaskCategory].icon}
+                              {ko ? TASK_CATEGORY_CONFIG[recommendation.category as TaskCategory].labelKo : TASK_CATEGORY_CONFIG[recommendation.category as TaskCategory].label}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 bg-white/50 rounded-lg px-3 py-2 leading-relaxed">{recommendation.reasoning}</p>
+                      <div className="flex justify-end">
+                        <button
+                          onClick={() => {
+                            onApplyPriority(recommendation.priority);
+                            if (recommendation.category) onApplyCategory(recommendation.category);
+                            setActiveFeature(null);
+                          }}
+                          className="px-4 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          {ko ? "적용하기" : "Apply"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Resources Results ── */}
+                  {activeFeature === "resources" && (
+                    <div className="space-y-3">
+                      {/* Library matches */}
+                      <div>
+                        <p className="text-[11px] font-bold text-gray-400 uppercase mb-2 flex items-center gap-1">
+                          <BookOpen size={12} /> {ko ? "내 아카이브" : "My Archive"} ({libraryMatches.length})
+                        </p>
+                        {libraryMatches.length === 0 ? (
+                          <p className="text-xs text-gray-400 italic px-1">{ko ? "매칭되는 자료가 없습니다" : "No matching resources"}</p>
+                        ) : (
+                          <div className="space-y-1">
+                            {libraryMatches.map(item => (
+                              <a
+                                key={item.id}
+                                href={item.type === "url" ? item.url : `/library/${item.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-2 bg-white/70 rounded-lg px-3 py-2 hover:bg-white transition-colors group"
+                              >
+                                {item.type === "url" ? <Globe size={14} className="text-blue-500 shrink-0" /> : <FileText size={14} className="text-violet-500 shrink-0" />}
+                                <span className="flex-1 text-sm text-gray-700 truncate">{item.title}</span>
+                                {item.tags && item.tags.length > 0 && (
+                                  <span className="text-[10px] text-gray-400 truncate max-w-[100px]">{item.tags.slice(0, 2).join(", ")}</span>
+                                )}
+                                <ExternalLink size={12} className="text-gray-300 group-hover:text-blue-500 shrink-0" />
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* External search toggle */}
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          onClick={() => setExternalSearchEnabled(!externalSearchEnabled)}
+                          className={cn(
+                            "relative w-9 h-5 rounded-full transition-colors",
+                            externalSearchEnabled ? "bg-blue-600" : "bg-gray-300"
+                          )}
+                        >
+                          <div className={cn(
+                            "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform",
+                            externalSearchEnabled ? "translate-x-4" : "translate-x-0.5"
+                          )} />
+                        </button>
+                        <span className="text-xs text-gray-500">{ko ? "외부 검색 포함" : "Include external search"}</span>
+                        {externalLoading && <Loader2 size={14} className="animate-spin text-blue-500" />}
+                      </div>
+
+                      {/* External results */}
+                      {externalSearchEnabled && externalResources.length > 0 && (
+                        <div>
+                          <p className="text-[11px] font-bold text-gray-400 uppercase mb-2 flex items-center gap-1">
+                            <Globe size={12} /> {ko ? "외부 추천 자료" : "External Resources"} ({externalResources.length})
+                          </p>
+                          <div className="space-y-1">
+                            {externalResources.map((r, i) => (
+                              <div key={i} className="bg-white/70 rounded-lg px-3 py-2">
+                                <div className="flex items-center gap-2">
+                                  <span className={cn(
+                                    "text-[9px] font-bold px-1.5 py-0.5 rounded uppercase",
+                                    r.type === "tool" ? "bg-emerald-50 text-emerald-600" :
+                                    r.type === "template" ? "bg-purple-50 text-purple-600" :
+                                    r.type === "reference" ? "bg-amber-50 text-amber-600" : "bg-blue-50 text-blue-600"
+                                  )}>{r.type}</span>
+                                  {r.suggestedUrl ? (
+                                    <a href={r.suggestedUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-blue-600 hover:underline truncate">{r.title}</a>
+                                  ) : (
+                                    <span className="text-sm font-medium text-gray-700 truncate">{r.title}</span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-gray-500 mt-0.5">{r.description}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 // ─── Main Task Detail Page ────────────────────────────────────────────
 export function TaskDetailPage() {
   const { taskId } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { language } = useLanguage();
-  const { getTask, updateTask, removeTask } = useTaskContext();
+  const { getTask, addTask, updateTask, removeTask } = useTaskContext();
   const { can, currentUser } = usePermission();
 
   const isNew = taskId === "new";
@@ -540,6 +905,29 @@ export function TaskDetailPage() {
       navigate(-1);
     }
   };
+
+  // AI: add subtasks
+  const handleAddSubtasks = useCallback((subtasks: SubtaskResult[]) => {
+    const newIds: string[] = [];
+    for (const s of subtasks) {
+      const id = `task-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      newIds.push(id);
+      addTask({
+        id,
+        title: s.titleEn,
+        titleKo: s.title,
+        status: "pending",
+        progress: 0,
+        priority: s.priority as any,
+        parentId: taskId!,
+        estimatedTime: s.estimatedMinutes,
+        assigneeIds: [currentUser.id],
+      } as Task);
+    }
+    // Update parent's children array
+    const current = getTask(taskId!)?.children || [];
+    updateTask(taskId!, { children: [...current, ...newIds] });
+  }, [taskId, addTask, updateTask, getTask, currentUser.id]);
 
   return (
     <div className="h-full overflow-y-auto bg-white scrollbar-hide">
@@ -631,6 +1019,23 @@ export function TaskDetailPage() {
 
             {/* Sub-tasks with checkboxes */}
             {!isNew && <SubTaskSection taskId={taskId!} language={language} canEdit={canEdit} />}
+
+            {/* AI Assistance Bar */}
+            {!isNew && canEdit && (
+              <TaskAIBar
+                taskTitle={title}
+                taskDescription={description}
+                taskCategory={category}
+                taskPriority={priority}
+                taskId={taskId!}
+                language={language}
+                canEdit={canEdit}
+                onAddSubtasks={handleAddSubtasks}
+                onApplyDescription={setDescription}
+                onApplyPriority={(p) => setPriority(p as TaskPriority)}
+                onApplyCategory={(c) => setCategory(c as TaskCategory)}
+              />
+            )}
 
             {/* Description / Editor — no header label */}
             <div className="min-h-[200px] border-t border-gray-100 pt-5">
