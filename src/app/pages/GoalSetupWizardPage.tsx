@@ -16,7 +16,8 @@ type CategoryKey =
   | "team"
   | "market"
   | "brand"
-  | "other";
+  | "other"
+  | "custom";
 
 interface Category {
   key: CategoryKey;
@@ -162,6 +163,21 @@ const CATEGORIES: Category[] = [
     placeholderEn: "e.g. Reach 10K social media followers",
     urgentCategory: "other",
   },
+  {
+    key: "custom",
+    emoji: "➕",
+    labelKo: "기타",
+    labelEn: "Other",
+    color: "ring-gray-400",
+    colorBg: "bg-gray-50 dark:bg-gray-950/30",
+    colorText: "text-gray-600 dark:text-gray-400",
+    questionKo: "추가하고 싶은 목표가 있나요?",
+    questionEn: "Any other goal you'd like to add?",
+    inputType: "text",
+    placeholderKo: "예: 특허 출원 2건",
+    placeholderEn: "e.g. File 2 patents",
+    urgentCategory: "other",
+  },
 ];
 
 // ─── Shared animation variants ──────────────────────────────────────
@@ -196,6 +212,7 @@ export default function GoalSetupWizardPage() {
 
   // Step 2 – ordered list of selected categories & current sub-index
   const [categoryValues, setCategoryValues] = useState<Record<CategoryKey, string>>({} as any);
+  const [customLabel, setCustomLabel] = useState("");
   const [subIndex, setSubIndex] = useState(0);
 
   // derived
@@ -285,11 +302,16 @@ export default function GoalSetupWizardPage() {
       const val = categoryValues[cat.key]?.trim();
       if (!val) continue;
 
-      const label = ko ? cat.labelKo : cat.labelEn;
+      const label = cat.key === "custom" && customLabel.trim()
+        ? customLabel.trim()
+        : (ko ? cat.labelKo : cat.labelEn);
+      const labelKo = cat.key === "custom" && customLabel.trim()
+        ? customLabel.trim()
+        : cat.labelKo;
       const goalItem: GoalItem = {
         id: uid(),
         title: `${label}: ${val}`,
-        titleKo: `${cat.labelKo}: ${val}`,
+        titleKo: `${labelKo}: ${val}`,
         level: "Urgent",
         progress: 0,
         status: "pending",
@@ -533,7 +555,30 @@ export default function GoalSetupWizardPage() {
               </h2>
 
               {/* input area */}
-              <div className="mt-8 w-full">
+              <div className="mt-8 w-full space-y-4">
+                {/* Custom category: label input */}
+                {currentCategory.key === "custom" && (
+                  <input
+                    autoFocus
+                    type="text"
+                    value={customLabel}
+                    onChange={(e) => setCustomLabel(e.target.value)}
+                    placeholder={
+                      ko
+                        ? "항목 이름 (예: 기술개발, 특허, 교육)"
+                        : "Category name (e.g. R&D, Patents, Training)"
+                    }
+                    className={cn(
+                      "w-full text-center text-lg font-medium",
+                      "bg-transparent border-0 border-b-2 border-gray-200 dark:border-gray-700",
+                      "focus:border-black dark:focus:border-white",
+                      "outline-none py-3 transition-colors",
+                      "placeholder:text-gray-300 dark:placeholder:text-gray-600",
+                      "text-gray-900 dark:text-white"
+                    )}
+                  />
+                )}
+
                 {currentCategory.inputType === "choice" && currentCategory.choices ? (
                   <div className="grid grid-cols-2 gap-3">
                     {currentCategory.choices.map((ch) => {
@@ -564,7 +609,7 @@ export default function GoalSetupWizardPage() {
                   </div>
                 ) : (
                   <input
-                    autoFocus
+                    autoFocus={currentCategory.key !== "custom"}
                     type={currentCategory.inputType === "number" ? "number" : "text"}
                     value={categoryValues[currentCategory.key] ?? ""}
                     onChange={(e) => setCatVal(currentCategory.key, e.target.value)}
@@ -601,11 +646,11 @@ export default function GoalSetupWizardPage() {
                 </motion.button>
                 <motion.button
                   whileTap={{ scale: 0.97 }}
-                  disabled={!categoryValues[currentCategory.key]?.trim()}
+                  disabled={!categoryValues[currentCategory.key]?.trim() || (currentCategory.key === "custom" && !customLabel.trim())}
                   onClick={handleSubNext}
                   className={cn(
                     "flex-1 py-4 rounded-2xl text-sm font-semibold transition-all flex items-center justify-center gap-1.5",
-                    categoryValues[currentCategory.key]?.trim()
+                    categoryValues[currentCategory.key]?.trim() && (currentCategory.key !== "custom" || customLabel.trim())
                       ? "bg-black text-white dark:bg-white dark:text-black hover:opacity-90"
                       : "bg-gray-100 text-gray-300 dark:bg-gray-800 dark:text-gray-600 cursor-not-allowed"
                   )}
@@ -670,7 +715,7 @@ export default function GoalSetupWizardPage() {
                         <span className="text-lg">{cat.emoji}</span>
                         <div className="flex-1 min-w-0">
                           <p className={cn("text-xs font-medium", cat.colorText)}>
-                            {ko ? cat.labelKo : cat.labelEn}
+                            {cat.key === "custom" && customLabel.trim() ? customLabel.trim() : (ko ? cat.labelKo : cat.labelEn)}
                           </p>
                           <p className="text-sm text-gray-700 dark:text-gray-300 truncate">
                             {val || "-"}

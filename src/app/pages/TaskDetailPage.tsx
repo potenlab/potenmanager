@@ -37,6 +37,10 @@ import {
   FileText,
   Globe,
   BookOpen,
+  Calculator,
+  Trash2,
+  Copy,
+  DollarSign,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Task, TaskCategory } from "../../lib/mockData";
@@ -1082,6 +1086,13 @@ export function TaskDetailPage() {
               />
             )}
 
+            {/* Category-specific Helpers */}
+            {!isNew && canEdit && category && (
+              <CategoryHelpers category={category} language={language} onInsertToDescription={(text) => {
+                setDescription((prev) => prev ? `${prev}\n\n${text}` : text);
+              }} />
+            )}
+
             {/* Description / Editor — no header label */}
             <div className="min-h-[200px] border-t border-gray-100 pt-5">
               <NotionBlockEditor 
@@ -1099,6 +1110,266 @@ export function TaskDetailPage() {
           {/* Right Column: removed - AI assistant and meta info not needed on detail page */}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Category-specific Helpers ──────────────────────────────────────
+function CategoryHelpers({ category, language, onInsertToDescription }: {
+  category: TaskCategory;
+  language: string;
+  onInsertToDescription: (text: string) => void;
+}) {
+  const ko = language === "ko";
+
+  // Only show for categories that have helpers
+  if (category === "sales") {
+    return <QuoteCalculator language={language} onInsertToDescription={onInsertToDescription} />;
+  }
+
+  // Future: add helpers for other categories here
+  return null;
+}
+
+// ─── Quote Calculator (견적산출) ────────────────────────────────────
+interface QuoteLineItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+function QuoteCalculator({ language, onInsertToDescription }: {
+  language: string;
+  onInsertToDescription: (text: string) => void;
+}) {
+  const ko = language === "ko";
+  const [expanded, setExpanded] = useState(false);
+  const [items, setItems] = useState<QuoteLineItem[]>([
+    { id: "q1", name: "", quantity: 1, unitPrice: 0 },
+  ]);
+  const [includeVat, setIncludeVat] = useState(true);
+  const [discount, setDiscount] = useState(0);
+  const [copied, setCopied] = useState(false);
+
+  const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  const discountAmount = Math.round(subtotal * (discount / 100));
+  const afterDiscount = subtotal - discountAmount;
+  const vatAmount = includeVat ? Math.round(afterDiscount * 0.1) : 0;
+  const total = afterDiscount + vatAmount;
+
+  const addItem = () => {
+    setItems((prev) => [...prev, {
+      id: `q${Date.now()}`,
+      name: "",
+      quantity: 1,
+      unitPrice: 0,
+    }]);
+  };
+
+  const removeItem = (id: string) => {
+    setItems((prev) => prev.length > 1 ? prev.filter((item) => item.id !== id) : prev);
+  };
+
+  const updateItem = (id: string, field: keyof QuoteLineItem, value: string | number) => {
+    setItems((prev) => prev.map((item) =>
+      item.id === id ? { ...item, [field]: value } : item
+    ));
+  };
+
+  const formatNumber = (n: number) => n.toLocaleString(ko ? "ko-KR" : "en-US");
+
+  const generateQuoteText = () => {
+    const lines: string[] = [];
+    lines.push(ko ? "--- 견적서 ---" : "--- Quote ---");
+    lines.push("");
+    items.forEach((item, i) => {
+      if (!item.name && item.unitPrice === 0) return;
+      const itemName = item.name || `${ko ? "항목" : "Item"} ${i + 1}`;
+      const itemTotal = item.quantity * item.unitPrice;
+      lines.push(`${i + 1}. ${itemName}  |  ${item.quantity} x ${formatNumber(item.unitPrice)}${ko ? "원" : ""}  =  ${formatNumber(itemTotal)}${ko ? "원" : ""}`);
+    });
+    lines.push("");
+    lines.push(`${ko ? "소계" : "Subtotal"}: ${formatNumber(subtotal)}${ko ? "원" : ""}`);
+    if (discount > 0) {
+      lines.push(`${ko ? "할인" : "Discount"} (${discount}%): -${formatNumber(discountAmount)}${ko ? "원" : ""}`);
+    }
+    if (includeVat) {
+      lines.push(`${ko ? "부가세" : "VAT"} (10%): ${formatNumber(vatAmount)}${ko ? "원" : ""}`);
+    }
+    lines.push(`${ko ? "합계" : "Total"}: ${formatNumber(total)}${ko ? "원" : ""}`);
+    return lines.join("\n");
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(generateQuoteText());
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  const handleInsert = () => {
+    onInsertToDescription(generateQuoteText());
+  };
+
+  return (
+    <div className="rounded-2xl border border-emerald-100 bg-gradient-to-r from-emerald-50/80 to-teal-50/40 overflow-hidden">
+      {/* Header */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full px-4 py-3 flex items-center gap-2 hover:bg-emerald-50/50 transition-colors"
+      >
+        <div className="flex items-center gap-1.5 text-emerald-600">
+          <Calculator size={15} />
+          <span className="text-xs font-bold">{ko ? "견적산출" : "Quote Calculator"}</span>
+        </div>
+        <span className="text-[10px] text-emerald-400 ml-1">
+          {ko ? "영업 도우미" : "Sales Helper"}
+        </span>
+        <ChevronDown size={14} className={cn("ml-auto text-emerald-400 transition-transform duration-200", expanded && "rotate-180")} />
+      </button>
+
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-4 pt-1 border-t border-emerald-100/60 space-y-3">
+              {/* Column headers */}
+              <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1">
+                <span className="flex-1">{ko ? "항목명" : "Item"}</span>
+                <span className="w-16 text-center">{ko ? "수량" : "Qty"}</span>
+                <span className="w-28 text-center">{ko ? "단가" : "Unit Price"}</span>
+                <span className="w-24 text-right">{ko ? "금액" : "Amount"}</span>
+                <span className="w-7" />
+              </div>
+
+              {/* Line items */}
+              {items.map((item, idx) => {
+                const lineTotal = item.quantity * item.unitPrice;
+                return (
+                  <div key={item.id} className="flex items-center gap-2">
+                    <input
+                      value={item.name}
+                      onChange={(e) => updateItem(item.id, "name", e.target.value)}
+                      placeholder={`${ko ? "항목" : "Item"} ${idx + 1}`}
+                      className="flex-1 text-sm bg-white/70 border border-gray-200/60 rounded-lg px-2.5 py-1.5 outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-400 placeholder:text-gray-300"
+                    />
+                    <input
+                      type="number"
+                      min={1}
+                      value={item.quantity}
+                      onChange={(e) => updateItem(item.id, "quantity", Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-16 text-sm text-center bg-white/70 border border-gray-200/60 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-400"
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      value={item.unitPrice || ""}
+                      onChange={(e) => updateItem(item.id, "unitPrice", Math.max(0, parseInt(e.target.value) || 0))}
+                      placeholder="0"
+                      className="w-28 text-sm text-right bg-white/70 border border-gray-200/60 rounded-lg px-2.5 py-1.5 outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-400 placeholder:text-gray-300"
+                    />
+                    <span className="w-24 text-sm text-right font-medium text-gray-700 tabular-nums">
+                      {formatNumber(lineTotal)}
+                    </span>
+                    <button
+                      onClick={() => removeItem(item.id)}
+                      disabled={items.length <= 1}
+                      className="w-7 h-7 flex items-center justify-center rounded-md text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                );
+              })}
+
+              {/* Add item button */}
+              <button
+                onClick={addItem}
+                className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 hover:text-emerald-700 px-1 py-1"
+              >
+                <Plus size={13} />
+                {ko ? "항목 추가" : "Add Item"}
+              </button>
+
+              {/* Options: VAT & Discount */}
+              <div className="flex items-center gap-4 pt-2 border-t border-emerald-100/60">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <button
+                    onClick={() => setIncludeVat(!includeVat)}
+                    className={cn(
+                      "w-4 h-4 rounded border-2 flex items-center justify-center transition-all",
+                      includeVat ? "bg-emerald-500 border-emerald-500 text-white" : "border-gray-300"
+                    )}
+                  >
+                    {includeVat && <Check size={10} />}
+                  </button>
+                  <span className="text-xs text-gray-600">{ko ? "부가세 (10%)" : "VAT (10%)"}</span>
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-gray-500">{ko ? "할인" : "Discount"}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={discount || ""}
+                    onChange={(e) => setDiscount(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
+                    placeholder="0"
+                    className="w-14 text-xs text-center bg-white/70 border border-gray-200/60 rounded-md px-1.5 py-1 outline-none focus:ring-1 focus:ring-emerald-200 placeholder:text-gray-300"
+                  />
+                  <span className="text-xs text-gray-400">%</span>
+                </div>
+              </div>
+
+              {/* Totals */}
+              <div className="bg-white/60 rounded-xl border border-gray-100 p-3 space-y-1.5">
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>{ko ? "소계" : "Subtotal"}</span>
+                  <span className="tabular-nums">{formatNumber(subtotal)}{ko ? "원" : ""}</span>
+                </div>
+                {discount > 0 && (
+                  <div className="flex justify-between text-xs text-red-500">
+                    <span>{ko ? "할인" : "Discount"} ({discount}%)</span>
+                    <span className="tabular-nums">-{formatNumber(discountAmount)}{ko ? "원" : ""}</span>
+                  </div>
+                )}
+                {includeVat && (
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>{ko ? "부가세" : "VAT"} (10%)</span>
+                    <span className="tabular-nums">{formatNumber(vatAmount)}{ko ? "원" : ""}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm font-bold text-gray-900 pt-1.5 border-t border-gray-100">
+                  <span>{ko ? "합계" : "Total"}</span>
+                  <span className="tabular-nums text-emerald-600">{formatNumber(total)}{ko ? "원" : ""}</span>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  onClick={handleCopy}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-white/80 border border-gray-200/60 rounded-lg hover:bg-white transition-colors"
+                >
+                  {copied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                  {copied ? (ko ? "복사됨" : "Copied") : (ko ? "복사" : "Copy")}
+                </button>
+                <button
+                  onClick={handleInsert}
+                  className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                >
+                  <DollarSign size={12} />
+                  {ko ? "설명에 삽입" : "Insert to Description"}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
