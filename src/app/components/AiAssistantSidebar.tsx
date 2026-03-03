@@ -370,40 +370,8 @@ export function AiAssistantSidebar(props: AiSidebarProps) {
                     </div>
                   </div>
                 </button>
-                {features.length > 0 && (
-                  <div className="border-t border-blue-100/40 my-1.5" />
-                )}
               </>
             )}
-
-            {/* Generic features */}
-            {features.map(f => (
-              <button
-                key={f.key}
-                onClick={() => handleFeatureClick(f.key)}
-                disabled={isLoading && activeFeature !== f.key}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all",
-                  activeFeature === f.key
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "bg-white/60 text-gray-600 hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-100",
-                  isLoading && activeFeature !== f.key && "opacity-50 cursor-not-allowed"
-                )}
-              >
-                <div className={cn(
-                  "p-1.5 rounded-lg shrink-0",
-                  activeFeature === f.key ? "bg-blue-500" : "bg-gray-100"
-                )}>
-                  {f.icon}
-                </div>
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold truncate">{ko ? f.labelKo : f.label}</div>
-                  <div className={cn("text-[10px] truncate", activeFeature === f.key ? "text-blue-200" : "text-gray-400")}>
-                    {ko ? f.descriptionKo : f.description}
-                  </div>
-                </div>
-              </button>
-            ))}
           </div>
 
           {/* Result panel */}

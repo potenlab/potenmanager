@@ -298,7 +298,7 @@ export function GoalDetailPage() {
 
   return (
     <div className="h-full overflow-y-auto bg-white scrollbar-hide">
-      <div className="max-w-6xl mx-auto py-4 sm:py-7 px-4 sm:px-8 pb-32">
+      <div className="max-w-6xl mx-auto py-4 sm:py-7 px-4 sm:px-8 pb-64">
 
         {/* Navigation & Header */}
         <div className="flex items-center justify-between mb-6">
