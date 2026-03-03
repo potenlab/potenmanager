@@ -97,7 +97,7 @@ export function Sidebar() {
     { id: "calendar", to: "/calendar", icon: <Calendar size={20} />, label: t("calendar") },
     { id: "meetings", to: "/meetings", icon: <Video size={20} />, label: language === 'ko' ? '회의' : 'Meetings' },
     { id: "radar", to: "/radar", icon: <Radar size={20} />, label: language === 'ko' ? '비즈 레이더' : 'Biz Radar' },
-    { id: "library", to: "/library", icon: <BookMarked size={20} />, label: language === 'ko' ? '자료모음집' : 'Library' },
+    { id: "library", to: "/library", icon: <BookMarked size={20} />, label: language === 'ko' ? '아카이빙' : 'Archive' },
   ];
 
   const navItemMap = new Map(navItemDefs.map(item => [item.id, item]));
