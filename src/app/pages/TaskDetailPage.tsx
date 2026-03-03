@@ -889,6 +889,7 @@ export function TaskDetailPage() {
   const [category, setCategory] = useState<TaskCategory | undefined>(
     task?.category && TASK_CATEGORY_CONFIG[task.category] ? task.category : undefined
   );
+  const [propsExpanded, setPropsExpanded] = useState(true);
 
   // Sync to context on change
   useEffect(() => {
@@ -964,8 +965,46 @@ export function TaskDetailPage() {
               />
             </div>
 
-            {/* Properties — one per row, notion style */}
-            <div className="bg-gray-50/50 rounded-2xl border border-gray-100 divide-y divide-gray-100 overflow-hidden">
+            {/* Properties — collapsible, notion style */}
+            <div className="bg-gray-50/50 rounded-2xl border border-gray-100 overflow-hidden">
+              <button
+                onClick={() => setPropsExpanded(p => !p)}
+                className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-100/50 transition-colors"
+              >
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <Layout size={12} />
+                  {language === 'ko' ? '속성' : 'Properties'}
+                </span>
+                <div className="flex items-center gap-2">
+                  {!propsExpanded && (
+                    <div className="flex items-center gap-1.5">
+                      <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded", STATUS_CONFIG[status].bg, STATUS_CONFIG[status].color)}>
+                        {language === 'ko' ? STATUS_CONFIG[status].labelKo : STATUS_CONFIG[status].label}
+                      </span>
+                      <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded", PRIORITY_CONFIG[priority].bg, PRIORITY_CONFIG[priority].color)}>
+                        {language === 'ko' ? PRIORITY_CONFIG[priority].labelKo : PRIORITY_CONFIG[priority].label}
+                      </span>
+                      {category && TASK_CATEGORY_CONFIG[category] && (
+                        <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5", TASK_CATEGORY_CONFIG[category].bg, TASK_CATEGORY_CONFIG[category].color)}>
+                          {TASK_CATEGORY_CONFIG[category].icon}
+                          {language === 'ko' ? TASK_CATEGORY_CONFIG[category].labelKo : TASK_CATEGORY_CONFIG[category].label}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  <ChevronDown size={14} className={cn("text-gray-400 transition-transform duration-200", propsExpanded && "rotate-180")} />
+                </div>
+              </button>
+              <AnimatePresence initial={false}>
+                {propsExpanded && (
+                  <motion.div
+                    initial={{ height: 0 }}
+                    animate={{ height: "auto" }}
+                    exit={{ height: 0 }}
+                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                    className="overflow-hidden"
+                  >
+                    <div className="divide-y divide-gray-100 border-t border-gray-100">
               <PropertyItem icon={<Clock size={14} />} label={language === "ko" ? "상태" : "Status"}>
                 <InlineDropdown 
                   value={status} options={["pending", "in-progress", "completed"] as TaskStatus[]}
@@ -1017,6 +1056,10 @@ export function TaskDetailPage() {
               <PropertyItem icon={<Timer size={14} />} label={language === "ko" ? "예상 시간" : "Est. Time"}>
                 <EstimatedTimeEditor language={language} value={estTime} onChange={setEstTime} disabled={!canEdit} />
               </PropertyItem>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Sub-tasks with checkboxes */}
