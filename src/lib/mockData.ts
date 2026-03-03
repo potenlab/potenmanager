@@ -114,12 +114,43 @@ export interface GoalItem {
   isUrgent?: boolean;
 }
 
+// ─── Attachment System ──────────────────────────────────────────────
+export type AttachmentType = 'google-drive' | 'google-doc' | 'google-sheet' | 'google-slide' | 'google-form' | 'generic';
+
+export interface Attachment {
+  id: string;
+  url: string;
+  title: string;
+  addedAt: string; // ISO date string
+  type: AttachmentType;
+}
+
+export function detectAttachmentType(url: string): AttachmentType {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase();
+    if (host === 'drive.google.com' || host === 'www.drive.google.com') return 'google-drive';
+    if (host === 'docs.google.com') {
+      const path = u.pathname.toLowerCase();
+      if (path.startsWith('/document')) return 'google-doc';
+      if (path.startsWith('/spreadsheets')) return 'google-sheet';
+      if (path.startsWith('/presentation')) return 'google-slide';
+      if (path.startsWith('/forms')) return 'google-form';
+      return 'google-drive';
+    }
+    return 'generic';
+  } catch {
+    return 'generic';
+  }
+}
+
 export interface Task extends GoalItem {
   description?: string;
   priority?: 'low' | 'medium' | 'high';
   assigneeIds?: string[];
   colorOverride?: string | null;
   category?: TaskCategory;
+  attachments?: Attachment[];
 }
 
 // Helper: get the "main" assignee id for calendar color purposes.
