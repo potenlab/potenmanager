@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router";
 import {
   Plus, Search, BookMarked, Globe, FileText, Link as LinkIcon,
@@ -8,6 +8,7 @@ import {
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
 import { useLibrary, LibraryItem } from "../context/LibraryContext";
+import { useTeam } from "../context/TeamContext";
 
 const STORAGE_KEY = "archive-categories";
 
@@ -77,24 +78,40 @@ function ArchiveCard({ item, onClick }: { item: LibraryItem; onClick: () => void
 
 // ─── Category Board Column ───────────────────────────────────────────
 function CategoryBoard({
-  title,
-  items,
-  onAddItem,
-  onRename,
-  onDelete,
-  isDefault,
+  title, items, onRename, onDelete, isDefault,
+  isAdding, onStartAdd, onCancelAdd, onSubmitAdd,
 }: {
   title: string;
   items: LibraryItem[];
-  onAddItem: (category: string) => void;
   onRename?: (oldName: string) => void;
   onDelete?: (name: string) => void;
   isDefault?: boolean;
+  isAdding?: boolean;
+  onStartAdd: () => void;
+  onCancelAdd: () => void;
+  onSubmitAdd: (title: string, url: string) => void;
 }) {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const ko = language === "ko";
   const [showMenu, setShowMenu] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newUrl, setNewUrl] = useState('');
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { if (isAdding && titleInputRef.current) titleInputRef.current.focus(); }, [isAdding]);
+
+  const handleSubmit = () => {
+    if (newTitle.trim() || newUrl.trim()) {
+      onSubmitAdd(newTitle.trim(), newUrl.trim());
+      setNewTitle(''); setNewUrl('');
+    }
+  };
+  const handleCancel = () => { setNewTitle(''); setNewUrl(''); onCancelAdd(); };
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') { e.preventDefault(); handleSubmit(); }
+    else if (e.key === 'Escape') handleCancel();
+  };
 
   return (
     <div className="bg-gray-50/80 rounded-2xl border border-gray-100 flex flex-col min-w-[280px] max-w-[340px] w-full shrink-0">
@@ -108,7 +125,7 @@ function CategoryBoard({
         </div>
         <div className="flex items-center gap-1">
           <button
-            onClick={() => onAddItem(isDefault ? "" : title)}
+            onClick={onStartAdd}
             className="p-1 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
           >
             <Plus size={14} />
@@ -154,12 +171,47 @@ function CategoryBoard({
             onClick={() => navigate(`/library/${item.id}`)}
           />
         ))}
-        {items.length === 0 && (
-          <div className="py-8 text-center">
-            <p className="text-xs text-gray-300">{ko ? "아직 자료가 없습니다" : "No items yet"}</p>
-          </div>
+        {items.length === 0 && !isAdding && (
+          <button onClick={onStartAdd}
+            className="w-full flex flex-col items-center justify-center py-8 text-gray-300 hover:text-blue-500 hover:bg-blue-50/50 rounded-xl transition-all cursor-pointer group">
+            <Plus size={20} className="mb-1.5 opacity-50 group-hover:opacity-100 transition-opacity" />
+            <p className="text-xs font-medium">{ko ? '자료를 추가해보세요' : 'Add an item'}</p>
+          </button>
         )}
       </div>
+
+      {/* Inline add form */}
+      {isAdding && (
+        <div className="px-3 pb-3">
+          <div className="bg-white rounded-xl border border-blue-200 shadow-sm ring-2 ring-blue-100 overflow-hidden">
+            <input ref={titleInputRef} value={newTitle} onChange={(e) => setNewTitle(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={ko ? '제목' : 'Title'}
+              className="w-full px-4 py-2.5 text-sm outline-none bg-transparent placeholder-gray-400 text-gray-900" />
+            <input value={newUrl} onChange={(e) => setNewUrl(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={ko ? 'URL (선택)' : 'URL (optional)'}
+              className="w-full px-4 py-2 text-sm outline-none bg-transparent placeholder-gray-300 text-gray-700 border-t border-gray-100" />
+            <div className="flex items-center justify-between px-3 py-2 bg-gray-50/80 border-t border-gray-100">
+              <span className="text-[10px] text-gray-400">{ko ? 'Enter로 추가 · Esc로 취소' : 'Enter to add · Esc to cancel'}</span>
+              <button onClick={handleSubmit} disabled={!newTitle.trim() && !newUrl.trim()}
+                className="text-[10px] font-semibold text-blue-600 hover:text-blue-700 disabled:text-gray-300 px-2 py-0.5 rounded">
+                {ko ? '추가' : 'Add'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bottom add button */}
+      {!isAdding && items.length > 0 && (
+        <div className="px-3 pb-3">
+          <button onClick={onStartAdd}
+            className="w-full py-2.5 rounded-xl text-gray-400 text-sm hover:text-blue-600 hover:bg-gray-100/80 transition-all flex items-center gap-2 px-3">
+            <Plus size={14} /> <span>{ko ? '자료 추가' : 'Add Item'}</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -231,8 +283,8 @@ function MonthPicker({
 export function LibraryPage() {
   const { language } = useLanguage();
   const ko = language === "ko";
-  const navigate = useNavigate();
-  const { myItems, teamItems, isLoading, updateItem } = useLibrary();
+  const { myItems, teamItems, isLoading, addItem, updateItem, fetchOgMetadata } = useLibrary();
+  const { currentUser } = useTeam();
 
   const [activeTab, setActiveTab] = useState<"my" | "team">("my");
   const [searchQuery, setSearchQuery] = useState("");
@@ -334,10 +386,30 @@ export function LibraryPage() {
     });
   };
 
-  const handleAddItem = (category: string) => {
-    const params = category ? `?category=${encodeURIComponent(category)}` : "";
-    navigate(`/library/new${params}`);
-  };
+  const [addingInCategory, setAddingInCategory] = useState<string | null>(null);
+
+  const handleInlineAdd = useCallback((title: string, url: string, category: string) => {
+    const now = new Date().toISOString();
+    const item: LibraryItem = {
+      id: `lib-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+      title: title || url || (ko ? '제목 없음' : 'Untitled'),
+      type: url ? 'url' : 'note',
+      url: url || undefined,
+      category: category || undefined,
+      visibility: 'private',
+      ownerId: currentUser.id,
+      ownerName: currentUser.name,
+      createdAt: now,
+      updatedAt: now,
+      tags: [],
+    };
+    addItem(item);
+    if (url) {
+      fetchOgMetadata(url).then(og => {
+        if (og) updateItem(item.id, { ogMetadata: og, title: title || og.ogTitle || item.title });
+      });
+    }
+  }, [addItem, currentUser, fetchOgMetadata, updateItem, ko]);
 
   if (isLoading) {
     return (
@@ -363,19 +435,11 @@ export function LibraryPage() {
                 : `My ${myItems.length} · Team ${teamItems.length}`}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <MonthPicker
-              value={selectedMonth}
-              onChange={setSelectedMonth}
-              availableMonths={availableMonths}
-            />
-            <button
-              onClick={() => navigate("/library/new")}
-              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm shadow-blue-200"
-            >
-              <Plus size={16} /> {ko ? "추가" : "Add"}
-            </button>
-          </div>
+          <MonthPicker
+            value={selectedMonth}
+            onChange={setSelectedMonth}
+            availableMonths={availableMonths}
+          />
         </div>
 
         {/* Tabs + Search */}
@@ -434,8 +498,11 @@ export function LibraryPage() {
           <CategoryBoard
             title={ko ? "미분류" : "Uncategorized"}
             items={uncategorized}
-            onAddItem={handleAddItem}
             isDefault
+            isAdding={addingInCategory === '__uncategorized__'}
+            onStartAdd={() => setAddingInCategory('__uncategorized__')}
+            onCancelAdd={() => setAddingInCategory(null)}
+            onSubmitAdd={(t, u) => handleInlineAdd(t, u, '')}
           />
 
           {/* Category boards */}
@@ -444,9 +511,12 @@ export function LibraryPage() {
               key={cat}
               title={cat}
               items={groupedByCategory[cat] || []}
-              onAddItem={handleAddItem}
               onRename={handleRenameCategory}
               onDelete={handleDeleteCategory}
+              isAdding={addingInCategory === cat}
+              onStartAdd={() => setAddingInCategory(cat)}
+              onCancelAdd={() => setAddingInCategory(null)}
+              onSubmitAdd={(t, u) => handleInlineAdd(t, u, cat)}
             />
           ))}
 
