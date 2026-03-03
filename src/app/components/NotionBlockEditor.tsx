@@ -16,6 +16,13 @@ function genId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
+// Read text from contentEditable, respecting <br> and block elements as newlines
+function readText(el: HTMLElement): string {
+  const text = el.innerText ?? el.textContent ?? "";
+  // contentEditable sometimes appends a trailing newline
+  return text.endsWith("\n") ? text.slice(0, -1) : text;
+}
+
 export function NotionBlockEditor({
   value,
   initialContent,
@@ -39,7 +46,7 @@ export function NotionBlockEditor({
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
-  // Sync blocks → parent onChange via effect (avoids setState-during-render)
+  // Sync blocks → parent onChange via effect
   const prevTextRef = useRef(seed);
   useEffect(() => {
     const text = blocks.map((b) => b.content).join("\n");
@@ -92,23 +99,62 @@ export function NotionBlockEditor({
     );
   };
 
+  // Get cursor position within a block
+  const getCursorPos = (blockId: string): number => {
+    const el = blockRefs.current.get(blockId);
+    const sel = window.getSelection();
+    if (!sel || !el || sel.rangeCount === 0) return 0;
+    const range = sel.getRangeAt(0);
+    const preRange = document.createRange();
+    preRange.selectNodeContents(el);
+    preRange.setEnd(range.startContainer, range.startOffset);
+    return preRange.toString().length;
+  };
+
+  // Paste handler: split multi-line text into blocks, force plain text
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent, idx: number) => {
+      e.preventDefault();
+      const text = e.clipboardData.getData("text/plain");
+      if (!text) return;
+
+      const lines = text.split(/\r?\n/);
+
+      if (lines.length === 1) {
+        // Single line: insert as plain text at cursor
+        document.execCommand("insertText", false, text);
+        return;
+      }
+
+      // Multi-line paste: split into blocks
+      const block = blocks[idx];
+      const cursorPos = getCursorPos(block.id);
+      const before = block.content.slice(0, cursorPos);
+      const after = block.content.slice(cursorPos);
+
+      const newBlocks: Block[] = lines.map((line, i) => {
+        if (i === 0) return { id: block.id, content: before + line };
+        if (i === lines.length - 1) return { id: genId(), content: line + after };
+        return { id: genId(), content: line };
+      });
+
+      setBlocks((prev) => {
+        const next = [...prev];
+        next.splice(idx, 1, ...newBlocks);
+        return next;
+      });
+      pendingFocusIdx.current = idx + newBlocks.length - 1;
+    },
+    [blocks]
+  );
+
   const handleKeyDown = (e: KeyboardEvent, idx: number) => {
     const block = blocks[idx];
 
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
 
-      const sel = window.getSelection();
-      const el = blockRefs.current.get(block.id);
-      let cursorPos = block.content.length;
-      if (sel && el) {
-        const range = sel.getRangeAt(0);
-        const preRange = document.createRange();
-        preRange.selectNodeContents(el);
-        preRange.setEnd(range.startContainer, range.startOffset);
-        cursorPos = preRange.toString().length;
-      }
-
+      const cursorPos = getCursorPos(block.id);
       const before = block.content.slice(0, cursorPos);
       const after = block.content.slice(cursorPos);
       const newBlock: Block = { id: genId(), content: after };
@@ -267,7 +313,6 @@ export function NotionBlockEditor({
             ref={(el) => {
               if (el) {
                 blockRefs.current.set(block.id, el);
-                // Set initial content only once
                 if (el.textContent !== block.content && document.activeElement !== el) {
                   el.textContent = block.content;
                 }
@@ -283,7 +328,7 @@ export function NotionBlockEditor({
               if (!readOnly) {
                 const el = blockRefs.current.get(block.id);
                 if (el) {
-                  const text = el.textContent || "";
+                  const text = readText(el);
                   if (text !== block.content) {
                     updateBlock(block.id, text);
                   }
@@ -296,7 +341,7 @@ export function NotionBlockEditor({
               if (!readOnly) {
                 const el = blockRefs.current.get(block.id);
                 if (el) {
-                  updateBlock(block.id, el.textContent || "");
+                  updateBlock(block.id, readText(el));
                 }
               }
             }}
@@ -304,10 +349,27 @@ export function NotionBlockEditor({
               if (!readOnly && !isComposingRef.current) {
                 const el = blockRefs.current.get(block.id);
                 if (el) {
-                  updateBlock(block.id, el.textContent || "");
+                  const text = readText(el);
+                  // If text contains newlines (from <br> etc.), split into blocks
+                  if (text.includes("\n")) {
+                    const lines = text.split("\n");
+                    setBlocks((prev) => {
+                      const next = [...prev];
+                      const newBlocks = lines.map((line, i) => ({
+                        id: i === 0 ? block.id : genId(),
+                        content: line,
+                      }));
+                      next.splice(idx, 1, ...newBlocks);
+                      return next;
+                    });
+                    pendingFocusIdx.current = idx + lines.length - 1;
+                  } else {
+                    updateBlock(block.id, text);
+                  }
                 }
               }
             }}
+            onPaste={(e) => !readOnly && handlePaste(e, idx)}
             onKeyDown={(e) => !readOnly && handleKeyDown(e, idx)}
             data-placeholder={idx === 0 && blocks.length === 1 ? placeholder : ""}
             className={cn(
