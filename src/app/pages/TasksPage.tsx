@@ -123,7 +123,7 @@ function UrgentGoalCard({ goal }: { goal: GoalItem }) {
     <Link
       to={`/organization/${goal.id}`}
       className={cn(
-        "block bg-white rounded-xl border shadow-sm hover:shadow-md transition-all group relative overflow-hidden",
+        "block bg-white rounded-xl border shadow-sm hover:shadow-md transition-all group relative",
         isOverdue ? "border-red-200 ring-1 ring-red-100" :
         isUrgentSoon ? "border-orange-200 ring-1 ring-orange-100" :
         goal.status === 'completed' ? "border-gray-200 opacity-70" :
@@ -131,7 +131,7 @@ function UrgentGoalCard({ goal }: { goal: GoalItem }) {
       )}
     >
       <div className={cn(
-        "h-1 w-full",
+        "h-1 w-full rounded-t-[10px]",
         isOverdue ? "bg-red-500" :
         isUrgentSoon ? "bg-gradient-to-r from-orange-400 to-red-400" :
         goal.status === 'completed' ? "bg-emerald-400" :
