@@ -16,6 +16,7 @@ import { createPortal } from "react-dom";
 import { useTrash } from "../context/TrashContext";
 import { TaskCategory } from "../../lib/mockData";
 import { TASK_CATEGORY_CONFIG, findBestAssignee } from "../../lib/jobRoles";
+import { AiAssistantSidebar } from "../components/AiAssistantSidebar";
 
 type MeetingStatus = Meeting['status'];
 type MeetingType = Meeting['type'];
@@ -351,7 +352,8 @@ export function MeetingDetailPage() {
           </div>
         </div>
 
-        <div className="max-w-3xl">
+        <div className="flex gap-6">
+        <div className="flex-1 min-w-0 max-w-3xl">
           <div className="space-y-6">
 
             {/* Title */}
@@ -547,6 +549,15 @@ export function MeetingDetailPage() {
               />
             </div>
           </div>
+        </div>
+
+        {/* AI Assistant Sidebar */}
+        <AiAssistantSidebar
+          title={meeting.title}
+          description={notes}
+          entityType="meeting"
+          language={language}
+        />
         </div>
       </div>
 

@@ -12,6 +12,7 @@ import { useLibrary, LibraryItem, LibraryItemType } from "../context/LibraryCont
 import { useTeam } from "../context/TeamContext";
 import { useTrash } from "../context/TrashContext";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
+import { AiAssistantSidebar } from "../components/AiAssistantSidebar";
 
 function getYouTubeVideoId(url: string): string | null {
   try {
@@ -171,7 +172,8 @@ export function LibraryDetailPage() {
   return (
     <div className="h-full overflow-y-auto bg-white scrollbar-hide">
       <div className="max-w-6xl mx-auto py-4 sm:py-7 px-4 sm:px-8 pb-32">
-        <div className="max-w-3xl">
+        <div className="flex gap-6">
+        <div className="flex-1 min-w-0 max-w-3xl">
           <div className="space-y-6">
 
             {/* Navigation */}
@@ -380,6 +382,15 @@ export function LibraryDetailPage() {
             )}
 
           </div>
+        </div>
+
+        {/* AI Assistant Sidebar */}
+        <AiAssistantSidebar
+          title={item.title}
+          description={item.description}
+          entityType="library"
+          language={language}
+        />
         </div>
       </div>
     </div>

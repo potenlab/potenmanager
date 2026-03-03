@@ -25,6 +25,7 @@ import { usePermission } from "../context/PermissionContext";
 import { useGoalContext } from "../context/GoalContext";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { NotionDateRangePicker } from "../components/NotionDateRangePicker";
+import { AiAssistantSidebar } from "../components/AiAssistantSidebar";
 import { useState, useRef, useEffect } from "react";
 
 type GoalStatus = "pending" | "in-progress" | "completed";
@@ -314,8 +315,9 @@ export function GoalDetailPage() {
           </div>
         </div>
 
-        {/* Content */}
-        <div className="max-w-3xl">
+        {/* Content + AI Sidebar */}
+        <div className="flex gap-6">
+        <div className="flex-1 min-w-0 max-w-3xl">
 
           <div className="space-y-6">
             {/* Title */}
@@ -452,7 +454,16 @@ export function GoalDetailPage() {
               />
             </div>
           </div>
+        </div>
 
+        {/* AI Assistant Sidebar */}
+        {canEdit && (
+          <AiAssistantSidebar
+            title={title}
+            entityType="goal"
+            language={language}
+          />
+        )}
         </div>
       </div>
     </div>

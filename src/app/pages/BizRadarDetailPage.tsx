@@ -16,6 +16,7 @@ import { cn } from "../../lib/utils";
 import { createPortal } from "react-dom";
 import { TaskCategory } from "../../lib/mockData";
 import { TASK_CATEGORY_CONFIG, findBestAssignee } from "../../lib/jobRoles";
+import { AiAssistantSidebar } from "../components/AiAssistantSidebar";
 
 const STAGE_CONFIG: Record<BizStage, { label: string; labelKo: string; icon: React.ReactNode; color: string }> = {
   discovered: { label: "Discovered", labelKo: "발굴", icon: <Compass size={14} />, color: "text-purple-600" },
@@ -370,7 +371,8 @@ export function BizRadarDetailPage() {
           </div>
         </div>
 
-        <div className="max-w-3xl">
+        <div className="flex gap-6">
+        <div className="flex-1 min-w-0 max-w-3xl">
           <div className="space-y-6">
 
             {/* Category Badge */}
@@ -633,6 +635,15 @@ export function BizRadarDetailPage() {
               />
             </div>
           </div>
+        </div>
+
+        {/* AI Assistant Sidebar */}
+        <AiAssistantSidebar
+          title={item.title}
+          description={notes}
+          entityType="radar"
+          language={language}
+        />
         </div>
       </div>
 
