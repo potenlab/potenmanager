@@ -23,9 +23,21 @@ import {
   CalendarClock,
   Columns3,
   Columns4,
+  DollarSign,
+  PenTool,
+  Video,
+  Megaphone,
+  Code,
+  Palette,
+  Lightbulb,
+  Settings,
+  Users,
+  BookOpen,
+  Tag,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { Task, GoalItem, UrgentCategory } from "../../lib/mockData";
+import { Task, GoalItem, UrgentCategory, TaskCategory } from "../../lib/mockData";
 import { useLanguage } from "../context/LanguageContext";
 import { useTaskContext } from "../context/TaskContext";
 import { useGoalContext } from "../context/GoalContext";
@@ -53,6 +65,22 @@ const CATEGORY_CONFIG: Record<UrgentCategory, { icon: React.ReactNode; color: st
   submission: { icon: <CalendarClock size={14} />, color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200" },
   event: { icon: <CalendarIcon size={14} />, color: "text-pink-700", bg: "bg-pink-50", border: "border-pink-200" },
   other: { icon: <Zap size={14} />, color: "text-gray-700", bg: "bg-gray-50", border: "border-gray-200" },
+};
+
+// ─── Task Category Config ─────────────────────────────────────────
+export const TASK_CATEGORY_CONFIG: Record<TaskCategory, {
+  label: string; labelKo: string; icon: React.ReactNode; color: string; bg: string; border: string;
+}> = {
+  sales:           { label: "Sales",      labelKo: "영업",           icon: <DollarSign size={12} />, color: "text-emerald-700", bg: "bg-emerald-50",  border: "border-emerald-200" },
+  content_writing: { label: "Content",    labelKo: "콘텐츠(글쓰기)", icon: <PenTool size={12} />,    color: "text-violet-700",  bg: "bg-violet-50",   border: "border-violet-200" },
+  content_video:   { label: "Video",      labelKo: "콘텐츠(영상)",   icon: <Video size={12} />,      color: "text-pink-700",    bg: "bg-pink-50",     border: "border-pink-200" },
+  marketing:       { label: "Marketing",  labelKo: "마케팅",         icon: <Megaphone size={12} />,  color: "text-orange-700",  bg: "bg-orange-50",   border: "border-orange-200" },
+  development:     { label: "Dev",        labelKo: "개발",           icon: <Code size={12} />,       color: "text-blue-700",    bg: "bg-blue-50",     border: "border-blue-200" },
+  design:          { label: "Design",     labelKo: "디자인",         icon: <Palette size={12} />,    color: "text-fuchsia-700", bg: "bg-fuchsia-50",  border: "border-fuchsia-200" },
+  planning:        { label: "Planning",   labelKo: "기획",           icon: <Lightbulb size={12} />,  color: "text-amber-700",   bg: "bg-amber-50",    border: "border-amber-200" },
+  operations:      { label: "Ops",        labelKo: "운영/관리",      icon: <Settings size={12} />,   color: "text-gray-700",    bg: "bg-gray-100",    border: "border-gray-200" },
+  meeting:         { label: "Meeting",    labelKo: "회의/미팅",      icon: <Users size={12} />,      color: "text-cyan-700",    bg: "bg-cyan-50",     border: "border-cyan-200" },
+  learning:        { label: "Learning",   labelKo: "학습",           icon: <BookOpen size={12} />,   color: "text-teal-700",    bg: "bg-teal-50",     border: "border-teal-200" },
 };
 
 // ─── D-Day Badge ────────────────────────────────────────────────────
@@ -326,18 +354,32 @@ function TaskCard({
         </button>
       </div>
 
-      <div className="flex justify-between items-start mb-2">
-        <span className={cn(
-          "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
-          task.priority === 'high' ? "bg-red-50 text-red-600 border border-red-100" :
-          task.priority === 'medium' ? "bg-amber-50 text-amber-600 border border-amber-100" :
-          "bg-blue-50 text-blue-600 border border-blue-100"
-        )}>
-          {task.priority || 'low'}
-        </span>
+      <div className="flex items-start gap-2 mb-2">
+        <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
+          <span className={cn(
+            "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
+            task.priority === 'high' ? "bg-red-50 text-red-600 border border-red-100" :
+            task.priority === 'medium' ? "bg-amber-50 text-amber-600 border border-amber-100" :
+            "bg-blue-50 text-blue-600 border border-blue-100"
+          )}>
+            {task.priority || 'low'}
+          </span>
+          {task.category && (() => {
+            const catCfg = TASK_CATEGORY_CONFIG[task.category];
+            return (
+              <span className={cn(
+                "text-[9px] font-bold px-1.5 py-0.5 rounded-full border flex items-center gap-0.5",
+                catCfg.bg, catCfg.color, catCfg.border
+              )}>
+                {catCfg.icon}
+                {language === 'ko' ? catCfg.labelKo : catCfg.label}
+              </span>
+            );
+          })()}
+        </div>
         <button
           onClick={(e) => e.stopPropagation()}
-          className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
         >
           <MoreHorizontal size={16} />
         </button>
@@ -601,6 +643,8 @@ export function TasksPage() {
   const [addingInColumn, setAddingInColumn] = useState<Task['status'] | null>(null);
   const [showRecommendPanel, setShowRecommendPanel] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [filterCategory, setFilterCategory] = useState<TaskCategory | 'all'>('all');
+  const [showCatFilter, setShowCatFilter] = useState(false);
 
   const activeUrgentCount = urgentGoals.filter(g => g.status !== 'completed').length;
 
@@ -616,12 +660,23 @@ export function TasksPage() {
 
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
-  // ESC to clear selection
+  // ESC to clear selection + close filter
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') clearSelection(); };
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') { clearSelection(); setShowCatFilter(false); } };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [clearSelection]);
+
+  // Close category filter on outside click
+  const catFilterRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showCatFilter) return;
+    const handler = (e: MouseEvent) => {
+      if (catFilterRef.current && !catFilterRef.current.contains(e.target as Node)) setShowCatFilter(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showCatFilter]);
 
   const handleBulkMove = useCallback((newStatus: Task['status']) => {
     setAllTasks(prev => prev.map(t =>
@@ -645,13 +700,19 @@ export function TasksPage() {
   }, [selectedIds, removeTask, getTask, moveToTrash, clearSelection]);
 
   const filteredTasks = useMemo(() => {
-    if (!searchQuery.trim()) return allTasks;
-    const q = searchQuery.toLowerCase();
-    return allTasks.filter(task => {
-      const title = language === 'ko' ? (task.titleKo || task.title) : task.title;
-      return title.toLowerCase().includes(q) || (task.description?.toLowerCase().includes(q));
-    });
-  }, [allTasks, searchQuery, language]);
+    let result = allTasks;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(task => {
+        const title = language === 'ko' ? (task.titleKo || task.title) : task.title;
+        return title.toLowerCase().includes(q) || (task.description?.toLowerCase().includes(q));
+      });
+    }
+    if (filterCategory !== 'all') {
+      result = result.filter(task => task.category === filterCategory);
+    }
+    return result;
+  }, [allTasks, searchQuery, language, filterCategory]);
 
   const pendingTasks = filteredTasks.filter(task => task.status === 'pending');
   const inProgressTasks = filteredTasks.filter(task => task.status === 'in-progress');
@@ -707,6 +768,51 @@ export function TasksPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Category Filter */}
+            <div className="relative" ref={catFilterRef}>
+              <button
+                onClick={() => setShowCatFilter(!showCatFilter)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-2 bg-white border rounded-xl text-xs font-medium transition-all shadow-sm",
+                  filterCategory !== 'all'
+                    ? "border-blue-300 text-blue-700 ring-1 ring-blue-100"
+                    : "border-gray-200 text-gray-500 hover:text-gray-700"
+                )}
+              >
+                <Tag size={13} />
+                {filterCategory === 'all'
+                  ? (language === 'ko' ? '카테고리' : 'Category')
+                  : (language === 'ko' ? TASK_CATEGORY_CONFIG[filterCategory].labelKo : TASK_CATEGORY_CONFIG[filterCategory].label)
+                }
+                <ChevronDown size={11} />
+              </button>
+              {showCatFilter && (
+                <div className="absolute top-full mt-1 right-0 bg-white border border-gray-200 rounded-xl shadow-lg z-50 min-w-[180px] py-1 max-h-[320px] overflow-y-auto">
+                  <button
+                    onClick={() => { setFilterCategory('all'); setShowCatFilter(false); }}
+                    className={cn("w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-gray-50 transition-colors",
+                      filterCategory === 'all' && "bg-blue-50/50")}
+                  >
+                    <span className="text-gray-500">{language === 'ko' ? '전체' : 'All'}</span>
+                    {filterCategory === 'all' && <Check size={12} className="ml-auto text-blue-600" />}
+                  </button>
+                  {(Object.entries(TASK_CATEGORY_CONFIG) as [TaskCategory, typeof TASK_CATEGORY_CONFIG[TaskCategory]][]).map(([key, cfg]) => (
+                    <button
+                      key={key}
+                      onClick={() => { setFilterCategory(key); setShowCatFilter(false); }}
+                      className={cn("w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-gray-50 transition-colors",
+                        filterCategory === key && "bg-blue-50/50")}
+                    >
+                      <span className={cn("flex items-center gap-1.5", cfg.color)}>
+                        {cfg.icon} {language === 'ko' ? cfg.labelKo : cfg.label}
+                      </span>
+                      {filterCategory === key && <Check size={12} className="ml-auto text-blue-600" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="flex bg-gray-100 p-1 rounded-xl">
               <button onClick={() => setViewMode('board')}
                 className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",

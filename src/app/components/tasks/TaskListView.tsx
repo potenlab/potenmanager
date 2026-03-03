@@ -8,7 +8,8 @@ import {
   AlertCircle
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
-import { Task } from "../../../lib/mockData";
+import { Task, TaskCategory } from "../../../lib/mockData";
+import { TASK_CATEGORY_CONFIG } from "../../pages/TasksPage";
 import { useLanguage } from "../../context/LanguageContext";
 import { usePermission } from "../../context/PermissionContext";
 import { format } from "date-fns";
@@ -60,6 +61,9 @@ export function TaskListView({ tasks, onStatusChange }: TaskListViewProps) {
                 {language === 'ko' ? "우선순위" : "Priority"}
               </th>
               <th className="px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                {language === 'ko' ? "카테고리" : "Category"}
+              </th>
+              <th className="px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 {language === 'ko' ? "참여자" : "Participant"}
               </th>
               <th className="px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -71,7 +75,7 @@ export function TaskListView({ tasks, onStatusChange }: TaskListViewProps) {
           <tbody className="divide-y divide-gray-100">
             {tasks.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-6 py-20 text-center text-gray-400 italic">
+                <td colSpan={8} className="px-6 py-20 text-center text-gray-400 italic">
                   {language === 'ko' ? "등록된 업무가 없습니다." : "No tasks found."}
                 </td>
               </tr>
@@ -133,6 +137,22 @@ export function TaskListView({ tasks, onStatusChange }: TaskListViewProps) {
                       )}>
                         {task.priority || 'low'}
                       </span>
+                    </td>
+                    <td className="px-4 py-4">
+                      {task.category ? (() => {
+                        const catCfg = TASK_CATEGORY_CONFIG[task.category];
+                        return (
+                          <span className={cn(
+                            "text-[10px] font-bold px-2 py-0.5 rounded-full border inline-flex items-center gap-1",
+                            catCfg.bg, catCfg.color, catCfg.border
+                          )}>
+                            {catCfg.icon}
+                            {language === 'ko' ? catCfg.labelKo : catCfg.label}
+                          </span>
+                        );
+                      })() : (
+                        <span className="text-xs text-gray-300">-</span>
+                      )}
                     </td>
                     <td className="px-4 py-4">
                       {assignee ? (

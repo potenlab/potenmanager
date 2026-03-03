@@ -91,6 +91,8 @@ export type GoalLevel = 'Year' | 'Quarter' | 'Month' | 'Week' | 'Day' | 'Urgent'
 
 export type UrgentCategory = 'funding' | 'investment' | 'contract' | 'submission' | 'event' | 'other';
 
+export type TaskCategory = 'sales' | 'content_writing' | 'content_video' | 'marketing' | 'development' | 'design' | 'planning' | 'operations' | 'meeting' | 'learning';
+
 export interface GoalItem {
   id: string;
   title: string;
@@ -114,6 +116,7 @@ export interface Task extends GoalItem {
   priority?: 'low' | 'medium' | 'high';
   assigneeIds?: string[];
   colorOverride?: string | null;
+  category?: TaskCategory;
 }
 
 // Helper: get the "main" assignee id for calendar color purposes.

@@ -28,9 +28,11 @@ import {
   Minimize2,
   Square,
   CheckSquare,
+  Tag,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { Task } from "../../lib/mockData";
+import { Task, TaskCategory } from "../../lib/mockData";
+import { TASK_CATEGORY_CONFIG } from "./TasksPage";
 import { useLanguage } from "../context/LanguageContext";
 import { useTaskContext } from "../context/TaskContext";
 import { usePermission } from "../context/PermissionContext";
@@ -519,17 +521,18 @@ export function TaskDetailPage() {
   const [dateStart, setDateStart] = useState<Date | null>(task?.startDate ? new Date(task.startDate) : new Date());
   const [dateEnd, setDateEnd] = useState<Date | null>(task?.endDate ? new Date(task.endDate) : null);
   const [estTime, setEstTime] = useState(task?.estimatedTime || 0);
+  const [category, setCategory] = useState<TaskCategory | undefined>(task?.category);
 
   // Sync to context on change
   useEffect(() => {
     if (!isNew && taskId) {
       updateTask(taskId, {
-        title, titleKo: title, description, status, priority, assigneeIds, 
+        title, titleKo: title, description, status, priority, assigneeIds,
         startDate: dateStart ?? undefined, endDate: dateEnd ?? undefined,
-        estimatedTime: estTime
+        estimatedTime: estTime, category,
       });
     }
-  }, [title, description, status, priority, assigneeIds, dateStart, dateEnd, estTime]);
+  }, [title, description, status, priority, assigneeIds, dateStart, dateEnd, estTime, category]);
 
   const handleDelete = () => {
     if (confirm(language === "ko" ? "정말 삭제하시겠습니까?" : "Are you sure you want to delete?")) {
@@ -591,6 +594,25 @@ export function TaskDetailPage() {
                   onChange={setPriority} disabled={!canEdit}
                   renderValue={(v) => <span className={cn("px-2 py-0.5 rounded-md font-bold", PRIORITY_CONFIG[v].bg, PRIORITY_CONFIG[v].color)}>{language === "ko" ? PRIORITY_CONFIG[v].labelKo : PRIORITY_CONFIG[v].label}</span>}
                   renderOption={(o) => <span className={PRIORITY_CONFIG[o].color}>{language === "ko" ? PRIORITY_CONFIG[o].labelKo : PRIORITY_CONFIG[o].label}</span>}
+                />
+              </PropertyItem>
+
+              <PropertyItem icon={<Tag size={14} />} label={language === "ko" ? "카테고리" : "Category"}>
+                <InlineDropdown
+                  value={category || ''}
+                  options={['', ...Object.keys(TASK_CATEGORY_CONFIG)] as string[]}
+                  onChange={(v) => setCategory(v ? v as TaskCategory : undefined)}
+                  disabled={!canEdit}
+                  renderValue={(v) => {
+                    if (!v) return <span className="text-sm text-gray-400">{language === "ko" ? "미설정" : "Not set"}</span>;
+                    const cfg = TASK_CATEGORY_CONFIG[v as TaskCategory];
+                    return <span className={cn("flex items-center gap-1.5 font-bold text-sm", cfg.color)}>{cfg.icon} {language === "ko" ? cfg.labelKo : cfg.label}</span>;
+                  }}
+                  renderOption={(o) => {
+                    if (!o) return <span className="text-gray-400">{language === "ko" ? "없음" : "None"}</span>;
+                    const cfg = TASK_CATEGORY_CONFIG[o as TaskCategory];
+                    return <span className={cn("flex items-center gap-2", cfg.color)}>{cfg.icon} {language === "ko" ? cfg.labelKo : cfg.label}</span>;
+                  }}
                 />
               </PropertyItem>
 
