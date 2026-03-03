@@ -105,20 +105,41 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     itemOrId: any,
     updates?: any
   ) => {
-    try {
-      switch (action) {
-        case 'create':
-          await api.createLibraryItem(itemOrId);
-          break;
-        case 'update':
-          await api.updateLibraryItem(itemOrId, updates);
-          break;
-        case 'delete':
-          await api.deleteLibraryItem(itemOrId);
-          break;
+    const attempt = async (retries: number): Promise<boolean> => {
+      try {
+        switch (action) {
+          case 'create':
+            await api.createLibraryItem(itemOrId);
+            break;
+          case 'update':
+            await api.updateLibraryItem(itemOrId, updates);
+            break;
+          case 'delete':
+            await api.deleteLibraryItem(itemOrId);
+            break;
+        }
+        return true;
+      } catch (err) {
+        if (retries > 0) {
+          await new Promise(r => setTimeout(r, 1000));
+          return attempt(retries - 1);
+        }
+        console.error(`[LibraryContext] Sync failed after retries (${action}):`, err);
+        return false;
       }
-    } catch (err) {
-      console.error(`[LibraryContext] Background sync failed (${action}):`, err);
+    };
+
+    const success = await attempt(2);
+    if (!success) {
+      try {
+        const serverItems = await api.getLibraryItems();
+        if (serverItems) {
+          setItems(serverItems as LibraryItem[]);
+          console.warn("[LibraryContext] Restored state from server after sync failure.");
+        }
+      } catch {
+        console.error("[LibraryContext] Failed to restore state from server.");
+      }
     }
   }, []);
 
@@ -158,21 +179,13 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const value = useMemo<LibraryContextType>(() => ({
+    items, myItems, teamItems, addItem, updateItem, removeItem,
+    getItem, publishItem, unpublishItem, fetchOgMetadata, isLoading, isSynced,
+  }), [items, myItems, teamItems, addItem, updateItem, removeItem, getItem, publishItem, unpublishItem, fetchOgMetadata, isLoading, isSynced]);
+
   return (
-    <LibraryContext.Provider value={{
-      items,
-      myItems,
-      teamItems,
-      addItem,
-      updateItem,
-      removeItem,
-      getItem,
-      publishItem,
-      unpublishItem,
-      fetchOgMetadata,
-      isLoading,
-      isSynced,
-    }}>
+    <LibraryContext.Provider value={value}>
       {children}
     </LibraryContext.Provider>
   );

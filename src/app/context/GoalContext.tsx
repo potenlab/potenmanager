@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo, ReactNode } from "react";
 import { GoalItem } from "../../lib/mockData";
 import { api } from "../../lib/api";
 import { notificationBus } from "../../lib/notificationEvents";
@@ -47,9 +47,9 @@ export function GoalProvider({ children }: { children: ReactNode }) {
   const [isSynced, setIsSynced] = useState(false);
   const initRef = useRef(false);
 
-  // Derived: split into regular and urgent
-  const goals = allGoals.filter((g) => !g.isUrgent);
-  const urgentGoals = allGoals.filter((g) => g.isUrgent);
+  // Derived: split into regular and urgent (memoized)
+  const goals = useMemo(() => allGoals.filter((g) => !g.isUrgent), [allGoals]);
+  const urgentGoals = useMemo(() => allGoals.filter((g) => g.isUrgent), [allGoals]);
 
   // ─── Server Sync: Fetch goals on mount ───────────────────────────
   useEffect(() => {
@@ -79,26 +79,48 @@ export function GoalProvider({ children }: { children: ReactNode }) {
     init();
   }, []);
 
-  // ─── Background sync helper ──────────────────────────────────────
+  // ─── Background sync helper with retry ─────────────────────────
   const syncToServer = useCallback(async (
     action: 'create' | 'update' | 'delete',
     goalOrId: any,
     updates?: any
   ) => {
-    try {
-      switch (action) {
-        case 'create':
-          await api.createGoal(goalOrId);
-          break;
-        case 'update':
-          await api.updateGoal(goalOrId, updates);
-          break;
-        case 'delete':
-          await api.deleteGoal(goalOrId);
-          break;
+    const attempt = async (retries: number): Promise<boolean> => {
+      try {
+        switch (action) {
+          case 'create':
+            await api.createGoal(goalOrId);
+            break;
+          case 'update':
+            await api.updateGoal(goalOrId, updates);
+            break;
+          case 'delete':
+            await api.deleteGoal(goalOrId);
+            break;
+        }
+        return true;
+      } catch (err) {
+        if (retries > 0) {
+          await new Promise(r => setTimeout(r, 1000));
+          return attempt(retries - 1);
+        }
+        console.error(`[GoalContext] Sync failed after retries (${action}):`, err);
+        return false;
       }
-    } catch (err) {
-      console.error(`[GoalContext] Background sync failed (${action}):`, err);
+    };
+
+    const success = await attempt(2);
+    if (!success) {
+      // Re-fetch from server to restore consistent state
+      try {
+        const serverGoals = await api.getGoals();
+        if (serverGoals) {
+          setAllGoals(serverGoals as GoalItem[]);
+          console.warn("[GoalContext] Restored state from server after sync failure.");
+        }
+      } catch {
+        console.error("[GoalContext] Failed to restore state from server.");
+      }
     }
   }, []);
 
@@ -112,24 +134,28 @@ export function GoalProvider({ children }: { children: ReactNode }) {
   }, [syncToServer]);
 
   const updateGoal = useCallback((goalId: string, updates: Partial<GoalItem>) => {
+    // Read current goal before updating (for notifications)
+    let goalSnapshot: GoalItem | undefined;
     setAllGoals((prev) => {
-      const goal = prev.find(g => g.id === goalId);
-      if (goal && typeof updates.progress === 'number' && updates.progress !== goal.progress) {
-        // Emit progress notification
-        if (updates.progress >= 100 || updates.status === 'completed') {
-          notificationBus.emit({
-            type: 'goal.completed',
-            data: { goalId, title: goal.title, titleKo: goal.titleKo, progress: updates.progress },
-          });
-        } else {
-          notificationBus.emit({
-            type: 'goal.progress_updated',
-            data: { goalId, title: goal.title, titleKo: goal.titleKo, progress: updates.progress },
-          });
-        }
-      }
+      goalSnapshot = prev.find(g => g.id === goalId);
       return prev.map((g) => (g.id === goalId ? { ...g, ...updates } : g));
     });
+
+    // Emit notifications OUTSIDE the state updater (avoid side effects in updater)
+    if (goalSnapshot && typeof updates.progress === 'number' && updates.progress !== goalSnapshot.progress) {
+      if (updates.progress >= 100 || updates.status === 'completed') {
+        notificationBus.emit({
+          type: 'goal.completed',
+          data: { goalId, title: goalSnapshot.title, titleKo: goalSnapshot.titleKo, progress: updates.progress },
+        });
+      } else {
+        notificationBus.emit({
+          type: 'goal.progress_updated',
+          data: { goalId, title: goalSnapshot.title, titleKo: goalSnapshot.titleKo, progress: updates.progress },
+        });
+      }
+    }
+
     syncToServer('update', goalId, updates);
   }, [syncToServer]);
 
@@ -146,19 +172,22 @@ export function GoalProvider({ children }: { children: ReactNode }) {
   // setGoals wraps setAllGoals for backward compat
   const setGoals: React.Dispatch<React.SetStateAction<GoalItem[]>> = setAllGoals;
 
+  // Memoize context value to prevent unnecessary consumer re-renders
+  const value = useMemo<GoalContextType>(() => ({
+    goals,
+    urgentGoals,
+    allGoals,
+    addGoal,
+    updateGoal,
+    removeGoal,
+    getGoal,
+    setGoals,
+    isLoading,
+    isSynced,
+  }), [goals, urgentGoals, allGoals, addGoal, updateGoal, removeGoal, getGoal, isLoading, isSynced]);
+
   return (
-    <GoalContext.Provider value={{
-      goals,
-      urgentGoals,
-      allGoals,
-      addGoal,
-      updateGoal,
-      removeGoal,
-      getGoal,
-      setGoals,
-      isLoading,
-      isSynced,
-    }}>
+    <GoalContext.Provider value={value}>
       {children}
     </GoalContext.Provider>
   );

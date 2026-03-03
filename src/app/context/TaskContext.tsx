@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo, ReactNode } from "react";
 import { Task } from "../../lib/mockData";
 import { api } from "../../lib/api";
 import { useTeam } from "./TeamContext";
@@ -85,26 +85,47 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     init();
   }, []);
 
-  // ─── Background sync helper ──────────────────────────────────────
+  // ─── Background sync helper with retry ─────────────────────────
   const syncToServer = useCallback(async (
     action: 'create' | 'update' | 'delete',
     taskOrId: any,
     updates?: any
   ) => {
-    try {
-      switch (action) {
-        case 'create':
-          await api.createTask(taskOrId);
-          break;
-        case 'update':
-          await api.updateTask(taskOrId, updates);
-          break;
-        case 'delete':
-          await api.deleteTask(taskOrId);
-          break;
+    const attempt = async (retries: number): Promise<boolean> => {
+      try {
+        switch (action) {
+          case 'create':
+            await api.createTask(taskOrId);
+            break;
+          case 'update':
+            await api.updateTask(taskOrId, updates);
+            break;
+          case 'delete':
+            await api.deleteTask(taskOrId);
+            break;
+        }
+        return true;
+      } catch (err) {
+        if (retries > 0) {
+          await new Promise(r => setTimeout(r, 1000));
+          return attempt(retries - 1);
+        }
+        console.error(`[TaskContext] Sync failed after retries (${action}):`, err);
+        return false;
       }
-    } catch (err) {
-      console.error(`[TaskContext] Background sync failed (${action}):`, err);
+    };
+
+    const success = await attempt(2);
+    if (!success) {
+      try {
+        const serverTasks = await api.getTasks();
+        if (serverTasks) {
+          setTasks(serverTasks as Task[]);
+          console.warn("[TaskContext] Restored state from server after sync failure.");
+        }
+      } catch {
+        console.error("[TaskContext] Failed to restore state from server.");
+      }
     }
   }, []);
 
@@ -145,38 +166,42 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   }, [addLog, syncToServer, currentUser]);
 
   const updateTask = useCallback((taskId: string, updates: Partial<Task>) => {
+    // Read current task BEFORE updating state (for logging & notifications)
+    let taskSnapshot: Task | undefined;
     setTasks((prev) => {
-      const task = prev.find(t => t.id === taskId);
-      if (task) {
-        if (updates.status && updates.status !== task.status) {
-          addLog({
-            taskId,
-            actorId: currentUser.id,
-            actorName: currentUser.name,
-            action: 'status_changed',
-            details: `Changed status to ${updates.status}`,
-            detailsKo: `상태를 ${updates.status === 'completed' ? '완료' : updates.status === 'in-progress' ? '진행 중' : '할 일'}로 변경`,
-          });
-          // Emit notification for completion
-          if (updates.status === 'completed') {
-            notificationBus.emit({
-              type: 'task.completed',
-              data: { taskId, title: task.title, titleKo: task.titleKo },
-            });
-          }
-        } else {
-          addLog({
-            taskId,
-            actorId: currentUser.id,
-            actorName: currentUser.name,
-            action: 'updated',
-            details: `Updated task properties`,
-            detailsKo: `태스크 정보 수정`,
-          });
-        }
-      }
+      taskSnapshot = prev.find(t => t.id === taskId);
       return prev.map((t) => (t.id === taskId ? { ...t, ...updates } : t));
     });
+
+    // Side effects OUTSIDE the state updater
+    if (taskSnapshot) {
+      if (updates.status && updates.status !== taskSnapshot.status) {
+        addLog({
+          taskId,
+          actorId: currentUser.id,
+          actorName: currentUser.name,
+          action: 'status_changed',
+          details: `Changed status to ${updates.status}`,
+          detailsKo: `상태를 ${updates.status === 'completed' ? '완료' : updates.status === 'in-progress' ? '진행 중' : '할 일'}로 변경`,
+        });
+        if (updates.status === 'completed') {
+          notificationBus.emit({
+            type: 'task.completed',
+            data: { taskId, title: taskSnapshot.title, titleKo: taskSnapshot.titleKo },
+          });
+        }
+      } else {
+        addLog({
+          taskId,
+          actorId: currentUser.id,
+          actorName: currentUser.name,
+          action: 'updated',
+          details: `Updated task properties`,
+          detailsKo: `태스크 정보 수정`,
+        });
+      }
+    }
+
     // Background sync
     syncToServer('update', taskId, updates);
   }, [addLog, syncToServer, currentUser]);
@@ -197,11 +222,13 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     [activityLogs]
   );
 
+  const value = useMemo<TaskContextType>(() => ({
+    tasks, activityLogs, addTask, updateTask, removeTask, setTasks,
+    getTask, getTaskLogs, isLoading, isSynced,
+  }), [tasks, activityLogs, addTask, updateTask, removeTask, getTask, getTaskLogs, isLoading, isSynced]);
+
   return (
-    <TaskContext.Provider value={{
-      tasks, activityLogs, addTask, updateTask, removeTask, setTasks,
-      getTask, getTaskLogs, isLoading, isSynced,
-    }}>
+    <TaskContext.Provider value={value}>
       {children}
     </TaskContext.Provider>
   );

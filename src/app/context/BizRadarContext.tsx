@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo, ReactNode } from "react";
 import { api } from "../../lib/api";
 
 export type BizStage = 'discovered' | 'reviewing' | 'proposal' | 'negotiation' | 'won' | 'lost';
@@ -93,20 +93,41 @@ export function BizRadarProvider({ children }: { children: ReactNode }) {
     itemOrId: any,
     updates?: any
   ) => {
-    try {
-      switch (action) {
-        case 'create':
-          await api.createRadarItem(itemOrId);
-          break;
-        case 'update':
-          await api.updateRadarItem(itemOrId, updates);
-          break;
-        case 'delete':
-          await api.deleteRadarItem(itemOrId);
-          break;
+    const attempt = async (retries: number): Promise<boolean> => {
+      try {
+        switch (action) {
+          case 'create':
+            await api.createRadarItem(itemOrId);
+            break;
+          case 'update':
+            await api.updateRadarItem(itemOrId, updates);
+            break;
+          case 'delete':
+            await api.deleteRadarItem(itemOrId);
+            break;
+        }
+        return true;
+      } catch (err) {
+        if (retries > 0) {
+          await new Promise(r => setTimeout(r, 1000));
+          return attempt(retries - 1);
+        }
+        console.error(`[BizRadarContext] Sync failed after retries (${action}):`, err);
+        return false;
       }
-    } catch (err) {
-      console.error(`[BizRadarContext] Background sync failed (${action}):`, err);
+    };
+
+    const success = await attempt(2);
+    if (!success) {
+      try {
+        const serverItems = await api.getRadarItems();
+        if (serverItems) {
+          setItems(serverItems as BizRadarItem[]);
+          console.warn("[BizRadarContext] Restored state from server after sync failure.");
+        }
+      } catch {
+        console.error("[BizRadarContext] Failed to restore state from server.");
+      }
     }
   }, []);
 
@@ -129,16 +150,12 @@ export function BizRadarProvider({ children }: { children: ReactNode }) {
     return items.find(i => i.id === id);
   }, [items]);
 
+  const value = useMemo<BizRadarContextType>(() => ({
+    items, addItem, updateItem, removeItem, getItem, isLoading, isSynced,
+  }), [items, addItem, updateItem, removeItem, getItem, isLoading, isSynced]);
+
   return (
-    <BizRadarContext.Provider value={{
-      items,
-      addItem,
-      updateItem,
-      removeItem,
-      getItem,
-      isLoading,
-      isSynced,
-    }}>
+    <BizRadarContext.Provider value={value}>
       {children}
     </BizRadarContext.Provider>
   );

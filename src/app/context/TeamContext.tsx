@@ -110,6 +110,8 @@ export function TeamProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateMember = useCallback(async (id: string, updates: Partial<User>) => {
+    // Store snapshot for rollback
+    const snapshot = members.find(m => m.id === id);
     setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, ...updates } : m)));
     if (currentUser.id === id) {
       setCurrentUser(prev => ({ ...prev, ...updates }));
@@ -117,9 +119,16 @@ export function TeamProvider({ children }: { children: ReactNode }) {
     try {
       await api.updateTeamMember(id, updates);
     } catch (err) {
-      console.error("[TeamContext] Failed to update member:", err);
+      console.error("[TeamContext] Failed to update member, rolling back:", err);
+      // Rollback on failure
+      if (snapshot) {
+        setMembers((prev) => prev.map((m) => (m.id === id ? snapshot : m)));
+        if (currentUser.id === id) {
+          setCurrentUser(snapshot);
+        }
+      }
     }
-  }, [currentUser.id]);
+  }, [currentUser.id, members]);
 
   const removeMember = useCallback(async (id: string) => {
     const member = members.find(m => m.id === id);
@@ -133,7 +142,11 @@ export function TeamProvider({ children }: { children: ReactNode }) {
     try {
       await api.deleteTeamMember(id);
     } catch (err) {
-      console.error("[TeamContext] Failed to remove member:", err);
+      console.error("[TeamContext] Failed to remove member, rolling back:", err);
+      // Rollback: re-add the member
+      if (member) {
+        setMembers((prev) => [...prev, member]);
+      }
     }
   }, [members]);
 

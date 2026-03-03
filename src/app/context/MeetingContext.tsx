@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo, ReactNode } from "react";
 import { api } from "../../lib/api";
 import { useTeam } from "./TeamContext";
 
@@ -81,14 +81,35 @@ export function MeetingProvider({ children }: { children: ReactNode }) {
     idOrMeeting: any,
     updates?: any,
   ) => {
-    try {
-      switch (action) {
-        case 'create': await api.createMeeting(idOrMeeting); break;
-        case 'update': await api.updateMeeting(idOrMeeting, updates); break;
-        case 'delete': await api.deleteMeeting(idOrMeeting); break;
+    const attempt = async (retries: number): Promise<boolean> => {
+      try {
+        switch (action) {
+          case 'create': await api.createMeeting(idOrMeeting); break;
+          case 'update': await api.updateMeeting(idOrMeeting, updates); break;
+          case 'delete': await api.deleteMeeting(idOrMeeting); break;
+        }
+        return true;
+      } catch (err) {
+        if (retries > 0) {
+          await new Promise(r => setTimeout(r, 1000));
+          return attempt(retries - 1);
+        }
+        console.error(`[MeetingContext] Sync failed after retries (${action}):`, err);
+        return false;
       }
-    } catch (err) {
-      console.error(`[MeetingContext] Sync failed (${action}):`, err);
+    };
+
+    const success = await attempt(2);
+    if (!success) {
+      try {
+        const serverMeetings = await api.getMeetings();
+        if (serverMeetings) {
+          setMeetings(serverMeetings as Meeting[]);
+          console.warn("[MeetingContext] Restored state from server after sync failure.");
+        }
+      } catch {
+        console.error("[MeetingContext] Failed to restore state from server.");
+      }
     }
   }, []);
 
@@ -109,8 +130,12 @@ export function MeetingProvider({ children }: { children: ReactNode }) {
 
   const getMeeting = useCallback((id: string) => meetings.find((m) => m.id === id), [meetings]);
 
+  const value = useMemo<MeetingContextType>(() => ({
+    meetings, addMeeting, updateMeeting, removeMeeting, getMeeting, isLoading, isSynced,
+  }), [meetings, addMeeting, updateMeeting, removeMeeting, getMeeting, isLoading, isSynced]);
+
   return (
-    <MeetingContext.Provider value={{ meetings, addMeeting, updateMeeting, removeMeeting, getMeeting, isLoading, isSynced }}>
+    <MeetingContext.Provider value={value}>
       {children}
     </MeetingContext.Provider>
   );
