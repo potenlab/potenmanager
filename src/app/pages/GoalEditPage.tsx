@@ -157,6 +157,38 @@ export function GoalEditPage() {
     [usedCategoryKeys]
   );
 
+  // Core goal progress (auto-calculated from category goals)
+  const coreProgress = useMemo(() => {
+    if (categoryGoals.length === 0) return 0;
+    const completed = categoryGoals.filter((g) => g.status === "completed").length;
+    return Math.round((completed / categoryGoals.length) * 100);
+  }, [categoryGoals]);
+
+  const handleCategoryToggle = (goalId: string) => {
+    const goal = categoryGoals.find((g) => g.id === goalId);
+    if (!goal || !coreGoal) return;
+
+    const isDone = goal.status === "completed";
+    const newStatus = isDone ? "pending" : "completed";
+
+    updateGoal(goalId, {
+      status: newStatus,
+      progress: isDone ? 0 : 100,
+    });
+
+    // Recalculate core goal progress
+    const completedCount = categoryGoals.filter((g) =>
+      g.id === goalId ? !isDone : g.status === "completed"
+    ).length;
+    const newProgress = Math.round((completedCount / categoryGoals.length) * 100);
+
+    updateGoal(coreGoal.id, {
+      progress: newProgress,
+      status: newProgress === 100 ? "completed" : newProgress > 0 ? "in-progress" : "pending",
+    });
+    flashSaved();
+  };
+
   // No goals → redirect to setup
   if (!coreGoal) {
     return (
@@ -209,7 +241,8 @@ export function GoalEditPage() {
       title,
       titleKo: `${cat.labelKo}: ${addValue.trim()}`,
       level: "Urgent",
-      status: "not-started",
+      progress: 0,
+      status: "pending",
       parentId: coreGoal.id,
       isUrgent: true,
       urgentCategory: cat.urgentCategory as GoalItem["urgentCategory"],
@@ -258,6 +291,26 @@ export function GoalEditPage() {
           placeholder={ko ? "핵심 목표를 입력하세요" : "Enter your core goal"}
           className="text-xl font-bold text-gray-900 py-1.5 px-1"
         />
+        {/* Progress bar */}
+        {categoryGoals.length > 0 && (
+          <div className="flex items-center gap-3 mt-3 px-1">
+            <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all duration-500",
+                  coreProgress === 100 ? "bg-emerald-500" : "bg-[#0079FF]"
+                )}
+                style={{ width: `${coreProgress}%` }}
+              />
+            </div>
+            <span className={cn(
+              "text-xs font-bold min-w-[36px]",
+              coreProgress === 100 ? "text-emerald-600" : "text-gray-500"
+            )}>
+              {coreProgress}%
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Divider */}
@@ -283,6 +336,17 @@ export function GoalEditPage() {
 
               return (
                 <div key={goal.id} className="group flex items-center gap-3 py-2 px-1 rounded-lg hover:bg-gray-50/50 transition-colors">
+                  <button
+                    onClick={() => handleCategoryToggle(goal.id)}
+                    className={cn(
+                      "w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all",
+                      goal.status === "completed"
+                        ? "bg-emerald-500 border-emerald-500 text-white"
+                        : "border-gray-300 hover:border-blue-400"
+                    )}
+                  >
+                    {goal.status === "completed" && <Check size={12} />}
+                  </button>
                   <span className="text-lg shrink-0">{meta?.emoji || "📋"}</span>
                   <span className={cn(
                     "text-xs font-semibold shrink-0 min-w-[52px]",
@@ -294,7 +358,10 @@ export function GoalEditPage() {
                     value={value}
                     onSave={(v) => handleSaveCategory(goal.id, label, v)}
                     placeholder={meta ? (ko ? meta.placeholderKo : meta.placeholderEn) : ""}
-                    className="text-sm text-gray-900 py-1 flex-1"
+                    className={cn(
+                      "text-sm py-1 flex-1",
+                      goal.status === "completed" ? "text-gray-400 line-through" : "text-gray-900"
+                    )}
                   />
                   <button
                     onClick={() => handleDeleteCategory(goal.id)}

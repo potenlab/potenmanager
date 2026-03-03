@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router";
 import {
@@ -16,16 +16,16 @@ import {
   Check,
   Zap,
   TrendingUp,
-  Pencil,
+  Trash2,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { GoalLevel } from "../../lib/mockData";
 import { useLanguage } from "../context/LanguageContext";
 import { usePermission } from "../context/PermissionContext";
 import { useGoalContext } from "../context/GoalContext";
-import { useTaskContext } from "../context/TaskContext";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { NotionDateRangePicker } from "../components/NotionDateRangePicker";
+import { useState, useRef, useEffect } from "react";
 
 type GoalStatus = "pending" | "in-progress" | "completed";
 
@@ -187,95 +187,128 @@ function InlineDropdown<T extends string>({
   );
 }
 
-// ─── Progress Editor ────────────────────────────────────────────────
-function ProgressEditor({ value, onChange, language, disabled = false }: { value: number; onChange: (v: number) => void; language: string; disabled?: boolean }) {
-  const [open, setOpen] = useState(false);
-  const [temp, setTemp] = useState(value);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const popupRef = useRef<HTMLDivElement>(null);
-  const pos = usePortalPosition(open, triggerRef);
-
-  useEffect(() => { if (open) setTemp(value); }, [open, value]);
-
-  return (
-    <>
-      <button
-        ref={triggerRef}
-        onClick={() => !disabled && setOpen(!open)}
-        className={cn("flex items-center gap-3 px-2 py-1 rounded-md transition-colors group", disabled ? "cursor-default opacity-70" : "hover:bg-gray-100")}
-      >
-        <div className="w-32 h-2 bg-gray-100 rounded-full overflow-hidden">
-          <div className={cn("h-full rounded-full transition-all", value === 100 ? "bg-emerald-500" : "bg-[#0079FF]")} style={{ width: `${value}%` }} />
-        </div>
-        <span className="text-sm font-bold text-gray-700 min-w-[32px]">{value}%</span>
-        {!disabled && <Pencil size={11} className="text-gray-300 opacity-0 group-hover:opacity-100" />}
-      </button>
-
-      {open && pos && createPortal(
-        <div ref={popupRef} className="fixed bg-white border border-gray-200 rounded-xl shadow-xl z-[9999] w-[240px] p-4" style={{ top: pos.top, left: pos.left }}>
-          <p className="text-[10px] font-bold text-gray-400 uppercase mb-3">{language === "ko" ? "진행률 수정" : "Set Progress"}</p>
-          <div className="text-3xl font-bold text-[#0079FF]">{temp}%</div>
-          <input 
-            type="range" min={0} max={100} step={5} value={temp} 
-            onChange={(e) => setTemp(Number(e.target.value))}
-            className="w-full h-1.5 rounded-full appearance-none bg-gray-100 accent-[#0079FF] cursor-pointer mt-3"
-          />
-          <div className="flex justify-end gap-2 pt-3">
-            <button onClick={() => setOpen(false)} className="px-3 py-1.5 text-xs text-gray-500">{language === "ko" ? "취소" : "Cancel"}</button>
-            <button onClick={() => { onChange(temp); setOpen(false); }} className="px-3 py-1.5 bg-[#0079FF] text-white text-xs rounded-lg font-bold">OK</button>
-          </div>
-        </div>,
-        document.body
-      )}
-    </>
-  );
-}
-
 // ─── Main Goal Detail Page ────────────────────────────────────────────
 export function GoalDetailPage() {
   const { goalId } = useParams();
   const navigate = useNavigate();
   const { language } = useLanguage();
-  const { can, currentUser } = usePermission();
-  const { allGoals } = useGoalContext();
-  const { tasks: allTasks } = useTaskContext();
+  const ko = language === "ko";
+  const { can } = usePermission();
+  const { allGoals, updateGoal, removeGoal } = useGoalContext();
 
-  const isNew = goalId === "new";
-  const allItems = [...allGoals, ...allTasks];
-  const goal = isNew ? null : allItems.find((g) => g.id === goalId);
+  const goal = goalId ? allGoals.find((g) => g.id === goalId) : null;
 
-  // Form State
-  const [title, setTitle] = useState(goal ? (language === "ko" ? goal.titleKo || goal.title : goal.title) : "");
-  const [description, setDescription] = useState("");
-  const [status, setStatus] = useState<GoalStatus>((goal?.status as GoalStatus) || "pending");
-  const [level, setLevel] = useState<GoalLevel>((goal?.level as GoalLevel) || "Quarter");
-  const [progress, setProgress] = useState(goal?.progress || 0);
-  const [dateStart, setDateStart] = useState<Date | null>(goal?.startDate ? new Date(goal.startDate) : new Date());
-  const [dateEnd, setDateEnd] = useState<Date | null>(goal?.endDate ? new Date(goal.endDate) : null);
+  // Children of this goal (for checklist progress)
+  const children = useMemo(
+    () => allGoals.filter((g) => g.parentId === goalId),
+    [allGoals, goalId]
+  );
+  const hasChildren = children.length > 0;
 
-  const canEdit = can("goal.editAny") || isNew;
+  // Auto-calculated progress from children
+  const calculatedProgress = useMemo(() => {
+    if (!hasChildren) return goal?.progress || 0;
+    const completed = children.filter((c) => c.status === "completed").length;
+    return Math.round((completed / children.length) * 100);
+  }, [children, hasChildren, goal?.progress]);
+
+  const canEdit = can("goal.editAny");
   const canDelete = can("goal.deleteAny");
 
+  // ─── Auto-save handlers ──────────────────────────────────────────
+  const handleTitleChange = (v: string) => {
+    if (goalId) updateGoal(goalId, { title: v, titleKo: v });
+  };
+
+  const handleStatusChange = (v: GoalStatus) => {
+    if (goalId) {
+      updateGoal(goalId, {
+        status: v,
+        progress: v === "completed" ? 100 : v === "pending" ? 0 : goal?.progress || 0,
+      });
+    }
+  };
+
+  const handleLevelChange = (v: GoalLevel) => {
+    if (goalId) updateGoal(goalId, { level: v });
+  };
+
+  const handleDateChange = (s: Date | null, e: Date | null) => {
+    if (goalId) updateGoal(goalId, { startDate: s || undefined, endDate: e || undefined });
+  };
+
+  const handleChildToggle = (childId: string, done: boolean) => {
+    // Update child goal
+    updateGoal(childId, {
+      status: done ? "completed" : "pending",
+      progress: done ? 100 : 0,
+    });
+
+    // Recalculate and update parent progress
+    const newCompletedCount = children.filter((c) =>
+      c.id === childId ? done : c.status === "completed"
+    ).length;
+    const newProgress = Math.round((newCompletedCount / children.length) * 100);
+
+    if (goalId) {
+      updateGoal(goalId, {
+        progress: newProgress,
+        status: newProgress === 100 ? "completed" : newProgress > 0 ? "in-progress" : "pending",
+      });
+    }
+  };
+
+  // Simple toggle for leaf goals
+  const handleLeafToggle = (done: boolean) => {
+    if (goalId) {
+      updateGoal(goalId, {
+        status: done ? "completed" : "pending",
+        progress: done ? 100 : 0,
+      });
+    }
+  };
+
   const handleDelete = () => {
-    if (confirm(language === "ko" ? "정말 삭제하시겠습니까?" : "Are you sure you want to delete?")) {
+    if (confirm(ko ? "정말 삭제하시겠습니까?" : "Are you sure you want to delete?")) {
+      if (goalId) removeGoal(goalId);
       navigate(-1);
     }
   };
 
+  // Not found
+  if (!goal) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <Target size={32} className="text-gray-200 mx-auto mb-3" />
+          <p className="text-sm text-gray-400">{ko ? "목표를 찾을 수 없습니다" : "Goal not found"}</p>
+          <button onClick={() => navigate("/organization")} className="mt-3 text-sm text-blue-500 hover:text-blue-700">
+            {ko ? "돌아가기" : "Go back"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const title = ko ? (goal.titleKo || goal.title) : goal.title;
+  const status = (goal.status as GoalStatus) || "pending";
+  const level = (goal.level as GoalLevel) || "Quarter";
+  const progress = hasChildren ? calculatedProgress : (goal.progress || 0);
+
   return (
     <div className="h-full overflow-y-auto bg-white scrollbar-hide">
       <div className="max-w-6xl mx-auto py-4 sm:py-7 px-4 sm:px-8 pb-32">
-        
+
         {/* Navigation & Header */}
         <div className="flex items-center justify-between mb-6">
           <button onClick={() => navigate("/organization")} className="flex items-center gap-2 text-gray-400 hover:text-gray-900 transition-colors text-sm group">
             <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-            {language === "ko" ? "조직으로" : "Organization"}
+            {ko ? "조직으로" : "Organization"}
           </button>
           <div className="flex items-center gap-2">
-            {canDelete && !isNew && (
+            {canDelete && (
               <button onClick={handleDelete} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
-                <X size={20} />
+                <Trash2 size={18} />
               </button>
             )}
           </div>
@@ -283,13 +316,13 @@ export function GoalDetailPage() {
 
         {/* Content */}
         <div className="max-w-3xl">
-          
+
           <div className="space-y-6">
             {/* Title */}
             <div>
-              <InlineText 
-                value={title} onChange={setTitle} readOnly={!canEdit}
-                placeholder={language === "ko" ? "목표 제목" : "Goal Title"}
+              <InlineText
+                value={title} onChange={handleTitleChange} readOnly={!canEdit}
+                placeholder={ko ? "목표 제목" : "Goal Title"}
                 className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight tracking-tight focus:ring-0 focus:bg-transparent hover:bg-transparent border-b-2 border-transparent focus:border-gray-200 rounded-none pb-0.5"
                 as="h1"
               />
@@ -297,43 +330,125 @@ export function GoalDetailPage() {
 
             {/* Properties — one per row, notion style */}
             <div className="bg-gray-50/50 rounded-2xl border border-gray-100 divide-y divide-gray-100 overflow-hidden">
-              <PropertyItem icon={<Clock size={14} />} label={language === "ko" ? "상태" : "Status"}>
-                <InlineDropdown 
+              <PropertyItem icon={<Clock size={14} />} label={ko ? "상태" : "Status"}>
+                <InlineDropdown
                   value={status} options={["pending", "in-progress", "completed"] as GoalStatus[]}
-                  onChange={setStatus} disabled={!canEdit}
+                  onChange={handleStatusChange} disabled={!canEdit}
                   renderValue={(v) => {
                     const cfg = STATUS_CONFIG[v];
-                    return <span className={cn("flex items-center gap-1.5 font-bold", cfg.color)}>{cfg.icon} {language === "ko" ? cfg.labelKo : cfg.label}</span>;
+                    return <span className={cn("flex items-center gap-1.5 font-bold", cfg.color)}>{cfg.icon} {ko ? cfg.labelKo : cfg.label}</span>;
                   }}
-                  renderOption={(o) => <span className={cn("flex items-center gap-2", STATUS_CONFIG[o].color)}>{STATUS_CONFIG[o].icon} {language === "ko" ? STATUS_CONFIG[o].labelKo : STATUS_CONFIG[o].label}</span>}
+                  renderOption={(o) => <span className={cn("flex items-center gap-2", STATUS_CONFIG[o].color)}>{STATUS_CONFIG[o].icon} {ko ? STATUS_CONFIG[o].labelKo : STATUS_CONFIG[o].label}</span>}
                 />
               </PropertyItem>
 
-              <PropertyItem icon={<Milestone size={14} />} label={language === "ko" ? "단계" : "Level"}>
-                <InlineDropdown 
+              <PropertyItem icon={<Milestone size={14} />} label={ko ? "단계" : "Level"}>
+                <InlineDropdown
                   value={level} options={["Year", "Quarter", "Month", "Urgent"] as GoalLevel[]}
-                  onChange={setLevel} disabled={!canEdit}
-                  renderValue={(v) => <span className={cn("px-2 py-0.5 rounded-md font-bold", LEVEL_CONFIG[v].bg, LEVEL_CONFIG[v].color)}>{language === "ko" ? LEVEL_CONFIG[v].labelKo : LEVEL_CONFIG[v].label}</span>}
-                  renderOption={(o) => <span className={cn("flex items-center gap-2", LEVEL_CONFIG[o].color)}>{LEVEL_CONFIG[o].icon} {language === "ko" ? LEVEL_CONFIG[o].labelKo : LEVEL_CONFIG[o].label}</span>}
+                  onChange={handleLevelChange} disabled={!canEdit}
+                  renderValue={(v) => <span className={cn("px-2 py-0.5 rounded-md font-bold", LEVEL_CONFIG[v]?.bg, LEVEL_CONFIG[v]?.color)}>{ko ? LEVEL_CONFIG[v]?.labelKo : LEVEL_CONFIG[v]?.label}</span>}
+                  renderOption={(o) => <span className={cn("flex items-center gap-2", LEVEL_CONFIG[o]?.color)}>{LEVEL_CONFIG[o]?.icon} {ko ? LEVEL_CONFIG[o]?.labelKo : LEVEL_CONFIG[o]?.label}</span>}
                 />
               </PropertyItem>
 
-              <PropertyItem icon={<Calendar size={14} />} label={language === "ko" ? "기간" : "Timeline"}>
-                <NotionDateRangePicker startDate={dateStart} endDate={dateEnd} onChange={(s, e) => { setDateStart(s); setDateEnd(e); }} language={language} />
+              <PropertyItem icon={<Calendar size={14} />} label={ko ? "기간" : "Timeline"}>
+                <NotionDateRangePicker
+                  startDate={goal.startDate ? new Date(goal.startDate) : null}
+                  endDate={goal.endDate ? new Date(goal.endDate) : null}
+                  onChange={handleDateChange}
+                  language={language}
+                />
               </PropertyItem>
 
-              <PropertyItem icon={<TrendingUp size={14} />} label={language === "ko" ? "진행률" : "Progress"}>
-                <ProgressEditor value={progress} onChange={setProgress} language={language} disabled={!canEdit} />
+              <PropertyItem icon={<TrendingUp size={14} />} label={ko ? "진행률" : "Progress"}>
+                {hasChildren ? (
+                  /* Auto-calculated progress from children */
+                  <div className="flex items-center gap-3 px-2 py-1">
+                    <div className="w-32 h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className={cn("h-full rounded-full transition-all", progress === 100 ? "bg-emerald-500" : "bg-[#0079FF]")}
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                    <span className="text-sm font-bold text-gray-700 min-w-[32px]">{progress}%</span>
+                    <span className="text-[10px] text-gray-400">
+                      ({children.filter((c) => c.status === "completed").length}/{children.length})
+                    </span>
+                  </div>
+                ) : (
+                  /* Simple checkbox toggle for leaf goals */
+                  <label className={cn("flex items-center gap-3 px-2 py-1 rounded-md transition-colors", canEdit && "cursor-pointer hover:bg-gray-100")}>
+                    <button
+                      onClick={() => canEdit && handleLeafToggle(goal.status !== "completed")}
+                      disabled={!canEdit}
+                      className={cn(
+                        "w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all",
+                        goal.status === "completed"
+                          ? "bg-emerald-500 border-emerald-500 text-white"
+                          : "border-gray-300 hover:border-blue-400"
+                      )}
+                    >
+                      {goal.status === "completed" && <Check size={12} />}
+                    </button>
+                    <span className={cn("text-sm font-medium", goal.status === "completed" ? "text-emerald-600" : "text-gray-500")}>
+                      {goal.status === "completed" ? (ko ? "완료됨" : "Completed") : (ko ? "미완료" : "Not completed")}
+                    </span>
+                  </label>
+                )}
               </PropertyItem>
             </div>
 
+            {/* Children Checklist (if parent goal) */}
+            {hasChildren && (
+              <div className="bg-gray-50/50 rounded-2xl border border-gray-100 overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-100">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                    {ko ? "세부 항목" : "Sub-goals"} ({children.filter((c) => c.status === "completed").length}/{children.length})
+                  </p>
+                </div>
+                <div className="divide-y divide-gray-100">
+                  {children.map((child) => {
+                    const childTitle = ko ? (child.titleKo || child.title) : child.title;
+                    const isDone = child.status === "completed";
+                    return (
+                      <div
+                        key={child.id}
+                        className={cn(
+                          "flex items-center gap-3 px-4 py-3 transition-colors",
+                          canEdit && "hover:bg-gray-50 cursor-pointer"
+                        )}
+                        onClick={() => canEdit && handleChildToggle(child.id, !isDone)}
+                      >
+                        <div
+                          className={cn(
+                            "w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all",
+                            isDone
+                              ? "bg-emerald-500 border-emerald-500 text-white"
+                              : "border-gray-300"
+                          )}
+                        >
+                          {isDone && <Check size={12} />}
+                        </div>
+                        <span className={cn(
+                          "text-sm flex-1 transition-colors",
+                          isDone ? "line-through text-gray-400" : "text-gray-700"
+                        )}>
+                          {childTitle}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Description / Editor */}
             <div className="min-h-[200px] border-t border-gray-100 pt-5">
-              <NotionBlockEditor 
-                initialContent={description} 
-                onChange={setDescription} 
+              <NotionBlockEditor
+                initialContent=""
+                onChange={() => {}}
                 readOnly={!canEdit}
-                placeholder={language === "ko" ? "내용을 입력하세요..." : "Type something..."}
+                placeholder={ko ? "내용을 입력하세요..." : "Type something..."}
               />
             </div>
           </div>
