@@ -4,7 +4,7 @@ import { useDrag, useDrop } from "react-dnd";
 import {
   Plus, Search, Video, Clock, Calendar as CalendarIcon,
   LayoutGrid, List as ListIcon, Users, MapPin,
-  MoreHorizontal, CheckCircle2, Sun, Trash2, X, Check, Zap, ChevronDown,
+  MoreHorizontal, CheckCircle2, Sun, Trash2, X, Check, Zap, ChevronDown, Pencil,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
@@ -29,9 +29,10 @@ const TYPE_COLORS: Record<Meeting['type'], { bg: string; text: string; border: s
 };
 
 // ─── Meeting Card (with selection) ──────────────────────────────────
-function MeetingCard({ meeting, column, isSelecting, isSelected, onToggleSelect }: {
+function MeetingCard({ meeting, column, isSelecting, isSelected, onToggleSelect, onContextMenu }: {
   meeting: Meeting; column: ColumnKey;
   isSelecting: boolean; isSelected: boolean; onToggleSelect: (id: string) => void;
+  onContextMenu?: (e: React.MouseEvent, id: string) => void;
 }) {
   const { language } = useLanguage();
   const ko = language === 'ko';
@@ -60,6 +61,7 @@ function MeetingCard({ meeting, column, isSelecting, isSelected, onToggleSelect 
       data-meeting-card
       data-meeting-id={meeting.id}
       onClick={handleClick}
+      onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, meeting.id); }}
       className={cn(
         "bg-white p-4 rounded-xl border shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group relative",
         isDragging ? "opacity-40 border-blue-300 shadow-lg scale-[0.97] ring-2 ring-blue-200"
@@ -139,13 +141,14 @@ function MeetingCard({ meeting, column, isSelecting, isSelected, onToggleSelect 
 function MeetingColumn({
   title, count, meetings, icon, columnKey, onDrop,
   isAdding, onStartAdd, onCancelAdd, onAddMeeting,
-  isSelecting, selectedIds, onToggleSelect,
+  isSelecting, selectedIds, onToggleSelect, onCardContextMenu,
 }: {
   title: string; count: number; meetings: Meeting[]; icon: React.ReactNode;
   columnKey: ColumnKey; onDrop: (meetingId: string, targetColumn: ColumnKey) => void;
   isAdding?: boolean; onStartAdd?: () => void; onCancelAdd?: () => void;
   onAddMeeting: (title: string, column: ColumnKey) => void;
   isSelecting: boolean; selectedIds: Set<string>; onToggleSelect: (id: string) => void;
+  onCardContextMenu?: (e: React.MouseEvent, id: string) => void;
 }) {
   const { language } = useLanguage();
   const ko = language === 'ko';
@@ -213,7 +216,8 @@ function MeetingColumn({
         )}
         {meetings.map(m => (
           <MeetingCard key={m.id} meeting={m} column={columnKey}
-            isSelecting={isSelecting} isSelected={selectedIds.has(m.id)} onToggleSelect={onToggleSelect} />
+            isSelecting={isSelecting} isSelected={selectedIds.has(m.id)} onToggleSelect={onToggleSelect}
+            onContextMenu={onCardContextMenu} />
         ))}
         {!isAdding && meetings.length > 0 && (
           <button onClick={onStartAdd}
@@ -252,7 +256,7 @@ function BoardView({
   onDrop, onAddMeeting, language,
   addingInColumn, onStartAdd, onCancelAdd,
   isSelecting, selectedIds, onToggleSelect,
-  onBulkSelect,
+  onBulkSelect, onCardContextMenu,
 }: {
   todayMeetings: Meeting[]; upcomingMeetings: Meeting[]; completedMeetings: Meeting[];
   onDrop: (meetingId: string, targetColumn: ColumnKey) => void;
@@ -261,6 +265,7 @@ function BoardView({
   addingInColumn: ColumnKey | null; onStartAdd: (col: ColumnKey) => void; onCancelAdd: () => void;
   isSelecting: boolean; selectedIds: Set<string>; onToggleSelect: (id: string) => void;
   onBulkSelect: (ids: Set<string>) => void;
+  onCardContextMenu?: (e: React.MouseEvent, id: string) => void;
 }) {
   const ko = language === 'ko';
   const boardRef = useRef<HTMLDivElement>(null);
@@ -344,15 +349,15 @@ function BoardView({
         <MeetingColumn title={ko ? "오늘" : "Today"} count={todayMeetings.length} meetings={todayMeetings}
           icon={<Sun size={16} className="text-amber-500" />} columnKey="today" onDrop={onDrop} onAddMeeting={onAddMeeting}
           isAdding={addingInColumn === 'today'} onStartAdd={() => onStartAdd('today')} onCancelAdd={onCancelAdd}
-          isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} />
+          isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu} />
         <MeetingColumn title={ko ? "예정" : "Upcoming"} count={upcomingMeetings.length} meetings={upcomingMeetings}
           icon={<CalendarIcon size={16} className="text-blue-500" />} columnKey="upcoming" onDrop={onDrop} onAddMeeting={onAddMeeting}
           isAdding={addingInColumn === 'upcoming'} onStartAdd={() => onStartAdd('upcoming')} onCancelAdd={onCancelAdd}
-          isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} />
+          isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu} />
         <MeetingColumn title={ko ? "완료" : "Completed"} count={completedMeetings.length} meetings={completedMeetings}
           icon={<CheckCircle2 size={16} className="text-emerald-500" />} columnKey="completed" onDrop={onDrop} onAddMeeting={onAddMeeting}
           isAdding={addingInColumn === 'completed'} onStartAdd={() => onStartAdd('completed')} onCancelAdd={onCancelAdd}
-          isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} />
+          isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu} />
       </div>
       <div
         ref={rubberBandElRef}
@@ -460,6 +465,13 @@ export function MeetingPage() {
       updateMeeting(meetingId, { status: 'scheduled', date: d.toISOString() });
     }
   }, [updateMeeting]);
+
+  // ── Right-click context menu ──
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; id: string } | null>(null);
+  const handleCardContextMenu = useCallback((e: React.MouseEvent, id: string) => {
+    setCtxMenu({ x: e.clientX, y: e.clientY, id });
+  }, []);
+  const closeCtxMenu = useCallback(() => setCtxMenu(null), []);
 
   const handleInlineAdd = useCallback((title: string, column: ColumnKey) => {
     const now = new Date();
@@ -574,7 +586,7 @@ export function MeetingPage() {
             onDrop={handleDrop} onAddMeeting={handleInlineAdd} language={language}
             addingInColumn={addingInColumn} onStartAdd={setAddingInColumn} onCancelAdd={() => setAddingInColumn(null)}
             isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={toggleSelect}
-            onBulkSelect={setSelectedIds}
+            onBulkSelect={setSelectedIds} onCardContextMenu={handleCardContextMenu}
           />
         ) : (
           <MeetingListView meetings={filteredMeetings} />
@@ -582,6 +594,36 @@ export function MeetingPage() {
       </div>
 
       <MeetingSelectionToolbar count={selectedIds.size} language={language} onDelete={handleBulkDelete} onClear={clearSelection} />
+
+      {/* Right-click context menu */}
+      {ctxMenu && (
+        <>
+          <div className="fixed inset-0 z-[70]" onClick={closeCtxMenu} onContextMenu={(e) => { e.preventDefault(); closeCtxMenu(); }} />
+          <div
+            className="fixed z-[71] bg-white border border-gray-200 rounded-xl shadow-xl py-1 min-w-[140px] animate-in fade-in zoom-in-95 duration-100"
+            style={{ left: ctxMenu.x, top: ctxMenu.y }}
+          >
+            <button
+              onClick={() => { navigate(`/meetings/${ctxMenu.id}`); closeCtxMenu(); }}
+              className="w-full px-3 py-2 text-xs text-left text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+            >
+              <Pencil size={13} /> {ko ? '수정' : 'Edit'}
+            </button>
+            <div className="mx-2 my-0.5 border-t border-gray-100" />
+            <button
+              onClick={() => {
+                const m = getMeeting(ctxMenu.id);
+                if (m) moveToTrash({ id: m.id, type: 'meeting', title: m.title, data: m, deletedAt: new Date().toISOString() });
+                removeMeeting(ctxMenu.id);
+                closeCtxMenu();
+              }}
+              className="w-full px-3 py-2 text-xs text-left text-red-500 hover:bg-red-50 flex items-center gap-2 transition-colors"
+            >
+              <Trash2 size={13} /> {ko ? '삭제' : 'Delete'}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

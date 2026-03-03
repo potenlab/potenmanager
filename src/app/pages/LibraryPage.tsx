@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { useNavigate } from "react-router";
 import {
   Plus, Search, BookMarked, Globe, FileText, Link as LinkIcon,
-  Trash2, X, ExternalLink, ChevronDown,
+  Trash2, X, ExternalLink, ChevronDown, Check,
   FolderPlus, MoreHorizontal, Pencil, Archive,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -22,8 +22,26 @@ function saveCategories(cats: string[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(cats));
 }
 
+function getYouTubeVideoId(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (u.hostname === 'youtu.be') return u.pathname.slice(1).split('/')[0] || null;
+    if (u.hostname.includes('youtube.com')) return u.searchParams.get('v');
+  } catch { /* ignore */ }
+  return null;
+}
+
 // ─── Compact Card ────────────────────────────────────────────────────
-function ArchiveCard({ item, onClick }: { item: LibraryItem; onClick: () => void }) {
+function ArchiveCard({
+  item, onClick, isSelected, isSelecting, onToggleSelect, onContextMenu,
+}: {
+  item: LibraryItem;
+  onClick: () => void;
+  isSelected?: boolean;
+  isSelecting?: boolean;
+  onToggleSelect?: (id: string) => void;
+  onContextMenu?: (e: React.MouseEvent, id: string) => void;
+}) {
   const { language } = useLanguage();
   const ko = language === "ko";
 
@@ -33,9 +51,30 @@ function ArchiveCard({ item, onClick }: { item: LibraryItem; onClick: () => void
 
   return (
     <div
+      data-archive-card
+      data-archive-id={item.id}
       onClick={onClick}
-      className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all cursor-pointer group p-3"
+      onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, item.id); }}
+      className={cn(
+        "bg-white rounded-xl border shadow-sm hover:shadow-md transition-all cursor-pointer group p-3 relative",
+        isSelected ? "border-blue-400 ring-2 ring-blue-100" : "border-gray-100 hover:border-blue-200"
+      )}
     >
+      {/* Selection checkbox */}
+      <div className={cn(
+        "absolute top-2 right-2 z-10 transition-all",
+        isSelecting || isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+      )}>
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleSelect?.(item.id); }}
+          className={cn(
+            "w-5 h-5 rounded border-2 flex items-center justify-center shadow-sm transition-all",
+            isSelected ? "bg-blue-500 border-blue-500" : "border-gray-300 bg-white hover:border-blue-400"
+          )}
+        >
+          {isSelected && <Check size={12} className="text-white" strokeWidth={3} />}
+        </button>
+      </div>
       <div className="flex items-start gap-3">
         {/* Thumbnail / icon */}
         {item.type === "url" && item.ogMetadata?.ogImage ? (
@@ -80,6 +119,7 @@ function ArchiveCard({ item, onClick }: { item: LibraryItem; onClick: () => void
 function CategoryBoard({
   title, items, onRename, onDelete, isDefault,
   isAdding, onStartAdd, onCancelAdd, onSubmitAdd,
+  selectedIds, isSelecting, onToggleSelect, onCardContextMenu,
 }: {
   title: string;
   items: LibraryItem[];
@@ -90,6 +130,10 @@ function CategoryBoard({
   onStartAdd: () => void;
   onCancelAdd: () => void;
   onSubmitAdd: (title: string, url: string) => void;
+  selectedIds?: Set<string>;
+  isSelecting?: boolean;
+  onToggleSelect?: (id: string) => void;
+  onCardContextMenu?: (e: React.MouseEvent, id: string) => void;
 }) {
   const navigate = useNavigate();
   const { language } = useLanguage();
@@ -169,6 +213,10 @@ function CategoryBoard({
             key={item.id}
             item={item}
             onClick={() => navigate(`/library/${item.id}`)}
+            isSelected={selectedIds?.has(item.id)}
+            isSelecting={isSelecting}
+            onToggleSelect={onToggleSelect}
+            onContextMenu={onCardContextMenu}
           />
         ))}
         {items.length === 0 && !isAdding && (
@@ -279,11 +327,52 @@ function MonthPicker({
   );
 }
 
+// ─── Selection Toolbar ───────────────────────────────────────────────
+function SelectionToolbar({
+  count, language, onPublish, onUnpublish, onDelete, onClear,
+}: {
+  count: number;
+  language: string;
+  onPublish: () => void;
+  onUnpublish: () => void;
+  onDelete: () => void;
+  onClear: () => void;
+}) {
+  if (count === 0) return null;
+  const ko = language === 'ko';
+  return (
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white rounded-2xl shadow-2xl px-5 py-3 flex items-center gap-3 animate-in slide-in-from-bottom-4">
+      <span className="text-sm font-bold">{count}{ko ? '개 선택' : ' selected'}</span>
+      <div className="w-px h-5 bg-gray-700" />
+      <button onClick={onPublish} className="text-xs px-2.5 py-1 rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-1">
+        <Globe size={12} /> {ko ? '공개' : 'Publish'}
+      </button>
+      <button onClick={onUnpublish} className="text-xs px-2.5 py-1 rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-1">
+        <BookMarked size={12} /> {ko ? '비공개' : 'Private'}
+      </button>
+      <div className="w-px h-5 bg-gray-700" />
+      <button onClick={onDelete} className="text-xs px-2.5 py-1 rounded-lg text-red-400 hover:bg-red-900/40 transition-colors flex items-center gap-1">
+        <Trash2 size={12} /> {ko ? '삭제' : 'Delete'}
+      </button>
+      <button onClick={onClear} className="p-1 text-gray-400 hover:text-white rounded transition-colors ml-1">
+        <X size={14} />
+      </button>
+    </div>
+  );
+}
+
+// ─── Rubber-band helpers ────────────────────────────────────────────
+function setsEqual(a: Set<string>, b: Set<string>) {
+  if (a.size !== b.size) return false;
+  for (const v of a) if (!b.has(v)) return false;
+  return true;
+}
+
 // ─── Main Page ───────────────────────────────────────────────────────
 export function LibraryPage() {
   const { language } = useLanguage();
   const ko = language === "ko";
-  const { myItems, teamItems, isLoading, addItem, updateItem, fetchOgMetadata } = useLibrary();
+  const { myItems, teamItems, isLoading, addItem, updateItem, removeItem, fetchOgMetadata } = useLibrary();
   const { currentUser } = useTeam();
 
   const [activeTab, setActiveTab] = useState<"my" | "team">("my");
@@ -388,6 +477,125 @@ export function LibraryPage() {
 
   const [addingInCategory, setAddingInCategory] = useState<string | null>(null);
 
+  // ── Selection state ──
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const isSelecting = selectedIds.size > 0;
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
+
+  // Escape key clears selection
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && selectedIds.size > 0) clearSelection();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [selectedIds, clearSelection]);
+
+  // ── Rubber-band refs ──
+  const boardRef = useRef<HTMLDivElement>(null);
+  const rubberBandElRef = useRef<HTMLDivElement>(null);
+  const startRef = useRef<{ x: number; y: number } | null>(null);
+  const didDragRef = useRef(false);
+  const currentSelRef = useRef<Set<string>>(new Set());
+  const onBulkSelectRef = useRef(setSelectedIds);
+  useEffect(() => { onBulkSelectRef.current = setSelectedIds; });
+
+  const handleBoardMouseDown = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-archive-card]') || target.closest('button') || target.closest('input') || target.closest('a')) return;
+    if (e.button !== 0) return;
+    e.preventDefault();
+    startRef.current = { x: e.clientX, y: e.clientY };
+    didDragRef.current = false;
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!startRef.current) return;
+      const dx = e.clientX - startRef.current.x;
+      const dy = e.clientY - startRef.current.y;
+      if (!didDragRef.current && Math.abs(dx) + Math.abs(dy) < 5) return;
+      didDragRef.current = true;
+      document.body.classList.add('select-none');
+
+      const x1 = Math.min(startRef.current.x, e.clientX);
+      const y1 = Math.min(startRef.current.y, e.clientY);
+      const x2 = Math.max(startRef.current.x, e.clientX);
+      const y2 = Math.max(startRef.current.y, e.clientY);
+
+      const rb = rubberBandElRef.current;
+      if (rb) {
+        rb.style.display = 'block';
+        rb.style.left = x1 + 'px';
+        rb.style.top = y1 + 'px';
+        rb.style.width = (x2 - x1) + 'px';
+        rb.style.height = (y2 - y1) + 'px';
+      }
+
+      const ids = new Set<string>();
+      document.querySelectorAll<HTMLElement>('[data-archive-card]').forEach(el => {
+        const r = el.getBoundingClientRect();
+        if (r.right > x1 && r.left < x2 && r.bottom > y1 && r.top < y2) {
+          const id = el.getAttribute('data-archive-id');
+          if (id) ids.add(id);
+        }
+      });
+      if (!setsEqual(ids, currentSelRef.current)) {
+        currentSelRef.current = ids;
+        onBulkSelectRef.current(ids);
+      }
+    };
+    const handleMouseUp = () => {
+      if (!startRef.current) return;
+      startRef.current = null;
+      document.body.classList.remove('select-none');
+      const rb = rubberBandElRef.current;
+      if (rb) rb.style.display = 'none';
+      if (!didDragRef.current) {
+        currentSelRef.current = new Set();
+        onBulkSelectRef.current(new Set());
+      }
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  // ── Bulk operations ──
+  const handleBulkPublish = useCallback(() => {
+    selectedIds.forEach(id => updateItem(id, { visibility: 'published' }));
+    clearSelection();
+  }, [selectedIds, updateItem, clearSelection]);
+
+  const handleBulkUnpublish = useCallback(() => {
+    selectedIds.forEach(id => updateItem(id, { visibility: 'private' }));
+    clearSelection();
+  }, [selectedIds, updateItem, clearSelection]);
+
+  const handleBulkDelete = useCallback(() => {
+    if (!confirm(ko ? `${selectedIds.size}개 자료를 삭제하시겠습니까?` : `Delete ${selectedIds.size} items?`)) return;
+    selectedIds.forEach(id => removeItem(id));
+    clearSelection();
+  }, [selectedIds, removeItem, clearSelection, ko]);
+
+  // ── Right-click context menu ──
+  const navigate = useNavigate();
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; id: string } | null>(null);
+  const handleCardContextMenu = useCallback((e: React.MouseEvent, id: string) => {
+    setCtxMenu({ x: e.clientX, y: e.clientY, id });
+  }, []);
+  const closeCtxMenu = useCallback(() => setCtxMenu(null), []);
+
   const handleInlineAdd = useCallback((title: string, url: string, category: string) => {
     const now = new Date().toISOString();
     const item: LibraryItem = {
@@ -405,9 +613,21 @@ export function LibraryPage() {
     };
     addItem(item);
     if (url) {
-      fetchOgMetadata(url).then(og => {
-        if (og) updateItem(item.id, { ogMetadata: og, title: title || og.ogTitle || item.title });
-      });
+      const ytId = getYouTubeVideoId(url);
+      if (ytId) {
+        const ytThumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+        updateItem(item.id, { ogMetadata: { ogImage: ytThumb, ogSiteName: 'YouTube' } });
+        fetchOgMetadata(url).then(og => {
+          if (og) updateItem(item.id, {
+            ogMetadata: { ...og, ogImage: og.ogImage || ytThumb },
+            title: title || og.ogTitle || item.title,
+          });
+        });
+      } else {
+        fetchOgMetadata(url).then(og => {
+          if (og) updateItem(item.id, { ogMetadata: og, title: title || og.ogTitle || item.title });
+        });
+      }
     }
   }, [addItem, currentUser, fetchOgMetadata, updateItem, ko]);
 
@@ -492,7 +712,7 @@ export function LibraryPage() {
       </header>
 
       {/* Board Content */}
-      <div className="flex-1 overflow-x-auto pb-4">
+      <div ref={boardRef} onMouseDown={handleBoardMouseDown} className="flex-1 overflow-x-auto pb-4">
         <div className="flex gap-4 min-h-[400px]">
           {/* Uncategorized board */}
           <CategoryBoard
@@ -503,6 +723,10 @@ export function LibraryPage() {
             onStartAdd={() => setAddingInCategory('__uncategorized__')}
             onCancelAdd={() => setAddingInCategory(null)}
             onSubmitAdd={(t, u) => handleInlineAdd(t, u, '')}
+            selectedIds={selectedIds}
+            isSelecting={isSelecting}
+            onToggleSelect={toggleSelect}
+            onCardContextMenu={handleCardContextMenu}
           />
 
           {/* Category boards */}
@@ -517,6 +741,10 @@ export function LibraryPage() {
               onStartAdd={() => setAddingInCategory(cat)}
               onCancelAdd={() => setAddingInCategory(null)}
               onSubmitAdd={(t, u) => handleInlineAdd(t, u, cat)}
+              selectedIds={selectedIds}
+              isSelecting={isSelecting}
+              onToggleSelect={toggleSelect}
+              onCardContextMenu={handleCardContextMenu}
             />
           ))}
 
@@ -563,6 +791,48 @@ export function LibraryPage() {
           </div>
         </div>
       </div>
+
+      {/* Rubber-band selection overlay */}
+      <div
+        ref={rubberBandElRef}
+        className="fixed border-2 border-blue-400/50 bg-blue-400/10 rounded-lg pointer-events-none z-50"
+        style={{ display: 'none' }}
+      />
+
+      {/* Floating selection toolbar */}
+      <SelectionToolbar
+        count={selectedIds.size}
+        language={language}
+        onPublish={handleBulkPublish}
+        onUnpublish={handleBulkUnpublish}
+        onDelete={handleBulkDelete}
+        onClear={clearSelection}
+      />
+
+      {/* Right-click context menu */}
+      {ctxMenu && (
+        <>
+          <div className="fixed inset-0 z-[70]" onClick={closeCtxMenu} onContextMenu={(e) => { e.preventDefault(); closeCtxMenu(); }} />
+          <div
+            className="fixed z-[71] bg-white border border-gray-200 rounded-xl shadow-xl py-1 min-w-[140px] animate-in fade-in zoom-in-95 duration-100"
+            style={{ left: ctxMenu.x, top: ctxMenu.y }}
+          >
+            <button
+              onClick={() => { navigate(`/library/${ctxMenu.id}`); closeCtxMenu(); }}
+              className="w-full px-3 py-2 text-xs text-left text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+            >
+              <Pencil size={13} /> {ko ? '수정' : 'Edit'}
+            </button>
+            <div className="mx-2 my-0.5 border-t border-gray-100" />
+            <button
+              onClick={() => { removeItem(ctxMenu.id); closeCtxMenu(); }}
+              className="w-full px-3 py-2 text-xs text-left text-red-500 hover:bg-red-50 flex items-center gap-2 transition-colors"
+            >
+              <Trash2 size={13} /> {ko ? '삭제' : 'Delete'}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

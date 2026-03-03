@@ -34,9 +34,11 @@ import {
   BookOpen,
   Tag,
   ChevronDown,
+  Pencil,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Task, GoalItem, UrgentCategory, TaskCategory } from "../../lib/mockData";
+import { TASK_CATEGORY_CONFIG } from "../../lib/jobRoles";
 import { useLanguage } from "../context/LanguageContext";
 import { useTaskContext } from "../context/TaskContext";
 import { useGoalContext } from "../context/GoalContext";
@@ -66,20 +68,7 @@ const CATEGORY_CONFIG: Record<UrgentCategory, { icon: React.ReactNode; color: st
   other: { icon: <Zap size={14} />, color: "text-gray-700", bg: "bg-gray-50", border: "border-gray-200" },
 };
 
-// ─── Task Category Config ─────────────────────────────────────────
-export const TASK_CATEGORY_CONFIG: Record<TaskCategory, {
-  label: string; labelKo: string; icon: React.ReactNode; color: string; bg: string; border: string;
-}> = {
-  sales:           { label: "Sales",      labelKo: "영업",           icon: <DollarSign size={12} />, color: "text-emerald-700", bg: "bg-emerald-50",  border: "border-emerald-200" },
-  content_writing: { label: "Content",    labelKo: "콘텐츠(글쓰기)", icon: <PenTool size={12} />,    color: "text-violet-700",  bg: "bg-violet-50",   border: "border-violet-200" },
-  content_video:   { label: "Video",      labelKo: "콘텐츠(영상)",   icon: <Video size={12} />,      color: "text-pink-700",    bg: "bg-pink-50",     border: "border-pink-200" },
-  marketing:       { label: "Marketing",  labelKo: "마케팅",         icon: <Megaphone size={12} />,  color: "text-orange-700",  bg: "bg-orange-50",   border: "border-orange-200" },
-  development:     { label: "Dev",        labelKo: "개발",           icon: <Code size={12} />,       color: "text-blue-700",    bg: "bg-blue-50",     border: "border-blue-200" },
-  design:          { label: "Design",     labelKo: "디자인",         icon: <Palette size={12} />,    color: "text-fuchsia-700", bg: "bg-fuchsia-50",  border: "border-fuchsia-200" },
-  planning:        { label: "Planning",   labelKo: "기획",           icon: <Lightbulb size={12} />,  color: "text-amber-700",   bg: "bg-amber-50",    border: "border-amber-200" },
-  operations:      { label: "Ops",        labelKo: "운영/관리",      icon: <Settings size={12} />,   color: "text-gray-700",    bg: "bg-gray-100",    border: "border-gray-200" },
-  learning:        { label: "Learning",   labelKo: "학습",           icon: <BookOpen size={12} />,   color: "text-teal-700",    bg: "bg-teal-50",     border: "border-teal-200" },
-};
+// TASK_CATEGORY_CONFIG is now imported from ../../lib/jobRoles
 
 // ─── D-Day Badge ────────────────────────────────────────────────────
 function DDayBadge({ deadline, status }: { deadline: Date; status: string }) {
@@ -284,13 +273,14 @@ function UrgentColumn({ goals }: { goals: GoalItem[] }) {
 
 // ─── Draggable Task Card (with selection) ───────────────────────────
 function TaskCard({
-  task, isSelecting, isSelected, onToggleSelect, selectedIds,
+  task, isSelecting, isSelected, onToggleSelect, selectedIds, onContextMenu,
 }: {
   task: Task;
   isSelecting: boolean;
   isSelected: boolean;
   onToggleSelect: (id: string) => void;
   selectedIds: Set<string>;
+  onContextMenu?: (e: React.MouseEvent, id: string) => void;
 }) {
   const { language } = useLanguage();
   const navigate = useNavigate();
@@ -322,6 +312,7 @@ function TaskCard({
       data-task-card
       data-task-id={task.id}
       onClick={handleClick}
+      onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, task.id); }}
       className={cn(
         "bg-white p-4 rounded-xl border shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group relative",
         isDragging
@@ -420,7 +411,7 @@ function TaskCard({
 function TaskColumn({
   title, count, tasks, icon, onAddTask, status, onDrop,
   isAdding, onStartAdd, onCancelAdd,
-  isSelecting, selectedIds, onToggleSelect,
+  isSelecting, selectedIds, onToggleSelect, onCardContextMenu,
 }: {
   title: string;
   count: number;
@@ -435,6 +426,7 @@ function TaskColumn({
   isSelecting: boolean;
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
+  onCardContextMenu?: (e: React.MouseEvent, id: string) => void;
 }) {
   const { language } = useLanguage();
   const [newTitle, setNewTitle] = useState('');
@@ -520,6 +512,7 @@ function TaskColumn({
             isSelected={selectedIds.has(task.id)}
             onToggleSelect={onToggleSelect}
             selectedIds={selectedIds}
+            onContextMenu={onCardContextMenu}
           />
         ))}
 
@@ -579,7 +572,7 @@ function BoardView({
   onStatusChange, onAddTask, language,
   addingInColumn, onStartAdd, onCancelAdd,
   isSelecting, selectedIds, onToggleSelect,
-  onBulkSelect,
+  onBulkSelect, onCardContextMenu,
 }: {
   pendingTasks: Task[];
   inProgressTasks: Task[];
@@ -596,6 +589,7 @@ function BoardView({
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
   onBulkSelect: (ids: Set<string>) => void;
+  onCardContextMenu?: (e: React.MouseEvent, id: string) => void;
 }) {
   const boardRef = useRef<HTMLDivElement>(null);
   const rubberBandElRef = useRef<HTMLDivElement>(null);
@@ -683,14 +677,14 @@ function BoardView({
           icon={<Circle size={16} className="text-gray-500" />}
           onAddTask={onAddTask} status="pending" onDrop={onStatusChange}
           isAdding={addingInColumn === 'pending'} onStartAdd={() => onStartAdd('pending')} onCancelAdd={onCancelAdd}
-          isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect}
+          isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
         />
         <TaskColumn
           title={language === 'ko' ? "진행 중" : "In Progress"} count={inProgressTasks.length} tasks={inProgressTasks}
           icon={<Clock size={16} className="text-blue-600" />}
           onAddTask={onAddTask} status="in-progress" onDrop={onStatusChange}
           isAdding={addingInColumn === 'in-progress'} onStartAdd={() => onStartAdd('in-progress')} onCancelAdd={onCancelAdd}
-          isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect}
+          isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
         />
         <UrgentColumn goals={urgentGoals} />
         {showCompleted && (
@@ -699,7 +693,7 @@ function BoardView({
             icon={<CheckCircle2 size={16} className="text-emerald-600" />}
             onAddTask={onAddTask} status="completed" onDrop={onStatusChange}
             isAdding={addingInColumn === 'completed'} onStartAdd={() => onStartAdd('completed')} onCancelAdd={onCancelAdd}
-            isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect}
+            isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
           />
         )}
       </div>
@@ -780,6 +774,14 @@ export function TasksPage() {
     });
     clearSelection();
   }, [selectedIds, removeTask, getTask, moveToTrash, clearSelection]);
+
+  // ── Right-click context menu ──
+  const navigate = useNavigate();
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; id: string } | null>(null);
+  const handleCardContextMenu = useCallback((e: React.MouseEvent, id: string) => {
+    setCtxMenu({ x: e.clientX, y: e.clientY, id });
+  }, []);
+  const closeCtxMenu = useCallback(() => setCtxMenu(null), []);
 
   const filteredTasks = useMemo(() => {
     let result = allTasks;
@@ -935,7 +937,7 @@ export function TasksPage() {
             onStatusChange={handleStatusChange} onAddTask={handleAddTask} language={language}
             addingInColumn={addingInColumn} onStartAdd={setAddingInColumn} onCancelAdd={() => setAddingInColumn(null)}
             isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={toggleSelect}
-            onBulkSelect={setSelectedIds}
+            onBulkSelect={setSelectedIds} onCardContextMenu={handleCardContextMenu}
           />
         ) : (
           <div className="h-full">
@@ -951,6 +953,39 @@ export function TasksPage() {
       />
 
       <TaskRecommendationPanel isOpen={showRecommendPanel} onClose={() => setShowRecommendPanel(false)} />
+
+      {/* Right-click context menu */}
+      {ctxMenu && (
+        <>
+          <div className="fixed inset-0 z-[70]" onClick={closeCtxMenu} onContextMenu={(e) => { e.preventDefault(); closeCtxMenu(); }} />
+          <div
+            className="fixed z-[71] bg-white border border-gray-200 rounded-xl shadow-xl py-1 min-w-[140px] animate-in fade-in zoom-in-95 duration-100"
+            style={{ left: ctxMenu.x, top: ctxMenu.y }}
+          >
+            <button
+              onClick={() => { navigate(`/tasks/${ctxMenu.id}`); closeCtxMenu(); }}
+              className="w-full px-3 py-2 text-xs text-left text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+            >
+              <Pencil size={13} /> {language === 'ko' ? '수정' : 'Edit'}
+            </button>
+            <div className="mx-2 my-0.5 border-t border-gray-100" />
+            <button
+              onClick={() => {
+                const task = getTask(ctxMenu.id);
+                if (task) {
+                  const title = task.titleKo || task.title;
+                  moveToTrash({ id: task.id, type: 'task', title, data: task, deletedAt: new Date().toISOString() });
+                }
+                removeTask(ctxMenu.id);
+                closeCtxMenu();
+              }}
+              className="w-full px-3 py-2 text-xs text-left text-red-500 hover:bg-red-50 flex items-center gap-2 transition-colors"
+            >
+              <Trash2 size={13} /> {language === 'ko' ? '삭제' : 'Delete'}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
