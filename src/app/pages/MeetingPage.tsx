@@ -4,7 +4,7 @@ import { useDrag, useDrop } from "react-dnd";
 import {
   Plus, Search, Video, Clock, Calendar as CalendarIcon,
   LayoutGrid, List as ListIcon, Users, MapPin,
-  MoreHorizontal, CheckCircle2, Sun, Trash2, X, Check, Zap,
+  MoreHorizontal, CheckCircle2, Sun, Trash2, X, Check, Zap, ChevronDown,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
@@ -57,6 +57,8 @@ function MeetingCard({ meeting, column, isSelecting, isSelected, onToggleSelect 
   return (
     <div
       ref={dragRef}
+      data-meeting-card
+      data-meeting-id={meeting.id}
       onClick={handleClick}
       className={cn(
         "bg-white p-4 rounded-xl border shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group relative",
@@ -250,6 +252,7 @@ function BoardView({
   onDrop, onAddMeeting, language,
   addingInColumn, onStartAdd, onCancelAdd,
   isSelecting, selectedIds, onToggleSelect,
+  onBulkSelect,
 }: {
   todayMeetings: Meeting[]; upcomingMeetings: Meeting[]; completedMeetings: Meeting[];
   onDrop: (meetingId: string, targetColumn: ColumnKey) => void;
@@ -257,10 +260,86 @@ function BoardView({
   language: string;
   addingInColumn: ColumnKey | null; onStartAdd: (col: ColumnKey) => void; onCancelAdd: () => void;
   isSelecting: boolean; selectedIds: Set<string>; onToggleSelect: (id: string) => void;
+  onBulkSelect: (ids: Set<string>) => void;
 }) {
   const ko = language === 'ko';
+  const boardRef = useRef<HTMLDivElement>(null);
+  const rubberBandElRef = useRef<HTMLDivElement>(null);
+  const startRef = useRef<{ x: number; y: number } | null>(null);
+  const didDragRef = useRef(false);
+  const currentSelRef = useRef<Set<string>>(new Set());
+  const onBulkSelectRef = useRef(onBulkSelect);
+  onBulkSelectRef.current = onBulkSelect;
+
+  const handleBoardMouseDown = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-meeting-card]') || target.closest('button') || target.closest('input') || target.closest('a')) return;
+    if (e.button !== 0) return;
+    e.preventDefault();
+    startRef.current = { x: e.clientX, y: e.clientY };
+    didDragRef.current = false;
+  }, []);
+
+  useEffect(() => {
+    function setsEqual(a: Set<string>, b: Set<string>) {
+      if (a.size !== b.size) return false;
+      for (const x of a) if (!b.has(x)) return false;
+      return true;
+    }
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!startRef.current) return;
+      const dx = e.clientX - startRef.current.x;
+      const dy = e.clientY - startRef.current.y;
+      if (!didDragRef.current && Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+      didDragRef.current = true;
+      if (boardRef.current) boardRef.current.classList.add('select-none');
+      const x1 = startRef.current.x, y1 = startRef.current.y;
+      const x2 = e.clientX, y2 = e.clientY;
+      const left = Math.min(x1, x2), top = Math.min(y1, y2);
+      const right = Math.max(x1, x2), bottom = Math.max(y1, y2);
+      if (rubberBandElRef.current) {
+        const el = rubberBandElRef.current;
+        el.style.display = 'block';
+        el.style.left = `${left}px`;
+        el.style.top = `${top}px`;
+        el.style.width = `${right - left}px`;
+        el.style.height = `${bottom - top}px`;
+      }
+      if (!boardRef.current) return;
+      const cards = boardRef.current.querySelectorAll('[data-meeting-card]');
+      const ids = new Set<string>();
+      cards.forEach(card => {
+        const r = card.getBoundingClientRect();
+        if (r.left < right && r.right > left && r.top < bottom && r.bottom > top) {
+          const id = card.getAttribute('data-meeting-id');
+          if (id) ids.add(id);
+        }
+      });
+      if (!setsEqual(currentSelRef.current, ids)) {
+        currentSelRef.current = ids;
+        onBulkSelectRef.current(ids);
+      }
+    };
+    const handleMouseUp = () => {
+      if (startRef.current && !didDragRef.current) {
+        onBulkSelectRef.current(new Set());
+        currentSelRef.current = new Set();
+      }
+      startRef.current = null;
+      didDragRef.current = false;
+      if (rubberBandElRef.current) rubberBandElRef.current.style.display = 'none';
+      if (boardRef.current) boardRef.current.classList.remove('select-none');
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
   return (
-    <div className="h-full flex flex-col">
+    <div ref={boardRef} className="h-full flex flex-col" onMouseDown={handleBoardMouseDown}>
       <div className="flex flex-col md:flex-row gap-4 md:gap-6 md:min-w-[1000px] h-full">
         <MeetingColumn title={ko ? "오늘" : "Today"} count={todayMeetings.length} meetings={todayMeetings}
           icon={<Sun size={16} className="text-amber-500" />} columnKey="today" onDrop={onDrop} onAddMeeting={onAddMeeting}
@@ -275,6 +354,11 @@ function BoardView({
           isAdding={addingInColumn === 'completed'} onStartAdd={() => onStartAdd('completed')} onCancelAdd={onCancelAdd}
           isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} />
       </div>
+      <div
+        ref={rubberBandElRef}
+        className="fixed border-2 border-blue-400/50 bg-blue-400/10 rounded-lg pointer-events-none z-50"
+        style={{ display: 'none' }}
+      />
     </div>
   );
 }
@@ -291,6 +375,9 @@ export function MeetingPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [addingInColumn, setAddingInColumn] = useState<ColumnKey | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [filterMonth, setFilterMonth] = useState<string>('all');
+  const [showMonthFilter, setShowMonthFilter] = useState(false);
+  const monthFilterRef = useRef<HTMLDivElement>(null);
 
   const isSelecting = selectedIds.size > 0;
   const toggleSelect = useCallback((id: string) => {
@@ -299,10 +386,19 @@ export function MeetingPage() {
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') clearSelection(); };
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') { clearSelection(); setShowMonthFilter(false); } };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [clearSelection]);
+
+  useEffect(() => {
+    if (!showMonthFilter) return;
+    const handler = (e: MouseEvent) => {
+      if (monthFilterRef.current && !monthFilterRef.current.contains(e.target as Node)) setShowMonthFilter(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showMonthFilter]);
 
   const handleBulkDelete = useCallback(() => {
     selectedIds.forEach(id => {
@@ -315,11 +411,30 @@ export function MeetingPage() {
     clearSelection();
   }, [selectedIds, removeMeeting, getMeeting, moveToTrash, clearSelection]);
 
+  const availableMonths = useMemo(() => {
+    const monthSet = new Set<string>();
+    meetings.forEach(m => {
+      const d = new Date(m.date);
+      monthSet.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    });
+    return Array.from(monthSet).sort().reverse();
+  }, [meetings]);
+
   const filteredMeetings = useMemo(() => {
-    if (!searchQuery.trim()) return meetings;
-    const q = searchQuery.toLowerCase();
-    return meetings.filter(m => m.title.toLowerCase().includes(q) || m.location?.toLowerCase().includes(q));
-  }, [meetings, searchQuery]);
+    let result = meetings;
+    if (filterMonth !== 'all') {
+      const [y, mo] = filterMonth.split('-').map(Number);
+      result = result.filter(m => {
+        const d = new Date(m.date);
+        return d.getFullYear() === y && d.getMonth() + 1 === mo;
+      });
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(m => m.title.toLowerCase().includes(q) || m.location?.toLowerCase().includes(q));
+    }
+    return result;
+  }, [meetings, searchQuery, filterMonth]);
 
   const todayMeetings = useMemo(() =>
     filteredMeetings.filter(m => m.status !== 'completed' && isToday(new Date(m.date)))
@@ -389,6 +504,54 @@ export function MeetingPage() {
                 className="w-full text-sm outline-none bg-transparent placeholder-gray-400 text-gray-900" />
             </div>
           </div>
+          <div className="relative" ref={monthFilterRef}>
+            <button
+              onClick={() => setShowMonthFilter(!showMonthFilter)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-2 bg-white border rounded-xl text-xs font-medium transition-all shadow-sm",
+                filterMonth !== 'all'
+                  ? "border-blue-300 text-blue-700 ring-1 ring-blue-100"
+                  : "border-gray-200 text-gray-500 hover:text-gray-700"
+              )}
+            >
+              <CalendarIcon size={13} />
+              {filterMonth === 'all'
+                ? (ko ? '월별' : 'Month')
+                : (() => {
+                    const [y, m] = filterMonth.split('-').map(Number);
+                    return ko ? `${y}년 ${m}월` : new Date(y, m - 1).toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+                  })()
+              }
+              <ChevronDown size={11} />
+            </button>
+            {showMonthFilter && (
+              <div className="absolute top-full mt-1 right-0 bg-white border border-gray-200 rounded-xl shadow-lg z-50 min-w-[160px] py-1 max-h-[320px] overflow-y-auto">
+                <button
+                  onClick={() => { setFilterMonth('all'); setShowMonthFilter(false); }}
+                  className={cn("w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-gray-50 transition-colors",
+                    filterMonth === 'all' && "bg-blue-50/50")}
+                >
+                  <span className="text-gray-500">{ko ? '전체' : 'All'}</span>
+                  {filterMonth === 'all' && <Check size={12} className="ml-auto text-blue-600" />}
+                </button>
+                {availableMonths.map(month => {
+                  const [y, m] = month.split('-').map(Number);
+                  const label = ko ? `${y}년 ${m}월` : new Date(y, m - 1).toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+                  return (
+                    <button
+                      key={month}
+                      onClick={() => { setFilterMonth(month); setShowMonthFilter(false); }}
+                      className={cn("w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-gray-50 transition-colors",
+                        filterMonth === month && "bg-blue-50/50")}
+                    >
+                      <span className="text-gray-600">{label}</span>
+                      {filterMonth === month && <Check size={12} className="ml-auto text-blue-600" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
           <div className="flex bg-gray-100 p-1 rounded-xl">
             <button onClick={() => setViewMode('board')}
               className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
@@ -411,6 +574,7 @@ export function MeetingPage() {
             onDrop={handleDrop} onAddMeeting={handleInlineAdd} language={language}
             addingInColumn={addingInColumn} onStartAdd={setAddingInColumn} onCancelAdd={() => setAddingInColumn(null)}
             isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={toggleSelect}
+            onBulkSelect={setSelectedIds}
           />
         ) : (
           <MeetingListView meetings={filteredMeetings} />
