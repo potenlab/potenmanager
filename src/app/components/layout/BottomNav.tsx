@@ -71,7 +71,7 @@ export function BottomNav() {
 
   const moreItems: MoreItem[] = [
     { to: "/organization", icon: <Building2 size={20} />, label: ko ? "조직" : "Organization" },
-    { to: "/meetings", icon: <Video size={20} />, label: ko ? "회의" : "Meetings" },
+    { to: "/meetings", icon: <Video size={20} />, label: ko ? "회의/미팅" : "Meetings" },
     { to: "/radar", icon: <Radar size={20} />, label: ko ? "비즈 레이더" : "Biz Radar" },
     { to: "/library", icon: <BookMarked size={20} />, label: ko ? "아카이빙" : "Archive" },
     { to: "/mypage", icon: <User size={20} />, label: ko ? "마이페이지" : "My Page" },

@@ -95,7 +95,7 @@ export function Sidebar() {
     { id: "dashboard", to: "/", icon: <LayoutDashboard size={20} />, label: t("dashboard") },
     { id: "organization", to: "/organization", icon: <Building2 size={20} />, label: t("tab_goal") },
     { id: "calendar", to: "/calendar", icon: <Calendar size={20} />, label: t("calendar") },
-    { id: "meetings", to: "/meetings", icon: <Video size={20} />, label: language === 'ko' ? '회의' : 'Meetings' },
+    { id: "meetings", to: "/meetings", icon: <Video size={20} />, label: language === 'ko' ? '회의/미팅' : 'Meetings' },
     { id: "radar", to: "/radar", icon: <Radar size={20} />, label: language === 'ko' ? '비즈 레이더' : 'Biz Radar' },
     { id: "library", to: "/library", icon: <BookMarked size={20} />, label: language === 'ko' ? '아카이빙' : 'Archive' },
   ];

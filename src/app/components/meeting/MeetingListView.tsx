@@ -1,6 +1,6 @@
 import {
   Calendar, Clock, CheckCircle2, Video, Users,
-  MapPin, MoreHorizontal, XCircle,
+  MapPin, MoreHorizontal, XCircle, Sun, Zap, Circle,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { Meeting } from "../../context/MeetingContext";
@@ -8,12 +8,13 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useTeam } from "../../context/TeamContext";
 import { useNavigate } from "react-router";
 
-const TYPE_COLORS: Record<Meeting['type'], { bg: string; text: string; border: string; label: string; labelKo: string }> = {
-  standup: { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-100', label: 'Standup', labelKo: '스탠드업' },
-  planning: { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-100', label: 'Planning', labelKo: '계획' },
-  review: { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-100', label: 'Review', labelKo: '리뷰' },
-  brainstorm: { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-100', label: 'Brainstorm', labelKo: '브레인스토밍' },
-  other: { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-100', label: 'Other', labelKo: '기타' },
+const TYPE_COLORS: Record<Meeting['type'], { bg: string; text: string; border: string; label: string; labelKo: string; icon: React.ReactNode }> = {
+  standup:    { bg: 'bg-green-50',  text: 'text-green-600',  border: 'border-green-100',  label: 'Standup',    labelKo: '스탠드업',     icon: <Sun size={11} /> },
+  planning:   { bg: 'bg-blue-50',   text: 'text-blue-600',   border: 'border-blue-100',   label: 'Planning',   labelKo: '계획',         icon: <Calendar size={11} /> },
+  review:     { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-100', label: 'Review',     labelKo: '리뷰',         icon: <CheckCircle2 size={11} /> },
+  brainstorm: { bg: 'bg-amber-50',  text: 'text-amber-600',  border: 'border-amber-100',  label: 'Brainstorm', labelKo: '브레인스토밍', icon: <Zap size={11} /> },
+  external:   { bg: 'bg-cyan-50',   text: 'text-cyan-600',   border: 'border-cyan-100',   label: 'External',   labelKo: '외부미팅',     icon: <MapPin size={11} /> },
+  other:      { bg: 'bg-gray-50',   text: 'text-gray-600',   border: 'border-gray-100',   label: 'Other',      labelKo: '기타',         icon: <Circle size={11} /> },
 };
 
 interface Props {
@@ -134,10 +135,10 @@ export function MeetingListView({ meetings, onStatusChange }: Props) {
                     </td>
                     <td className="px-4 py-4">
                       <span className={cn(
-                        "text-[11px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide border",
+                        "text-[11px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide border inline-flex items-center gap-0.5",
                         tc.bg, tc.text, tc.border
                       )}>
-                        {ko ? tc.labelKo : tc.label}
+                        {tc.icon} {ko ? tc.labelKo : tc.label}
                       </span>
                     </td>
                     <td className="px-4 py-4">

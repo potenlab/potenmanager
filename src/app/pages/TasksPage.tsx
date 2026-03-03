@@ -31,7 +31,6 @@ import {
   Palette,
   Lightbulb,
   Settings,
-  Users,
   BookOpen,
   Tag,
   ChevronDown,
@@ -79,7 +78,6 @@ export const TASK_CATEGORY_CONFIG: Record<TaskCategory, {
   design:          { label: "Design",     labelKo: "디자인",         icon: <Palette size={12} />,    color: "text-fuchsia-700", bg: "bg-fuchsia-50",  border: "border-fuchsia-200" },
   planning:        { label: "Planning",   labelKo: "기획",           icon: <Lightbulb size={12} />,  color: "text-amber-700",   bg: "bg-amber-50",    border: "border-amber-200" },
   operations:      { label: "Ops",        labelKo: "운영/관리",      icon: <Settings size={12} />,   color: "text-gray-700",    bg: "bg-gray-100",    border: "border-gray-200" },
-  meeting:         { label: "Meeting",    labelKo: "회의/미팅",      icon: <Users size={12} />,      color: "text-cyan-700",    bg: "bg-cyan-50",     border: "border-cyan-200" },
   learning:        { label: "Learning",   labelKo: "학습",           icon: <BookOpen size={12} />,   color: "text-teal-700",    bg: "bg-teal-50",     border: "border-teal-200" },
 };
 

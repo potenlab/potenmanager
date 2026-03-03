@@ -4,7 +4,7 @@ import { useDrag, useDrop } from "react-dnd";
 import {
   Plus, Search, Video, Clock, Calendar as CalendarIcon,
   LayoutGrid, List as ListIcon, Users, MapPin,
-  MoreHorizontal, CheckCircle2, Sun, Trash2, X, Check,
+  MoreHorizontal, CheckCircle2, Sun, Trash2, X, Check, Zap,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
@@ -19,12 +19,13 @@ type ColumnKey = 'today' | 'upcoming' | 'completed';
 
 interface DragItem { id: string; column: ColumnKey; }
 
-const TYPE_COLORS: Record<Meeting['type'], { bg: string; text: string; border: string; label: string; labelKo: string }> = {
-  standup: { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-100', label: 'Standup', labelKo: '스탠드업' },
-  planning: { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-100', label: 'Planning', labelKo: '계획' },
-  review: { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-100', label: 'Review', labelKo: '리뷰' },
-  brainstorm: { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-100', label: 'Brainstorm', labelKo: '브레인스토밍' },
-  other: { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-100', label: 'Other', labelKo: '기타' },
+const TYPE_COLORS: Record<Meeting['type'], { bg: string; text: string; border: string; label: string; labelKo: string; icon: React.ReactNode }> = {
+  standup:    { bg: 'bg-green-50',  text: 'text-green-600',  border: 'border-green-100',  label: 'Standup',    labelKo: '스탠드업',     icon: <Sun size={11} /> },
+  planning:   { bg: 'bg-blue-50',   text: 'text-blue-600',   border: 'border-blue-100',   label: 'Planning',   labelKo: '계획',         icon: <LayoutGrid size={11} /> },
+  review:     { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-100', label: 'Review',     labelKo: '리뷰',         icon: <CheckCircle2 size={11} /> },
+  brainstorm: { bg: 'bg-amber-50',  text: 'text-amber-600',  border: 'border-amber-100',  label: 'Brainstorm', labelKo: '브레인스토밍', icon: <Zap size={11} /> },
+  external:   { bg: 'bg-cyan-50',   text: 'text-cyan-600',   border: 'border-cyan-100',   label: 'External',   labelKo: '외부미팅',     icon: <MapPin size={11} /> },
+  other:      { bg: 'bg-gray-50',   text: 'text-gray-600',   border: 'border-gray-100',   label: 'Other',      labelKo: '기타',         icon: <MoreHorizontal size={11} /> },
 };
 
 // ─── Meeting Card (with selection) ──────────────────────────────────
@@ -75,8 +76,8 @@ function MeetingCard({ meeting, column, isSelecting, isSelected, onToggleSelect 
       </div>
 
       <div className="flex justify-between items-start mb-2">
-        <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border", tc.bg, tc.text, tc.border)}>
-          {ko ? tc.labelKo : tc.label}
+        <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border flex items-center gap-0.5", tc.bg, tc.text, tc.border)}>
+          {tc.icon} {ko ? tc.labelKo : tc.label}
         </span>
         <button onClick={(e) => e.stopPropagation()} className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">
           <MoreHorizontal size={16} />

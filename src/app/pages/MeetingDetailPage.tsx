@@ -4,7 +4,7 @@ import {
   ArrowLeft, Clock, MapPin, Users, Calendar, Video,
   CheckCircle2, Circle, Plus, Trash2, ArrowRightCircle,
   Edit3, Check, X, ChevronDown, CircleDot, XCircle,
-  Timer, User as UserIcon,
+  Timer, User as UserIcon, Sun, Sparkles,
 } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
 import { useMeetingContext, Meeting, ActionItem } from "../context/MeetingContext";
@@ -23,12 +23,13 @@ const STATUS_CONFIG: Record<MeetingStatus, { label: string; labelKo: string; ico
   cancelled: { label: "Cancelled", labelKo: "취소", icon: <XCircle size={14} />, color: "text-gray-500", bg: "bg-gray-100" },
 };
 
-const TYPE_CONFIG: Record<MeetingType, { label: string; labelKo: string; color: string; bg: string }> = {
-  standup: { label: "Standup", labelKo: "스탠드업", color: "text-green-600", bg: "bg-green-50" },
-  planning: { label: "Planning", labelKo: "계획", color: "text-blue-600", bg: "bg-blue-50" },
-  review: { label: "Review", labelKo: "리뷰", color: "text-purple-600", bg: "bg-purple-50" },
-  brainstorm: { label: "Brainstorm", labelKo: "브레인스토밍", color: "text-amber-600", bg: "bg-amber-50" },
-  other: { label: "Other", labelKo: "기타", color: "text-gray-600", bg: "bg-gray-50" },
+const TYPE_CONFIG: Record<MeetingType, { label: string; labelKo: string; color: string; bg: string; icon: React.ReactNode }> = {
+  standup:    { label: "Standup",    labelKo: "스탠드업",     color: "text-green-600",  bg: "bg-green-50",  icon: <Sun size={12} /> },
+  planning:   { label: "Planning",   labelKo: "계획",         color: "text-blue-600",   bg: "bg-blue-50",   icon: <Calendar size={12} /> },
+  review:     { label: "Review",     labelKo: "리뷰",         color: "text-purple-600", bg: "bg-purple-50", icon: <CheckCircle2 size={12} /> },
+  brainstorm: { label: "Brainstorm", labelKo: "브레인스토밍", color: "text-amber-600",  bg: "bg-amber-50",  icon: <Sparkles size={12} /> },
+  external:   { label: "External",   labelKo: "외부미팅",     color: "text-cyan-600",   bg: "bg-cyan-50",   icon: <MapPin size={12} /> },
+  other:      { label: "Other",      labelKo: "기타",         color: "text-gray-600",   bg: "bg-gray-50",   icon: <Circle size={12} /> },
 };
 
 const DURATION_OPTIONS = [15, 30, 45, 60, 90, 120];
@@ -347,10 +348,10 @@ export function MeetingDetailPage() {
               <PropertyItem icon={<Video size={14} />} label={ko ? '유형' : 'Type'}>
                 <InlineDropdown
                   value={meeting.type}
-                  options={['standup', 'planning', 'review', 'brainstorm', 'other'] as MeetingType[]}
+                  options={['standup', 'planning', 'review', 'brainstorm', 'external', 'other'] as MeetingType[]}
                   onChange={handleTypeChange}
-                  renderValue={(v) => <span className={cn("px-2 py-0.5 rounded-md font-bold", TYPE_CONFIG[v].bg, TYPE_CONFIG[v].color)}>{ko ? TYPE_CONFIG[v].labelKo : TYPE_CONFIG[v].label}</span>}
-                  renderOption={(o) => <span className={TYPE_CONFIG[o].color}>{ko ? TYPE_CONFIG[o].labelKo : TYPE_CONFIG[o].label}</span>}
+                  renderValue={(v) => <span className={cn("px-2 py-0.5 rounded-md font-bold flex items-center gap-1", TYPE_CONFIG[v].bg, TYPE_CONFIG[v].color)}>{TYPE_CONFIG[v].icon} {ko ? TYPE_CONFIG[v].labelKo : TYPE_CONFIG[v].label}</span>}
+                  renderOption={(o) => <span className={cn("flex items-center gap-1.5", TYPE_CONFIG[o].color)}>{TYPE_CONFIG[o].icon} {ko ? TYPE_CONFIG[o].labelKo : TYPE_CONFIG[o].label}</span>}
                 />
               </PropertyItem>
 
@@ -429,7 +430,7 @@ export function MeetingDetailPage() {
                       <div className="flex items-center gap-2 mt-0.5">
                         {item.assigneeId && <span className="text-[10px] text-gray-400">{getMemberName(item.assigneeId)}</span>}
                         {item.linkedTaskId ? (
-                          <span className="text-[10px] text-blue-500 flex items-center gap-0.5"><Check size={9} /> {ko ? '태스크 연결됨' : 'Linked'}</span>
+                          <button onClick={() => navigate(`/tasks/${item.linkedTaskId}`)} className="text-[10px] text-blue-500 hover:text-blue-700 flex items-center gap-0.5 hover:underline transition-colors"><Check size={9} /> {ko ? '태스크 보기' : 'View task'}</button>
                         ) : (
                           <button onClick={() => convertToTask(item)} className="text-[10px] text-gray-400 hover:text-blue-500 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                             <ArrowRightCircle size={10} /> {ko ? '태스크로 변환' : 'Convert to task'}

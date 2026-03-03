@@ -91,7 +91,7 @@ export type GoalLevel = 'Year' | 'Quarter' | 'Month' | 'Week' | 'Day' | 'Urgent'
 
 export type UrgentCategory = 'funding' | 'investment' | 'contract' | 'submission' | 'event' | 'other';
 
-export type TaskCategory = 'sales' | 'content_writing' | 'content_video' | 'marketing' | 'development' | 'design' | 'planning' | 'operations' | 'meeting' | 'learning';
+export type TaskCategory = 'sales' | 'content_writing' | 'content_video' | 'marketing' | 'development' | 'design' | 'planning' | 'operations' | 'learning';
 
 export interface GoalItem {
   id: string;
