@@ -1,19 +1,21 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router";
+import { useParams, useNavigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  ArrowLeft, Globe, Lock, Link as LinkIcon, FileText,
+  ArrowLeft, Globe, Lock, Link as LinkIcon,
   Trash2, FolderOpen, Loader2,
   ChevronDown, Layout,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
-import { useLibrary, LibraryItem, LibraryItemType } from "../context/LibraryContext";
+import { useLibrary, LibraryItem } from "../context/LibraryContext";
 import { useTeam } from "../context/TeamContext";
 import { useTrash } from "../context/TrashContext";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { AiAssistantSidebar } from "../components/AiAssistantSidebar";
 import { ARCHIVE_CATEGORIES, isPredefinedCategory } from "./LibraryPage";
+
+const URL_REGEX = /https?:\/\/[^\s<>"')\]]+/;
 
 function getYouTubeVideoId(url: string): string | null {
   try {
@@ -125,7 +127,6 @@ function CategorySelect({ value, onChange, ko }: { value: string; onChange: (v: 
 // ─── Main Detail Page ──────────────────────────────────────────────
 export function LibraryDetailPage() {
   const { itemId } = useParams();
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { language } = useLanguage();
   const ko = language === 'ko';
@@ -136,17 +137,15 @@ export function LibraryDetailPage() {
   const isNew = itemId === "new" || !itemId;
   const existing = isNew ? null : getItem(itemId!);
 
-  // Create new item on mount if /library/new
   const [localId, setLocalId] = useState<string | null>(null);
   useEffect(() => {
     if (isNew && !localId) {
       const id = `lib-${Date.now()}`;
-      const defaultType = (searchParams.get('type') as LibraryItemType) || 'url';
       const now = new Date().toISOString();
       const newItem: LibraryItem = {
         id,
         title: '',
-        type: defaultType,
+        type: 'url',
         visibility: 'private',
         ownerId: currentUser.id,
         ownerName: currentUser.name,
@@ -163,6 +162,7 @@ export function LibraryDetailPage() {
 
   const [ogLoading, setOgLoading] = useState(false);
   const [propsExpanded, setPropsExpanded] = useState(true);
+  const lastFetchedUrlRef = useRef<string>(item?.url || '');
 
   const handleUpdate = useCallback((updates: Partial<LibraryItem>) => {
     if (item) updateItem(item.id, updates);
@@ -184,35 +184,23 @@ export function LibraryDetailPage() {
         ogMetadata: { ...og, ogImage: og.ogImage || ytFallback },
       };
       if (!item?.title && og.ogTitle) updates.title = og.ogTitle;
-      if (!item?.description && og.ogDescription) updates.description = og.ogDescription;
       handleUpdate(updates);
     }
     setOgLoading(false);
   }, [item, fetchOgMetadata, handleUpdate]);
 
-  const handleFetchOg = useCallback(async () => {
-    if (!item?.url) return;
-    await triggerOgFetch(item.url);
-  }, [item, triggerOgFetch]);
+  // Content change handler with URL auto-detection
+  const handleContentChange = useCallback((v: string) => {
+    handleUpdate({ description: v || undefined });
 
-  // Auto-fetch OG on URL blur if no ogMetadata
-  const handleUrlBlur = useCallback((url: string) => {
-    if (url !== item?.url) handleUpdate({ url });
-    if (url && !item?.ogMetadata?.ogTitle) {
-      triggerOgFetch(url);
-    }
-  }, [item, handleUpdate, triggerOgFetch]);
-
-  // Paste handler: auto-detect URL paste and trigger OG fetch immediately
-  const handleUrlPaste = useCallback((e: React.ClipboardEvent<HTMLInputElement>) => {
-    const pastedText = e.clipboardData.getData('text').trim();
-    if (pastedText && (pastedText.startsWith('http://') || pastedText.startsWith('https://'))) {
-      setTimeout(() => {
-        const input = e.target as HTMLInputElement;
-        const url = input.value || pastedText;
-        handleUpdate({ url });
-        triggerOgFetch(url);
-      }, 50);
+    const match = v?.match(URL_REGEX);
+    if (match) {
+      const detectedUrl = match[0];
+      if (detectedUrl !== lastFetchedUrlRef.current) {
+        lastFetchedUrlRef.current = detectedUrl;
+        handleUpdate({ url: detectedUrl, type: 'url' });
+        triggerOgFetch(detectedUrl);
+      }
     }
   }, [handleUpdate, triggerOgFetch]);
 
@@ -262,9 +250,8 @@ export function LibraryDetailPage() {
               />
             </div>
 
-            {/* Collapsible Properties */}
+            {/* Properties: Category + Visibility only */}
             <div className="bg-gray-50/50 rounded-2xl border border-gray-100 overflow-hidden">
-              {/* Toggle Header */}
               <button
                 onClick={() => setPropsExpanded(p => !p)}
                 className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-100/50 transition-colors"
@@ -275,23 +262,17 @@ export function LibraryDetailPage() {
                 </span>
                 <div className="flex items-center gap-2">
                   {!propsExpanded && (
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">
-                        {item.type === 'url' ? 'URL' : (ko ? '메모' : 'Note')}
-                      </span>
-                      <span className={cn(
-                        "text-[10px] font-bold px-1.5 py-0.5 rounded",
-                        item.visibility === 'published' ? "bg-emerald-50 text-emerald-600" : "bg-gray-100 text-gray-500"
-                      )}>
-                        {item.visibility === 'published' ? (ko ? '공개' : 'Public') : (ko ? '비공개' : 'Private')}
-                      </span>
-                    </div>
+                    <span className={cn(
+                      "text-[10px] font-bold px-1.5 py-0.5 rounded",
+                      item.visibility === 'published' ? "bg-emerald-50 text-emerald-600" : "bg-gray-100 text-gray-500"
+                    )}>
+                      {item.visibility === 'published' ? (ko ? '공개' : 'Public') : (ko ? '비공개' : 'Private')}
+                    </span>
                   )}
                   <ChevronDown size={14} className={cn("text-gray-400 transition-transform duration-200", propsExpanded && "rotate-180")} />
                 </div>
               </button>
 
-              {/* Animated Properties */}
               <AnimatePresence initial={false}>
                 {propsExpanded && (
                   <motion.div
@@ -302,42 +283,7 @@ export function LibraryDetailPage() {
                     className="overflow-hidden"
                   >
                     <div className="divide-y divide-gray-100 border-t border-gray-100">
-                      {/* Type */}
-                      <PropertyItem icon={<FileText size={14} />} label={ko ? '유형' : 'Type'}>
-                        <select
-                          value={item.type}
-                          onChange={(e) => handleUpdate({ type: e.target.value as LibraryItemType })}
-                          className="text-sm px-2 py-1 rounded-md border border-transparent hover:border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700 font-medium"
-                        >
-                          <option value="url">URL</option>
-                          <option value="note">{ko ? '메모' : 'Note'}</option>
-                        </select>
-                      </PropertyItem>
-
-                      {/* URL */}
-                      {item.type === 'url' && (
-                        <PropertyItem icon={<LinkIcon size={14} />} label="URL">
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="url"
-                              defaultValue={item.url || ''}
-                              onBlur={(e) => handleUrlBlur(e.target.value)}
-                              onPaste={handleUrlPaste}
-                              placeholder="https://example.com"
-                              className="flex-1 text-sm px-2 py-1 rounded-md border border-transparent hover:border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700"
-                            />
-                            {ogLoading && <Loader2 size={14} className="animate-spin text-blue-500" />}
-                          </div>
-                          {item.url && (
-                            <a href={item.url} target="_blank" rel="noopener noreferrer"
-                              className="text-xs text-blue-600 hover:text-blue-700 underline underline-offset-2 mt-0.5 truncate block max-w-[300px]">
-                              {item.url}
-                            </a>
-                          )}
-                        </PropertyItem>
-                      )}
-
-                      {/* Category (predefined dropdown + 기타 custom input) */}
+                      {/* Category */}
                       <PropertyItem icon={<FolderOpen size={14} />} label={ko ? '카테고리' : 'Category'}>
                         <CategorySelect
                           value={item.category || ''}
@@ -370,8 +316,8 @@ export function LibraryDetailPage() {
               </AnimatePresence>
             </div>
 
-            {/* OG Preview Card (URL type) */}
-            {item.type === 'url' && item.ogMetadata && (item.ogMetadata.ogTitle || item.ogMetadata.ogImage) && (
+            {/* OG Preview Card (auto-detected URL) */}
+            {item.url && item.ogMetadata && (item.ogMetadata.ogTitle || item.ogMetadata.ogImage) && (
               <div className="rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm">
                 {item.ogMetadata.ogImage && (
                   <div className="h-48 bg-gray-100 overflow-hidden">
@@ -400,35 +346,22 @@ export function LibraryDetailPage() {
               </div>
             )}
 
-            {/* Fetch OG button (URL type, no preview yet) */}
-            {item.type === 'url' && item.url && !item.ogMetadata?.ogTitle && !item.ogMetadata?.ogImage && !ogLoading && (
-              <button
-                onClick={handleFetchOg}
-                className="flex items-center gap-2 px-4 py-2 text-sm text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors font-medium"
-              >
-                <LinkIcon size={14} /> {ko ? '미리보기 가져오기' : 'Fetch Preview'}
-              </button>
-            )}
-
-            {/* Description / Memo — NotionBlockEditor */}
-            <div className="min-h-[120px] border-t border-gray-100 pt-5">
-              <NotionBlockEditor
-                initialContent={item.description || ''}
-                onChange={(v) => handleUpdate({ description: v || undefined })}
-                placeholder={ko ? '메모를 입력하세요...' : 'Add a note...'}
-              />
-            </div>
-
-            {/* Content (Note type) — NotionBlockEditor */}
-            {item.type === 'note' && (
-              <div className="min-h-[200px] border-t border-gray-100 pt-5">
-                <NotionBlockEditor
-                  initialContent={item.content || ''}
-                  onChange={(v) => handleUpdate({ content: v || undefined })}
-                  placeholder={ko ? '내용을 작성하세요...' : 'Write your note...'}
-                />
+            {/* OG loading indicator */}
+            {ogLoading && (
+              <div className="flex items-center gap-2 text-sm text-blue-500 px-1">
+                <Loader2 size={14} className="animate-spin" />
+                {ko ? '미리보기 불러오는 중...' : 'Loading preview...'}
               </div>
             )}
+
+            {/* Content — NotionBlockEditor (paste URL here to auto-detect) */}
+            <div className="min-h-[200px] border-t border-gray-100 pt-5">
+              <NotionBlockEditor
+                initialContent={item.description || ''}
+                onChange={handleContentChange}
+                placeholder={ko ? 'URL을 붙여넣거나 메모를 입력하세요...' : 'Paste a URL or write a note...'}
+              />
+            </div>
 
           </div>
         </div>
