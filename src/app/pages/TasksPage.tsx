@@ -41,6 +41,7 @@ const DRAG_TYPE = "TASK_CARD";
 
 interface DragItem {
   id: string;
+  ids: string[];  // all selected task ids (includes id itself)
   status: Task['status'];
 }
 
@@ -257,12 +258,13 @@ function UrgentColumn({ goals }: { goals: GoalItem[] }) {
 
 // ─── Draggable Task Card (with selection) ───────────────────────────
 function TaskCard({
-  task, isSelecting, isSelected, onToggleSelect,
+  task, isSelecting, isSelected, onToggleSelect, selectedIds,
 }: {
   task: Task;
   isSelecting: boolean;
   isSelected: boolean;
   onToggleSelect: (id: string) => void;
+  selectedIds: Set<string>;
 }) {
   const { language } = useLanguage();
   const navigate = useNavigate();
@@ -270,9 +272,12 @@ function TaskCard({
   const assignee = members.find(m => m.id === task.assigneeId);
   const title = language === 'ko' ? task.titleKo || task.title : task.title;
 
+  // When dragging a selected task, drag all selected tasks together
+  const dragIds = isSelected ? Array.from(selectedIds) : [task.id];
+
   const [{ isDragging }, dragRef] = useDrag<DragItem, void, { isDragging: boolean }>({
     type: DRAG_TYPE,
-    item: { id: task.id, status: task.status },
+    item: { id: task.id, ids: dragIds, status: task.status },
     collect: (monitor) => ({ isDragging: monitor.isDragging() }),
   });
 
@@ -298,6 +303,13 @@ function TaskCard({
             : "border-gray-100"
       )}
     >
+      {/* Multi-drag count badge */}
+      {isDragging && dragIds.length > 1 && (
+        <div className="absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center shadow-lg ring-2 ring-white">
+          {dragIds.length}
+        </div>
+      )}
+
       {/* Selection checkbox */}
       <div className={cn(
         "absolute top-3 left-3 z-10 transition-all",
@@ -374,7 +386,7 @@ function TaskColumn({
   icon: React.ReactNode;
   onAddTask: (title: string, status: Task['status']) => void;
   status: Task['status'];
-  onDrop: (taskId: string, newStatus: Task['status']) => void;
+  onDrop: (taskIds: string[], newStatus: Task['status']) => void;
   isAdding?: boolean;
   onStartAdd?: () => void;
   onCancelAdd?: () => void;
@@ -402,7 +414,7 @@ function TaskColumn({
   const [{ isOver, canDrop }, dropRef] = useDrop<DragItem, void, { isOver: boolean; canDrop: boolean }>({
     accept: DRAG_TYPE,
     canDrop: (item) => item.status !== status,
-    drop: (item) => onDrop(item.id, status),
+    drop: (item) => onDrop(item.ids, status),
     collect: (monitor) => ({ isOver: monitor.isOver(), canDrop: monitor.canDrop() }),
   });
 
@@ -465,6 +477,7 @@ function TaskColumn({
             isSelecting={isSelecting}
             isSelected={selectedIds.has(task.id)}
             onToggleSelect={onToggleSelect}
+            selectedIds={selectedIds}
           />
         ))}
 
@@ -530,7 +543,7 @@ function BoardView({
   completedTasks: Task[];
   urgentGoals: GoalItem[];
   showCompleted: boolean;
-  onStatusChange: (taskId: string, newStatus: Task['status']) => void;
+  onStatusChange: (taskIds: string[], newStatus: Task['status']) => void;
   onAddTask: (title: string, status: Task['status']) => void;
   language: string;
   addingInColumn: Task['status'] | null;
@@ -653,11 +666,13 @@ export function TasksPage() {
     setAllTasks(prev => [...prev, newTask]);
   }, [currentUser.id]);
 
-  const handleStatusChange = useCallback((taskId: string, newStatus: Task['status']) => {
+  const handleStatusChange = useCallback((taskIds: string[], newStatus: Task['status']) => {
+    const idSet = new Set(taskIds);
     setAllTasks(prev => prev.map(t =>
-      t.id === taskId ? { ...t, status: newStatus, progress: newStatus === 'completed' ? 100 : newStatus === 'in-progress' ? 50 : 0 } : t
+      idSet.has(t.id) ? { ...t, status: newStatus, progress: newStatus === 'completed' ? 100 : newStatus === 'in-progress' ? 50 : 0 } : t
     ));
-  }, []);
+    clearSelection();
+  }, [clearSelection]);
 
   return (
     <div className="h-full flex flex-col">
@@ -735,7 +750,7 @@ export function TasksPage() {
           />
         ) : (
           <div className="h-full">
-            <TaskListView tasks={filteredTasks} onStatusChange={handleStatusChange} />
+            <TaskListView tasks={filteredTasks} onStatusChange={(id, status) => handleStatusChange([id], status)} />
           </div>
         )}
       </div>
