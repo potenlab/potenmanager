@@ -1,8 +1,8 @@
 // ─── AI Assistant Sidebar ─────────────────────────────────────────────
 // Right sidebar for detail pages. Provides AI features like decompose,
-// describe, recommend, and resource search.
+// describe, recommend, resource search, and category-specific chat assistant.
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Sparkles,
@@ -20,7 +20,7 @@ import {
   BookOpen,
   ExternalLink,
   PanelRightClose,
-  PanelRightOpen,
+  Send,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { api } from "../../lib/api";
@@ -29,7 +29,7 @@ import { TASK_CATEGORY_CONFIG } from "../../lib/jobRoles";
 import { TaskCategory } from "../../lib/mockData";
 
 // ─── Types ───────────────────────────────────────────────────────────
-type AIFeature = "decompose" | "describe" | "recommend" | "resources" | null;
+type AIFeature = "analyze" | "decompose" | "describe" | "recommend" | "resources" | null;
 
 interface SubtaskResult {
   title: string;
@@ -49,6 +49,11 @@ interface ExternalResource {
   type: string;
   suggestedUrl?: string;
 }
+interface ChatMessage {
+  role: "user" | "model";
+  text: string;
+  timestamp: number;
+}
 
 const PRIORITY_CONFIG: Record<string, { label: string; labelKo: string; color: string; bg: string }> = {
   low: { label: "Low", labelKo: "낮음", color: "text-blue-600", bg: "bg-blue-50" },
@@ -56,9 +61,22 @@ const PRIORITY_CONFIG: Record<string, { label: string; labelKo: string; color: s
   high: { label: "High", labelKo: "높음", color: "text-red-600", bg: "bg-red-50" },
 };
 
+// ─── Category helper labels ─────────────────────────────────────────
+const CATEGORY_HELPER: Record<string, { labelKo: string; labelEn: string; descKo: string; descEn: string }> = {
+  sales: { labelKo: "영업 도우미", labelEn: "Sales Helper", descKo: "견적·전략 상담", descEn: "Deal & strategy chat" },
+  content_writing: { labelKo: "콘텐츠 도우미", labelEn: "Content Helper", descKo: "글쓰기 상담 & 리뷰", descEn: "Writing review & chat" },
+  content_video: { labelKo: "영상 도우미", labelEn: "Video Helper", descKo: "대본·구성 리뷰", descEn: "Script & structure review" },
+  marketing: { labelKo: "마케팅 도우미", labelEn: "Marketing Helper", descKo: "캠페인 전략 상담", descEn: "Campaign strategy chat" },
+  development: { labelKo: "개발 도우미", labelEn: "Dev Helper", descKo: "기술 구현 상담", descEn: "Technical guidance chat" },
+  design: { labelKo: "디자인 도우미", labelEn: "Design Helper", descKo: "UX/UI 리뷰 & 상담", descEn: "UX/UI review & chat" },
+  planning: { labelKo: "기획 도우미", labelEn: "Planning Helper", descKo: "기획 전략 상담", descEn: "Planning strategy chat" },
+  operations: { labelKo: "운영 도우미", labelEn: "Ops Helper", descKo: "운영 효율화 상담", descEn: "Operations chat" },
+  learning: { labelKo: "학습 도우미", labelEn: "Learning Helper", descKo: "학습 경로 상담", descEn: "Learning path chat" },
+};
+
 // ─── Feature configs ─────────────────────────────────────────────────
 const ALL_FEATURES: {
-  key: Exclude<AIFeature, null>;
+  key: Exclude<AIFeature, null | "analyze">;
   label: string;
   labelKo: string;
   icon: React.ReactNode;
@@ -73,18 +91,13 @@ const ALL_FEATURES: {
 
 // ─── Props ────────────────────────────────────────────────────────────
 export interface AiSidebarProps {
-  /** Entity title for AI context */
   title: string;
-  /** Existing description */
   description?: string;
-  /** Entity type determines which features are available */
   entityType: "task" | "goal" | "radar" | "library" | "meeting";
-  /** Language */
   language: string;
-  /** Which features to show. If omitted, inferred from entityType */
   enabledFeatures?: Exclude<AIFeature, null>[];
 
-  // ── Task-specific ──
+  // Task-specific
   taskCategory?: string;
   taskPriority?: string;
   onAddSubtasks?: (subtasks: SubtaskResult[]) => void;
@@ -118,9 +131,38 @@ export function AiAssistantSidebar(props: AiSidebarProps) {
   const [externalSearchEnabled, setExternalSearchEnabled] = useState(false);
   const [externalLoading, setExternalLoading] = useState(false);
 
+  // Chat state for category assistant
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
+
   // Determine enabled features
   const enabledFeatures = props.enabledFeatures || getDefaultFeatures(entityType);
   const features = ALL_FEATURES.filter(f => enabledFeatures.includes(f.key));
+
+  // Category helper config
+  const hasCategoryAnalyze = entityType === "task" && !!taskCategory;
+  const categoryHelper = taskCategory ? CATEGORY_HELPER[taskCategory] : null;
+
+  // Auto-scroll chat
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages, chatLoading]);
+
+  // Reset chat when switching away from analyze or task changes
+  useEffect(() => {
+    if (activeFeature !== "analyze") {
+      setChatMessages([]);
+      setChatInput("");
+    }
+  }, [activeFeature]);
+
+  useEffect(() => {
+    setChatMessages([]);
+    setChatInput("");
+  }, [title]);
 
   // ── Handlers ──
   const handleFeatureClick = async (feature: Exclude<AIFeature, null>) => {
@@ -140,6 +182,35 @@ export function AiAssistantSidebar(props: AiSidebarProps) {
     }
 
     if (!title.trim()) return;
+
+    // Chat-based analyze: separate loading flow
+    if (feature === "analyze" && taskCategory) {
+      setChatMessages([]);
+      setChatLoading(true);
+      const firstMsg: ChatMessage = {
+        role: "user",
+        text: description
+          ? `이 업무를 분석해주세요.\n\n업무 제목: ${title}\n업무 설명: ${description}`
+          : `이 업무를 분석해주세요.\n\n업무 제목: ${title}`,
+        timestamp: Date.now(),
+      };
+      setChatMessages([firstMsg]);
+      try {
+        const res = await api.aiCategoryChat({
+          category: taskCategory,
+          taskTitle: title,
+          taskDescription: description || undefined,
+          messages: [{ role: "user", text: firstMsg.text }],
+        });
+        setChatMessages(prev => [...prev, { role: "model", text: res.reply, timestamp: Date.now() }]);
+      } catch (e: any) {
+        setError(e.message || "AI request failed");
+      } finally {
+        setChatLoading(false);
+      }
+      return;
+    }
+
     setIsLoading(true);
     try {
       if (feature === "decompose") {
@@ -172,6 +243,33 @@ export function AiAssistantSidebar(props: AiSidebarProps) {
     }
   };
 
+  const handleChatSend = useCallback(async () => {
+    const text = chatInput.trim();
+    if (!text || chatLoading || !taskCategory) return;
+
+    const userMsg: ChatMessage = { role: "user", text, timestamp: Date.now() };
+    const updated = [...chatMessages, userMsg];
+    setChatMessages(updated);
+    setChatInput("");
+    setChatLoading(true);
+    setError(null);
+
+    try {
+      const res = await api.aiCategoryChat({
+        category: taskCategory,
+        taskTitle: title,
+        taskDescription: description || undefined,
+        messages: updated.map(m => ({ role: m.role, text: m.text })),
+      });
+      setChatMessages(prev => [...prev, { role: "model", text: res.reply, timestamp: Date.now() }]);
+    } catch (e: any) {
+      setError(e.message || "AI request failed");
+    } finally {
+      setChatLoading(false);
+      chatInputRef.current?.focus();
+    }
+  }, [chatInput, chatLoading, chatMessages, taskCategory, title, description]);
+
   const handleExternalSearch = useCallback(async () => {
     setExternalLoading(true);
     try {
@@ -192,7 +290,7 @@ export function AiAssistantSidebar(props: AiSidebarProps) {
 
   if (!title.trim()) return null;
 
-  // ── Collapsed state: floating toggle ──
+  // ── Collapsed state ──
   if (!isOpen) {
     return (
       <div className="hidden lg:flex flex-col items-center pt-8">
@@ -237,6 +335,48 @@ export function AiAssistantSidebar(props: AiSidebarProps) {
 
           {/* Feature buttons */}
           <div className="p-3 space-y-1.5">
+            {/* Category-specific analyze button (prominent) */}
+            {hasCategoryAnalyze && (
+              <>
+                <button
+                  onClick={() => handleFeatureClick("analyze")}
+                  disabled={isLoading && activeFeature !== "analyze"}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all",
+                    activeFeature === "analyze"
+                      ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md"
+                      : "bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 hover:from-blue-100 hover:to-indigo-100 border border-blue-200/80",
+                    isLoading && activeFeature !== "analyze" && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  <div className={cn(
+                    "p-1.5 rounded-lg shrink-0",
+                    activeFeature === "analyze" ? "bg-white/20" : "bg-blue-100"
+                  )}>
+                    <Sparkles size={14} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold truncate">
+                      {categoryHelper
+                        ? (ko ? categoryHelper.labelKo : categoryHelper.labelEn)
+                        : (ko ? "카테고리 분석" : "Category Analysis")}
+                    </div>
+                    <div className={cn("text-[10px] truncate",
+                      activeFeature === "analyze" ? "text-blue-200" : "text-blue-500/70"
+                    )}>
+                      {categoryHelper
+                        ? (ko ? categoryHelper.descKo : categoryHelper.descEn)
+                        : (ko ? "업무 내용 분석 & 제안" : "Analyze content & suggest")}
+                    </div>
+                  </div>
+                </button>
+                {features.length > 0 && (
+                  <div className="border-t border-blue-100/40 my-1.5" />
+                )}
+              </>
+            )}
+
+            {/* Generic features */}
             {features.map(f => (
               <button
                 key={f.key}
@@ -277,7 +417,24 @@ export function AiAssistantSidebar(props: AiSidebarProps) {
                 className="overflow-hidden"
               >
                 <div className="px-3 pb-3 pt-1 border-t border-blue-100/60">
-                  {isLoading ? (
+                  {/* Chat panel (analyze) - has its own loading/error */}
+                  {activeFeature === "analyze" && chatMessages.length > 0 && (
+                    <ChatPanel
+                      messages={chatMessages}
+                      isLoading={chatLoading}
+                      error={error}
+                      input={chatInput}
+                      onInputChange={setChatInput}
+                      onSend={handleChatSend}
+                      onRetry={() => handleFeatureClick("analyze")}
+                      chatEndRef={chatEndRef}
+                      chatInputRef={chatInputRef}
+                      ko={ko}
+                    />
+                  )}
+
+                  {/* Non-chat features */}
+                  {activeFeature !== "analyze" && (isLoading ? (
                     <div className="flex items-center gap-2 py-8 justify-center text-blue-500">
                       <Loader2 size={18} className="animate-spin" />
                       <span className="text-xs font-medium">{ko ? "AI 분석 중..." : "Analyzing..."}</span>
@@ -350,7 +507,7 @@ export function AiAssistantSidebar(props: AiSidebarProps) {
                         />
                       )}
                     </>
-                  )}
+                  ))}
                 </div>
               </motion.div>
             )}
@@ -361,7 +518,7 @@ export function AiAssistantSidebar(props: AiSidebarProps) {
   );
 }
 
-// ─── Mobile toggle button (to be used alongside the sidebar) ─────────
+// ─── Mobile toggle button ─────────────────────────────────────────────
 export function AiSidebarMobileToggle({
   isOpen, onToggle, language,
 }: {
@@ -380,6 +537,93 @@ export function AiSidebarMobileToggle({
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────
+
+function ChatPanel({
+  messages, isLoading, error, input, onInputChange, onSend, onRetry,
+  chatEndRef, chatInputRef, ko,
+}: {
+  messages: ChatMessage[]; isLoading: boolean; error: string | null;
+  input: string; onInputChange: (val: string) => void;
+  onSend: () => void; onRetry: () => void;
+  chatEndRef: React.RefObject<HTMLDivElement | null>;
+  chatInputRef: React.RefObject<HTMLTextAreaElement | null>;
+  ko: boolean;
+}) {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      onSend();
+    }
+  };
+
+  return (
+    <div className="flex flex-col" style={{ maxHeight: "460px" }}>
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto scrollbar-hide space-y-2 pb-2"
+           style={{ minHeight: "100px", maxHeight: "340px" }}>
+        {messages.map((msg) => (
+          <div
+            key={msg.timestamp}
+            className={cn(
+              "rounded-lg px-2.5 py-2 text-[11px] leading-relaxed",
+              msg.role === "user"
+                ? "bg-blue-600 text-white ml-6"
+                : "bg-white/80 text-gray-700 mr-2"
+            )}
+          >
+            <div className="whitespace-pre-wrap">{msg.text}</div>
+          </div>
+        ))}
+
+        {isLoading && (
+          <div className="flex items-center gap-2 px-2.5 py-2 text-blue-500">
+            <Loader2 size={14} className="animate-spin" />
+            <span className="text-[10px]">{ko ? "답변 중..." : "Thinking..."}</span>
+          </div>
+        )}
+
+        {error && (
+          <div className="bg-red-50 rounded-lg px-2.5 py-2">
+            <div className="flex items-center gap-1.5 text-red-500">
+              <AlertTriangle size={12} />
+              <span className="text-[10px] flex-1">{error}</span>
+            </div>
+            <button onClick={onRetry} className="mt-1 text-[10px] text-blue-600 hover:underline">
+              {ko ? "재시도" : "Retry"}
+            </button>
+          </div>
+        )}
+
+        <div ref={chatEndRef} />
+      </div>
+
+      {/* Input */}
+      <div className="border-t border-blue-100/60 pt-2 mt-1">
+        <div className="flex gap-1.5">
+          <textarea
+            ref={chatInputRef}
+            value={input}
+            onChange={(e) => onInputChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={ko ? "질문이나 내용을 입력하세요..." : "Type a message..."}
+            rows={2}
+            className="flex-1 text-[11px] bg-white/80 border border-gray-200 rounded-lg px-2.5 py-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-blue-300 placeholder-gray-400"
+          />
+          <button
+            onClick={onSend}
+            disabled={!input.trim() || isLoading}
+            className="self-end p-1.5 rounded-lg bg-blue-600 text-white disabled:opacity-40 hover:bg-blue-700 transition-colors shrink-0"
+          >
+            <Send size={14} />
+          </button>
+        </div>
+        <p className="text-[9px] text-gray-400 mt-1 px-0.5">
+          {ko ? "Shift+Enter로 줄바꿈" : "Shift+Enter for newline"}
+        </p>
+      </div>
+    </div>
+  );
+}
 
 function DecomposeResults({
   subtasks, ko, onToggle, onRegenerate, onApply,
@@ -441,7 +685,7 @@ function DescribeResults({
     <div className="space-y-2">
       {hasExisting && (
         <p className="text-[10px] text-amber-600 bg-amber-50 px-2 py-1 rounded">
-          {ko ? "⚠ 기존 설명을 대체합니다" : "⚠ Replaces existing description"}
+          {ko ? "기존 설명을 대체합니다" : "Replaces existing description"}
         </p>
       )}
       <div className="bg-white/70 rounded-lg p-2.5 text-xs text-gray-700 whitespace-pre-wrap max-h-[200px] overflow-y-auto leading-relaxed scrollbar-hide">
@@ -506,7 +750,6 @@ function ResourcesResults({
 }) {
   return (
     <div className="space-y-3">
-      {/* Library matches */}
       <div>
         <p className="text-[10px] font-bold text-gray-400 uppercase mb-1.5 flex items-center gap-1">
           <BookOpen size={10} /> {ko ? "내 아카이브" : "My Archive"} ({libraryMatches.length})
@@ -534,7 +777,6 @@ function ResourcesResults({
         )}
       </div>
 
-      {/* External search toggle */}
       <div className="flex items-center gap-2">
         <button
           onClick={onToggleExternal}
@@ -552,7 +794,6 @@ function ResourcesResults({
         {externalLoading && <Loader2 size={12} className="animate-spin text-blue-500" />}
       </div>
 
-      {/* External results */}
       {externalSearchEnabled && externalResources.length > 0 && (
         <div>
           <p className="text-[10px] font-bold text-gray-400 uppercase mb-1.5 flex items-center gap-1">

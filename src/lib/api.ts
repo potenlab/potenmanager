@@ -206,6 +206,19 @@ export const api = {
     request<{ resources: Array<{ title: string; description: string; type: string; suggestedUrl?: string }> }>(
       '/ai/search-external', { method: 'POST', body: JSON.stringify(data) }
     ),
+  aiCategoryAnalyze: (data: { taskTitle: string; taskDescription?: string; category: string }) =>
+    request<{ summary: string; insights: string[]; suggestions: string[]; risks: string[]; nextSteps: string[] }>(
+      '/ai/category-analyze', { method: 'POST', body: JSON.stringify(data) }
+    ),
+  aiCategoryChat: (data: {
+    category: string;
+    taskTitle: string;
+    taskDescription?: string;
+    messages: Array<{ role: "user" | "model"; text: string }>;
+  }) =>
+    request<{ reply: string }>(
+      '/ai/category-chat', { method: 'POST', body: JSON.stringify(data) }
+    ),
 
   // ── Demo ──
   setupDemo: () =>

@@ -1239,6 +1239,46 @@ async function callGemini(prompt: string, maxTokens = 2048) {
   return JSON.parse(cleaned);
 }
 
+// Helper: multi-turn chat with Gemini (returns plain text, not JSON)
+async function callGeminiChat(
+  systemInstruction: string,
+  messages: Array<{ role: "user" | "model"; text: string }>,
+  maxTokens = 2048
+): Promise<string> {
+  const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+  if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+  const contents = messages.map((m) => ({
+    role: m.role,
+    parts: [{ text: m.text }],
+  }));
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: systemInstruction }] },
+      contents,
+      generationConfig: {
+        temperature: 0.7,
+        topP: 0.9,
+        maxOutputTokens: maxTokens,
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Gemini API ${res.status}: ${err.substring(0, 200)}`);
+  }
+
+  const data = await res.json();
+  const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!raw) throw new Error("Empty Gemini response");
+  return raw;
+}
+
 // ── Task Decomposition ──
 app.post("/make-server-f580d5ca/ai/task-decompose", async (c) => {
   try {
@@ -1392,6 +1432,126 @@ app.post("/make-server-f580d5ca/ai/search-external", async (c) => {
   } catch (e) {
     console.log("[AI] search-external error:", e);
     return c.json({ error: "External search failed", message: String(e) }, 500);
+  }
+});
+
+// ── Category-specific AI Analysis ──
+const CATEGORY_AI_CONFIG: Record<string, { role: string; focus: string[] }> = {
+  sales: {
+    role: "영업/세일즈 전문 컨설턴트",
+    focus: ["견적 분석 및 가격 전략", "고객 접근 방법 및 설득 포인트", "거래 성사를 위한 핵심 전략", "경쟁사 대비 차별화 포인트"],
+  },
+  content_writing: {
+    role: "콘텐츠 기획/글쓰기 전문가",
+    focus: ["타겟 독자 분석", "SEO 및 키워드 전략", "콘텐츠 구조 및 제목 제안", "톤앤매너 가이드"],
+  },
+  content_video: {
+    role: "영상 콘텐츠 프로듀서",
+    focus: ["영상 구성 및 스크립트 구조", "썸네일/제목 최적화", "편집 포인트 및 트랜지션", "시청자 참여/리텐션 전략"],
+  },
+  marketing: {
+    role: "마케팅 전략가",
+    focus: ["타겟 고객 세그먼트 분석", "채널별 전략", "캠페인 KPI 및 성과 측정", "예산 배분 및 ROI 최적화"],
+  },
+  development: {
+    role: "시니어 개발자/테크 리드",
+    focus: ["기술 스택 및 아키텍처 제안", "구현 방향 및 설계 포인트", "코드 품질 및 테스트 전략", "예상 이슈 및 해결 방안"],
+  },
+  design: {
+    role: "UX/UI 디자인 전문가",
+    focus: ["사용자 경험 흐름 분석", "디자인 원칙 적용 포인트", "접근성 및 반응형 고려사항", "최신 트렌드 반영 제안"],
+  },
+  planning: {
+    role: "프로젝트 기획 전문가",
+    focus: ["요구사항 정리 및 스코프 정의", "일정 및 마일스톤 설계", "리스크 분석 및 대응 방안", "이해관계자 커뮤니케이션 포인트"],
+  },
+  operations: {
+    role: "운영/관리 전문가",
+    focus: ["프로세스 최적화 방안", "효율화 및 자동화 포인트", "품질 관리 체크리스트", "비용 절감 및 리소스 관리"],
+  },
+  learning: {
+    role: "학습/교육 전문가",
+    focus: ["학습 목표 및 로드맵 설계", "추천 학습 자료 및 경로", "핵심 개념 정리", "실습 프로젝트 아이디어"],
+  },
+};
+
+app.post("/make-server-f580d5ca/ai/category-analyze", async (c) => {
+  try {
+    const { taskTitle, taskDescription, category } = await c.req.json();
+    if (!taskTitle) return c.json({ error: "taskTitle is required" }, 400);
+
+    const config = CATEGORY_AI_CONFIG[category] || {
+      role: "업무 분석 전문가",
+      focus: ["업무 분석 및 요약", "실행 계획 수립", "주의사항 파악", "다음 단계 설계"],
+    };
+
+    const prompt = `당신은 ${config.role}입니다.
+주어진 업무 내용을 전문가 관점에서 분석하고 실질적인 도움을 제공하세요.
+
+반드시 아래 JSON 스키마를 따르세요:
+{
+  "summary": "업무 핵심 요약 (1~2문장)",
+  "insights": ["분석 인사이트 1", "분석 인사이트 2"],
+  "suggestions": ["구체적 실행 제안 1", "구체적 실행 제안 2"],
+  "risks": ["주의할 점 1"],
+  "nextSteps": ["추천 다음 단계 1", "추천 다음 단계 2"]
+}
+
+분석 집중 영역:
+${config.focus.map((f: string) => `- ${f}`).join("\n")}
+
+규칙:
+- 한국어로 작성
+- 실질적이고 바로 활용할 수 있는 내용 위주
+- insights 2~4개, suggestions 2~4개, risks 1~3개, nextSteps 2~3개
+- 업무 내용이 부족하면 해당 분야의 일반적인 조언 제공
+
+업무 제목: ${taskTitle}
+${taskDescription ? `업무 내용:\n${taskDescription}` : "(상세 내용 없음)"}`;
+
+    const result = await callGemini(prompt);
+    return c.json(result);
+  } catch (e) {
+    console.log("[AI] category-analyze error:", e);
+    return c.json({ error: "Category analysis failed", message: String(e) }, 500);
+  }
+});
+
+// ── Category Chat (multi-turn) ──
+app.post("/make-server-f580d5ca/ai/category-chat", async (c) => {
+  try {
+    const { category, taskTitle, taskDescription, messages } = await c.req.json();
+    if (!messages || messages.length === 0) {
+      return c.json({ error: "messages array is required" }, 400);
+    }
+
+    const config = CATEGORY_AI_CONFIG[category] || {
+      role: "업무 분석 전문가",
+      focus: ["업무 분석 및 요약", "실행 계획 수립", "주의사항 파악", "다음 단계 설계"],
+    };
+
+    const systemInstruction = `당신은 ${config.role}입니다.
+사용자의 업무를 전문가 관점에서 도와주세요.
+
+업무 제목: ${taskTitle}
+${taskDescription ? `업무 설명: ${taskDescription}` : ""}
+
+전문 분야:
+${config.focus.map((f: string) => `- ${f}`).join("\n")}
+
+규칙:
+- 한국어로 대화하세요
+- 실질적이고 바로 활용할 수 있는 조언을 하세요
+- 1인 기업/소규모 팀(2~10명) 현실에 맞게 답변하세요
+- 사용자가 텍스트를 붙여넣으면 (스크립트, 기획서, 이메일 등) 전문가 관점에서 리뷰하세요
+- 친절하고 전문적인 톤을 유지하세요
+- 답변은 명확하고 구조적으로 작성하세요 (적절히 번호, 불릿 사용)`;
+
+    const reply = await callGeminiChat(systemInstruction, messages, 2048);
+    return c.json({ reply });
+  } catch (e) {
+    console.log("[AI] category-chat error:", e);
+    return c.json({ error: "Chat failed", message: String(e) }, 500);
   }
 });
 
