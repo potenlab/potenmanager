@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import {
   ArrowLeft, Globe, Lock, Link as LinkIcon, FileText,
-  Trash2, Tag, FolderOpen, Loader2,
+  Trash2, FolderOpen, Loader2,
   ChevronDown, Layout,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -13,6 +13,7 @@ import { useTeam } from "../context/TeamContext";
 import { useTrash } from "../context/TrashContext";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { AiAssistantSidebar } from "../components/AiAssistantSidebar";
+import { ARCHIVE_CATEGORIES, isPredefinedCategory } from "./LibraryPage";
 
 function getYouTubeVideoId(url: string): string | null {
   try {
@@ -67,6 +68,60 @@ function PropertyItem({ icon, label, children }: { icon: React.ReactNode; label:
   );
 }
 
+// ─── Category Select ───────────────────────────────────────────────
+function CategorySelect({ value, onChange, ko }: { value: string; onChange: (v: string) => void; ko: boolean }) {
+  const isCustom = !!value && !isPredefinedCategory(value);
+  const [showCustom, setShowCustom] = useState(isCustom);
+  const [customValue, setCustomValue] = useState(isCustom ? value : "");
+
+  return (
+    <div className="flex items-center gap-2">
+      <select
+        value={isCustom ? "other" : value}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v === "other") {
+            setShowCustom(true);
+            if (customValue) onChange(customValue);
+          } else {
+            setShowCustom(false);
+            setCustomValue("");
+            onChange(v);
+          }
+        }}
+        className="text-sm px-2 py-1 rounded-md border border-transparent hover:border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700 font-medium"
+      >
+        <option value="">{ko ? "선택" : "Select"}</option>
+        {ARCHIVE_CATEGORIES.map((cat) => (
+          <option key={cat.value} value={cat.value}>
+            {ko ? cat.labelKo : cat.labelEn}
+          </option>
+        ))}
+        <option value="other">{ko ? "기타 (직접 입력)" : "Other (custom)"}</option>
+      </select>
+      {showCustom && (
+        <input
+          type="text"
+          value={customValue}
+          onChange={(e) => setCustomValue(e.target.value)}
+          onBlur={(e) => {
+            const v = e.target.value.trim();
+            onChange(v || "");
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
+          placeholder={ko ? "직접 입력" : "Custom"}
+          className="text-sm px-2 py-1 rounded-md border border-gray-200 outline-none focus:ring-2 focus:ring-blue-100 text-gray-700 w-32"
+          autoFocus
+        />
+      )}
+    </div>
+  );
+}
+
 // ─── Main Detail Page ──────────────────────────────────────────────
 export function LibraryDetailPage() {
   const { itemId } = useParams();
@@ -113,44 +168,53 @@ export function LibraryDetailPage() {
     if (item) updateItem(item.id, updates);
   }, [item, updateItem]);
 
-  const handleFetchOg = useCallback(async () => {
-    if (!item?.url) return;
+  // Auto-fetch OG metadata for a URL
+  const triggerOgFetch = useCallback(async (url: string) => {
+    if (!url) return;
     setOgLoading(true);
-    const og = await fetchOgMetadata(item.url);
+    const ytId = getYouTubeVideoId(url);
+    if (ytId) {
+      const ytThumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+      handleUpdate({ ogMetadata: { ogImage: ytThumb, ogSiteName: 'YouTube' } });
+    }
+    const og = await fetchOgMetadata(url);
     if (og) {
-      const updates: Partial<LibraryItem> = { ogMetadata: og };
-      if (!item.title && og.ogTitle) updates.title = og.ogTitle;
-      if (!item.description && og.ogDescription) updates.description = og.ogDescription;
+      const ytFallback = ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : undefined;
+      const updates: Partial<LibraryItem> = {
+        ogMetadata: { ...og, ogImage: og.ogImage || ytFallback },
+      };
+      if (!item?.title && og.ogTitle) updates.title = og.ogTitle;
+      if (!item?.description && og.ogDescription) updates.description = og.ogDescription;
       handleUpdate(updates);
     }
     setOgLoading(false);
   }, [item, fetchOgMetadata, handleUpdate]);
 
+  const handleFetchOg = useCallback(async () => {
+    if (!item?.url) return;
+    await triggerOgFetch(item.url);
+  }, [item, triggerOgFetch]);
+
   // Auto-fetch OG on URL blur if no ogMetadata
   const handleUrlBlur = useCallback((url: string) => {
     if (url !== item?.url) handleUpdate({ url });
     if (url && !item?.ogMetadata?.ogTitle) {
-      const ytId = getYouTubeVideoId(url);
-      if (ytId) {
-        const ytThumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
-        handleUpdate({ ogMetadata: { ogImage: ytThumb, ogSiteName: 'YouTube' } });
-      }
-      setTimeout(async () => {
-        setOgLoading(true);
-        const og = await fetchOgMetadata(url);
-        if (og) {
-          const ytFallback = ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : undefined;
-          const updates: Partial<LibraryItem> = {
-            ogMetadata: { ...og, ogImage: og.ogImage || ytFallback },
-          };
-          if (!item?.title && og.ogTitle) updates.title = og.ogTitle;
-          if (!item?.description && og.ogDescription) updates.description = og.ogDescription;
-          handleUpdate(updates);
-        }
-        setOgLoading(false);
-      }, 100);
+      triggerOgFetch(url);
     }
-  }, [item, fetchOgMetadata, handleUpdate]);
+  }, [item, handleUpdate, triggerOgFetch]);
+
+  // Paste handler: auto-detect URL paste and trigger OG fetch immediately
+  const handleUrlPaste = useCallback((e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pastedText = e.clipboardData.getData('text').trim();
+    if (pastedText && (pastedText.startsWith('http://') || pastedText.startsWith('https://'))) {
+      setTimeout(() => {
+        const input = e.target as HTMLInputElement;
+        const url = input.value || pastedText;
+        handleUpdate({ url });
+        triggerOgFetch(url);
+      }, 50);
+    }
+  }, [handleUpdate, triggerOgFetch]);
 
   const handleDelete = () => {
     if (!item) return;
@@ -180,7 +244,7 @@ export function LibraryDetailPage() {
             <div className="flex items-center justify-between">
               <button onClick={() => navigate('/library')} className="flex items-center gap-2 text-gray-400 hover:text-gray-900 transition-colors text-sm group">
                 <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-                {ko ? '자료모음집' : 'Library'}
+                {ko ? '아카이빙' : 'Archive'}
               </button>
               <div className="flex items-center gap-2">
                 <button onClick={handleDelete} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
@@ -258,6 +322,7 @@ export function LibraryDetailPage() {
                               type="url"
                               defaultValue={item.url || ''}
                               onBlur={(e) => handleUrlBlur(e.target.value)}
+                              onPaste={handleUrlPaste}
                               placeholder="https://example.com"
                               className="flex-1 text-sm px-2 py-1 rounded-md border border-transparent hover:border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700"
                             />
@@ -272,28 +337,12 @@ export function LibraryDetailPage() {
                         </PropertyItem>
                       )}
 
-                      {/* Category */}
+                      {/* Category (predefined dropdown + 기타 custom input) */}
                       <PropertyItem icon={<FolderOpen size={14} />} label={ko ? '카테고리' : 'Category'}>
-                        <input
-                          type="text"
-                          defaultValue={item.category || ''}
-                          onBlur={(e) => handleUpdate({ category: e.target.value.trim() || undefined })}
-                          placeholder={ko ? '카테고리 입력' : 'Enter category'}
-                          className="w-full text-sm px-2 py-1 rounded-md border border-transparent hover:border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700"
-                        />
-                      </PropertyItem>
-
-                      {/* Tags */}
-                      <PropertyItem icon={<Tag size={14} />} label={ko ? '태그' : 'Tags'}>
-                        <input
-                          type="text"
-                          defaultValue={(item.tags || []).join(', ')}
-                          onBlur={(e) => {
-                            const tags = e.target.value.split(',').map(t => t.trim()).filter(Boolean);
-                            handleUpdate({ tags: tags.length > 0 ? tags : undefined });
-                          }}
-                          placeholder={ko ? '쉼표로 구분 (예: 디자인, UX)' : 'Comma separated (e.g. design, UX)'}
-                          className="w-full text-sm px-2 py-1 rounded-md border border-transparent hover:border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700"
+                        <CategorySelect
+                          value={item.category || ''}
+                          onChange={(v) => handleUpdate({ category: v || undefined })}
+                          ko={ko}
                         />
                       </PropertyItem>
 

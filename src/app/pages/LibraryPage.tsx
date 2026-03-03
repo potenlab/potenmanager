@@ -1,90 +1,128 @@
-import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
 import {
   Plus, Search, BookMarked, Globe, FileText, Link as LinkIcon,
-  Trash2, X, ExternalLink, ChevronDown, Check,
-  FolderPlus, MoreHorizontal, Pencil, Archive,
+  Trash2, X, ExternalLink, Check, Archive, Lock,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
 import { useLibrary, LibraryItem } from "../context/LibraryContext";
 import { useTeam } from "../context/TeamContext";
 
-const STORAGE_KEY = "archive-categories";
+// ─── Predefined Archive Categories ──────────────────────────────
+export const ARCHIVE_CATEGORIES = [
+  { value: "development", labelKo: "개발", labelEn: "Dev" },
+  { value: "content_writing", labelKo: "콘텐츠(글쓰기)", labelEn: "Content (Writing)" },
+  { value: "content_video", labelKo: "콘텐츠(영상)", labelEn: "Content (Video)" },
+  { value: "marketing", labelKo: "마케팅", labelEn: "Marketing" },
+  { value: "design", labelKo: "디자인", labelEn: "Design" },
+  { value: "planning", labelKo: "기획", labelEn: "Planning" },
+  { value: "sales", labelKo: "영업", labelEn: "Sales" },
+  { value: "operations", labelKo: "운영/관리", labelEn: "Ops" },
+  { value: "learning", labelKo: "학습", labelEn: "Learning" },
+];
 
-function loadCategories(): string[] {
-  try {
-    const s = localStorage.getItem(STORAGE_KEY);
-    return s ? JSON.parse(s) : [];
-  } catch { return []; }
-}
-function saveCategories(cats: string[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(cats));
+export function getCategoryLabel(value: string | undefined, ko: boolean): string {
+  if (!value) return "";
+  const cat = ARCHIVE_CATEGORIES.find((c) => c.value === value);
+  if (cat) return ko ? cat.labelKo : cat.labelEn;
+  return value;
 }
 
-function getYouTubeVideoId(url: string): string | null {
-  try {
-    const u = new URL(url);
-    if (u.hostname === 'youtu.be') return u.pathname.slice(1).split('/')[0] || null;
-    if (u.hostname.includes('youtube.com')) return u.searchParams.get('v');
-  } catch { /* ignore */ }
-  return null;
+export function isPredefinedCategory(cat: string): boolean {
+  return ARCHIVE_CATEGORIES.some((c) => c.value === cat);
 }
 
-// ─── Compact Card ────────────────────────────────────────────────────
+// ─── Archive Card ────────────────────────────────────────────────
 function ArchiveCard({
-  item, onClick, isSelected, isSelecting, onToggleSelect, onContextMenu,
+  item,
+  onClick,
+  isSelected,
+  isSelecting,
+  onToggleSelect,
+  onToggleVisibility,
+  isOwner,
 }: {
   item: LibraryItem;
   onClick: () => void;
   isSelected?: boolean;
   isSelecting?: boolean;
   onToggleSelect?: (id: string) => void;
-  onContextMenu?: (e: React.MouseEvent, id: string) => void;
+  onToggleVisibility?: (id: string) => void;
+  isOwner?: boolean;
 }) {
   const { language } = useLanguage();
   const ko = language === "ko";
 
   const domain = item.url
-    ? (() => { try { return new URL(item.url).hostname.replace("www.", ""); } catch { return ""; } })()
+    ? (() => {
+        try {
+          return new URL(item.url).hostname.replace("www.", "");
+        } catch {
+          return "";
+        }
+      })()
     : "";
+
+  const categoryLabel = getCategoryLabel(item.category, ko);
 
   return (
     <div
-      data-archive-card
-      data-archive-id={item.id}
       onClick={onClick}
-      onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, item.id); }}
       className={cn(
         "bg-white rounded-xl border shadow-sm hover:shadow-md transition-all cursor-pointer group p-3 relative",
-        isSelected ? "border-blue-400 ring-2 ring-blue-100" : "border-gray-100 hover:border-blue-200"
+        isSelected
+          ? "border-blue-400 ring-2 ring-blue-100"
+          : "border-gray-100 hover:border-blue-200"
       )}
     >
-      {/* Selection checkbox */}
-      <div className={cn(
-        "absolute top-2 right-2 z-10 transition-all",
-        isSelecting || isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-      )}>
+      {/* Checkbox */}
+      <div
+        className={cn(
+          "absolute top-2 right-2 z-10 transition-all",
+          isSelecting || isSelected
+            ? "opacity-100"
+            : "opacity-0 group-hover:opacity-100"
+        )}
+      >
         <button
-          onClick={(e) => { e.stopPropagation(); onToggleSelect?.(item.id); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSelect?.(item.id);
+          }}
           className={cn(
             "w-5 h-5 rounded border-2 flex items-center justify-center shadow-sm transition-all",
-            isSelected ? "bg-blue-500 border-blue-500" : "border-gray-300 bg-white hover:border-blue-400"
+            isSelected
+              ? "bg-blue-500 border-blue-500"
+              : "border-gray-300 bg-white hover:border-blue-400"
           )}
         >
-          {isSelected && <Check size={12} className="text-white" strokeWidth={3} />}
+          {isSelected && (
+            <Check size={12} className="text-white" strokeWidth={3} />
+          )}
         </button>
       </div>
+
       <div className="flex items-start gap-3">
-        {/* Thumbnail / icon */}
+        {/* Thumbnail */}
         {item.type === "url" && item.ogMetadata?.ogImage ? (
-          <img src={item.ogMetadata.ogImage} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0 bg-gray-100" />
+          <img
+            src={item.ogMetadata.ogImage}
+            alt=""
+            className="w-12 h-12 rounded-lg object-cover shrink-0 bg-gray-100"
+          />
         ) : (
-          <div className={cn(
-            "w-12 h-12 rounded-lg flex items-center justify-center shrink-0",
-            item.type === "url" ? "bg-blue-50" : "bg-amber-50"
-          )}>
-            {item.type === "url" ? <LinkIcon size={18} className="text-blue-400" /> : <FileText size={18} className="text-amber-400" />}
+          <div
+            className={cn(
+              "w-12 h-12 rounded-lg flex items-center justify-center shrink-0",
+              item.type === "url" ? "bg-blue-50" : "bg-amber-50"
+            )}
+          >
+            {item.type === "url" ? (
+              <LinkIcon size={18} className="text-blue-400" />
+            ) : (
+              <FileText size={18} className="text-amber-400" />
+            )}
           </div>
         )}
         <div className="flex-1 min-w-0">
@@ -97,239 +135,71 @@ function ArchiveCard({
             </p>
           )}
           {item.description && !domain && (
-            <p className="text-[11px] text-gray-400 truncate mt-0.5">{item.description}</p>
+            <p className="text-[11px] text-gray-400 truncate mt-0.5">
+              {item.description}
+            </p>
           )}
-          <div className="flex items-center gap-2 mt-1">
-            {item.visibility === "published" && (
-              <span className="flex items-center gap-0.5 text-[9px] text-emerald-500 font-medium">
-                <Globe size={8} /> {ko ? "공개" : "Public"}
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            {categoryLabel && (
+              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                {categoryLabel}
               </span>
             )}
             <span className="text-[9px] text-gray-300">
-              {new Date(item.createdAt).toLocaleDateString(ko ? "ko-KR" : "en-US", { month: "short", day: "numeric" })}
+              {new Date(item.createdAt).toLocaleDateString(
+                ko ? "ko-KR" : "en-US",
+                { month: "short", day: "numeric" }
+              )}
             </span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Category Board Column ───────────────────────────────────────────
-function CategoryBoard({
-  title, items, onRename, onDelete, isDefault,
-  isAdding, onStartAdd, onCancelAdd, onSubmitAdd,
-  selectedIds, isSelecting, onToggleSelect, onCardContextMenu,
-}: {
-  title: string;
-  items: LibraryItem[];
-  onRename?: (oldName: string) => void;
-  onDelete?: (name: string) => void;
-  isDefault?: boolean;
-  isAdding?: boolean;
-  onStartAdd: () => void;
-  onCancelAdd: () => void;
-  onSubmitAdd: (title: string, url: string) => void;
-  selectedIds?: Set<string>;
-  isSelecting?: boolean;
-  onToggleSelect?: (id: string) => void;
-  onCardContextMenu?: (e: React.MouseEvent, id: string) => void;
-}) {
-  const navigate = useNavigate();
-  const { language } = useLanguage();
-  const ko = language === "ko";
-  const [showMenu, setShowMenu] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newUrl, setNewUrl] = useState('');
-  const titleInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => { if (isAdding && titleInputRef.current) titleInputRef.current.focus(); }, [isAdding]);
-
-  const handleSubmit = () => {
-    if (newTitle.trim() || newUrl.trim()) {
-      onSubmitAdd(newTitle.trim(), newUrl.trim());
-      setNewTitle(''); setNewUrl('');
-    }
-  };
-  const handleCancel = () => { setNewTitle(''); setNewUrl(''); onCancelAdd(); };
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') { e.preventDefault(); handleSubmit(); }
-    else if (e.key === 'Escape') handleCancel();
-  };
-
-  return (
-    <div className="bg-gray-50/80 rounded-2xl border border-gray-100 flex flex-col min-w-[280px] max-w-[340px] w-full shrink-0">
-      {/* Board Header */}
-      <div className="px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-bold text-gray-700">{title}</h3>
-          <span className="text-[10px] font-bold text-gray-400 bg-gray-200/70 px-1.5 py-0.5 rounded-full">
-            {items.length}
-          </span>
-        </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={onStartAdd}
-            className="p-1 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-          >
-            <Plus size={14} />
-          </button>
-          {!isDefault && (
-            <div className="relative">
+            {/* Visibility toggle */}
+            {isOwner ? (
               <button
-                onClick={() => setShowMenu(!showMenu)}
-                className="p-1 rounded-lg text-gray-300 hover:text-gray-600 hover:bg-gray-200 transition-colors"
-              >
-                <MoreHorizontal size={14} />
-              </button>
-              {showMenu && (
-                <>
-                  <div className="fixed inset-0 z-[60]" onClick={() => setShowMenu(false)} />
-                  <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-[61] py-1 min-w-[120px] animate-in fade-in slide-in-from-top-1">
-                    <button
-                      onClick={() => { setShowMenu(false); onRename?.(title); }}
-                      className="w-full px-3 py-2 text-xs text-left text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                    >
-                      <Pencil size={12} /> {ko ? "이름 변경" : "Rename"}
-                    </button>
-                    <button
-                      onClick={() => { setShowMenu(false); onDelete?.(title); }}
-                      className="w-full px-3 py-2 text-xs text-left text-red-500 hover:bg-red-50 flex items-center gap-2"
-                    >
-                      <Trash2 size={12} /> {ko ? "삭제" : "Delete"}
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Items */}
-      <div className="px-3 pb-3 space-y-2 flex-1 overflow-y-auto max-h-[calc(100vh-280px)]">
-        {items.map((item) => (
-          <ArchiveCard
-            key={item.id}
-            item={item}
-            onClick={() => navigate(`/library/${item.id}`)}
-            isSelected={selectedIds?.has(item.id)}
-            isSelecting={isSelecting}
-            onToggleSelect={onToggleSelect}
-            onContextMenu={onCardContextMenu}
-          />
-        ))}
-        {items.length === 0 && !isAdding && (
-          <button onClick={onStartAdd}
-            className="w-full flex flex-col items-center justify-center py-8 text-gray-300 hover:text-blue-500 hover:bg-blue-50/50 rounded-xl transition-all cursor-pointer group">
-            <Plus size={20} className="mb-1.5 opacity-50 group-hover:opacity-100 transition-opacity" />
-            <p className="text-xs font-medium">{ko ? '자료를 추가해보세요' : 'Add an item'}</p>
-          </button>
-        )}
-      </div>
-
-      {/* Inline add form */}
-      {isAdding && (
-        <div className="px-3 pb-3">
-          <div className="bg-white rounded-xl border border-blue-200 shadow-sm ring-2 ring-blue-100 overflow-hidden">
-            <input ref={titleInputRef} value={newTitle} onChange={(e) => setNewTitle(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={ko ? '제목' : 'Title'}
-              className="w-full px-4 py-2.5 text-sm outline-none bg-transparent placeholder-gray-400 text-gray-900" />
-            <input value={newUrl} onChange={(e) => setNewUrl(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={ko ? 'URL (선택)' : 'URL (optional)'}
-              className="w-full px-4 py-2 text-sm outline-none bg-transparent placeholder-gray-300 text-gray-700 border-t border-gray-100" />
-            <div className="flex items-center justify-between px-3 py-2 bg-gray-50/80 border-t border-gray-100">
-              <span className="text-[10px] text-gray-400">{ko ? 'Enter로 추가 · Esc로 취소' : 'Enter to add · Esc to cancel'}</span>
-              <button onClick={handleSubmit} disabled={!newTitle.trim() && !newUrl.trim()}
-                className="text-[10px] font-semibold text-blue-600 hover:text-blue-700 disabled:text-gray-300 px-2 py-0.5 rounded">
-                {ko ? '추가' : 'Add'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Bottom add button */}
-      {!isAdding && items.length > 0 && (
-        <div className="px-3 pb-3">
-          <button onClick={onStartAdd}
-            className="w-full py-2.5 rounded-xl text-gray-400 text-sm hover:text-blue-600 hover:bg-gray-100/80 transition-all flex items-center gap-2 px-3">
-            <Plus size={14} /> <span>{ko ? '자료 추가' : 'Add Item'}</span>
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Month Picker ────────────────────────────────────────────────────
-function MonthPicker({
-  value,
-  onChange,
-  availableMonths,
-}: {
-  value: string;  // "" for all, "2026-03" for specific
-  onChange: (v: string) => void;
-  availableMonths: string[];
-}) {
-  const { language } = useLanguage();
-  const ko = language === "ko";
-  const [open, setOpen] = useState(false);
-
-  const formatMonth = (ym: string) => {
-    const [y, m] = ym.split("-");
-    if (ko) return `${y}년 ${parseInt(m)}월`;
-    const d = new Date(parseInt(y), parseInt(m) - 1);
-    return d.toLocaleDateString("en-US", { year: "numeric", month: "short" });
-  };
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-sm font-medium text-gray-700 transition-colors"
-      >
-        <Archive size={14} className="text-gray-400" />
-        {value ? formatMonth(value) : (ko ? "전체 기간" : "All time")}
-        <ChevronDown size={14} className="text-gray-400" />
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-[60]" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-[61] py-1 min-w-[160px] max-h-[300px] overflow-y-auto animate-in fade-in slide-in-from-top-1">
-            <button
-              onClick={() => { onChange(""); setOpen(false); }}
-              className={cn(
-                "w-full px-4 py-2 text-sm text-left hover:bg-gray-50 transition-colors",
-                !value ? "bg-blue-50 text-blue-600 font-medium" : "text-gray-700"
-              )}
-            >
-              {ko ? "전체 기간" : "All time"}
-            </button>
-            {availableMonths.map((ym) => (
-              <button
-                key={ym}
-                onClick={() => { onChange(ym); setOpen(false); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleVisibility?.(item.id);
+                }}
                 className={cn(
-                  "w-full px-4 py-2 text-sm text-left hover:bg-gray-50 transition-colors",
-                  value === ym ? "bg-blue-50 text-blue-600 font-medium" : "text-gray-700"
+                  "flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded-full transition-colors",
+                  item.visibility === "published"
+                    ? "text-emerald-600 bg-emerald-50 hover:bg-emerald-100"
+                    : "text-gray-400 bg-gray-50 hover:bg-gray-100"
                 )}
               >
-                {formatMonth(ym)}
+                {item.visibility === "published" ? (
+                  <Globe size={8} />
+                ) : (
+                  <Lock size={8} />
+                )}
+                {item.visibility === "published"
+                  ? ko
+                    ? "공개"
+                    : "Public"
+                  : ko
+                    ? "비공개"
+                    : "Private"}
               </button>
-            ))}
+            ) : (
+              item.visibility === "published" && (
+                <span className="flex items-center gap-0.5 text-[9px] text-emerald-500 font-medium">
+                  <Globe size={8} /> {ko ? "공개" : "Public"}
+                </span>
+              )
+            )}
           </div>
-        </>
-      )}
+        </div>
+      </div>
     </div>
   );
 }
 
-// ─── Selection Toolbar ───────────────────────────────────────────────
+// ─── Selection Toolbar ───────────────────────────────────────────
 function SelectionToolbar({
-  count, language, onPublish, onUnpublish, onDelete, onClear,
+  count,
+  language,
+  onPublish,
+  onUnpublish,
+  onDelete,
+  onClear,
 }: {
   count: number;
   language: string;
@@ -339,297 +209,185 @@ function SelectionToolbar({
   onClear: () => void;
 }) {
   if (count === 0) return null;
-  const ko = language === 'ko';
+  const ko = language === "ko";
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white rounded-2xl shadow-2xl px-5 py-3 flex items-center gap-3 animate-in slide-in-from-bottom-4">
-      <span className="text-sm font-bold">{count}{ko ? '개 선택' : ' selected'}</span>
+      <span className="text-sm font-bold">
+        {count}
+        {ko ? "개 선택" : " selected"}
+      </span>
       <div className="w-px h-5 bg-gray-700" />
-      <button onClick={onPublish} className="text-xs px-2.5 py-1 rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-1">
-        <Globe size={12} /> {ko ? '공개' : 'Publish'}
+      <button
+        onClick={onPublish}
+        className="text-xs px-2.5 py-1 rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-1"
+      >
+        <Globe size={12} /> {ko ? "공개" : "Publish"}
       </button>
-      <button onClick={onUnpublish} className="text-xs px-2.5 py-1 rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-1">
-        <BookMarked size={12} /> {ko ? '비공개' : 'Private'}
+      <button
+        onClick={onUnpublish}
+        className="text-xs px-2.5 py-1 rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-1"
+      >
+        <BookMarked size={12} /> {ko ? "비공개" : "Private"}
       </button>
       <div className="w-px h-5 bg-gray-700" />
-      <button onClick={onDelete} className="text-xs px-2.5 py-1 rounded-lg text-red-400 hover:bg-red-900/40 transition-colors flex items-center gap-1">
-        <Trash2 size={12} /> {ko ? '삭제' : 'Delete'}
+      <button
+        onClick={onDelete}
+        className="text-xs px-2.5 py-1 rounded-lg text-red-400 hover:bg-red-900/40 transition-colors flex items-center gap-1"
+      >
+        <Trash2 size={12} /> {ko ? "삭제" : "Delete"}
       </button>
-      <button onClick={onClear} className="p-1 text-gray-400 hover:text-white rounded transition-colors ml-1">
+      <button
+        onClick={onClear}
+        className="p-1 text-gray-400 hover:text-white rounded transition-colors ml-1"
+      >
         <X size={14} />
       </button>
     </div>
   );
 }
 
-// ─── Rubber-band helpers ────────────────────────────────────────────
-function setsEqual(a: Set<string>, b: Set<string>) {
-  if (a.size !== b.size) return false;
-  for (const v of a) if (!b.has(v)) return false;
-  return true;
-}
-
-// ─── Main Page ───────────────────────────────────────────────────────
+// ─── Main Page ───────────────────────────────────────────────────
 export function LibraryPage() {
+  const navigate = useNavigate();
   const { language } = useLanguage();
   const ko = language === "ko";
-  const { myItems, teamItems, isLoading, addItem, updateItem, removeItem, fetchOgMetadata } = useLibrary();
+  const {
+    items,
+    myItems,
+    teamItems,
+    isLoading,
+    updateItem,
+    removeItem,
+  } = useLibrary();
   const { currentUser } = useTeam();
 
-  const [activeTab, setActiveTab] = useState<"my" | "team">("my");
+  const [activeTab, setActiveTab] = useState<"all" | "my" | "team">("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState("");
-  const [categories, setCategories] = useState<string[]>(loadCategories);
+  const [categoryFilter, setCategoryFilter] = useState("");
 
-  // Persist categories
-  useEffect(() => { saveCategories(categories); }, [categories]);
+  // All visible items (my items + others' published items)
+  const allVisibleItems = useMemo(
+    () =>
+      items.filter(
+        (i) =>
+          i.ownerId === currentUser.id || i.visibility === "published"
+      ),
+    [items, currentUser.id]
+  );
 
-  const baseItems = activeTab === "my" ? myItems : teamItems;
+  const baseItems =
+    activeTab === "all"
+      ? allVisibleItems
+      : activeTab === "my"
+        ? myItems
+        : teamItems;
 
-  // Available months from items
-  const availableMonths = useMemo(() => {
-    const months = new Set<string>();
-    baseItems.forEach((i) => {
-      const d = new Date(i.createdAt);
-      months.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
-    });
-    return Array.from(months).sort().reverse();
-  }, [baseItems]);
-
-  // Filter by search + month
+  // Filter by category + search
   const filteredItems = useMemo(() => {
     let result = baseItems;
-    if (selectedMonth) {
-      const [y, m] = selectedMonth.split("-").map(Number);
-      result = result.filter((i) => {
-        const d = new Date(i.createdAt);
-        return d.getFullYear() === y && d.getMonth() + 1 === m;
-      });
+
+    if (categoryFilter) {
+      if (categoryFilter === "other") {
+        result = result.filter(
+          (i) => i.category && !isPredefinedCategory(i.category)
+        );
+      } else {
+        result = result.filter((i) => i.category === categoryFilter);
+      }
     }
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
         (i) =>
           i.title.toLowerCase().includes(q) ||
           i.description?.toLowerCase().includes(q) ||
-          i.url?.toLowerCase().includes(q) ||
-          i.tags?.some((t) => t.toLowerCase().includes(q))
+          i.url?.toLowerCase().includes(q)
       );
     }
-    return result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [baseItems, selectedMonth, searchQuery]);
 
-  // Merge user categories + categories from items
-  const allCategoryNames = useMemo(() => {
-    const fromItems = new Set<string>();
-    baseItems.forEach((i) => { if (i.category) fromItems.add(i.category); });
-    const merged = new Set([...categories, ...fromItems]);
-    return Array.from(merged).sort();
-  }, [categories, baseItems]);
+    return result.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }, [baseItems, categoryFilter, searchQuery]);
 
-  // Group items by category
-  const uncategorized = useMemo(
-    () => filteredItems.filter((i) => !i.category),
-    [filteredItems]
-  );
-
-  const groupedByCategory = useMemo(() => {
-    const map: Record<string, LibraryItem[]> = {};
-    allCategoryNames.forEach((c) => { map[c] = []; });
-    filteredItems.forEach((i) => {
-      if (i.category && map[i.category] !== undefined) {
-        map[i.category].push(i);
-      } else if (i.category) {
-        map[i.category] = [i];
+  // Category counts for filter badges
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    baseItems.forEach((i) => {
+      if (!i.category) return;
+      if (isPredefinedCategory(i.category)) {
+        counts[i.category] = (counts[i.category] || 0) + 1;
+      } else {
+        counts["other"] = (counts["other"] || 0) + 1;
       }
     });
-    return map;
-  }, [filteredItems, allCategoryNames]);
+    return counts;
+  }, [baseItems]);
 
-  // Add category
-  const [addingCategory, setAddingCategory] = useState(false);
-  const [newCatName, setNewCatName] = useState("");
-
-  const handleAddCategory = () => {
-    const name = newCatName.trim();
-    if (!name || categories.includes(name)) return;
-    setCategories((prev) => [...prev, name]);
-    setNewCatName("");
-    setAddingCategory(false);
-  };
-
-  const handleRenameCategory = (oldName: string) => {
-    const newName = prompt(ko ? `"${oldName}" → 새 이름:` : `Rename "${oldName}" to:`, oldName);
-    if (!newName || newName === oldName) return;
-    setCategories((prev) => prev.map((c) => (c === oldName ? newName : c)));
-    // Update items with old category
-    filteredItems.forEach((item) => {
-      if (item.category === oldName) updateItem(item.id, { category: newName });
-    });
-  };
-
-  const handleDeleteCategory = (name: string) => {
-    if (!confirm(ko ? `"${name}" 카테고리를 삭제하시겠습니까? 자료는 미분류로 이동됩니다.` : `Delete "${name}"? Items will become uncategorized.`)) return;
-    setCategories((prev) => prev.filter((c) => c !== name));
-    filteredItems.forEach((item) => {
-      if (item.category === name) updateItem(item.id, { category: "" });
-    });
-  };
-
-  const [addingInCategory, setAddingInCategory] = useState<string | null>(null);
-
-  // ── Selection state ──
+  // Selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const isSelecting = selectedIds.size > 0;
   const toggleSelect = useCallback((id: string) => {
-    setSelectedIds(prev => {
+    setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }, []);
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
-  // Escape key clears selection
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && selectedIds.size > 0) clearSelection();
+      if (e.key === "Escape" && selectedIds.size > 0) clearSelection();
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
   }, [selectedIds, clearSelection]);
 
-  // ── Rubber-band refs ──
-  const boardRef = useRef<HTMLDivElement>(null);
-  const rubberBandElRef = useRef<HTMLDivElement>(null);
-  const startRef = useRef<{ x: number; y: number } | null>(null);
-  const didDragRef = useRef(false);
-  const currentSelRef = useRef<Set<string>>(new Set());
-  const onBulkSelectRef = useRef(setSelectedIds);
-  useEffect(() => { onBulkSelectRef.current = setSelectedIds; });
-
-  const handleBoardMouseDown = useCallback((e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
-    if (target.closest('[data-archive-card]') || target.closest('button') || target.closest('input') || target.closest('a')) return;
-    if (e.button !== 0) return;
-    e.preventDefault();
-    startRef.current = { x: e.clientX, y: e.clientY };
-    didDragRef.current = false;
-  }, []);
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!startRef.current) return;
-      const dx = e.clientX - startRef.current.x;
-      const dy = e.clientY - startRef.current.y;
-      if (!didDragRef.current && Math.abs(dx) + Math.abs(dy) < 5) return;
-      didDragRef.current = true;
-      document.body.classList.add('select-none');
-
-      const x1 = Math.min(startRef.current.x, e.clientX);
-      const y1 = Math.min(startRef.current.y, e.clientY);
-      const x2 = Math.max(startRef.current.x, e.clientX);
-      const y2 = Math.max(startRef.current.y, e.clientY);
-
-      const rb = rubberBandElRef.current;
-      if (rb) {
-        rb.style.display = 'block';
-        rb.style.left = x1 + 'px';
-        rb.style.top = y1 + 'px';
-        rb.style.width = (x2 - x1) + 'px';
-        rb.style.height = (y2 - y1) + 'px';
+  // Visibility toggle
+  const handleToggleVisibility = useCallback(
+    (id: string) => {
+      const item = items.find((i) => i.id === id);
+      if (item) {
+        updateItem(id, {
+          visibility:
+            item.visibility === "published" ? "private" : "published",
+        });
       }
+    },
+    [items, updateItem]
+  );
 
-      const ids = new Set<string>();
-      document.querySelectorAll<HTMLElement>('[data-archive-card]').forEach(el => {
-        const r = el.getBoundingClientRect();
-        if (r.right > x1 && r.left < x2 && r.bottom > y1 && r.top < y2) {
-          const id = el.getAttribute('data-archive-id');
-          if (id) ids.add(id);
-        }
-      });
-      if (!setsEqual(ids, currentSelRef.current)) {
-        currentSelRef.current = ids;
-        onBulkSelectRef.current(ids);
-      }
-    };
-    const handleMouseUp = () => {
-      if (!startRef.current) return;
-      startRef.current = null;
-      document.body.classList.remove('select-none');
-      const rb = rubberBandElRef.current;
-      if (rb) rb.style.display = 'none';
-      if (!didDragRef.current) {
-        currentSelRef.current = new Set();
-        onBulkSelectRef.current(new Set());
-      }
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, []);
-
-  // ── Bulk operations ──
+  // Bulk operations
   const handleBulkPublish = useCallback(() => {
-    selectedIds.forEach(id => updateItem(id, { visibility: 'published' }));
+    selectedIds.forEach((id) =>
+      updateItem(id, { visibility: "published" })
+    );
     clearSelection();
   }, [selectedIds, updateItem, clearSelection]);
 
   const handleBulkUnpublish = useCallback(() => {
-    selectedIds.forEach(id => updateItem(id, { visibility: 'private' }));
+    selectedIds.forEach((id) =>
+      updateItem(id, { visibility: "private" })
+    );
     clearSelection();
   }, [selectedIds, updateItem, clearSelection]);
 
   const handleBulkDelete = useCallback(() => {
-    if (!confirm(ko ? `${selectedIds.size}개 자료를 삭제하시겠습니까?` : `Delete ${selectedIds.size} items?`)) return;
-    selectedIds.forEach(id => removeItem(id));
+    if (
+      !confirm(
+        ko
+          ? `${selectedIds.size}개 자료를 삭제하시겠습니까?`
+          : `Delete ${selectedIds.size} items?`
+      )
+    )
+      return;
+    selectedIds.forEach((id) => removeItem(id));
     clearSelection();
   }, [selectedIds, removeItem, clearSelection, ko]);
-
-  // ── Right-click context menu ──
-  const navigate = useNavigate();
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; id: string } | null>(null);
-  const handleCardContextMenu = useCallback((e: React.MouseEvent, id: string) => {
-    setCtxMenu({ x: e.clientX, y: e.clientY, id });
-  }, []);
-  const closeCtxMenu = useCallback(() => setCtxMenu(null), []);
-
-  const handleInlineAdd = useCallback((title: string, url: string, category: string) => {
-    const now = new Date().toISOString();
-    const item: LibraryItem = {
-      id: `lib-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-      title: title || url || (ko ? '제목 없음' : 'Untitled'),
-      type: url ? 'url' : 'note',
-      url: url || undefined,
-      category: category || undefined,
-      visibility: 'private',
-      ownerId: currentUser.id,
-      ownerName: currentUser.name,
-      createdAt: now,
-      updatedAt: now,
-      tags: [],
-    };
-    addItem(item);
-    if (url) {
-      const ytId = getYouTubeVideoId(url);
-      if (ytId) {
-        const ytThumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
-        updateItem(item.id, { ogMetadata: { ogImage: ytThumb, ogSiteName: 'YouTube' } });
-        fetchOgMetadata(url).then(og => {
-          if (og) updateItem(item.id, {
-            ogMetadata: { ...og, ogImage: og.ogImage || ytThumb },
-            title: title || og.ogTitle || item.title,
-          });
-        });
-      } else {
-        fetchOgMetadata(url).then(og => {
-          if (og) updateItem(item.id, { ogMetadata: og, title: title || og.ogTitle || item.title });
-        });
-      }
-    }
-  }, [addItem, currentUser, fetchOgMetadata, updateItem, ko]);
 
   if (isLoading) {
     return (
@@ -651,22 +409,54 @@ export function LibraryPage() {
             </h1>
             <p className="text-gray-500 text-xs sm:text-sm">
               {ko
-                ? `내 자료 ${myItems.length}건 · 팀 공유 ${teamItems.length}건`
-                : `My ${myItems.length} · Team ${teamItems.length}`}
+                ? `전체 ${allVisibleItems.length}건 · 내 자료 ${myItems.length}건 · 팀 공유 ${teamItems.length}건`
+                : `All ${allVisibleItems.length} · Mine ${myItems.length} · Team ${teamItems.length}`}
             </p>
           </div>
-          <MonthPicker
-            value={selectedMonth}
-            onChange={setSelectedMonth}
-            availableMonths={availableMonths}
-          />
+          <button
+            onClick={() => navigate("/library/new")}
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-sm transition-all"
+          >
+            <Plus size={16} />
+            {ko ? "자료 추가" : "Add Item"}
+          </button>
         </div>
 
         {/* Tabs + Search */}
         <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
           <div className="flex items-center gap-2">
             <button
-              onClick={() => { setActiveTab("my"); setSearchQuery(""); }}
+              onClick={() => {
+                setActiveTab("all");
+                setSearchQuery("");
+                setCategoryFilter("");
+              }}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border",
+                activeTab === "all"
+                  ? "bg-gray-900 text-white border-gray-900 shadow-sm"
+                  : "bg-white text-gray-500 border-gray-100 hover:border-gray-300"
+              )}
+            >
+              <Archive size={15} />
+              {ko ? "전체" : "All"}
+              <span
+                className={cn(
+                  "text-[10px] px-1.5 py-0.5 rounded-full font-bold",
+                  activeTab === "all"
+                    ? "bg-gray-700 text-gray-200"
+                    : "bg-gray-100 text-gray-500"
+                )}
+              >
+                {allVisibleItems.length}
+              </span>
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("my");
+                setSearchQuery("");
+                setCategoryFilter("");
+              }}
               className={cn(
                 "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border",
                 activeTab === "my"
@@ -676,12 +466,23 @@ export function LibraryPage() {
             >
               <BookMarked size={15} />
               {ko ? "내 자료" : "Mine"}
-              <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-bold",
-                activeTab === "my" ? "bg-blue-200 text-blue-700" : "bg-gray-100 text-gray-500"
-              )}>{myItems.length}</span>
+              <span
+                className={cn(
+                  "text-[10px] px-1.5 py-0.5 rounded-full font-bold",
+                  activeTab === "my"
+                    ? "bg-blue-200 text-blue-700"
+                    : "bg-gray-100 text-gray-500"
+                )}
+              >
+                {myItems.length}
+              </span>
             </button>
             <button
-              onClick={() => { setActiveTab("team"); setSearchQuery(""); }}
+              onClick={() => {
+                setActiveTab("team");
+                setSearchQuery("");
+                setCategoryFilter("");
+              }}
               className={cn(
                 "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border",
                 activeTab === "team"
@@ -691,9 +492,16 @@ export function LibraryPage() {
             >
               <Globe size={15} />
               {ko ? "팀 공유" : "Team"}
-              <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-bold",
-                activeTab === "team" ? "bg-emerald-200 text-emerald-700" : "bg-gray-100 text-gray-500"
-              )}>{teamItems.length}</span>
+              <span
+                className={cn(
+                  "text-[10px] px-1.5 py-0.5 rounded-full font-bold",
+                  activeTab === "team"
+                    ? "bg-emerald-200 text-emerald-700"
+                    : "bg-gray-100 text-gray-500"
+                )}
+              >
+                {teamItems.length}
+              </span>
             </button>
           </div>
           <div className="flex-1 sm:max-w-xs">
@@ -709,97 +517,101 @@ export function LibraryPage() {
             </div>
           </div>
         </div>
+
+        {/* Category filter chips */}
+        <div className="flex items-center gap-2 mt-3 overflow-x-auto pb-1 scrollbar-hide">
+          <button
+            onClick={() => setCategoryFilter("")}
+            className={cn(
+              "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all border",
+              !categoryFilter
+                ? "bg-gray-900 text-white border-gray-900"
+                : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
+            )}
+          >
+            {ko ? "전체" : "All"}
+          </button>
+          {ARCHIVE_CATEGORIES.map((cat) => {
+            const count = categoryCounts[cat.value] || 0;
+            return (
+              <button
+                key={cat.value}
+                onClick={() =>
+                  setCategoryFilter(
+                    categoryFilter === cat.value ? "" : cat.value
+                  )
+                }
+                className={cn(
+                  "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all border flex items-center gap-1",
+                  categoryFilter === cat.value
+                    ? "bg-blue-50 text-blue-700 border-blue-200"
+                    : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
+                )}
+              >
+                {ko ? cat.labelKo : cat.labelEn}
+                {count > 0 && (
+                  <span className="text-[9px] font-bold">{count}</span>
+                )}
+              </button>
+            );
+          })}
+          {(categoryCounts["other"] || 0) > 0 && (
+            <button
+              onClick={() =>
+                setCategoryFilter(
+                  categoryFilter === "other" ? "" : "other"
+                )
+              }
+              className={cn(
+                "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all border flex items-center gap-1",
+                categoryFilter === "other"
+                  ? "bg-blue-50 text-blue-700 border-blue-200"
+                  : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
+              )}
+            >
+              {ko ? "기타" : "Other"}
+              <span className="text-[9px] font-bold">
+                {categoryCounts["other"]}
+              </span>
+            </button>
+          )}
+        </div>
       </header>
 
-      {/* Board Content */}
-      <div ref={boardRef} onMouseDown={handleBoardMouseDown} className="flex-1 overflow-x-auto pb-4">
-        <div className="flex gap-4 min-h-[400px]">
-          {/* Uncategorized board */}
-          <CategoryBoard
-            title={ko ? "미분류" : "Uncategorized"}
-            items={uncategorized}
-            isDefault
-            isAdding={addingInCategory === '__uncategorized__'}
-            onStartAdd={() => setAddingInCategory('__uncategorized__')}
-            onCancelAdd={() => setAddingInCategory(null)}
-            onSubmitAdd={(t, u) => handleInlineAdd(t, u, '')}
-            selectedIds={selectedIds}
-            isSelecting={isSelecting}
-            onToggleSelect={toggleSelect}
-            onCardContextMenu={handleCardContextMenu}
-          />
-
-          {/* Category boards */}
-          {allCategoryNames.map((cat) => (
-            <CategoryBoard
-              key={cat}
-              title={cat}
-              items={groupedByCategory[cat] || []}
-              onRename={handleRenameCategory}
-              onDelete={handleDeleteCategory}
-              isAdding={addingInCategory === cat}
-              onStartAdd={() => setAddingInCategory(cat)}
-              onCancelAdd={() => setAddingInCategory(null)}
-              onSubmitAdd={(t, u) => handleInlineAdd(t, u, cat)}
-              selectedIds={selectedIds}
-              isSelecting={isSelecting}
-              onToggleSelect={toggleSelect}
-              onCardContextMenu={handleCardContextMenu}
-            />
-          ))}
-
-          {/* Add category column */}
-          <div className="min-w-[200px] shrink-0">
-            {addingCategory ? (
-              <div className="bg-gray-50/80 rounded-2xl border border-dashed border-blue-300 p-3">
-                <input
-                  autoFocus
-                  value={newCatName}
-                  onChange={(e) => setNewCatName(e.target.value)}
-                  placeholder={ko ? "카테고리 이름" : "Category name"}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleAddCategory();
-                    if (e.key === "Escape") { setAddingCategory(false); setNewCatName(""); }
-                  }}
-                  className="w-full text-sm px-3 py-2 rounded-lg border border-gray-200 outline-none focus:ring-2 focus:ring-blue-100 mb-2"
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleAddCategory}
-                    disabled={!newCatName.trim()}
-                    className="flex-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 disabled:opacity-40"
-                  >
-                    {ko ? "추가" : "Add"}
-                  </button>
-                  <button
-                    onClick={() => { setAddingCategory(false); setNewCatName(""); }}
-                    className="px-3 py-1.5 bg-gray-100 text-gray-500 rounded-lg text-xs hover:bg-gray-200"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                onClick={() => setAddingCategory(true)}
-                className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl border-2 border-dashed border-gray-200 text-gray-400 hover:border-blue-300 hover:text-blue-500 hover:bg-blue-50/30 transition-all text-sm font-medium"
-              >
-                <FolderPlus size={16} />
-                {ko ? "카테고리 추가" : "Add Category"}
-              </button>
-            )}
+      {/* Card Grid */}
+      <div className="flex-1 overflow-y-auto pb-20">
+        {filteredItems.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            {filteredItems.map((item) => (
+              <ArchiveCard
+                key={item.id}
+                item={item}
+                onClick={() => navigate(`/library/${item.id}`)}
+                isSelected={selectedIds.has(item.id)}
+                isSelecting={isSelecting}
+                onToggleSelect={toggleSelect}
+                onToggleVisibility={handleToggleVisibility}
+                isOwner={item.ownerId === currentUser.id}
+              />
+            ))}
           </div>
-        </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-20 text-gray-300">
+            <Archive size={40} className="mb-3 opacity-50" />
+            <p className="text-sm font-medium">
+              {ko ? "자료가 없습니다" : "No items yet"}
+            </p>
+            <button
+              onClick={() => navigate("/library/new")}
+              className="mt-3 text-sm text-blue-500 hover:text-blue-600 font-medium"
+            >
+              {ko ? "+ 자료 추가하기" : "+ Add an item"}
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Rubber-band selection overlay */}
-      <div
-        ref={rubberBandElRef}
-        className="fixed border-2 border-blue-400/50 bg-blue-400/10 rounded-lg pointer-events-none z-50"
-        style={{ display: 'none' }}
-      />
-
-      {/* Floating selection toolbar */}
+      {/* Selection toolbar */}
       <SelectionToolbar
         count={selectedIds.size}
         language={language}
@@ -808,31 +620,6 @@ export function LibraryPage() {
         onDelete={handleBulkDelete}
         onClear={clearSelection}
       />
-
-      {/* Right-click context menu */}
-      {ctxMenu && (
-        <>
-          <div className="fixed inset-0 z-[70]" onClick={closeCtxMenu} onContextMenu={(e) => { e.preventDefault(); closeCtxMenu(); }} />
-          <div
-            className="fixed z-[71] bg-white border border-gray-200 rounded-xl shadow-xl py-1 min-w-[140px] animate-in fade-in zoom-in-95 duration-100"
-            style={{ left: ctxMenu.x, top: ctxMenu.y }}
-          >
-            <button
-              onClick={() => { navigate(`/library/${ctxMenu.id}`); closeCtxMenu(); }}
-              className="w-full px-3 py-2 text-xs text-left text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
-            >
-              <Pencil size={13} /> {ko ? '수정' : 'Edit'}
-            </button>
-            <div className="mx-2 my-0.5 border-t border-gray-100" />
-            <button
-              onClick={() => { removeItem(ctxMenu.id); closeCtxMenu(); }}
-              className="w-full px-3 py-2 text-xs text-left text-red-500 hover:bg-red-50 flex items-center gap-2 transition-colors"
-            >
-              <Trash2 size={13} /> {ko ? '삭제' : 'Delete'}
-            </button>
-          </div>
-        </>
-      )}
     </div>
   );
 }
