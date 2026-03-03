@@ -319,6 +319,8 @@ function TaskCard({
   return (
     <div
       ref={dragRef}
+      data-task-card
+      data-task-id={task.id}
       onClick={handleClick}
       className={cn(
         "bg-white p-4 rounded-xl border shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group relative",
@@ -577,6 +579,7 @@ function BoardView({
   onStatusChange, onAddTask, language,
   addingInColumn, onStartAdd, onCancelAdd,
   isSelecting, selectedIds, onToggleSelect,
+  onBulkSelect,
 }: {
   pendingTasks: Task[];
   inProgressTasks: Task[];
@@ -592,9 +595,85 @@ function BoardView({
   isSelecting: boolean;
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
+  onBulkSelect: (ids: Set<string>) => void;
 }) {
+  const boardRef = useRef<HTMLDivElement>(null);
+  const rubberBandElRef = useRef<HTMLDivElement>(null);
+  const startRef = useRef<{ x: number; y: number } | null>(null);
+  const didDragRef = useRef(false);
+  const currentSelRef = useRef<Set<string>>(new Set());
+  const onBulkSelectRef = useRef(onBulkSelect);
+  onBulkSelectRef.current = onBulkSelect;
+
+  const handleBoardMouseDown = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-task-card]') || target.closest('button') || target.closest('input') || target.closest('a')) return;
+    if (e.button !== 0) return;
+    e.preventDefault();
+    startRef.current = { x: e.clientX, y: e.clientY };
+    didDragRef.current = false;
+  }, []);
+
+  useEffect(() => {
+    function setsEqual(a: Set<string>, b: Set<string>) {
+      if (a.size !== b.size) return false;
+      for (const x of a) if (!b.has(x)) return false;
+      return true;
+    }
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!startRef.current) return;
+      const dx = e.clientX - startRef.current.x;
+      const dy = e.clientY - startRef.current.y;
+      if (!didDragRef.current && Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+      didDragRef.current = true;
+      if (boardRef.current) boardRef.current.classList.add('select-none');
+      const x1 = startRef.current.x, y1 = startRef.current.y;
+      const x2 = e.clientX, y2 = e.clientY;
+      const left = Math.min(x1, x2), top = Math.min(y1, y2);
+      const right = Math.max(x1, x2), bottom = Math.max(y1, y2);
+      if (rubberBandElRef.current) {
+        const el = rubberBandElRef.current;
+        el.style.display = 'block';
+        el.style.left = `${left}px`;
+        el.style.top = `${top}px`;
+        el.style.width = `${right - left}px`;
+        el.style.height = `${bottom - top}px`;
+      }
+      if (!boardRef.current) return;
+      const cards = boardRef.current.querySelectorAll('[data-task-card]');
+      const ids = new Set<string>();
+      cards.forEach(card => {
+        const r = card.getBoundingClientRect();
+        if (r.left < right && r.right > left && r.top < bottom && r.bottom > top) {
+          const id = card.getAttribute('data-task-id');
+          if (id) ids.add(id);
+        }
+      });
+      if (!setsEqual(currentSelRef.current, ids)) {
+        currentSelRef.current = ids;
+        onBulkSelectRef.current(ids);
+      }
+    };
+    const handleMouseUp = () => {
+      if (startRef.current && !didDragRef.current) {
+        onBulkSelectRef.current(new Set());
+        currentSelRef.current = new Set();
+      }
+      startRef.current = null;
+      didDragRef.current = false;
+      if (rubberBandElRef.current) rubberBandElRef.current.style.display = 'none';
+      if (boardRef.current) boardRef.current.classList.remove('select-none');
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
   return (
-    <div className="h-full flex flex-col">
+    <div ref={boardRef} className="h-full flex flex-col" onMouseDown={handleBoardMouseDown}>
       <div className={cn(
         "flex flex-col md:flex-row gap-4 md:gap-6 h-full",
         showCompleted ? "md:min-w-[1200px]" : "md:min-w-[900px]"
@@ -624,6 +703,11 @@ function BoardView({
           />
         )}
       </div>
+      <div
+        ref={rubberBandElRef}
+        className="fixed border-2 border-blue-400/50 bg-blue-400/10 rounded-lg pointer-events-none z-50"
+        style={{ display: 'none' }}
+      />
     </div>
   );
 }
@@ -851,6 +935,7 @@ export function TasksPage() {
             onStatusChange={handleStatusChange} onAddTask={handleAddTask} language={language}
             addingInColumn={addingInColumn} onStartAdd={setAddingInColumn} onCancelAdd={() => setAddingInColumn(null)}
             isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={toggleSelect}
+            onBulkSelect={setSelectedIds}
           />
         ) : (
           <div className="h-full">
