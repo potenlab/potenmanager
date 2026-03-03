@@ -362,7 +362,7 @@ function TaskCard({
           )}>
             {task.priority || 'low'}
           </span>
-          {task.category && (() => {
+          {task.category && TASK_CATEGORY_CONFIG[task.category] && (() => {
             const catCfg = TASK_CATEGORY_CONFIG[task.category];
             return (
               <span className={cn(

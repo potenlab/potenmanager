@@ -139,7 +139,7 @@ export function TaskListView({ tasks, onStatusChange }: TaskListViewProps) {
                       </span>
                     </td>
                     <td className="px-4 py-4">
-                      {task.category ? (() => {
+                      {task.category && TASK_CATEGORY_CONFIG[task.category] ? (() => {
                         const catCfg = TASK_CATEGORY_CONFIG[task.category];
                         return (
                           <span className={cn(
