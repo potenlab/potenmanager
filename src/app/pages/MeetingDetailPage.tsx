@@ -18,6 +18,7 @@ import { TaskCategory } from "../../lib/mockData";
 import { TASK_CATEGORY_CONFIG, findBestAssignee } from "../../lib/jobRoles";
 import { AiAssistantSidebar } from "../components/AiAssistantSidebar";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
+import { NotionDateRangePicker } from "../components/NotionDateRangePicker";
 
 type MeetingStatus = Meeting['status'];
 type MeetingType = Meeting['type'];
@@ -273,8 +274,8 @@ export function MeetingDetailPage() {
   const handleDurationChange = (d: string) => updateMeeting(meeting.id, { duration: Number(d) });
   const handleLocationChange = (loc: string) => updateMeeting(meeting.id, { location: loc || undefined });
   const handleAttendeeChange = (ids: string[]) => updateMeeting(meeting.id, { attendeeIds: ids });
-  const handleDateChange = (dateStr: string) => {
-    if (dateStr) updateMeeting(meeting.id, { date: new Date(dateStr).toISOString() });
+  const handleDatePickerChange = (start: Date | null) => {
+    if (start) updateMeeting(meeting.id, { date: start.toISOString() });
   };
 
   // Auto-save notes on change
@@ -333,7 +334,7 @@ export function MeetingDetailPage() {
   };
 
   const meetingDate = new Date(meeting.date);
-  const dateLocalStr = meetingDate.toISOString().slice(0, 16);
+  // dateLocalStr no longer needed — using NotionDateRangePicker
 
   return (
     <div className="h-full overflow-y-auto bg-white scrollbar-hide">
@@ -385,11 +386,11 @@ export function MeetingDetailPage() {
               </PropertyItem>
 
               <PropertyItem icon={<Calendar size={14} />} label={ko ? '일시' : 'Date & Time'}>
-                <input
-                  type="datetime-local"
-                  value={dateLocalStr}
-                  onChange={(e) => handleDateChange(e.target.value)}
-                  className="px-2 py-1 rounded-md text-sm bg-transparent hover:bg-gray-100 focus:bg-gray-100 outline-none focus:ring-2 focus:ring-blue-100 transition-colors font-medium text-gray-700"
+                <NotionDateRangePicker
+                  startDate={meetingDate}
+                  endDate={null}
+                  onChange={(s) => handleDatePickerChange(s)}
+                  language={language}
                 />
               </PropertyItem>
 

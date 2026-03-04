@@ -27,8 +27,19 @@ interface NotionDateRangePickerProps {
 
 const WEEKDAYS_KO = ["월", "화", "수", "목", "금", "토", "일"];
 const WEEKDAYS_EN = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const HOURS = Array.from({ length: 24 }, (_, i) => i);
-const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
+// Time input helper: parse "HH:MM" or "H:MM" string to { h, m }
+function parseTimeStr(str: string): { h: number; m: number } | null {
+  const match = str.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const h = parseInt(match[1], 10);
+  const m = parseInt(match[2], 10);
+  if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+  return { h, m };
+}
+
+function formatTime(h: number, m: number): string {
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
 
 export function NotionDateRangePicker({
   startDate,
@@ -368,8 +379,8 @@ export function NotionDateRangePicker({
               })}
             </div>
 
-            {/* Time toggle + selectors */}
-            <div className="border-t border-gray-100 px-4 py-2">
+            {/* Time toggle + direct input */}
+            <div className="border-t border-gray-100 px-4 py-2.5">
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setIncludeTime(!includeTime)}
@@ -382,46 +393,40 @@ export function NotionDateRangePicker({
                   {language === "ko" ? "시간" : "Time"}
                 </button>
                 {includeTime && (
-                  <div className="flex items-center gap-1 ml-auto">
-                    <select
-                      value={tempStartHour}
-                      onChange={(e) => setTempStartHour(+e.target.value)}
-                      className="w-[42px] text-xs py-1 px-0.5 border border-gray-200 rounded-md bg-white text-center focus:outline-none focus:border-blue-400"
-                    >
-                      {HOURS.map((h) => (
-                        <option key={h} value={h}>{String(h).padStart(2, "0")}</option>
-                      ))}
-                    </select>
-                    <span className="text-gray-400 text-xs font-bold">:</span>
-                    <select
-                      value={tempStartMinute}
-                      onChange={(e) => setTempStartMinute(+e.target.value)}
-                      className="w-[42px] text-xs py-1 px-0.5 border border-gray-200 rounded-md bg-white text-center focus:outline-none focus:border-blue-400"
-                    >
-                      {MINUTES.map((m) => (
-                        <option key={m} value={m}>{String(m).padStart(2, "0")}</option>
-                      ))}
-                    </select>
-                    <ArrowRight size={10} className="text-gray-300 mx-1" />
-                    <select
-                      value={tempEndHour}
-                      onChange={(e) => setTempEndHour(+e.target.value)}
-                      className="w-[42px] text-xs py-1 px-0.5 border border-gray-200 rounded-md bg-white text-center focus:outline-none focus:border-blue-400"
-                    >
-                      {HOURS.map((h) => (
-                        <option key={h} value={h}>{String(h).padStart(2, "0")}</option>
-                      ))}
-                    </select>
-                    <span className="text-gray-400 text-xs font-bold">:</span>
-                    <select
-                      value={tempEndMinute}
-                      onChange={(e) => setTempEndMinute(+e.target.value)}
-                      className="w-[42px] text-xs py-1 px-0.5 border border-gray-200 rounded-md bg-white text-center focus:outline-none focus:border-blue-400"
-                    >
-                      {MINUTES.map((m) => (
-                        <option key={m} value={m}>{String(m).padStart(2, "0")}</option>
-                      ))}
-                    </select>
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <input
+                      type="text"
+                      value={formatTime(tempStartHour, tempStartMinute)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const parsed = parseTimeStr(val);
+                        if (parsed) { setTempStartHour(parsed.h); setTempStartMinute(parsed.m); }
+                      }}
+                      onBlur={(e) => {
+                        const parsed = parseTimeStr(e.target.value);
+                        if (!parsed) e.target.value = formatTime(tempStartHour, tempStartMinute);
+                      }}
+                      placeholder="09:00"
+                      className="w-[56px] text-xs py-1 px-1.5 border border-gray-200 rounded-md bg-white text-center focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 font-mono"
+                      maxLength={5}
+                    />
+                    <ArrowRight size={10} className="text-gray-300" />
+                    <input
+                      type="text"
+                      value={formatTime(tempEndHour, tempEndMinute)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const parsed = parseTimeStr(val);
+                        if (parsed) { setTempEndHour(parsed.h); setTempEndMinute(parsed.m); }
+                      }}
+                      onBlur={(e) => {
+                        const parsed = parseTimeStr(e.target.value);
+                        if (!parsed) e.target.value = formatTime(tempEndHour, tempEndMinute);
+                      }}
+                      placeholder="18:00"
+                      className="w-[56px] text-xs py-1 px-1.5 border border-gray-200 rounded-md bg-white text-center focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 font-mono"
+                      maxLength={5}
+                    />
                   </div>
                 )}
               </div>
