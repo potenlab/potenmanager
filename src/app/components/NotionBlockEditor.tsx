@@ -225,6 +225,8 @@ export function NotionBlockEditor({
       setBlocks((prev) =>
         prev.map((b) => (b.id === block.id ? { ...b, type: item.type, content: cleaned } : b))
       );
+      // Update DOM directly (sync effect skips focused elements)
+      if (el) el.textContent = cleaned;
       // Refocus
       requestAnimationFrame(() => {
         const blockEl = blockRefs.current.get(block.id);
