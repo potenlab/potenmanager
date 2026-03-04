@@ -238,7 +238,7 @@ export function MeetingDetailPage() {
 
   const meeting = getMeeting(meetingId || '');
   const [notes, setNotes] = useState(meeting?.notes || '');
-  const [notesSaved, setNotesSaved] = useState(false);
+  // Notes auto-save via useEffect below
   const [newActionTitle, setNewActionTitle] = useState('');
   const [newActionAssignee, setNewActionAssignee] = useState('');
   const [newActionCategory, setNewActionCategory] = useState<TaskCategory | ''>('');
@@ -277,11 +277,10 @@ export function MeetingDetailPage() {
     if (dateStr) updateMeeting(meeting.id, { date: new Date(dateStr).toISOString() });
   };
 
-  const saveNotes = () => {
+  // Auto-save notes on change
+  useEffect(() => {
     updateMeeting(meeting.id, { notes });
-    setNotesSaved(true);
-    setTimeout(() => setNotesSaved(false), 2000);
-  };
+  }, [notes]);
 
   const addActionItem = () => {
     if (!newActionTitle.trim()) return;
@@ -424,17 +423,8 @@ export function MeetingDetailPage() {
 
             {/* Notes — above action items */}
             <div className="min-h-[200px] border-t border-gray-100 pt-5">
-              <div className="flex items-center justify-between mb-3">
+              <div className="mb-3">
                 <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">{ko ? '회의록' : 'Meeting Notes'}</span>
-                <button
-                  onClick={saveNotes}
-                  className={cn(
-                    "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
-                    notesSaved ? "bg-emerald-50 text-emerald-600" : "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                  )}
-                >
-                  {notesSaved ? (ko ? '저장됨!' : 'Saved!') : (ko ? '저장' : 'Save')}
-                </button>
               </div>
               <NotionBlockEditor
                 initialContent={notes}
