@@ -101,6 +101,8 @@ export function NotionBlockEditor({
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const lastClickedIdx = useRef<number | null>(null);
+  const dragStartIdx = useRef<number | null>(null);
+  const isDragging = useRef(false);
   const blockRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const pendingFocusIdx = useRef<number | null>(null);
   const isComposingRef = useRef(false);
@@ -505,15 +507,39 @@ export function NotionBlockEditor({
     if (e.shiftKey && lastClickedIdx.current !== null) {
       e.preventDefault();
       selectRange(lastClickedIdx.current, idx);
-      // Remove browser text selection caused by shift-click
       window.getSelection()?.removeAllRanges();
     } else if (!e.shiftKey) {
       if (selectedIds.size > 0) {
         clearSelection();
       }
       lastClickedIdx.current = idx;
+      dragStartIdx.current = idx;
+      isDragging.current = false; // becomes true only when entering another block
     }
   }, [readOnly, selectedIds, selectRange, clearSelection]);
+
+  const handleBlockMouseEnter = useCallback((idx: number) => {
+    if (readOnly) return;
+    setHoveredIdx(idx);
+    // If mouse button is held and moved to a different block → drag select
+    if (dragStartIdx.current !== null && dragStartIdx.current !== idx) {
+      isDragging.current = true;
+      selectRange(dragStartIdx.current, idx);
+      window.getSelection()?.removeAllRanges();
+    }
+  }, [readOnly, selectRange]);
+
+  // Global mouseup to end drag
+  useEffect(() => {
+    const handleMouseUp = () => {
+      if (isDragging.current) {
+        isDragging.current = false;
+      }
+      dragStartIdx.current = null;
+    };
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => document.removeEventListener("mouseup", handleMouseUp);
+  }, []);
 
   const deleteSelectedBlocks = useCallback(() => {
     if (selectedIds.size === 0) return;
@@ -547,7 +573,7 @@ export function NotionBlockEditor({
             selectedIds.has(block.id) && "bg-blue-50 rounded-[4px]"
           )}
           onMouseDown={(e) => handleBlockMouseDown(e, idx)}
-          onMouseEnter={() => !readOnly && setHoveredIdx(idx)}
+          onMouseEnter={() => handleBlockMouseEnter(idx)}
           onMouseLeave={() => setHoveredIdx(null)}
         >
           {/* Left handle area */}
