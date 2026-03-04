@@ -455,6 +455,33 @@ export function NotionBlockEditor({
       return;
     }
 
+    // Ctrl+C / Ctrl+X: copy / cut selected blocks
+    if ((e.key === "c" || e.key === "x") && (e.ctrlKey || e.metaKey) && selectedIds.size > 1) {
+      e.preventDefault();
+      const selected = blocks.filter((b) => selectedIds.has(b.id));
+      const plain = selected.map(serializeBlock).join("\n");
+      const html = selected.map((b) => {
+        const c = b.content || "";
+        switch (b.type) {
+          case "h1": return `<h1>${c}</h1>`;
+          case "h2": return `<h2>${c}</h2>`;
+          case "h3": return `<h3>${c}</h3>`;
+          case "bullet": return `<ul><li>${c}</li></ul>`;
+          case "numbered": return `<ol><li>${c}</li></ol>`;
+          case "divider": return `<hr>`;
+          default: return `<p>${c}</p>`;
+        }
+      }).join("\n");
+      navigator.clipboard.write([
+        new ClipboardItem({
+          "text/plain": new Blob([plain], { type: "text/plain" }),
+          "text/html": new Blob([html], { type: "text/html" }),
+        }),
+      ]).catch(() => { navigator.clipboard.writeText(plain); });
+      if (e.key === "x") deleteSelectedBlocks();
+      return;
+    }
+
     // Delete/Backspace with multi-selection
     if ((e.key === "Backspace" || e.key === "Delete") && selectedIds.size > 1) {
       e.preventDefault();

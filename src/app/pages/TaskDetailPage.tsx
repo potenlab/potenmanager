@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Task, TaskCategory, Attachment, detectAttachmentType } from "../../lib/mockData";
+import { api } from "../../lib/api";
 import { Upload, File as FileIcon } from "lucide-react";
 import { TASK_CATEGORY_CONFIG } from "../../lib/jobRoles";
 import { useLanguage } from "../context/LanguageContext";
@@ -701,31 +702,41 @@ export function TaskDetailPage() {
   const [propsExpanded, setPropsExpanded] = useState(true);
   const [attachments, setAttachments] = useState<Attachment[]>(task?.attachments || []);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
-  const handleFileDrop = useCallback((files: FileList) => {
+  const handleFileDrop = useCallback(async (files: FileList) => {
     const MAX_SIZE = 5 * 1024 * 1024; // 5MB
     const ko = language === "ko";
-    Array.from(files).forEach((file) => {
+    const toUpload = Array.from(files).filter((file) => {
       if (file.size > MAX_SIZE) {
         alert(ko ? `${file.name}: 5MB 이하 파일만 첨부 가능합니다` : `${file.name}: Max 5MB`);
-        return;
+        return false;
       }
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
+      return true;
+    });
+    if (toUpload.length === 0) return;
+
+    setIsUploading(true);
+    try {
+      for (const file of toUpload) {
+        const result = await api.uploadFile(file);
         const att: Attachment = {
           id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-          url: dataUrl,
+          url: result.url,
           title: file.name,
-          fileName: file.name,
-          fileSize: file.size,
+          fileName: result.fileName,
+          fileSize: result.fileSize,
           addedAt: new Date().toISOString(),
           type: 'file',
         };
         setAttachments((prev) => [...prev, att]);
-      };
-      reader.readAsDataURL(file);
-    });
+      }
+    } catch (e) {
+      console.error("File upload error:", e);
+      alert(ko ? "파일 업로드에 실패했습니다" : "File upload failed");
+    } finally {
+      setIsUploading(false);
+    }
   }, [language]);
 
   // Sync to context on change
@@ -923,11 +934,13 @@ export function TaskDetailPage() {
                 if (e.dataTransfer.files.length > 0) handleFileDrop(e.dataTransfer.files);
               }}
             >
-              {isDragOver && (
+              {(isDragOver || isUploading) && (
                 <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
                   <div className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-xl shadow-lg">
-                    <Upload size={16} />
-                    {language === "ko" ? "파일을 놓아주세요 (최대 5MB)" : "Drop files here (max 5MB)"}
+                    {isUploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                    {isUploading
+                      ? (language === "ko" ? "업로드 중..." : "Uploading...")
+                      : (language === "ko" ? "파일을 놓아주세요 (최대 5MB)" : "Drop files here (max 5MB)")}
                   </div>
                 </div>
               )}

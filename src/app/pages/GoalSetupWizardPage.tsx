@@ -272,11 +272,11 @@ export default function GoalSetupWizardPage() {
 
   // ─── Save goals to context ───────────────────────────────────
   const saveGoals = () => {
-    // Remove existing Year-level goals and their Urgent children
+    // Remove existing Year-level goals and their children
     const existingYearGoals = goals.filter((g) => g.level === "Year" && !g.parentId);
     for (const yg of existingYearGoals) {
-      // Remove children first
-      const children = urgentGoals.filter((g) => g.parentId === yg.id);
+      // Remove children first (category sub-goals)
+      const children = goals.filter((g) => g.parentId === yg.id);
       for (const child of children) {
         removeGoal(child.id);
       }
@@ -297,7 +297,7 @@ export default function GoalSetupWizardPage() {
     };
     addGoal(coreGoalItem);
 
-    // Category goals (Urgent level)
+    // Category goals (sub-goals of Year core goal)
     for (const cat of selectedCategories) {
       const val = categoryValues[cat.key]?.trim();
       if (!val) continue;
@@ -312,12 +312,10 @@ export default function GoalSetupWizardPage() {
         id: uid(),
         title: `${label}: ${val}`,
         titleKo: `${labelKo}: ${val}`,
-        level: "Urgent",
+        level: "Year",
         progress: 0,
         status: "pending",
         parentId: coreId,
-        urgentCategory: cat.urgentCategory,
-        isUrgent: true,
       };
       addGoal(goalItem);
       coreGoalItem.children!.push(goalItem.id);

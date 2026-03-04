@@ -18,7 +18,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { User, getUserColor, setUserColor, getColorOwner, getMemberColorConfig, MEMBER_COLORS } from "../../lib/mockData";
+import { User, getUserColor, setUserColor, getColorOwner, getMemberColorConfig, MEMBER_COLORS, getAllAssigneeIds } from "../../lib/mockData";
 import { useLanguage } from "../context/LanguageContext";
 import { useNavigate } from "react-router";
 import { getRoleInfo, type Role } from "../../lib/permissions";
@@ -58,7 +58,7 @@ export function TeamPage() {
   const memberStats = useMemo(() => {
     const map: Record<string, { completed: number; inProgress: number; pending: number; total: number }> = {};
     for (const m of members) {
-      const memberTasks = tasks.filter((t) => t.assigneeId === m.id);
+      const memberTasks = tasks.filter((t) => getAllAssigneeIds(t).includes(m.id));
       map[m.id] = {
         completed: memberTasks.filter((t) => t.status === "completed").length,
         inProgress: memberTasks.filter((t) => t.status === "in-progress").length,
@@ -331,12 +331,18 @@ function TeamMemberCard({
       <div className="w-full space-y-3 mb-5">
         <div className="flex items-center gap-3 text-sm text-gray-600">
           <Mail size={16} className="text-gray-400" />
-          <span className="truncate text-gray-400 italic">{language === 'ko' ? '이메일 미설정' : 'No email set'}</span>
+          {member.email ? (
+            <span className="truncate">{member.email}</span>
+          ) : (
+            <span className="truncate text-gray-400 italic">{language === 'ko' ? '이메일 미설정' : 'No email set'}</span>
+          )}
         </div>
-        <div className="flex items-center gap-3 text-sm text-gray-600">
-          <Briefcase size={16} className="text-gray-400" />
-          <span>{member.jobTitle ?? "Product Team"}</span>
-        </div>
+        {member.jobTitle && (
+          <div className="flex items-center gap-3 text-sm text-gray-600">
+            <Briefcase size={16} className="text-gray-400" />
+            <span>{member.jobTitle}</span>
+          </div>
+        )}
       </div>
 
       {/* ── Calendar Color (clickable to edit) ── */}

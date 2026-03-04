@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { motion } from 'motion/react';
 import {
@@ -14,6 +14,7 @@ import {
 import { useAuth, supabase } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { api } from '../../lib/api';
+import { notificationBus } from '../../lib/notificationEvents';
 
 // Google G Logo SVG (same as LoginPage)
 function GoogleLogo() {
@@ -51,6 +52,7 @@ export function InviteAcceptPage() {
   const [state, setState] = useState<PageState>('loading');
   const [invite, setInvite] = useState<InviteInfo | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
+  const autoJoinTriggered = useRef(false);
 
   // Lookup invite code on mount
   useEffect(() => {
@@ -75,6 +77,19 @@ export function InviteAcceptPage() {
     });
   }, [code]);
 
+  // Auto-join after OAuth redirect (user returned from login with pending invite)
+  useEffect(() => {
+    if (autoJoinTriggered.current) return;
+    if (state !== 'valid' || !user || !code || !invite) return;
+    if (authLoading) return;
+
+    const pendingInvite = localStorage.getItem('poten_pending_invite');
+    if (pendingInvite && pendingInvite === code) {
+      autoJoinTriggered.current = true;
+      handleJoin();
+    }
+  }, [state, user, code, invite, authLoading]);
+
   // Handle Google login for unauthenticated users
   const handleLoginAndJoin = async () => {
     if (!code) return;
@@ -97,11 +112,21 @@ export function InviteAcceptPage() {
         userId: user.id,
         userName: user.user_metadata?.full_name || user.email || '',
         avatar: user.user_metadata?.avatar_url || '',
+        email: user.email || '',
       });
 
       if (result.success) {
         setState('success');
         localStorage.removeItem('poten_pending_invite');
+
+        // Emit join notification
+        notificationBus.emit({
+          type: 'team.member_joined',
+          data: {
+            memberId: user.id,
+            memberName: user.user_metadata?.full_name || user.email || '',
+          },
+        });
 
         // Redirect after short delay
         setTimeout(() => {

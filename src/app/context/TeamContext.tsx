@@ -13,6 +13,7 @@ function userFromAuth(authUser: { id: string; user_metadata?: Record<string, any
     name: meta.full_name || meta.name || authUser.email || 'User',
     avatar: meta.avatar_url || meta.picture || '',
     role: 'owner',
+    email: authUser.email || '',
     jobTitle: '',
   };
 }
@@ -67,8 +68,17 @@ export function TeamProvider({ children }: { children: ReactNode }) {
     try {
       const serverMembers = await api.getTeamMembers();
       if (serverMembers && serverMembers.length > 0) {
-        setMembers(serverMembers);
         const myId = authUser?.id;
+        const myEmail = authUser?.email;
+        // Patch current user's email if missing on server
+        if (myId && myEmail) {
+          const me = serverMembers.find((m: any) => m.id === myId);
+          if (me && !me.email) {
+            me.email = myEmail;
+            api.updateTeamMember(myId, { email: myEmail }).catch(() => {});
+          }
+        }
+        setMembers(serverMembers);
         if (myId) {
           const foundMe = serverMembers.find((m: any) => m.id === myId);
           if (foundMe) setCurrentUser(foundMe);

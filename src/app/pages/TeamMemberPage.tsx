@@ -11,6 +11,7 @@ import {
   SpecialColorOwner,
   Task,
   JobRole,
+  getAllAssigneeIds,
 } from "../../lib/mockData";
 import { JOB_ROLE_CONFIG, JOB_ROLES } from "../../lib/jobRoles";
 import { api } from "../../lib/api";
@@ -153,7 +154,7 @@ export function TeamMemberPage() {
   }, [showMenu]);
 
   const memberTasks = useMemo(() => {
-    return tasks.filter((t) => t.assigneeId === memberId);
+    return tasks.filter((t) => getAllAssigneeIds(t).includes(memberId));
   }, [tasks, memberId]);
 
   const filteredTasks = useMemo(() => {
@@ -217,7 +218,7 @@ export function TeamMemberPage() {
     );
   }
 
-  const email = isMe ? authUser?.email : null;
+  const email = isMe ? authUser?.email : member?.email;
   const colorConfig = memberColor ? getMemberColorConfig(memberColor) : null;
 
   const filterTabs: {
@@ -312,7 +313,7 @@ export function TeamMemberPage() {
                   )}
                   <span className="flex items-center gap-1.5">
                     <Briefcase size={14} className="text-gray-400" />
-                    {member.jobTitle ?? "Product Team"}
+                    {member.jobTitle || (language === 'ko' ? '직책 미설정' : 'No title set')}
                   </span>
                   {member.jobRole && JOB_ROLE_CONFIG[member.jobRole] && (
                     <span className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">

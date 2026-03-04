@@ -8,6 +8,7 @@ import {
   ReactNode,
 } from "react";
 import { notificationBus, NotificationEvent, NotificationEventType } from "../../lib/notificationEvents";
+import { toast } from "sonner";
 import { api } from "../../lib/api";
 
 // ─── Types ──────────────────────────────────────────────────────────
@@ -271,6 +272,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   // ── Subscribe to event bus ──
   useEffect(() => {
     const unsub = notificationBus.on((event) => {
+      // Show toast for member join events
+      if (event.type === 'team.member_joined') {
+        const name = event.data?.memberName || event.data?.memberId || '';
+        toast.success(`${name}님이 입장했습니다`, { duration: 5000 });
+      }
+
       const mapped = eventToNotification(event);
       if (!mapped) return;
       const newNotif: AppNotification = {

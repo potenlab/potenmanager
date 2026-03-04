@@ -34,6 +34,7 @@ import {
   getMemberColorConfig,
   MEMBER_COLORS,
   JobRole,
+  getAllAssigneeIds,
 } from "../../lib/mockData";
 import { JOB_ROLE_CONFIG, JOB_ROLES } from "../../lib/jobRoles";
 import { useLanguage } from "../context/LanguageContext";
@@ -65,8 +66,8 @@ export function MyPage() {
   const ko = language === "ko";
 
   // My tasks (recent 5, sorted by due date)
-  const myTasks = tasks
-    .filter(t => t.assigneeId === currentUser.id)
+  const myAllTasks = tasks.filter(t => getAllAssigneeIds(t).includes(currentUser.id));
+  const myTasks = [...myAllTasks]
     .sort((a, b) => {
       if (a.status === "completed" && b.status !== "completed") return 1;
       if (a.status !== "completed" && b.status === "completed") return -1;
@@ -77,10 +78,10 @@ export function MyPage() {
     .slice(0, 5);
 
   const myTaskStats = {
-    total: tasks.filter(t => t.assigneeId === currentUser.id).length,
-    pending: tasks.filter(t => t.assigneeId === currentUser.id && t.status === "pending").length,
-    inProgress: tasks.filter(t => t.assigneeId === currentUser.id && t.status === "in-progress").length,
-    completed: tasks.filter(t => t.assigneeId === currentUser.id && t.status === "completed").length,
+    total: myAllTasks.length,
+    pending: myAllTasks.filter(t => t.status === "pending").length,
+    inProgress: myAllTasks.filter(t => t.status === "in-progress").length,
+    completed: myAllTasks.filter(t => t.status === "completed").length,
   };
 
   // My meetings (upcoming, sorted by date)

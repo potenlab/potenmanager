@@ -139,6 +139,16 @@ export const api = {
   getOrgInvites: (orgId: string) =>
     request<any[]>(`/org/${orgId}/invites`),
 
+  // ── Team Board ──
+  getTeamBoardItems: (orgId: string) =>
+    request<any[]>(`/team-board/${orgId}`),
+  createTeamBoardItem: (orgId: string, item: any) =>
+    request<any>(`/team-board/${orgId}`, { method: 'POST', body: JSON.stringify(item) }),
+  updateTeamBoardItem: (orgId: string, id: string, data: any) =>
+    request<any>(`/team-board/${orgId}/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteTeamBoardItem: (orgId: string, id: string) =>
+    request<any>(`/team-board/${orgId}/${id}`, { method: 'DELETE' }),
+
   // ── Biz Radar ──
   getRadarItems: async () => {
     const data = await request<any[]>('/radar');
@@ -152,6 +162,12 @@ export const api = {
     request<any>(`/radar/${id}`, { method: 'DELETE' }),
   fetchWishketProjects: () =>
     request<any>('/radar/wishket'),
+  fetchWishketProjectsRefresh: () =>
+    request<any>('/radar/wishket?refresh=true'),
+  fetchFreemoaProjects: () =>
+    request<any>('/radar/freemoa'),
+  fetchFreemoaProjectsRefresh: () =>
+    request<any>('/radar/freemoa?refresh=true'),
 
   // ── Meetings ──
   getMeetings: async () => {
@@ -225,4 +241,24 @@ export const api = {
   // ── Demo ──
   setupDemo: () =>
     request<{ success: boolean; userId: string }>('/demo/setup', { method: 'POST' }),
+
+  // ── Files (Cloudflare R2) ──
+  uploadFile: async (file: File): Promise<{ url: string; key: string; fileName: string; fileSize: number }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const sep = '/files/upload';
+    const demoSuffix = isDemo() ? '?scope=demo' : '';
+    const res = await fetch(`${BASE}${sep}${demoSuffix}`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${publicAnonKey}` },
+      body: formData,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.message || body.error || res.statusText);
+    }
+    return res.json();
+  },
+  deleteFile: (key: string) =>
+    request<{ success: boolean }>(`/files/${key}`, { method: 'DELETE' }),
 };

@@ -2,12 +2,13 @@ import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
 import {
   Plus, Search, BookMarked, Globe, FileText, Link as LinkIcon,
-  Trash2, X, ExternalLink, Check, Archive, Lock,
+  Trash2, X, ExternalLink, Check, Archive, Lock, Pencil, MoreHorizontal,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
 import { useLibrary, LibraryItem } from "../context/LibraryContext";
 import { useTeam } from "../context/TeamContext";
+import { useTrash } from "../context/TrashContext";
 
 // ─── Predefined Archive Categories ──────────────────────────────
 export const ARCHIVE_CATEGORIES = [
@@ -42,6 +43,7 @@ function ArchiveCard({
   onToggleSelect,
   onToggleVisibility,
   isOwner,
+  onContextMenu,
 }: {
   item: LibraryItem;
   onClick: () => void;
@@ -50,6 +52,7 @@ function ArchiveCard({
   onToggleSelect?: (id: string) => void;
   onToggleVisibility?: (id: string) => void;
   isOwner?: boolean;
+  onContextMenu?: (e: React.MouseEvent, id: string) => void;
 }) {
   const { language } = useLanguage();
   const ko = language === "ko";
@@ -66,20 +69,25 @@ function ArchiveCard({
 
   const categoryLabel = getCategoryLabel(item.category, ko);
 
+  const hasOgImage = item.type === "url" && item.ogMetadata?.ogImage;
+  const ogDesc = item.ogMetadata?.ogDescription || item.description;
+  const favicon = item.ogMetadata?.favicon;
+
   return (
     <div
       onClick={onClick}
+      onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, item.id); }}
       className={cn(
-        "bg-white rounded-xl border shadow-sm hover:shadow-md transition-all cursor-pointer group p-3 relative",
+        "bg-white rounded-xl border shadow-sm hover:shadow-md transition-all cursor-pointer group relative overflow-hidden",
         isSelected
           ? "border-blue-400 ring-2 ring-blue-100"
-          : "border-gray-100 hover:border-blue-200"
+          : "border-gray-200 hover:border-gray-300"
       )}
     >
       {/* Checkbox */}
       <div
         className={cn(
-          "absolute top-2 right-2 z-10 transition-all",
+          "absolute top-2 left-2 z-10 transition-all",
           isSelecting || isSelected
             ? "opacity-100"
             : "opacity-0 group-hover:opacity-100"
@@ -103,54 +111,41 @@ function ArchiveCard({
         </button>
       </div>
 
-      <div className="flex items-start gap-3">
-        {/* Thumbnail */}
-        {item.type === "url" && item.ogMetadata?.ogImage ? (
-          <img
-            src={item.ogMetadata.ogImage}
-            alt=""
-            className="w-12 h-12 rounded-lg object-cover shrink-0 bg-gray-100"
-          />
-        ) : (
-          <div
-            className={cn(
-              "w-12 h-12 rounded-lg flex items-center justify-center shrink-0",
-              item.type === "url" ? "bg-blue-50" : "bg-amber-50"
-            )}
-          >
-            {item.type === "url" ? (
-              <LinkIcon size={18} className="text-blue-400" />
-            ) : (
-              <FileText size={18} className="text-amber-400" />
+      {/* Notion-style bookmark: text left + image right */}
+      <div className="flex h-full">
+        {/* Left: text content */}
+        <div className="flex-1 min-w-0 p-3.5 flex flex-col justify-between">
+          <div className="min-w-0">
+            <p className="text-[13px] font-semibold text-gray-900 leading-snug line-clamp-2 group-hover:text-blue-600 transition-colors">
+              {item.title || (ko ? "제목 없음" : "Untitled")}
+            </p>
+            {ogDesc && (
+              <p className="text-[11px] text-gray-500 line-clamp-2 mt-1 leading-relaxed">
+                {ogDesc}
+              </p>
             )}
           </div>
-        )}
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
-            {item.title || (ko ? "제목 없음" : "Untitled")}
-          </p>
-          {domain && (
-            <p className="text-[11px] text-gray-400 truncate flex items-center gap-1 mt-0.5">
-              <ExternalLink size={9} /> {domain}
-            </p>
-          )}
-          {item.description && !domain && (
-            <p className="text-[11px] text-gray-400 truncate mt-0.5">
-              {item.description}
-            </p>
-          )}
-          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+          <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+            {domain && (
+              <span className="flex items-center gap-1.5 text-[11px] text-gray-500 min-w-0">
+                {favicon ? (
+                  <img src={favicon} alt="" className="w-3.5 h-3.5 rounded-sm shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                ) : (
+                  <LinkIcon size={11} className="text-gray-400 shrink-0" />
+                )}
+                <span className="truncate">{item.url}</span>
+              </span>
+            )}
+            {!domain && item.type === "note" && (
+              <span className="flex items-center gap-1 text-[11px] text-gray-400">
+                <FileText size={11} /> {ko ? "노트" : "Note"}
+              </span>
+            )}
             {categoryLabel && (
-              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600">
+              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 shrink-0">
                 {categoryLabel}
               </span>
             )}
-            <span className="text-[9px] text-gray-300">
-              {new Date(item.createdAt).toLocaleDateString(
-                ko ? "ko-KR" : "en-US",
-                { month: "short", day: "numeric" }
-              )}
-            </span>
             {/* Visibility toggle */}
             {isOwner ? (
               <button
@@ -159,34 +154,39 @@ function ArchiveCard({
                   onToggleVisibility?.(item.id);
                 }}
                 className={cn(
-                  "flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded-full transition-colors",
+                  "flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded-full transition-colors shrink-0",
                   item.visibility === "published"
                     ? "text-emerald-600 bg-emerald-50 hover:bg-emerald-100"
                     : "text-gray-400 bg-gray-50 hover:bg-gray-100"
                 )}
               >
-                {item.visibility === "published" ? (
-                  <Globe size={8} />
-                ) : (
-                  <Lock size={8} />
-                )}
-                {item.visibility === "published"
-                  ? ko
-                    ? "공개"
-                    : "Public"
-                  : ko
-                    ? "비공개"
-                    : "Private"}
+                {item.visibility === "published" ? <Globe size={8} /> : <Lock size={8} />}
+                {item.visibility === "published" ? (ko ? "공개" : "Public") : (ko ? "비공개" : "Private")}
               </button>
             ) : (
               item.visibility === "published" && (
-                <span className="flex items-center gap-0.5 text-[9px] text-emerald-500 font-medium">
+                <span className="flex items-center gap-0.5 text-[9px] text-emerald-500 font-medium shrink-0">
                   <Globe size={8} /> {ko ? "공개" : "Public"}
                 </span>
               )
             )}
           </div>
         </div>
+
+        {/* Right: OG image */}
+        {hasOgImage ? (
+          <div className="w-[120px] shrink-0 bg-gray-100">
+            <img
+              src={item.ogMetadata!.ogImage}
+              alt=""
+              className="w-full h-full object-cover"
+            />
+          </div>
+        ) : item.type === "url" ? (
+          <div className="w-[120px] shrink-0 bg-gray-50 flex items-center justify-center">
+            <LinkIcon size={24} className="text-gray-300" />
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -258,12 +258,22 @@ export function LibraryPage() {
     isLoading,
     updateItem,
     removeItem,
+    getItem,
   } = useLibrary();
   const { currentUser } = useTeam();
+  const { moveToTrash } = useTrash();
 
   const [activeTab, setActiveTab] = useState<"all" | "my" | "team">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
+
+  // ── Right-click context menu ──
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; id: string } | null>(null);
+  const handleCardContextMenu = useCallback((e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    setCtxMenu({ x: e.clientX, y: e.clientY, id });
+  }, []);
+  const closeCtxMenu = useCallback(() => setCtxMenu(null), []);
 
   // All visible items (my items + others' published items)
   const allVisibleItems = useMemo(
@@ -581,7 +591,7 @@ export function LibraryPage() {
       {/* Card Grid */}
       <div className="flex-1 overflow-y-auto pb-20">
         {filteredItems.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
             {filteredItems.map((item) => (
               <ArchiveCard
                 key={item.id}
@@ -592,6 +602,7 @@ export function LibraryPage() {
                 onToggleSelect={toggleSelect}
                 onToggleVisibility={handleToggleVisibility}
                 isOwner={item.ownerId === currentUser.id}
+                onContextMenu={handleCardContextMenu}
               />
             ))}
           </div>
@@ -620,6 +631,38 @@ export function LibraryPage() {
         onDelete={handleBulkDelete}
         onClear={clearSelection}
       />
+
+      {/* Right-click context menu */}
+      {ctxMenu && (
+        <>
+          <div className="fixed inset-0 z-[70]" onClick={closeCtxMenu} onContextMenu={(e) => { e.preventDefault(); closeCtxMenu(); }} />
+          <div
+            className="fixed z-[71] bg-white border border-gray-200 rounded-xl shadow-xl py-1 min-w-[140px] animate-in fade-in zoom-in-95 duration-100"
+            style={{ left: ctxMenu.x, top: ctxMenu.y }}
+          >
+            <button
+              onClick={() => { navigate(`/library/${ctxMenu.id}`); closeCtxMenu(); }}
+              className="w-full px-3 py-2 text-xs text-left text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+            >
+              <Pencil size={13} /> {ko ? '수정' : 'Edit'}
+            </button>
+            <div className="mx-2 my-0.5 border-t border-gray-100" />
+            <button
+              onClick={() => {
+                const item = getItem(ctxMenu.id);
+                if (item) {
+                  moveToTrash({ id: item.id, type: 'library', title: item.title, data: item, deletedAt: new Date().toISOString() });
+                }
+                removeItem(ctxMenu.id);
+                closeCtxMenu();
+              }}
+              className="w-full px-3 py-2 text-xs text-left text-red-500 hover:bg-red-50 flex items-center gap-2 transition-colors"
+            >
+              <Trash2 size={13} /> {ko ? '삭제' : 'Delete'}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -691,7 +691,7 @@ app.post("/make-server-f580d5ca/invite/:code/direct-join", async (c) => {
   try {
     const code = c.req.param("code").toUpperCase();
     const body = await c.req.json();
-    const { userId, userName, avatar } = body;
+    const { userId, userName, avatar, email } = body;
     if (!userId) return c.json({ error: "userId is required" }, 400);
 
     const invite = await kv.get(`invite:${code}`) as any;
@@ -731,6 +731,7 @@ app.post("/make-server-f580d5ca/invite/:code/direct-join", async (c) => {
       id: userId,
       name: userName || `User ${userId}`,
       avatar: avatar || '',
+      email: email || '',
       role: invite.role || 'member',
       joinedAt: new Date().toISOString(),
     };
@@ -851,6 +852,60 @@ app.get("/make-server-f580d5ca/org/:orgId/invites", async (c) => {
   }
 });
 
+// ─── Team Board ──────────────────────────────────────────────────────
+app.get("/make-server-f580d5ca/team-board/:orgId", async (c) => {
+  try {
+    const orgId = c.req.param("orgId");
+    const items = await kv.getByPrefix(`team-board:${orgId}:`);
+    return c.json(items || []);
+  } catch (e) {
+    console.log("Error fetching team board:", e);
+    return c.json([]);
+  }
+});
+
+app.post("/make-server-f580d5ca/team-board/:orgId", async (c) => {
+  try {
+    const orgId = c.req.param("orgId");
+    const body = await c.req.json();
+    const id = body.id || `tb-${Date.now()}`;
+    const item = { ...body, id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    await kv.set(`team-board:${orgId}:${id}`, item);
+    return c.json(item);
+  } catch (e) {
+    console.log("Error creating team board item:", e);
+    return c.json({ error: "Failed to create", message: String(e) }, 500);
+  }
+});
+
+app.put("/make-server-f580d5ca/team-board/:orgId/:id", async (c) => {
+  try {
+    const orgId = c.req.param("orgId");
+    const id = c.req.param("id");
+    const body = await c.req.json();
+    const existing = await kv.get(`team-board:${orgId}:${id}`);
+    if (!existing) return c.json({ error: "Not found" }, 404);
+    const updated = { ...existing, ...body, id, updatedAt: new Date().toISOString() };
+    await kv.set(`team-board:${orgId}:${id}`, updated);
+    return c.json(updated);
+  } catch (e) {
+    console.log("Error updating team board item:", e);
+    return c.json({ error: "Failed to update", message: String(e) }, 500);
+  }
+});
+
+app.delete("/make-server-f580d5ca/team-board/:orgId/:id", async (c) => {
+  try {
+    const orgId = c.req.param("orgId");
+    const id = c.req.param("id");
+    await kv.del(`team-board:${orgId}:${id}`);
+    return c.json({ success: true });
+  } catch (e) {
+    console.log("Error deleting team board item:", e);
+    return c.json({ error: "Failed to delete", message: String(e) }, 500);
+  }
+});
+
 // ─── Biz Radar Routes ────────────────────────────────────────────────
 app.get("/make-server-f580d5ca/radar", async (c) => {
   try {
@@ -900,94 +955,522 @@ app.delete("/make-server-f580d5ca/radar/:id", async (c) => {
   }
 });
 
-// ─── Wishket Scraper ────────────────────────────────────────────────
+// ─── Wishket Scraper (cached, daily 7AM KST cron) ───────────────────
+import LZString from "npm:lz-string@1.5.0";
+
+const WISHKET_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  "Accept": "text/html,application/xhtml+xml",
+  "Accept-Language": "ko-KR,ko;q=0.9",
+};
+const MAX_PAGES = 20;
+
+// Build Wishket URL with LZString-compressed filter params
+function buildWishketUrl(page: number): string {
+  const params = page === 1 ? 'pt=task_based' : `page=${page}&pt=task_based`;
+  const compressed = encodeURIComponent(LZString.compressToBase64(params));
+  return `https://www.wishket.com/project/?d=${compressed}`;
+}
+
+// Parse a single page HTML and return 외주 projects
+function parseWishketPage(html: string): any[] {
+  const projects: any[] = [];
+  const cards = html.split('project-info-box');
+  for (let i = 1; i < cards.length; i++) {
+    const card = cards[i];
+    try {
+      // Skip 기간제 — only 외주
+      if (card.includes('기간제')) continue;
+      // Skip 모집 마감 (closed recruitment)
+      if (/모집\s*마감/.test(card)) continue;
+
+      const urlMatch = card.match(/href="\/project\/(\d+)\/"/);
+      const projectId = urlMatch?.[1] || '';
+      const projectUrl = projectId ? `https://www.wishket.com/project/${projectId}/` : '';
+
+      const titleMatch = card.match(/<h[23][^>]*class="[^"]*title[^"]*"[^>]*>([^<]+)</)
+        || card.match(/class="[^"]*title[^"]*"[^>]*>([^<]+)</)
+        || card.match(/href="\/project\/\d+\/"[^>]*>\s*([^<]+)</);
+      const title = titleMatch?.[1]?.trim() || '';
+
+      // Budget in KRW (원)
+      const priceMatch = card.match(/(\d[\d,]+)\s*만?\s*원/);
+      let priceText = '';
+      let priceValue = 0;
+      if (priceMatch) {
+        const raw = priceMatch[1].replace(/,/g, '');
+        priceValue = parseInt(raw);
+        if (card.includes(priceMatch[0].replace('원', '만원')) || /\d만\s*원/.test(card.substring(card.indexOf(priceMatch[0]) - 5, card.indexOf(priceMatch[0]) + priceMatch[0].length + 5))) {
+          priceValue *= 10000;
+        }
+        priceText = priceValue >= 10000
+          ? `${Math.floor(priceValue / 10000)}만원`
+          : `${priceValue.toLocaleString()}원`;
+      }
+      if (!priceText) {
+        const rangeMatch = card.match(/(\d[\d,]*)\s*만?\s*원\s*~\s*(\d[\d,]*)\s*만?\s*원/);
+        if (rangeMatch) {
+          priceText = rangeMatch[0].trim();
+          priceValue = parseInt(rangeMatch[2].replace(/,/g, '')) * 10000;
+        }
+      }
+      const isMonthly = card.includes('/월');
+
+      // Duration
+      const durationMatch = card.match(/(\d+)\s*일/);
+      const duration = durationMatch ? parseInt(durationMatch[1]) : 0;
+
+      // Deadline — strip tags first, then parse relative text
+      const cardText = card.replace(/<[^>]+>/g, ' ');
+      const deadlineMatch = cardText.match(/마감\s+([\d주일시간\s]+)\s*전/);
+      const deadlineText = deadlineMatch ? `마감 ${deadlineMatch[1].trim()} 전` : '';
+      let deadlineDate = '';
+      if (deadlineMatch) {
+        const relText = deadlineMatch[1].trim();
+        const weeksMatch = relText.match(/(\d+)\s*주/);
+        const daysMatch = relText.match(/(\d+)\s*일/);
+        const hoursMatch = relText.match(/(\d+)\s*시간/);
+        const now = new Date();
+        let totalDays = 0;
+        if (weeksMatch) totalDays += parseInt(weeksMatch[1]) * 7;
+        if (daysMatch) totalDays += parseInt(daysMatch[1]);
+        if (totalDays > 0) {
+          now.setDate(now.getDate() + totalDays);
+          deadlineDate = now.toISOString().split('T')[0];
+        } else if (hoursMatch) {
+          now.setHours(now.getHours() + parseInt(hoursMatch[1]));
+          deadlineDate = now.toISOString().split('T')[0];
+        }
+      }
+
+      // Applicants count
+      const applicantMatch = card.match(/지원자\s*(\d+)/) || card.match(/(\d+)\s*명\s*지원/);
+      const applicants = applicantMatch ? parseInt(applicantMatch[1]) : 0;
+
+      // Skills
+      const skillMatches: string[] = [];
+      const skillSection = card.match(/skills[^>]*>([\s\S]*?)<\/(?:div|ul|section)/i);
+      if (skillSection) {
+        const skillTags = skillSection[1].match(/>([^<]+)</g);
+        skillTags?.forEach(s => {
+          const clean = s.replace(/^>/, '').replace(/<$/, '').trim();
+          if (clean && clean.length > 1 && !clean.includes('경력')) skillMatches.push(clean);
+        });
+      }
+
+      if (title && projectId) {
+        projects.push({
+          id: projectId,
+          title,
+          url: projectUrl,
+          budget: priceText,
+          budgetValue: priceValue,
+          isMonthly,
+          projectType: '외주',
+          duration,
+          deadlineText,
+          deadlineDate,
+          applicants,
+          skills: skillMatches.filter(s => s !== '·').slice(0, 5),
+        });
+      }
+    } catch { /* skip malformed card */ }
+  }
+  return projects;
+}
+
+// Internal: scrape all pages (up to MAX_PAGES) and return 외주 projects
+async function scrapeWishketProjects(): Promise<any[]> {
+  const allProjects: any[] = [];
+  const seenIds = new Set<string>();
+
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    try {
+      const url = buildWishketUrl(page);
+      const res = await fetch(url, { headers: WISHKET_HEADERS });
+      if (!res.ok) {
+        console.log(`[Wishket] Page ${page} returned ${res.status}, stopping.`);
+        break;
+      }
+      const html = await res.text();
+
+      // Check if page has project cards
+      if (!html.includes('project-info-box')) {
+        console.log(`[Wishket] Page ${page} has no projects, stopping.`);
+        break;
+      }
+
+      const pageProjects = parseWishketPage(html);
+
+      // Deduplicate
+      let newCount = 0;
+      for (const p of pageProjects) {
+        if (!seenIds.has(p.id)) {
+          seenIds.add(p.id);
+          allProjects.push(p);
+          newCount++;
+        }
+      }
+
+      console.log(`[Wishket] Page ${page}: ${pageProjects.length} 외주 projects (${newCount} new)`);
+
+      // If page returned 0 new projects, likely reached the end
+      if (newCount === 0) break;
+
+      // Small delay between pages to be polite
+      if (page < MAX_PAGES) await new Promise(r => setTimeout(r, 300));
+    } catch (err) {
+      console.log(`[Wishket] Page ${page} error:`, err);
+      break;
+    }
+  }
+
+  // Sort by deadline (closest first)
+  allProjects.sort((a, b) => {
+    if (!a.deadlineDate && !a.deadlineText) return 1;
+    if (!b.deadlineDate && !b.deadlineText) return -1;
+    if (a.deadlineDate && b.deadlineDate) return a.deadlineDate.localeCompare(b.deadlineDate);
+    return a.deadlineText.localeCompare(b.deadlineText);
+  });
+
+  return allProjects;
+}
+
+// GET: return cached data (auto-refresh if stale > 24h)
 app.get("/make-server-f580d5ca/radar/wishket", async (c) => {
   try {
-    const res = await fetch("https://www.wishket.com/project/", {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml",
-        "Accept-Language": "ko-KR,ko;q=0.9",
-      },
-    });
-    if (!res.ok) return c.json({ error: "Failed to fetch wishket", status: res.status }, 502);
-    const html = await res.text();
+    const forceRefresh = c.req.query('refresh') === 'true';
 
-    // Parse project cards from HTML
-    const projects: any[] = [];
-    // Split by project-info-box containers
-    const cards = html.split('project-info-box');
-    for (let i = 1; i < cards.length; i++) {
-      const card = cards[i];
-      try {
-        // Extract project URL and ID
-        const urlMatch = card.match(/href="\/project\/(\d+)\/"/);
-        const projectId = urlMatch?.[1] || '';
-        const projectUrl = projectId ? `https://www.wishket.com/project/${projectId}/` : '';
+    const today = new Date().toISOString().split('T')[0];
+    const filterExpired = (projs: any[]) => projs.filter((p: any) => !p.deadlineDate || p.deadlineDate >= today);
 
-        // Extract title - look for text between title-related tags
-        const titleMatch = card.match(/<h[23][^>]*class="[^"]*title[^"]*"[^>]*>([^<]+)</)
-          || card.match(/class="[^"]*title[^"]*"[^>]*>([^<]+)</)
-          || card.match(/href="\/project\/\d+\/"[^>]*>\s*([^<]+)</);
-        const title = titleMatch?.[1]?.trim() || '';
-
-        // Extract budget
-        const priceMatch = card.match(/(\d[\d,]+)원/);
-        const priceText = priceMatch ? priceMatch[0] : '';
-        const priceValue = priceMatch ? parseInt(priceMatch[1].replace(/,/g, '')) : 0;
-        const isMonthly = card.includes('/월');
-
-        // Extract type badge (기간제 or 외주)
-        const isTermBased = card.includes('기간제');
-        const projectType = isTermBased ? '기간제' : '외주';
-
-        // Extract duration
-        const durationMatch = card.match(/(\d+)일/);
-        const duration = durationMatch ? parseInt(durationMatch[1]) : 0;
-
-        // Extract deadline text
-        const deadlineMatch = card.match(/마감\s*([^<]+?)전/);
-        const deadlineText = deadlineMatch ? `마감 ${deadlineMatch[1].trim()} 전` : '';
-
-        // Extract skills
-        const skillMatches: string[] = [];
-        const skillSection = card.match(/skills[^>]*>([\s\S]*?)<\/(?:div|ul|section)/i);
-        if (skillSection) {
-          const skillTags = skillSection[1].match(/>([^<]+)</g);
-          skillTags?.forEach(s => {
-            const clean = s.replace(/^>/, '').replace(/<$/, '').trim();
-            if (clean && clean.length > 1 && !clean.includes('경력')) skillMatches.push(clean);
-          });
+    if (!forceRefresh) {
+      const cached = await kv.get('wishket:cache');
+      if (cached && cached.fetchedAt) {
+        const ageMs = Date.now() - new Date(cached.fetchedAt).getTime();
+        if (ageMs < 24 * 60 * 60 * 1000) {
+          return c.json({ ...cached, projects: filterExpired(cached.projects || []) });
         }
-
-        if (title && projectId) {
-          projects.push({
-            id: projectId,
-            title,
-            url: projectUrl,
-            budget: priceText,
-            budgetValue: priceValue,
-            isMonthly,
-            projectType,
-            duration,
-            deadlineText,
-            skills: skillMatches.filter(s => s !== '·').slice(0, 5),
-          });
-        }
-      } catch { /* skip malformed card */ }
+      }
     }
 
-    // Sort by deadline (closest first — shorter text = sooner)
-    projects.sort((a, b) => {
-      if (!a.deadlineText) return 1;
-      if (!b.deadlineText) return -1;
+    // Scrape fresh and cache
+    const projects = await scrapeWishketProjects();
+    const result = { projects: filterExpired(projects), fetchedAt: new Date().toISOString() };
+    await kv.set('wishket:cache', result);
+    return c.json(result);
+  } catch (e) {
+    // Fallback to stale cache if available
+    try {
+      const cached = await kv.get('wishket:cache');
+      if (cached) return c.json({ ...cached, stale: true });
+    } catch { /* no cache */ }
+    console.log("Error scraping wishket:", e);
+    return c.json({ error: "Wishket scraping failed", message: String(e) }, 500);
+  }
+});
+
+// POST: cron endpoint — called daily at 7AM KST by pg_cron
+// Incremental: only crawl until we hit existing project IDs, then merge
+app.post("/make-server-f580d5ca/radar/wishket/cron", async (c) => {
+  try {
+    // Load existing cached projects
+    const cached = await kv.get('wishket:cache');
+    const existingProjects: any[] = cached?.projects || [];
+    const existingIds = new Set(existingProjects.map((p: any) => p.id));
+
+    // Crawl page by page, stop when we hit known IDs
+    const newProjects: any[] = [];
+    let pagesScanned = 0;
+
+    for (let page = 1; page <= MAX_PAGES; page++) {
+      try {
+        const url = buildWishketUrl(page);
+        const res = await fetch(url, { headers: WISHKET_HEADERS });
+        if (!res.ok) break;
+        const html = await res.text();
+        if (!html.includes('project-info-box')) break;
+
+        const pageProjects = parseWishketPage(html);
+        pagesScanned++;
+
+        let allKnown = true;
+        for (const p of pageProjects) {
+          if (!existingIds.has(p.id)) {
+            newProjects.push(p);
+            existingIds.add(p.id); // prevent dupes within new pages
+            allKnown = false;
+          }
+        }
+
+        console.log(`[Wishket Cron] Page ${page}: ${pageProjects.length} projects, ${pageProjects.filter((p: any) => !existingIds.has(p.id) || newProjects.some((n: any) => n.id === p.id)).length} new`);
+
+        // If every project on this page was already known → stop
+        if (allKnown && pageProjects.length > 0) {
+          console.log(`[Wishket Cron] All projects on page ${page} already cached, stopping.`);
+          break;
+        }
+
+        if (page < MAX_PAGES) await new Promise(r => setTimeout(r, 300));
+      } catch (err) {
+        console.log(`[Wishket Cron] Page ${page} error:`, err);
+        break;
+      }
+    }
+
+    // Also get page-1 IDs to detect removed/expired projects
+    // Projects on page 1 that no longer appear are likely completed
+    const page1Url = buildWishketUrl(1);
+    const page1Res = await fetch(page1Url, { headers: WISHKET_HEADERS }).catch(() => null);
+    const activeIds = new Set<string>();
+    if (page1Res?.ok) {
+      const page1Html = await page1Res.text();
+      // Quick scan all pages we visited for active IDs
+      // For efficiency, just keep all — only remove if project is very old (>60 days)
+    }
+
+    // Merge: new projects first, then existing (preserving order)
+    const merged = [...newProjects, ...existingProjects];
+
+    // Deduplicate by ID (keep first = newest)
+    const idSet = new Set<string>();
+    const deduped = merged.filter(p => {
+      if (idSet.has(p.id)) return false;
+      idSet.add(p.id);
+      return true;
+    });
+
+    // Sort by deadline
+    deduped.sort((a, b) => {
+      if (!a.deadlineDate && !a.deadlineText) return 1;
+      if (!b.deadlineDate && !b.deadlineText) return -1;
+      if (a.deadlineDate && b.deadlineDate) return a.deadlineDate.localeCompare(b.deadlineDate);
       return a.deadlineText.localeCompare(b.deadlineText);
     });
 
-    return c.json({ projects, fetchedAt: new Date().toISOString() });
+    const result = { projects: deduped, fetchedAt: new Date().toISOString() };
+    await kv.set('wishket:cache', result);
+
+    console.log(`[Wishket Cron] Done: ${newProjects.length} new, ${deduped.length} total (scanned ${pagesScanned} pages)`);
+    return c.json({
+      success: true,
+      newCount: newProjects.length,
+      totalCount: deduped.length,
+      pagesScanned,
+      fetchedAt: result.fetchedAt,
+    });
   } catch (e) {
-    console.log("Error scraping wishket:", e);
-    return c.json({ error: "Wishket scraping failed", message: String(e) }, 500);
+    console.log("[Wishket Cron] Error:", e);
+    return c.json({ error: "Cron scrape failed", message: String(e) }, 500);
+  }
+});
+
+// ─── Freemoa Scraper (cached, JSON API, 10 pages) ───────────────────
+const FREEMOA_MAX_PAGES = 10;
+const FREEMOA_HEADERS: Record<string, string> = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  "Content-Type": "application/x-www-form-urlencoded",
+  "X-Requested-With": "XMLHttpRequest",
+  "Accept": "application/json",
+  "Accept-Language": "ko-KR,ko;q=0.9",
+  "Referer": "https://www.freemoa.net/m4/s41?page=1",
+};
+
+// Freemoa scraper — PAUSED: freemoa.net has a broken SSL cert chain
+// (wrong intermediate + expired AddTrust root). Deno's rustls rejects it.
+// TODO: Revisit when freemoa fixes their cert, or use pg_net approach.
+function freemoaFetch(_url: string, _init?: any): Promise<Response> {
+  throw new Error("Freemoa scraper paused: SSL cert chain broken on freemoa.net");
+}
+
+// Fetch session cookie (required for freemoa API)
+async function getFreemoaCookie(): Promise<string> {
+  const res = await freemoaFetch("https://www.freemoa.net/m4/s41?page=1", {
+    headers: { "User-Agent": FREEMOA_HEADERS["User-Agent"] },
+    redirect: "follow",
+  });
+  const setCookie = res.headers.get("set-cookie") || "";
+  const cookies: string[] = [];
+  for (const part of setCookie.split(",")) {
+    const m = part.match(/^\s*([^=]+=[^;]+)/);
+    if (m) cookies.push(m[1].trim());
+  }
+  return cookies.join("; ");
+}
+
+async function scrapeFreemoaProjects(): Promise<any[]> {
+  const cookie = await getFreemoaCookie();
+  const allProjects: any[] = [];
+  const seenIds = new Set<string>();
+
+  for (let page = 1; page <= FREEMOA_MAX_PAGES; page++) {
+    try {
+      const res = await freemoaFetch("https://www.freemoa.net/m4a/s41a", {
+        method: "POST",
+        headers: { ...FREEMOA_HEADERS, "Cookie": cookie },
+        body: `page=${page}&sS=`,
+      });
+      if (!res.ok) {
+        console.log(`[Freemoa] Page ${page} returned ${res.status}, stopping.`);
+        break;
+      }
+      const json = await res.json();
+      const list = json?.DATA?.PROJECT?.LIST;
+      if (!list || list.length === 0) {
+        console.log(`[Freemoa] Page ${page} empty, stopping.`);
+        break;
+      }
+
+      for (const row of list) {
+        const id = row.proj_idx;
+        if (!id || seenIds.has(id)) continue;
+        seenIds.add(id);
+
+        // workType: 1=도급외주, 2=상주(시간제), 3=상주(기간제), 4=상주
+        const workTypeMap: Record<string, string> = { '1': '도급외주', '2': '상주(시간제)', '3': '상주(기간제)', '4': '상주' };
+        const costMin = parseInt(row.cost_min || '0');
+        const costMax = parseInt(row.cost_max || '0');
+        // cost values are in 만원
+        let budget = '';
+        if (costMin && costMax) {
+          budget = costMin === costMax ? `${costMax}만원` : `${costMin}~${costMax}만원`;
+        } else if (costMax) {
+          budget = `${costMax}만원`;
+        }
+
+        allProjects.push({
+          id,
+          title: row.title || '',
+          url: `https://www.freemoa.net/m4/s41/${id}`,
+          budget,
+          budgetValue: costMax * 10000, // convert 만원 → 원
+          projectType: workTypeMap[row.workType] || '외주',
+          workType: row.workType,
+          duration: parseInt(row.during || '0'),
+          deadlineDate: row.edate || '',
+          deadlineText: row.edate ? '' : '',
+          applicants: parseInt(row.APPLY_COUNT || '0'),
+          skills: (row.proj_language || '').split(',').map((s: string) => s.trim()).filter((s: string) => s && s !== '제안요청'),
+          field: row.fld_nm_2nd || row.fld || '',
+          location: row.pv_smallnm || '',
+          isRecruiting: row.isNowApply === '1' || row.isNowApply === 1,
+          source: 'freemoa',
+        });
+      }
+
+      console.log(`[Freemoa] Page ${page}: ${list.length} projects`);
+      if (page < FREEMOA_MAX_PAGES) await new Promise(r => setTimeout(r, 300));
+    } catch (err) {
+      console.log(`[Freemoa] Page ${page} error:`, err);
+      break;
+    }
+  }
+
+  // Sort by deadline (closest first)
+  allProjects.sort((a, b) => {
+    if (!a.deadlineDate) return 1;
+    if (!b.deadlineDate) return -1;
+    return a.deadlineDate.localeCompare(b.deadlineDate);
+  });
+
+  return allProjects;
+}
+
+// GET: return cached data
+app.get("/make-server-f580d5ca/radar/freemoa", async (c) => {
+  try {
+    const forceRefresh = c.req.query('refresh') === 'true';
+    if (!forceRefresh) {
+      const cached = await kv.get('freemoa:cache');
+      if (cached && cached.fetchedAt) {
+        const ageMs = Date.now() - new Date(cached.fetchedAt).getTime();
+        if (ageMs < 24 * 60 * 60 * 1000) return c.json(cached);
+      }
+    }
+    const projects = await scrapeFreemoaProjects();
+    const result = { projects, fetchedAt: new Date().toISOString() };
+    await kv.set('freemoa:cache', result);
+    return c.json(result);
+  } catch (e) {
+    try { const cached = await kv.get('freemoa:cache'); if (cached) return c.json({ ...cached, stale: true }); } catch {}
+    console.log("Error scraping freemoa:", e);
+    return c.json({ error: "Freemoa scraping failed", message: String(e) }, 500);
+  }
+});
+
+// POST: cron endpoint (incremental)
+app.post("/make-server-f580d5ca/radar/freemoa/cron", async (c) => {
+  try {
+    const cached = await kv.get('freemoa:cache');
+    const existingProjects: any[] = cached?.projects || [];
+    const existingIds = new Set(existingProjects.map((p: any) => p.id));
+
+    // If no cache, do full scrape
+    if (existingProjects.length === 0) {
+      const projects = await scrapeFreemoaProjects();
+      const result = { projects, fetchedAt: new Date().toISOString() };
+      await kv.set('freemoa:cache', result);
+      console.log(`[Freemoa Cron] Full scrape: ${projects.length} projects.`);
+      return c.json({ success: true, newCount: projects.length, totalCount: projects.length, fetchedAt: result.fetchedAt });
+    }
+
+    // Incremental: crawl until hitting known IDs
+    const cookie = await getFreemoaCookie();
+    const newProjects: any[] = [];
+    let pagesScanned = 0;
+
+    for (let page = 1; page <= FREEMOA_MAX_PAGES; page++) {
+      try {
+        const res = await fetch("https://www.freemoa.net/m4a/s41a", {
+          method: "POST",
+          headers: { ...FREEMOA_HEADERS, "Cookie": cookie },
+          body: `page=${page}&sS=`,
+        });
+        if (!res.ok) break;
+        const json = await res.json();
+        const list = json?.DATA?.PROJECT?.LIST;
+        if (!list || list.length === 0) break;
+        pagesScanned++;
+
+        let allKnown = true;
+        for (const row of list) {
+          const id = row.proj_idx;
+          if (!id || existingIds.has(id)) continue;
+          existingIds.add(id);
+          allKnown = false;
+          const workTypeMap: Record<string, string> = { '1': '도급외주', '2': '상주(시간제)', '3': '상주(기간제)', '4': '상주' };
+          const costMin = parseInt(row.cost_min || '0');
+          const costMax = parseInt(row.cost_max || '0');
+          let budget = '';
+          if (costMin && costMax) { budget = costMin === costMax ? `${costMax}만원` : `${costMin}~${costMax}만원`; }
+          else if (costMax) { budget = `${costMax}만원`; }
+          newProjects.push({
+            id, title: row.title || '', url: `https://www.freemoa.net/m4/s41/${id}`,
+            budget, budgetValue: costMax * 10000, projectType: workTypeMap[row.workType] || '외주',
+            workType: row.workType, duration: parseInt(row.during || '0'),
+            deadlineDate: row.edate || '', deadlineText: '', applicants: parseInt(row.APPLY_COUNT || '0'),
+            skills: (row.proj_language || '').split(',').map((s: string) => s.trim()).filter((s: string) => s && s !== '제안요청'),
+            field: row.fld_nm_2nd || row.fld || '', location: row.pv_smallnm || '',
+            isRecruiting: row.isNowApply === '1' || row.isNowApply === 1, source: 'freemoa',
+          });
+        }
+        if (allKnown) break;
+        if (page < FREEMOA_MAX_PAGES) await new Promise(r => setTimeout(r, 300));
+      } catch { break; }
+    }
+
+    const merged = [...newProjects, ...existingProjects];
+    const idSet = new Set<string>();
+    const deduped = merged.filter(p => { if (idSet.has(p.id)) return false; idSet.add(p.id); return true; });
+    deduped.sort((a, b) => { if (!a.deadlineDate) return 1; if (!b.deadlineDate) return -1; return a.deadlineDate.localeCompare(b.deadlineDate); });
+
+    const result = { projects: deduped, fetchedAt: new Date().toISOString() };
+    await kv.set('freemoa:cache', result);
+    console.log(`[Freemoa Cron] Done: ${newProjects.length} new, ${deduped.length} total (${pagesScanned} pages)`);
+    return c.json({ success: true, newCount: newProjects.length, totalCount: deduped.length, pagesScanned, fetchedAt: result.fetchedAt });
+  } catch (e) {
+    console.log("[Freemoa Cron] Error:", e);
+    return c.json({ error: "Cron scrape failed", message: String(e) }, 500);
   }
 });
 
@@ -1096,11 +1579,18 @@ app.post("/make-server-f580d5ca/library/og", async (c) => {
     const { url } = await c.req.json();
     if (!url) return c.json({ error: "URL required" }, 400);
 
+    const isInstagram = /^https?:\/\/(www\.)?instagram\.com\//i.test(url);
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
 
     const res = await fetch(url, {
-      headers: { 'User-Agent': 'PotenManager/1.0 (OG Fetcher)' },
+      headers: {
+        'User-Agent': isInstagram
+          ? 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
+          : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+      },
       redirect: 'follow',
       signal: controller.signal,
     });
@@ -1117,15 +1607,42 @@ app.post("/make-server-f580d5ca/library/og", async (c) => {
       return match?.[1] || match?.[2] || undefined;
     };
 
-    const ogMetadata = {
-      ogTitle: getMetaContent('og:title') || getMetaContent('twitter:title'),
-      ogDescription: getMetaContent('og:description') || getMetaContent('description'),
-      ogImage: getMetaContent('og:image') || getMetaContent('twitter:image'),
-      ogSiteName: getMetaContent('og:site_name'),
-      favicon: new URL('/favicon.ico', url).href,
+    const getTitleTag = (): string | undefined => {
+      const m = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+      return m?.[1]?.trim() || undefined;
     };
 
-    return c.json(ogMetadata);
+    let ogTitle = getMetaContent('og:title') || getMetaContent('twitter:title');
+    const ogDescription = getMetaContent('og:description') || getMetaContent('description');
+    const ogImage = getMetaContent('og:image') || getMetaContent('twitter:image');
+    let ogSiteName = getMetaContent('og:site_name');
+
+    // Instagram-specific: og:title is often just "Instagram" or "인스타그램"
+    if (isInstagram) {
+      const GENERIC = ['Instagram', '인스타그램', 'Instagram photo', 'Instagram video', 'Login • Instagram'];
+      if (!ogTitle || GENERIC.some(g => ogTitle!.trim() === g)) {
+        const titleTag = getTitleTag();
+        if (titleTag && !GENERIC.some(g => titleTag === g)) {
+          ogTitle = titleTag;
+        } else if (ogDescription && ogDescription.length > 0) {
+          ogTitle = ogDescription.length > 80 ? ogDescription.substring(0, 80) + '...' : ogDescription;
+        } else {
+          const path = new URL(url).pathname;
+          if (path.includes('/reel/')) ogTitle = 'Instagram Reel';
+          else if (path.includes('/stories/')) ogTitle = 'Instagram Story';
+          else if (path.includes('/p/')) ogTitle = 'Instagram Post';
+          else ogTitle = 'Instagram';
+        }
+      }
+      if (!ogSiteName) ogSiteName = 'Instagram';
+    }
+
+    // General fallback: use <title> tag if no og:title
+    if (!ogTitle) {
+      ogTitle = getTitleTag();
+    }
+
+    return c.json({ ogTitle, ogDescription, ogImage, ogSiteName, favicon: new URL('/favicon.ico', url).href });
   } catch (e) {
     console.log("Error fetching OG metadata:", e);
     return c.json({ ogTitle: undefined, ogDescription: undefined, ogImage: undefined }, 200);
@@ -1767,7 +2284,110 @@ app.post("/make-server-f580d5ca/demo/setup", async (c) => {
   }
 });
 
+// ─── File Upload (Cloudflare R2) ─────────────────────────────────────
+const R2_ENDPOINT = "https://ea9424ce0bd83112b66bddc3eb5f0436.r2.cloudflarestorage.com";
+const R2_BUCKET = "potenmanager";
+const R2_ACCESS_KEY = "a4f54da00c7eb8846a637a70c299a965";
+const R2_SECRET_KEY = "83bb849445abfd14e76c79300b673d7bf811d9fc50524c3dfe717264ef999d47";
+const R2_PUBLIC_URL = `${R2_ENDPOINT}/${R2_BUCKET}`;
+
+// AWS Signature V4 helpers for R2
+async function hmacSha256(key: ArrayBuffer | Uint8Array, data: string): Promise<ArrayBuffer> {
+  const cryptoKey = await crypto.subtle.importKey("raw", key, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(data));
+}
+
+async function sha256Hex(data: ArrayBuffer | Uint8Array): Promise<string> {
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function signR2Request(method: string, path: string, headers: Record<string, string>, body: Uint8Array | null): Promise<Record<string, string>> {
+  const now = new Date();
+  const dateStamp = now.toISOString().replace(/[-:]/g, "").slice(0, 8);
+  const amzDate = dateStamp + "T" + now.toISOString().replace(/[-:]/g, "").slice(9, 15) + "Z";
+  const region = "auto";
+  const service = "s3";
+  const scope = `${dateStamp}/${region}/${service}/aws4_request`;
+
+  const payloadHash = body ? await sha256Hex(body) : await sha256Hex(new Uint8Array(0));
+
+  const allHeaders: Record<string, string> = {
+    ...headers,
+    host: new URL(R2_ENDPOINT).host,
+    "x-amz-date": amzDate,
+    "x-amz-content-sha256": payloadHash,
+  };
+
+  const signedHeaderKeys = Object.keys(allHeaders).sort();
+  const signedHeaders = signedHeaderKeys.join(";");
+  const canonicalHeaders = signedHeaderKeys.map(k => `${k}:${allHeaders[k]}\n`).join("");
+
+  const canonicalRequest = [method, `/${R2_BUCKET}${path}`, "", canonicalHeaders, signedHeaders, payloadHash].join("\n");
+  const canonicalRequestHash = await sha256Hex(new TextEncoder().encode(canonicalRequest));
+
+  const stringToSign = ["AWS4-HMAC-SHA256", amzDate, scope, canonicalRequestHash].join("\n");
+
+  const enc = new TextEncoder();
+  const kDate = await hmacSha256(enc.encode("AWS4" + R2_SECRET_KEY), dateStamp);
+  const kRegion = await hmacSha256(kDate, region);
+  const kService = await hmacSha256(kRegion, service);
+  const kSigning = await hmacSha256(kService, "aws4_request");
+  const signature = [...new Uint8Array(await hmacSha256(kSigning, stringToSign))].map(b => b.toString(16).padStart(2, "0")).join("");
+
+  return {
+    ...allHeaders,
+    authorization: `AWS4-HMAC-SHA256 Credential=${R2_ACCESS_KEY}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
+  };
+}
+
+// Upload file
+app.post("/make-server-f580d5ca/files/upload", async (c) => {
+  try {
+    const formData = await c.req.formData();
+    const file = formData.get("file") as File | null;
+    if (!file) return c.json({ error: "No file provided" }, 400);
+
+    const MAX_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_SIZE) return c.json({ error: "File too large (max 5MB)" }, 400);
+
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const ext = file.name.split(".").pop() || "bin";
+    const key = `/attachment/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
+
+    const headers = await signR2Request("PUT", key, { "content-type": file.type || "application/octet-stream" }, bytes);
+    const r2Res = await fetch(`${R2_ENDPOINT}/${R2_BUCKET}${key}`, { method: "PUT", headers, body: bytes });
+
+    if (!r2Res.ok) {
+      const errText = await r2Res.text();
+      console.error("[R2] Upload failed:", r2Res.status, errText);
+      return c.json({ error: "R2 upload failed", detail: errText }, 500);
+    }
+
+    return c.json({ url: `${R2_PUBLIC_URL}${key}`, key, fileName: file.name, fileSize: file.size });
+  } catch (e) {
+    console.error("[R2] Upload error:", e);
+    return c.json({ error: "Upload failed", message: String(e) }, 500);
+  }
+});
+
+// Delete file
+app.delete("/make-server-f580d5ca/files/:key{.+}", async (c) => {
+  try {
+    const key = "/" + c.req.param("key");
+    const headers = await signR2Request("DELETE", key, {}, null);
+    const r2Res = await fetch(`${R2_ENDPOINT}/${R2_BUCKET}${key}`, { method: "DELETE", headers });
+
+    if (!r2Res.ok && r2Res.status !== 404) {
+      return c.json({ error: "R2 delete failed" }, 500);
+    }
+    return c.json({ success: true });
+  } catch (e) {
+    return c.json({ error: "Delete failed", message: String(e) }, 500);
+  }
+});
+
 // Version check endpoint
-app.get("/make-server-f580d5ca/version", (c) => c.json({ version: "0.2.0", routes: "full" }));
+app.get("/make-server-f580d5ca/version", (c) => c.json({ version: "0.3.0", routes: "full" }));
 
 Deno.serve(app.fetch);

@@ -49,7 +49,7 @@ export function GoalProvider({ children }: { children: ReactNode }) {
 
   // Derived: split into regular and urgent (memoized)
   const goals = useMemo(() => allGoals.filter((g) => !g.isUrgent), [allGoals]);
-  const urgentGoals = useMemo(() => allGoals.filter((g) => g.isUrgent), [allGoals]);
+  const urgentGoals = useMemo(() => allGoals.filter((g) => g.isUrgent === true), [allGoals]);
 
   // ─── Server Sync: Fetch goals on mount ───────────────────────────
   useEffect(() => {

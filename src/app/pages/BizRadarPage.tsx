@@ -3,10 +3,11 @@ import { useNavigate } from "react-router";
 import { useDrag, useDrop } from "react-dnd";
 import {
   Plus, Search, Compass, Eye, Send, MessageSquare, Trophy,
-  LayoutGrid, List as ListIcon, MoreHorizontal,
+  LayoutGrid, List as ListIcon, MoreHorizontal, Pencil,
   Trash2, X, Check, Building2, User as UserIcon, Calendar,
   DollarSign, Percent, Tag, Briefcase, Link2, Globe, Loader2,
-  RefreshCw, ExternalLink, Clock, ArrowDownUp,
+  RefreshCw, ExternalLink, Clock, ArrowDownUp, Users,
+  ChevronLeft, ChevronRight, Sparkles, ArrowDown, ArrowUp,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
@@ -55,9 +56,10 @@ function formatValue(v?: number): string {
 }
 
 // ─── Biz Card ─────────────────────────────────────────────────────
-function BizCard({ item, column, isSelecting, isSelected, onToggleSelect }: {
+function BizCard({ item, column, isSelecting, isSelected, onToggleSelect, onContextMenu }: {
   item: BizRadarItem; column: BizStage;
   isSelecting: boolean; isSelected: boolean; onToggleSelect: (id: string) => void;
+  onContextMenu?: (e: React.MouseEvent, id: string) => void;
 }) {
   const { language } = useLanguage();
   const ko = language === 'ko';
@@ -86,6 +88,7 @@ function BizCard({ item, column, isSelecting, isSelected, onToggleSelect }: {
     <div
       ref={dragRef}
       onClick={handleClick}
+      onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, item.id); }}
       className={cn(
         "bg-white p-4 rounded-xl border shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group relative",
         isDragging ? "opacity-40 border-blue-300 shadow-lg scale-[0.97] ring-2 ring-blue-200"
@@ -107,7 +110,7 @@ function BizCard({ item, column, isSelecting, isSelected, onToggleSelect }: {
         <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider", tc.bg, tc.text)}>
           {ko ? tc.labelKo : tc.label}
         </span>
-        <button onClick={(e) => e.stopPropagation()} className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button onClick={(e) => { e.stopPropagation(); onContextMenu?.(e, item.id); }} className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">
           <MoreHorizontal size={16} />
         </button>
       </div>
@@ -178,7 +181,7 @@ function PipelineColumn({
   stage, items, onDrop,
   isAdding, onStartAdd, onCancelAdd, onAddItem,
   isSelecting, selectedIds, onToggleSelect,
-  category,
+  category, onCardContextMenu,
 }: {
   stage: BizStage; items: BizRadarItem[];
   onDrop: (itemId: string, targetStage: BizStage) => void;
@@ -186,6 +189,7 @@ function PipelineColumn({
   onAddItem: (title: string, stage: BizStage) => void;
   isSelecting: boolean; selectedIds: Set<string>; onToggleSelect: (id: string) => void;
   category: BizCategory;
+  onCardContextMenu?: (e: React.MouseEvent, id: string) => void;
 }) {
   const { language } = useLanguage();
   const ko = language === 'ko';
@@ -266,7 +270,7 @@ function PipelineColumn({
         )}
         {items.map(item => (
           <BizCard key={item.id} item={item} column={stage}
-            isSelecting={isSelecting} isSelected={selectedIds.has(item.id)} onToggleSelect={onToggleSelect} />
+            isSelecting={isSelecting} isSelected={selectedIds.has(item.id)} onToggleSelect={onToggleSelect} onContextMenu={onCardContextMenu} />
         ))}
         {!isAdding && items.length > 0 && (
           <button onClick={onStartAdd}
@@ -300,7 +304,7 @@ function BizSelectionToolbar({ count, language, onDelete, onClear }: {
 }
 
 // ─── List View ──────────────────────────────────────────────────
-function BizListView({ items }: { items: BizRadarItem[] }) {
+function BizListView({ items, onContextMenu }: { items: BizRadarItem[]; onContextMenu?: (e: React.MouseEvent, id: string) => void }) {
   const { language } = useLanguage();
   const ko = language === 'ko';
   const navigate = useNavigate();
@@ -329,6 +333,7 @@ function BizListView({ items }: { items: BizRadarItem[] }) {
             const assignee = item.assigneeId ? members.find(m => m.id === item.assigneeId) : null;
             return (
               <tr key={item.id} onClick={() => navigate(`/radar/${item.id}`)}
+                onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, item.id); }}
                 className="border-b border-gray-50 hover:bg-blue-50/30 cursor-pointer transition-colors">
                 <td className="px-4 py-3 text-gray-400 text-xs">{i + 1}</td>
                 <td className="px-4 py-3">
@@ -386,18 +391,90 @@ export function BizRadarPage() {
   const [crawlUrl, setCrawlUrl] = useState('');
   const [crawlLoading, setCrawlLoading] = useState(false);
 
+  // External project tabs: 'wishket' | 'freemoa' | null
+  const [externalTab, setExternalTab] = useState<'wishket' | 'freemoa' | null>(null);
+  const showWishket = externalTab === 'wishket';
+  const showFreemoa = externalTab === 'freemoa';
+
   // Wishket tab state
-  const [showWishket, setShowWishket] = useState(false);
   const [wishketProjects, setWishketProjects] = useState<any[]>([]);
   const [wishketLoading, setWishketLoading] = useState(false);
   const [wishketError, setWishketError] = useState<string | null>(null);
   const [wishketFetchedAt, setWishketFetchedAt] = useState<string | null>(null);
+  const [wishketSort, setWishketSort] = useState<'relevance' | 'deadline' | 'price_high'>('relevance');
+  const [wishketPage, setWishketPage] = useState(1);
+  const [wishketSearch, setWishketSearch] = useState('');
 
-  const loadWishketProjects = useCallback(async () => {
+  // Freemoa tab state
+  const [freemoaProjects, setFreemoaProjects] = useState<any[]>([]);
+  const [freemoaLoading, setFreemoaLoading] = useState(false);
+  const [freemoaError, setFreemoaError] = useState<string | null>(null);
+  const [freemoaFetchedAt, setFreemoaFetchedAt] = useState<string | null>(null);
+  const [freemoaSort, setFreemoaSort] = useState<'relevance' | 'deadline' | 'price_high'>('relevance');
+  const [freemoaPage, setFreemoaPage] = useState(1);
+  const [freemoaSearch, setFreemoaSearch] = useState('');
+  const WISHKET_PER_PAGE = 9;
+
+  // Relevance keywords — 포텐랩 기술 스택
+  const RELEVANCE_KEYWORDS = ['react', 'react.js', 'reactjs', 'next', 'next.js', 'nextjs', 'typescript', 'javascript', 'node', 'node.js', 'nodejs', 'vue', 'angular', 'flutter', 'web', '웹', '플랫폼', '커뮤니티', 'sns', '앱', 'app', 'saas', '프론트엔드', 'frontend', 'ui', 'ux', 'figma', 'supabase', 'firebase'];
+
+  const wishketSorted = useMemo(() => {
+    let list = [...wishketProjects];
+
+    // Search filter
+    if (wishketSearch.trim()) {
+      const q = wishketSearch.toLowerCase();
+      list = list.filter(p =>
+        p.title?.toLowerCase().includes(q) ||
+        p.skills?.some((s: string) => s.toLowerCase().includes(q))
+      );
+    }
+
+    // Relevance scoring
+    const scored = list.map(p => {
+      let score = 0;
+      const allText = [p.title, ...(p.skills || [])].join(' ').toLowerCase();
+      for (const kw of RELEVANCE_KEYWORDS) {
+        if (allText.includes(kw)) score += (kw === 'react' || kw === 'react.js' || kw === 'reactjs') ? 3 : (kw === '플랫폼' || kw === '커뮤니티') ? 2 : 1;
+      }
+      return { ...p, _relevance: score };
+    });
+
+    // Sort
+    switch (wishketSort) {
+      case 'deadline':
+        scored.sort((a, b) => {
+          if (!a.deadlineDate && !a.deadlineText) return 1;
+          if (!b.deadlineDate && !b.deadlineText) return -1;
+          if (a.deadlineDate && b.deadlineDate) return a.deadlineDate.localeCompare(b.deadlineDate);
+          return (a.deadlineText || '').localeCompare(b.deadlineText || '');
+        });
+        break;
+      case 'price_high':
+        scored.sort((a, b) => (b.budgetValue || 0) - (a.budgetValue || 0));
+        break;
+      case 'relevance':
+      default:
+        scored.sort((a, b) => b._relevance - a._relevance || (b.budgetValue || 0) - (a.budgetValue || 0));
+        break;
+    }
+    return scored;
+  }, [wishketProjects, wishketSort, wishketSearch]);
+
+  const wishketTotalPages = Math.max(1, Math.ceil(wishketSorted.length / WISHKET_PER_PAGE));
+  const wishketPaged = useMemo(() => {
+    const start = (wishketPage - 1) * WISHKET_PER_PAGE;
+    return wishketSorted.slice(start, start + WISHKET_PER_PAGE);
+  }, [wishketSorted, wishketPage]);
+
+  const loadWishketProjects = useCallback(async (forceRefresh = false) => {
     setWishketLoading(true);
     setWishketError(null);
     try {
-      const data = await api.fetchWishketProjects();
+      const url = forceRefresh ? '/radar/wishket?refresh=true' : '/radar/wishket';
+      const data = forceRefresh
+        ? await api.fetchWishketProjectsRefresh()
+        : await api.fetchWishketProjects();
       setWishketProjects(data.projects || []);
       setWishketFetchedAt(data.fetchedAt || null);
     } catch (e: any) {
@@ -407,13 +484,56 @@ export function BizRadarPage() {
     }
   }, []);
 
-  const handleImportWishket = useCallback((project: any) => {
+  // Freemoa sorted + paged
+  const FREEMOA_PER_PAGE = 9;
+  const freemoaSorted = useMemo(() => {
+    let list = [...freemoaProjects];
+    if (freemoaSearch.trim()) {
+      const q = freemoaSearch.toLowerCase();
+      list = list.filter(p => p.title?.toLowerCase().includes(q) || p.skills?.some((s: string) => s.toLowerCase().includes(q)));
+    }
+    const scored = list.map(p => {
+      let score = 0;
+      const allText = [p.title, ...(p.skills || [])].join(' ').toLowerCase();
+      for (const kw of RELEVANCE_KEYWORDS) {
+        if (allText.includes(kw)) score += (kw === 'react' || kw === 'react.js' || kw === 'reactjs') ? 3 : (kw === '플랫폼' || kw === '커뮤니티') ? 2 : 1;
+      }
+      return { ...p, _relevance: score };
+    });
+    switch (freemoaSort) {
+      case 'deadline': scored.sort((a, b) => { if (!a.deadlineDate) return 1; if (!b.deadlineDate) return -1; return a.deadlineDate.localeCompare(b.deadlineDate); }); break;
+      case 'price_high': scored.sort((a, b) => (b.budgetValue || 0) - (a.budgetValue || 0)); break;
+      default: scored.sort((a, b) => b._relevance - a._relevance || (b.budgetValue || 0) - (a.budgetValue || 0)); break;
+    }
+    return scored;
+  }, [freemoaProjects, freemoaSort, freemoaSearch]);
+  const freemoaTotalPages = Math.max(1, Math.ceil(freemoaSorted.length / FREEMOA_PER_PAGE));
+  const freemoaPaged = useMemo(() => {
+    const start = (freemoaPage - 1) * FREEMOA_PER_PAGE;
+    return freemoaSorted.slice(start, start + FREEMOA_PER_PAGE);
+  }, [freemoaSorted, freemoaPage]);
+
+  const loadFreemoaProjects = useCallback(async (forceRefresh = false) => {
+    setFreemoaLoading(true);
+    setFreemoaError(null);
+    try {
+      const data = forceRefresh ? await api.fetchFreemoaProjectsRefresh() : await api.fetchFreemoaProjects();
+      setFreemoaProjects(data.projects || []);
+      setFreemoaFetchedAt(data.fetchedAt || null);
+    } catch (e: any) {
+      setFreemoaError(e.message || 'Failed to load');
+    } finally {
+      setFreemoaLoading(false);
+    }
+  }, []);
+
+  const handleImportExternal = useCallback((project: any) => {
     const now = new Date().toISOString();
     const id = `biz-${Date.now()}`;
     addItem({
       id,
       title: project.title,
-      description: `${project.projectType} · ${project.duration}일 · ${project.budget || '금액 미정'}`,
+      description: `외주 · ${project.duration}일 · ${project.budget || '금액 미정'}${project.applicants > 0 ? ` · 지원자 ${project.applicants}명` : ''}`,
       category: 'sales',
       type: 'project',
       stage: 'discovered',
@@ -427,6 +547,14 @@ export function BizRadarPage() {
     });
     navigate(`/radar/${id}`);
   }, [addItem, currentUser.id, navigate]);
+
+  // ── Right-click context menu ──
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; id: string } | null>(null);
+  const handleCardContextMenu = useCallback((e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    setCtxMenu({ x: e.clientX, y: e.clientY, id });
+  }, []);
+  const closeCtxMenu = useCallback(() => setCtxMenu(null), []);
 
   const isSelecting = selectedIds.size > 0;
   const toggleSelect = useCallback((id: string) => {
@@ -592,10 +720,10 @@ export function BizRadarPage() {
         {/* Category Tabs: 영업 / 연결 */}
         <div className="flex items-center gap-3 mb-4">
           <button
-            onClick={() => { setActiveCategory('sales'); setShowWishket(false); clearSelection(); setSearchQuery(''); }}
+            onClick={() => { setActiveCategory('sales'); setExternalTab(null); clearSelection(); setSearchQuery(''); }}
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border",
-              activeCategory === 'sales' && !showWishket
+              activeCategory === 'sales' && !externalTab
                 ? "bg-blue-50 text-blue-700 border-blue-200 shadow-sm"
                 : "bg-white text-gray-500 border-gray-100 hover:border-gray-300 hover:text-gray-700"
             )}
@@ -609,10 +737,10 @@ export function BizRadarPage() {
             </span>
           </button>
           <button
-            onClick={() => { setActiveCategory('connection'); setShowWishket(false); clearSelection(); setSearchQuery(''); }}
+            onClick={() => { setActiveCategory('connection'); setExternalTab(null); clearSelection(); setSearchQuery(''); }}
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border",
-              activeCategory === 'connection' && !showWishket
+              activeCategory === 'connection' && !externalTab
                 ? "bg-purple-50 text-purple-700 border-purple-200 shadow-sm"
                 : "bg-white text-gray-500 border-gray-100 hover:border-gray-300 hover:text-gray-700"
             )}
@@ -626,14 +754,14 @@ export function BizRadarPage() {
             </span>
           </button>
 
-          {/* Wishket Tab — 포텐랩 전용 */}
+          <div className="w-px h-6 bg-gray-200 mx-1" />
+
+          {/* Wishket Tab */}
           <button
             onClick={() => {
-              setShowWishket(true);
-              setActiveCategory('sales');
-              clearSelection();
-              setSearchQuery('');
-              if (wishketProjects.length === 0 && !wishketLoading) loadWishketProjects();
+              setExternalTab('wishket');
+              clearSelection(); setSearchQuery('');
+              if (wishketProjects.length === 0 && !wishketLoading) loadWishketProjects(false);
             }}
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border",
@@ -645,9 +773,27 @@ export function BizRadarPage() {
             <Globe size={16} />
             위시켓
           </button>
+
+          {/* Freemoa Tab */}
+          <button
+            onClick={() => {
+              setExternalTab('freemoa');
+              clearSelection(); setSearchQuery('');
+              if (freemoaProjects.length === 0 && !freemoaLoading) loadFreemoaProjects(false);
+            }}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border",
+              showFreemoa
+                ? "bg-teal-50 text-teal-700 border-teal-200 shadow-sm"
+                : "bg-white text-gray-500 border-gray-100 hover:border-gray-300 hover:text-gray-700"
+            )}
+          >
+            <Globe size={16} />
+            프리모아
+          </button>
         </div>
 
-        {!showWishket && (
+        {!externalTab && (
           <>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center">
               <div className="flex-1 sm:max-w-md">
@@ -718,25 +864,60 @@ export function BizRadarPage() {
           /* ─── Wishket Project List ───────────────────────────── */
           <div className="space-y-4">
             {/* Header bar */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-gray-700">
-                  {wishketProjects.length > 0 ? `${wishketProjects.length}개 프로젝트` : ''}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <span className="text-sm font-semibold text-gray-700 shrink-0">
+                  {wishketSorted.length > 0 ? `외주 ${wishketSorted.length}개` : ''}
                 </span>
                 {wishketFetchedAt && (
-                  <span className="text-[10px] text-gray-400">
+                  <span className="text-[10px] text-gray-400 shrink-0">
                     {new Date(wishketFetchedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 기준
                   </span>
                 )}
+                <span className="text-[10px] text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-full font-medium shrink-0">
+                  매일 오전 7시 자동
+                </span>
               </div>
-              <button
-                onClick={loadWishketProjects}
-                disabled={wishketLoading}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-orange-600 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors disabled:opacity-50"
-              >
-                <RefreshCw size={13} className={wishketLoading ? 'animate-spin' : ''} />
-                {ko ? '새로고침' : 'Refresh'}
-              </button>
+              <div className="flex items-center gap-2">
+                {/* Search */}
+                <div className="flex items-center px-3 py-1.5 bg-white border border-gray-200 rounded-lg focus-within:ring-2 focus-within:ring-orange-100 focus-within:border-orange-400 transition-all">
+                  <Search size={13} className="text-gray-400 mr-1.5 shrink-0" />
+                  <input
+                    type="text"
+                    value={wishketSearch}
+                    onChange={e => { setWishketSearch(e.target.value); setWishketPage(1); }}
+                    placeholder="프로젝트 검색..."
+                    className="w-28 sm:w-36 text-xs outline-none bg-transparent placeholder-gray-400"
+                  />
+                </div>
+                {/* Sort */}
+                <div className="flex bg-gray-100 p-0.5 rounded-lg">
+                  {([
+                    { key: 'relevance' as const, label: '유사도', icon: <Sparkles size={12} /> },
+                    { key: 'deadline' as const, label: '마감순', icon: <Clock size={12} /> },
+                    { key: 'price_high' as const, label: '가격순', icon: <ArrowDown size={12} /> },
+                  ]).map(s => (
+                    <button
+                      key={s.key}
+                      onClick={() => { setWishketSort(s.key); setWishketPage(1); }}
+                      className={cn(
+                        "flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all",
+                        wishketSort === s.key ? "bg-white shadow-sm text-orange-700" : "text-gray-500 hover:text-gray-700"
+                      )}
+                    >
+                      {s.icon} {s.label}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => loadWishketProjects(true)}
+                  disabled={wishketLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-orange-600 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors disabled:opacity-50 shrink-0"
+                >
+                  <RefreshCw size={12} className={wishketLoading ? 'animate-spin' : ''} />
+                  크롤링
+                </button>
+              </div>
             </div>
 
             {/* Loading */}
@@ -754,75 +935,141 @@ export function BizRadarPage() {
               </div>
             )}
 
-            {/* Project list */}
-            {wishketProjects.length > 0 && (
-              <div className="space-y-2">
-                {wishketProjects.map((p: any) => (
-                  <div key={p.id} className="bg-white border border-gray-200 rounded-xl p-4 hover:border-orange-300 hover:shadow-sm transition-all group">
-                    <div className="flex items-start gap-4">
+            {/* Project grid — 9 per page */}
+            {wishketPaged.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {wishketPaged.map((p: any) => (
+                  <div key={p.id} className="bg-white border border-gray-200 rounded-xl p-4 hover:border-orange-300 hover:shadow-md transition-all group flex flex-col">
+                    {/* Title row */}
+                    <div className="flex items-start gap-2 mb-2">
                       <div className="flex-1 min-w-0">
-                        {/* Title */}
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <span className={cn(
-                            "text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0",
-                            p.projectType === '기간제' ? "bg-blue-50 text-blue-600" : "bg-emerald-50 text-emerald-600"
-                          )}>
-                            {p.projectType}
+                        <div className="flex items-center gap-1.5 mb-1">
+                          {p._relevance > 0 && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 shrink-0">
+                              <Sparkles size={9} className="inline -mt-0.5 mr-0.5" />매칭
+                            </span>
+                          )}
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 bg-emerald-50 text-emerald-600">
+                            외주
                           </span>
-                          <h3 className="text-sm font-semibold text-gray-900 truncate">{p.title}</h3>
                         </div>
-                        {/* Meta row */}
-                        <div className="flex items-center gap-3 text-xs text-gray-500 mb-2">
-                          {p.budget && (
-                            <span className="flex items-center gap-1">
-                              <DollarSign size={11} />
-                              {p.budget}{p.isMonthly ? '/월' : ''}
-                            </span>
-                          )}
-                          {p.duration > 0 && (
-                            <span className="flex items-center gap-1">
-                              <Calendar size={11} />
-                              {p.duration}일
-                            </span>
-                          )}
-                          {p.deadlineText && (
-                            <span className="flex items-center gap-1 text-orange-600 font-medium">
-                              <Clock size={11} />
-                              {p.deadlineText}
-                            </span>
-                          )}
-                        </div>
-                        {/* Skills */}
-                        {p.skills?.length > 0 && (
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {p.skills.map((s: string, i: number) => (
-                              <span key={i} className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md">{s}</span>
-                            ))}
-                          </div>
-                        )}
+                        <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 leading-snug">{p.title}</h3>
                       </div>
-                      {/* Actions */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        <a
-                          href={p.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-                          title="위시켓에서 보기"
-                        >
-                          <ExternalLink size={16} />
-                        </a>
-                        <button
-                          onClick={() => handleImportWishket(p)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors opacity-0 group-hover:opacity-100"
-                        >
-                          <Plus size={13} />
-                          가져오기
-                        </button>
+                      <a
+                        href={p.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors shrink-0"
+                      >
+                        <ExternalLink size={14} />
+                      </a>
+                    </div>
+
+                    {/* Budget */}
+                    <div className="flex items-center gap-2 mb-2">
+                      {p.budget ? (
+                        <span className="text-sm font-bold text-gray-900">₩ {p.budget}{p.isMonthly ? '/월' : ''}</span>
+                      ) : (
+                        <span className="text-sm text-gray-400">금액 미정</span>
+                      )}
+                    </div>
+
+                    {/* Meta chips */}
+                    <div className="flex items-center gap-2 text-[11px] text-gray-500 mb-2.5 flex-wrap">
+                      {p.duration > 0 && (
+                        <span className="flex items-center gap-1 bg-gray-50 px-2 py-0.5 rounded-md">
+                          <Calendar size={10} />
+                          {p.duration}일
+                        </span>
+                      )}
+                      {(p.deadlineDate || p.deadlineText) && (
+                        <span className="flex items-center gap-1 bg-orange-50 text-orange-600 px-2 py-0.5 rounded-md font-medium">
+                          <Clock size={10} />
+                          {p.deadlineDate
+                            ? `~${p.deadlineDate.slice(5).replace('-', '/')}`
+                            : p.deadlineText}
+                        </span>
+                      )}
+                      {p.applicants > 0 && (
+                        <span className="flex items-center gap-1 bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md font-medium">
+                          <Users size={10} />
+                          {p.applicants}명
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Skills */}
+                    {p.skills?.length > 0 && (
+                      <div className="flex items-center gap-1 flex-wrap mb-3">
+                        {p.skills.map((s: string, i: number) => {
+                          const isMatch = RELEVANCE_KEYWORDS.some(kw => s.toLowerCase().includes(kw));
+                          return (
+                            <span key={i} className={cn(
+                              "text-[10px] px-2 py-0.5 rounded-md",
+                              isMatch ? "bg-orange-50 text-orange-700 font-semibold" : "bg-gray-100 text-gray-500"
+                            )}>{s}</span>
+                          );
+                        })}
                       </div>
+                    )}
+
+                    {/* Spacer + import button */}
+                    <div className="mt-auto pt-2 border-t border-gray-50">
+                      <button
+                        onClick={() => handleImportExternal(p)}
+                        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <Plus size={13} />
+                        레이더에 가져오기
+                      </button>
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Pagination */}
+            {wishketSorted.length > WISHKET_PER_PAGE && (
+              <div className="flex items-center justify-center gap-1 pt-2">
+                <button
+                  onClick={() => setWishketPage(p => Math.max(1, p - 1))}
+                  disabled={wishketPage <= 1}
+                  className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                {Array.from({ length: wishketTotalPages }, (_, i) => i + 1)
+                  .filter(p => p === 1 || p === wishketTotalPages || Math.abs(p - wishketPage) <= 2)
+                  .reduce<(number | 'dots')[]>((acc, p, idx, arr) => {
+                    if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('dots');
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((p, idx) =>
+                    p === 'dots' ? (
+                      <span key={`d${idx}`} className="px-1 text-gray-300 text-xs">···</span>
+                    ) : (
+                      <button
+                        key={p}
+                        onClick={() => setWishketPage(p)}
+                        className={cn(
+                          "min-w-[32px] h-8 rounded-lg text-xs font-medium transition-all",
+                          wishketPage === p
+                            ? "bg-orange-500 text-white shadow-sm"
+                            : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                        )}
+                      >
+                        {p}
+                      </button>
+                    )
+                  )}
+                <button
+                  onClick={() => setWishketPage(p => Math.min(wishketTotalPages, p + 1))}
+                  disabled={wishketPage >= wishketTotalPages}
+                  className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight size={16} />
+                </button>
               </div>
             )}
 
@@ -831,6 +1078,197 @@ export function BizRadarPage() {
               <div className="text-center py-20 text-gray-400">
                 <Globe size={40} className="mx-auto mb-3 text-gray-300" />
                 <p className="text-sm">위시켓 프로젝트를 불러오려면 새로고침을 눌러주세요</p>
+              </div>
+            )}
+
+            {/* No search results */}
+            {!wishketLoading && wishketProjects.length > 0 && wishketSorted.length === 0 && (
+              <div className="text-center py-12 text-gray-400">
+                <Search size={32} className="mx-auto mb-2 text-gray-300" />
+                <p className="text-sm">검색 결과가 없습니다</p>
+              </div>
+            )}
+          </div>
+        ) : showFreemoa ? (
+          /* ─── Freemoa Project List ────────────────────────────── */
+          <div className="space-y-4">
+            {/* Header bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <span className="text-sm font-semibold text-gray-700 shrink-0">
+                  {freemoaSorted.length > 0 ? `프리모아 ${freemoaSorted.length}개` : ''}
+                </span>
+                {freemoaFetchedAt && (
+                  <span className="text-[10px] text-gray-400 shrink-0">
+                    {new Date(freemoaFetchedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 기준
+                  </span>
+                )}
+                <span className="text-[10px] text-teal-500 bg-teal-50 px-2 py-0.5 rounded-full font-medium shrink-0">
+                  매일 오전 7시 자동
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center px-3 py-1.5 bg-white border border-gray-200 rounded-lg focus-within:ring-2 focus-within:ring-teal-100 focus-within:border-teal-400 transition-all">
+                  <Search size={13} className="text-gray-400 mr-1.5 shrink-0" />
+                  <input type="text" value={freemoaSearch} onChange={e => { setFreemoaSearch(e.target.value); setFreemoaPage(1); }}
+                    placeholder="프로젝트 검색..." className="w-28 sm:w-36 text-xs outline-none bg-transparent placeholder-gray-400" />
+                </div>
+                <div className="flex bg-gray-100 p-0.5 rounded-lg">
+                  {([
+                    { key: 'relevance' as const, label: '유사도', icon: <Sparkles size={12} /> },
+                    { key: 'deadline' as const, label: '마감순', icon: <Clock size={12} /> },
+                    { key: 'price_high' as const, label: '가격순', icon: <ArrowDown size={12} /> },
+                  ]).map(s => (
+                    <button key={s.key} onClick={() => { setFreemoaSort(s.key); setFreemoaPage(1); }}
+                      className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all",
+                        freemoaSort === s.key ? "bg-white shadow-sm text-teal-700" : "text-gray-500 hover:text-gray-700")}>
+                      {s.icon} {s.label}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => loadFreemoaProjects(true)} disabled={freemoaLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-teal-600 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 transition-colors disabled:opacity-50 shrink-0">
+                  <RefreshCw size={12} className={freemoaLoading ? 'animate-spin' : ''} /> 크롤링
+                </button>
+              </div>
+            </div>
+
+            {freemoaLoading && freemoaProjects.length === 0 && (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 size={24} className="animate-spin text-teal-500" />
+                <span className="ml-2 text-sm text-gray-500">프리모아에서 프로젝트를 가져오는 중...</span>
+              </div>
+            )}
+
+            {freemoaError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-600">{freemoaError}</div>
+            )}
+
+            {freemoaPaged.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {freemoaPaged.map((p: any) => (
+                  <div key={p.id} className="bg-white border border-gray-200 rounded-xl p-4 hover:border-teal-300 hover:shadow-md transition-all group flex flex-col">
+                    <div className="flex items-start gap-2 mb-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          {p._relevance > 0 && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-teal-100 text-teal-700 shrink-0">
+                              <Sparkles size={9} className="inline -mt-0.5 mr-0.5" />매칭
+                            </span>
+                          )}
+                          <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0",
+                            p.workType === '1' ? "bg-emerald-50 text-emerald-600" : "bg-blue-50 text-blue-600"
+                          )}>
+                            {p.projectType}
+                          </span>
+                          {p.field && <span className="text-[10px] text-gray-400">{p.field}</span>}
+                        </div>
+                        <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 leading-snug">{p.title}</h3>
+                      </div>
+                      <a href={p.url} target="_blank" rel="noopener noreferrer"
+                        className="p-1.5 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors shrink-0">
+                        <ExternalLink size={14} />
+                      </a>
+                    </div>
+
+                    <div className="flex items-center gap-2 mb-2">
+                      {p.budget ? (
+                        <span className="text-sm font-bold text-gray-900">₩ {p.budget}</span>
+                      ) : (
+                        <span className="text-sm text-gray-400">금액 미정</span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 text-[11px] text-gray-500 mb-2.5 flex-wrap">
+                      {p.duration > 0 && (
+                        <span className="flex items-center gap-1 bg-gray-50 px-2 py-0.5 rounded-md">
+                          <Calendar size={10} /> {p.duration}일
+                        </span>
+                      )}
+                      {p.deadlineDate && (
+                        <span className={cn("flex items-center gap-1 px-2 py-0.5 rounded-md font-medium",
+                          p.isRecruiting ? "bg-orange-50 text-orange-600" : "bg-gray-100 text-gray-400"
+                        )}>
+                          <Clock size={10} />
+                          ~{p.deadlineDate.slice(5).replace('-', '/')}
+                          {!p.isRecruiting && ' (마감)'}
+                        </span>
+                      )}
+                      {p.applicants > 0 && (
+                        <span className="flex items-center gap-1 bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md font-medium">
+                          <Users size={10} /> {p.applicants}명
+                        </span>
+                      )}
+                      {p.location && (
+                        <span className="bg-gray-50 px-2 py-0.5 rounded-md">{p.location}</span>
+                      )}
+                    </div>
+
+                    {p.skills?.length > 0 && (
+                      <div className="flex items-center gap-1 flex-wrap mb-3">
+                        {p.skills.slice(0, 5).map((s: string, i: number) => {
+                          const isMatch = RELEVANCE_KEYWORDS.some(kw => s.toLowerCase().includes(kw));
+                          return (
+                            <span key={i} className={cn("text-[10px] px-2 py-0.5 rounded-md",
+                              isMatch ? "bg-teal-50 text-teal-700 font-semibold" : "bg-gray-100 text-gray-500"
+                            )}>{s}</span>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    <div className="mt-auto pt-2 border-t border-gray-50">
+                      <button onClick={() => handleImportExternal(p)}
+                        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors opacity-0 group-hover:opacity-100">
+                        <Plus size={13} /> 레이더에 가져오기
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Pagination */}
+            {freemoaSorted.length > FREEMOA_PER_PAGE && (
+              <div className="flex items-center justify-center gap-1 pt-2">
+                <button onClick={() => setFreemoaPage(p => Math.max(1, p - 1))} disabled={freemoaPage <= 1}
+                  className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                  <ChevronLeft size={16} />
+                </button>
+                {Array.from({ length: freemoaTotalPages }, (_, i) => i + 1)
+                  .filter(p => p === 1 || p === freemoaTotalPages || Math.abs(p - freemoaPage) <= 2)
+                  .reduce<(number | 'dots')[]>((acc, p, idx, arr) => {
+                    if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('dots');
+                    acc.push(p); return acc;
+                  }, [])
+                  .map((p, idx) =>
+                    p === 'dots' ? (
+                      <span key={`d${idx}`} className="px-1 text-gray-300 text-xs">···</span>
+                    ) : (
+                      <button key={p} onClick={() => setFreemoaPage(p)}
+                        className={cn("min-w-[32px] h-8 rounded-lg text-xs font-medium transition-all",
+                          freemoaPage === p ? "bg-teal-500 text-white shadow-sm" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900")}>
+                        {p}
+                      </button>
+                    )
+                  )}
+                <button onClick={() => setFreemoaPage(p => Math.min(freemoaTotalPages, p + 1))} disabled={freemoaPage >= freemoaTotalPages}
+                  className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
+
+            {!freemoaLoading && !freemoaError && freemoaProjects.length === 0 && (
+              <div className="text-center py-20 text-gray-400">
+                <Globe size={40} className="mx-auto mb-3 text-gray-300" />
+                <p className="text-sm">프리모아 프로젝트를 불러오려면 크롤링을 눌러주세요</p>
+              </div>
+            )}
+            {!freemoaLoading && freemoaProjects.length > 0 && freemoaSorted.length === 0 && (
+              <div className="text-center py-12 text-gray-400">
+                <Search size={32} className="mx-auto mb-2 text-gray-300" />
+                <p className="text-sm">검색 결과가 없습니다</p>
               </div>
             )}
           </div>
@@ -851,16 +1289,49 @@ export function BizRadarPage() {
                   selectedIds={selectedIds}
                   onToggleSelect={toggleSelect}
                   category={activeCategory}
+                  onCardContextMenu={handleCardContextMenu}
                 />
               ))}
             </div>
           </div>
         ) : (
-          <BizListView items={filteredItems} />
+          <BizListView items={filteredItems} onContextMenu={handleCardContextMenu} />
         )}
       </div>
 
       <BizSelectionToolbar count={selectedIds.size} language={language} onDelete={handleBulkDelete} onClear={clearSelection} />
+
+      {/* Right-click context menu */}
+      {ctxMenu && (
+        <>
+          <div className="fixed inset-0 z-[70]" onClick={closeCtxMenu} onContextMenu={(e) => { e.preventDefault(); closeCtxMenu(); }} />
+          <div
+            className="fixed z-[71] bg-white border border-gray-200 rounded-xl shadow-xl py-1 min-w-[140px] animate-in fade-in zoom-in-95 duration-100"
+            style={{ left: ctxMenu.x, top: ctxMenu.y }}
+          >
+            <button
+              onClick={() => { navigate(`/radar/${ctxMenu.id}`); closeCtxMenu(); }}
+              className="w-full px-3 py-2 text-xs text-left text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+            >
+              <Pencil size={13} /> {ko ? '수정' : 'Edit'}
+            </button>
+            <div className="mx-2 my-0.5 border-t border-gray-100" />
+            <button
+              onClick={() => {
+                const item = getItem(ctxMenu.id);
+                if (item) {
+                  moveToTrash({ id: item.id, type: 'radar', title: item.title, data: item, deletedAt: new Date().toISOString() });
+                }
+                removeItem(ctxMenu.id);
+                closeCtxMenu();
+              }}
+              className="w-full px-3 py-2 text-xs text-left text-red-500 hover:bg-red-50 flex items-center gap-2 transition-colors"
+            >
+              <Trash2 size={13} /> {ko ? '삭제' : 'Delete'}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

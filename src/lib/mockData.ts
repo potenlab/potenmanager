@@ -4,6 +4,7 @@ export type User = {
   avatar: string;
   role: 'owner' | 'admin' | 'member' | 'viewer';
   color?: string;
+  email?: string;
   jobTitle?: string;
   jobRole?: JobRole;
 };

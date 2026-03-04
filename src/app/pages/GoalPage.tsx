@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router";
 import {
   ArrowRight,
@@ -18,7 +18,15 @@ import {
   ChevronDown,
   ChevronUp,
   X,
+  Zap,
+  AlertTriangle,
+  StickyNote,
+  Edit3,
+  MoreVertical,
+  User,
 } from "lucide-react";
+import { differenceInDays, format } from "date-fns";
+import { ko as koLocale } from "date-fns/locale";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
 import { useInvite } from "../context/InviteContext";
@@ -28,6 +36,7 @@ import { useGoalContext } from "../context/GoalContext";
 import { PermissionGate } from "../components/layout/PermissionGate";
 import { StrategyTabContent } from "./GoalsPage";
 import type { GoalItem } from "../../lib/mockData";
+import { api } from "../../lib/api";
 
 // ── Category definitions (shared with edit page) ──────────────────
 interface CategoryDef {
@@ -86,7 +95,9 @@ export function GoalPage() {
   // Find core goal (Year level, no parent)
   const coreGoal = goals.find((g) => g.level === "Year" && !g.parentId);
   // Category goals (children of core goal)
-  const categoryGoals = urgentGoals.filter((g) => g.parentId === coreGoal?.id);
+  const categoryGoals = goals.filter((g) => g.parentId === coreGoal?.id);
+  // Urgent missions (standalone, not children of core goal)
+  const urgentMissions = urgentGoals.filter((g) => !g.parentId);
   const hasGoals = !!coreGoal;
 
   const [orgName, setOrgName] = useState("");
@@ -173,6 +184,18 @@ export function GoalPage() {
   // ── Collapse state ──
   const [quarterExpanded, setQuarterExpanded] = useState(true);
   const [monthExpanded, setMonthExpanded] = useState(true);
+  const [urgentExpanded, setUrgentExpanded] = useState(true);
+
+  // ── Urgent mission add state ──
+  const [showUrgentAdd, setShowUrgentAdd] = useState(false);
+  const [urgentTitle, setUrgentTitle] = useState("");
+  const [urgentDeadline, setUrgentDeadline] = useState("");
+  const [urgentCat, setUrgentCat] = useState<GoalItem["urgentCategory"]>("other");
+  const urgentTitleRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (showUrgentAdd && urgentTitleRef.current) urgentTitleRef.current.focus();
+  }, [showUrgentAdd]);
 
   // ── Core progress ──
   const coreProgress = useMemo(() => {
@@ -219,12 +242,10 @@ export function GoalPage() {
       id: uid(),
       title,
       titleKo: `${cat.labelKo}: ${addCatValue.trim()}`,
-      level: "Urgent",
+      level: "Year",
       progress: 0,
       status: "pending",
       parentId: coreGoal.id,
-      isUrgent: true,
-      urgentCategory: cat.urgentCategory as GoalItem["urgentCategory"],
     };
     addGoal(newGoal);
     setAddingCatKey(null);
@@ -239,12 +260,10 @@ export function GoalPage() {
       id: uid(),
       title,
       titleKo: title,
-      level: "Urgent",
+      level: "Year",
       progress: 0,
       status: "pending",
       parentId: coreGoal.id,
-      isUrgent: true,
-      urgentCategory: "other",
     };
     addGoal(newGoal);
     setAddingCatKey(null);
@@ -297,6 +316,43 @@ export function GoalPage() {
     const m = new Date(goal.startDate).getMonth();
     return ko ? MONTH_LABELS_KO[m] : MONTH_LABELS_EN[m];
   };
+
+  // ── Urgent mission handlers ──
+  const handleAddUrgentMission = () => {
+    if (!urgentTitle.trim()) return;
+    const newGoal: GoalItem = {
+      id: uid(),
+      title: urgentTitle.trim(),
+      titleKo: ko ? urgentTitle.trim() : undefined,
+      level: "Urgent",
+      progress: 0,
+      status: "pending",
+      isUrgent: true,
+      urgentCategory: urgentCat,
+      deadline: urgentDeadline ? new Date(urgentDeadline) : undefined,
+    };
+    addGoal(newGoal);
+    setUrgentTitle("");
+    setUrgentDeadline("");
+    setUrgentCat("other");
+    setShowUrgentAdd(false);
+  };
+
+  const handleToggleUrgent = (goalId: string) => {
+    const goal = urgentMissions.find((g) => g.id === goalId);
+    if (!goal) return;
+    const isDone = goal.status === "completed";
+    updateGoal(goalId, { status: isDone ? "pending" : "completed", progress: isDone ? 0 : 100 });
+  };
+
+  const URGENT_CAT_OPTIONS: { value: GoalItem["urgentCategory"]; labelKo: string; labelEn: string; emoji: string }[] = [
+    { value: "funding", labelKo: "매출", labelEn: "Revenue", emoji: "\u{1F4B0}" },
+    { value: "investment", labelKo: "투자", labelEn: "Investment", emoji: "\u{1F4C8}" },
+    { value: "contract", labelKo: "계약/협약", labelEn: "Contract", emoji: "\u{1F91D}" },
+    { value: "submission", labelKo: "제출/공모", labelEn: "Submission", emoji: "\u{1F4C4}" },
+    { value: "event", labelKo: "행사/발표", labelEn: "Event", emoji: "\u{1F3AF}" },
+    { value: "other", labelKo: "기타", labelEn: "Other", emoji: "\u26A1" },
+  ];
 
   // ── Loading ──
   if (isLoading) {
@@ -379,7 +435,8 @@ export function GoalPage() {
     : null;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-12">
+    <div className="flex gap-6 pb-12">
+    <div className="flex-1 min-w-0 max-w-4xl space-y-6">
       {/* Organization Info Card */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-24 bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-600 relative">
@@ -924,6 +981,157 @@ export function GoalPage() {
                   </div>
                 )}
               </div>
+
+              {/* ═══ Urgent Missions ═══ */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <button
+                  onClick={() => setUrgentExpanded(!urgentExpanded)}
+                  className="w-full px-6 py-4 border-b border-gray-100 flex items-center justify-between hover:bg-gray-50/50 transition-colors"
+                >
+                  <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                    <Zap size={16} className="text-orange-500" />
+                    {ko ? "\uAE34\uAE09 \uBBF8\uC158" : "Urgent Missions"}
+                    {urgentMissions.length > 0 && (
+                      <span className="text-xs font-normal text-gray-400">
+                        ({urgentMissions.filter((g) => g.status === "completed").length}/{urgentMissions.length})
+                      </span>
+                    )}
+                  </h3>
+                  {urgentExpanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+                </button>
+
+                {urgentExpanded && (
+                  <div className="px-6 py-4 space-y-2">
+                    {urgentMissions.length > 0 ? (
+                      <div className="space-y-1">
+                        {urgentMissions.map((g) => {
+                          const title = ko ? (g.titleKo || g.title) : g.title;
+                          const isDone = g.status === "completed";
+                          const daysLeft = g.deadline ? differenceInDays(new Date(g.deadline), new Date()) : null;
+                          const isOverdue = daysLeft !== null && daysLeft < 0;
+                          const catOpt = URGENT_CAT_OPTIONS.find((c) => c.value === g.urgentCategory);
+
+                          return (
+                            <div
+                              key={g.id}
+                              className="group flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-gray-50 transition-colors"
+                            >
+                              {canEdit && (
+                                <button
+                                  onClick={() => handleToggleUrgent(g.id)}
+                                  className={cn(
+                                    "w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all",
+                                    isDone ? "bg-orange-500 border-orange-500 text-white" : "border-gray-300 hover:border-orange-400"
+                                  )}
+                                >
+                                  {isDone && <Check size={12} />}
+                                </button>
+                              )}
+                              <span className="text-base shrink-0">{catOpt?.emoji || "\u26A1"}</span>
+                              <Link
+                                to={`/organization/${g.id}`}
+                                className={cn(
+                                  "flex-1 min-w-0 flex items-center gap-2 group/link",
+                                  isDone && "line-through opacity-60"
+                                )}
+                              >
+                                <span className="text-sm text-gray-700 truncate group-hover/link:text-orange-600 transition-colors">
+                                  {title}
+                                </span>
+                                <ArrowRight size={12} className="text-gray-200 group-hover/link:text-orange-400 shrink-0 opacity-0 group-hover/link:opacity-100 transition-all" />
+                              </Link>
+                              {daysLeft !== null && (
+                                <span className={cn(
+                                  "text-[10px] font-bold px-1.5 py-0.5 rounded-md shrink-0",
+                                  isOverdue ? "bg-red-100 text-red-700" : daysLeft <= 3 ? "bg-orange-100 text-orange-700" : daysLeft <= 7 ? "bg-amber-50 text-amber-700" : "bg-gray-100 text-gray-500"
+                                )}>
+                                  {isOverdue ? (
+                                    <span className="flex items-center gap-0.5"><AlertTriangle size={9} />D+{Math.abs(daysLeft)}</span>
+                                  ) : daysLeft === 0 ? "D-Day" : `D-${daysLeft}`}
+                                </span>
+                              )}
+                              {canEdit && (
+                                <button
+                                  onClick={() => removeGoal(g.id)}
+                                  className="p-1 rounded-md text-gray-200 hover:text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100 shrink-0"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-300 text-center py-3">
+                        {ko ? "\uAE34\uAE09 \uBBF8\uC158\uC744 \uCD94\uAC00\uD574\uBCF4\uC138\uC694" : "Add an urgent mission"}
+                      </p>
+                    )}
+
+                    {/* Add urgent mission */}
+                    {canEdit && (
+                      showUrgentAdd ? (
+                        <div className="bg-white rounded-xl border-2 border-orange-200 p-3 space-y-2.5">
+                          <input
+                            ref={urgentTitleRef}
+                            value={urgentTitle}
+                            onChange={(e) => setUrgentTitle(e.target.value)}
+                            placeholder={ko ? "\uBBF8\uC158 \uC81C\uBAA9..." : "Mission title..."}
+                            className="w-full text-sm font-medium text-gray-900 placeholder-gray-300 outline-none bg-transparent"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && urgentTitle.trim()) handleAddUrgentMission();
+                              if (e.key === "Escape") { setUrgentTitle(""); setShowUrgentAdd(false); }
+                            }}
+                          />
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="date"
+                              value={urgentDeadline}
+                              onChange={(e) => setUrgentDeadline(e.target.value)}
+                              className="text-xs px-2 py-1.5 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-400"
+                            />
+                            <select
+                              value={urgentCat}
+                              onChange={(e) => setUrgentCat(e.target.value as GoalItem["urgentCategory"])}
+                              className="text-xs px-2 py-1.5 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-400 bg-white"
+                            >
+                              {URGENT_CAT_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                  {opt.emoji} {ko ? opt.labelKo : opt.labelEn}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="flex justify-end gap-1.5">
+                            <button onClick={() => { setUrgentTitle(""); setShowUrgentAdd(false); }} className="px-2.5 py-1.5 text-[11px] font-medium text-gray-500 hover:bg-gray-100 rounded-lg">
+                              {ko ? "\uCDE8\uC18C" : "Cancel"}
+                            </button>
+                            <button
+                              onClick={handleAddUrgentMission}
+                              disabled={!urgentTitle.trim()}
+                              className={cn(
+                                "flex items-center gap-1 px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-colors",
+                                urgentTitle.trim() ? "bg-orange-500 text-white hover:bg-orange-600" : "bg-gray-100 text-gray-300 cursor-not-allowed"
+                              )}
+                            >
+                              <Check size={12} />
+                              {ko ? "\uCD94\uAC00" : "Add"}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setShowUrgentAdd(true)}
+                          className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 hover:border-orange-300 hover:text-orange-500 hover:bg-orange-50/30 transition-all text-xs font-medium"
+                        >
+                          <Plus size={14} />
+                          {ko ? "\uAE34\uAE09 \uBBF8\uC158 \uCD94\uAC00" : "Add Urgent Mission"}
+                        </button>
+                      )
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <Link
@@ -954,6 +1162,233 @@ export function GoalPage() {
 
       {/* Strategy Tab Content */}
       {activeTab === "strategy" && <StrategyTabContent />}
+    </div>
+
+    {/* Right Sidebar: Team Board */}
+    {org && (
+      <div className="hidden lg:block w-80 shrink-0">
+        <TeamBoardSidebar orgId={org.id} />
+      </div>
+    )}
+    </div>
+  );
+}
+
+// ─── Team Board Sidebar (single kanban column) ─────────────────────
+interface BoardItem {
+  id: string;
+  type: string;
+  title: string;
+  content: string;
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+function TeamBoardSidebar({ orgId }: { orgId: string }) {
+  const { language } = useLanguage();
+  const ko = language === 'ko';
+  const { currentUser } = usePermission();
+
+  const [items, setItems] = useState<BoardItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editContent, setEditContent] = useState('');
+  const [menuId, setMenuId] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const userRole = currentUser.role as string;
+  const isManager = userRole === 'owner' || userRole === 'admin';
+
+  useEffect(() => {
+    if (isAdding && inputRef.current) inputRef.current.focus();
+  }, [isAdding]);
+
+  // Load items
+  useEffect(() => {
+    api.getTeamBoardItems(orgId).then(data => {
+      setItems(data || []);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, [orgId]);
+
+  const handleAdd = useCallback(async () => {
+    if (!newTitle.trim()) return;
+    const item = {
+      type: 'memo',
+      title: newTitle.trim(),
+      content: '',
+      createdBy: currentUser.id,
+      createdByName: currentUser.name,
+    };
+    try {
+      const created = await api.createTeamBoardItem(orgId, item);
+      setItems(prev => [created, ...prev]);
+      setNewTitle('');
+    } catch {}
+  }, [newTitle, orgId, currentUser]);
+
+  const handleAddKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') { e.preventDefault(); handleAdd(); }
+    else if (e.key === 'Escape') { setNewTitle(''); setIsAdding(false); }
+  };
+
+  const handleUpdate = useCallback(async (id: string) => {
+    if (!editTitle.trim()) return;
+    try {
+      const updated = await api.updateTeamBoardItem(orgId, id, { title: editTitle.trim(), content: editContent.trim() });
+      setItems(prev => prev.map(i => i.id === id ? updated : i));
+      setEditingId(null);
+    } catch {}
+  }, [orgId, editTitle, editContent]);
+
+  const handleDelete = useCallback(async (item: BoardItem) => {
+    if (item.createdBy !== currentUser.id && isManager) {
+      const confirmed = window.confirm(
+        ko ? `${item.createdByName}님이 작성한 항목을 삭제하시겠습니까?` : `Delete ${item.createdByName}'s item?`
+      );
+      if (!confirmed) return;
+    }
+    try {
+      await api.deleteTeamBoardItem(orgId, item.id);
+      setItems(prev => prev.filter(i => i.id !== item.id));
+    } catch {}
+  }, [orgId, currentUser.id, isManager, ko]);
+
+  const startEdit = (item: BoardItem) => {
+    setEditingId(item.id);
+    setEditTitle(item.title);
+    setEditContent(item.content);
+    setMenuId(null);
+  };
+
+  return (
+    <div className="sticky top-6 flex flex-col rounded-2xl border border-gray-100 bg-gray-50/50 p-4 h-fit max-h-[calc(100vh-120px)]">
+      {/* Column header */}
+      <div className="flex items-center justify-between mb-4 px-1">
+        <div className="flex items-center gap-2">
+          <StickyNote size={16} className="text-blue-600" />
+          <h3 className="font-semibold text-gray-700 text-sm">{ko ? '팀 보드' : 'Team Board'}</h3>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-200 text-gray-600">{items.length}</span>
+        </div>
+        <button onClick={() => setIsAdding(true)} className="text-gray-400 hover:text-blue-600 p-1 rounded hover:bg-blue-50 transition-colors">
+          <Plus size={16} />
+        </button>
+      </div>
+
+      {/* Scrollable card area */}
+      <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar min-h-[60px]">
+        {/* Inline add */}
+        {isAdding && (
+          <div className="bg-white rounded-xl border border-blue-200 shadow-sm ring-2 ring-blue-100 overflow-hidden">
+            <input ref={inputRef} value={newTitle} onChange={e => setNewTitle(e.target.value)}
+              onKeyDown={handleAddKeyDown}
+              onBlur={() => { if (newTitle.trim()) handleAdd(); else { setNewTitle(''); setIsAdding(false); } }}
+              placeholder={ko ? '제목을 입력하세요...' : 'Enter title...'}
+              className="w-full px-4 py-3 text-sm outline-none bg-transparent placeholder-gray-400 text-gray-900" />
+            <div className="flex items-center px-3 py-2 bg-gray-50/80 border-t border-gray-100">
+              <span className="text-[10px] text-gray-400">{ko ? 'Enter로 추가 · Esc로 취소' : 'Enter to add · Esc to cancel'}</span>
+            </div>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-gray-400" /></div>
+        ) : items.length === 0 && !isAdding ? (
+          <button onClick={() => setIsAdding(true)}
+            className="w-full flex flex-col items-center justify-center py-8 text-gray-300 hover:text-blue-500 hover:bg-blue-50/50 rounded-xl transition-all cursor-pointer group">
+            <Plus size={20} className="mb-1.5 opacity-50 group-hover:opacity-100 transition-opacity" />
+            <p className="text-xs font-medium">{ko ? '항목을 추가해보세요' : 'Add an item'}</p>
+          </button>
+        ) : (
+          <>
+            {items.map(item => {
+              const canEdit = item.createdBy === currentUser.id;
+              const canDelete = canEdit || isManager;
+              const isEditing = editingId === item.id;
+
+              return isEditing ? (
+                <div key={item.id} className="bg-white rounded-xl border border-blue-200 shadow-sm ring-2 ring-blue-100 p-3 space-y-2">
+                  <input value={editTitle} onChange={e => setEditTitle(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleUpdate(item.id); } else if (e.key === 'Escape') setEditingId(null); }}
+                    className="w-full text-sm font-medium bg-gray-50 rounded-lg px-3 py-2 border border-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-300" autoFocus />
+                  <textarea value={editContent} onChange={e => setEditContent(e.target.value)} rows={3}
+                    onKeyDown={e => { if (e.key === 'Escape') setEditingId(null); }}
+                    placeholder={ko ? '내용 (선택사항)' : 'Content (optional)'}
+                    className="w-full text-xs bg-gray-50 rounded-lg px-3 py-2 border border-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-300 resize-none" />
+                  <div className="flex gap-2">
+                    <button onClick={() => handleUpdate(item.id)} className="flex-1 text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors">
+                      {ko ? '저장' : 'Save'}
+                    </button>
+                    <button onClick={() => setEditingId(null)} className="text-xs px-3 py-1.5 rounded-lg text-gray-500 hover:bg-gray-100">
+                      {ko ? '취소' : 'Cancel'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div key={item.id} onClick={() => canEdit && startEdit(item)}
+                  className={cn(
+                    "bg-white p-4 rounded-xl border shadow-sm hover:shadow-md transition-all group relative",
+                    canEdit ? "cursor-pointer" : "cursor-default",
+                    "border-gray-100"
+                  )}>
+                  <div className="flex items-start gap-2 mb-1">
+                    <h4 className="font-medium text-sm text-gray-900 leading-snug flex-1 min-w-0">{item.title}</h4>
+                    {(canEdit || canDelete) && (
+                      <div className="relative shrink-0">
+                        <button onClick={e => { e.stopPropagation(); setMenuId(menuId === item.id ? null : item.id); }}
+                          className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity p-0.5">
+                          <MoreVertical size={14} />
+                        </button>
+                        {menuId === item.id && (
+                          <div className="absolute right-0 top-6 z-10 bg-white border border-gray-200 rounded-lg shadow-lg py-1 w-24">
+                            {canEdit && (
+                              <button onClick={e => { e.stopPropagation(); startEdit(item); }} className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-1.5">
+                                <Edit3 size={10} /> {ko ? '수정' : 'Edit'}
+                              </button>
+                            )}
+                            {canDelete && (
+                              <button onClick={e => { e.stopPropagation(); setMenuId(null); handleDelete(item); }} className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-1.5">
+                                <Trash2 size={10} /> {ko ? '삭제' : 'Delete'}
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {item.content && (
+                    <p className="text-xs text-gray-500 line-clamp-2 mb-3">{item.content}</p>
+                  )}
+                  <div className="flex items-center justify-between border-t border-gray-50 pt-3 mt-2">
+                    <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                      <User size={11} />
+                      <span>{item.createdByName}</span>
+                    </div>
+                    {item.createdAt && (
+                      <span className="text-xs text-gray-400">
+                        {new Date(item.createdAt).toLocaleDateString(ko ? 'ko-KR' : 'en-US', { month: 'short', day: 'numeric' })}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Bottom add button */}
+            {!isAdding && items.length > 0 && (
+              <button onClick={() => setIsAdding(true)}
+                className="w-full py-2.5 rounded-xl text-gray-400 text-sm hover:text-blue-600 hover:bg-gray-100/80 transition-all flex items-center gap-2 px-3">
+                <Plus size={14} /> <span>{ko ? '항목 추가' : 'Add Item'}</span>
+              </button>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
