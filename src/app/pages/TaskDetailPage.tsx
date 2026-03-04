@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Task, TaskCategory, Attachment, detectAttachmentType } from "../../lib/mockData";
+import { Upload, File as FileIcon } from "lucide-react";
 import { TASK_CATEGORY_CONFIG } from "../../lib/jobRoles";
 import { useLanguage } from "../context/LanguageContext";
 import { useTaskContext } from "../context/TaskContext";
@@ -699,6 +700,33 @@ export function TaskDetailPage() {
   );
   const [propsExpanded, setPropsExpanded] = useState(true);
   const [attachments, setAttachments] = useState<Attachment[]>(task?.attachments || []);
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  const handleFileDrop = useCallback((files: FileList) => {
+    const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+    const ko = language === "ko";
+    Array.from(files).forEach((file) => {
+      if (file.size > MAX_SIZE) {
+        alert(ko ? `${file.name}: 5MB 이하 파일만 첨부 가능합니다` : `${file.name}: Max 5MB`);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const att: Attachment = {
+          id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+          url: dataUrl,
+          title: file.name,
+          fileName: file.name,
+          fileSize: file.size,
+          addedAt: new Date().toISOString(),
+          type: 'file',
+        };
+        setAttachments((prev) => [...prev, att]);
+      };
+      reader.readAsDataURL(file);
+    });
+  }, [language]);
 
   // Sync to context on change
   useEffect(() => {
@@ -882,8 +910,27 @@ export function TaskDetailPage() {
               }} />
             )}
 
-            {/* Description / Editor — no header label */}
-            <div className="min-h-[200px] border-t border-gray-100 pt-5">
+            {/* Description / Editor + Drop zone */}
+            <div
+              className={cn(
+                "min-h-[200px] border-t border-gray-100 pt-5 relative transition-colors",
+                isDragOver && "bg-blue-50/50 ring-2 ring-blue-200 ring-dashed rounded-xl"
+              )}
+              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragOver(true); }}
+              onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragOver(false); }}
+              onDrop={(e) => {
+                e.preventDefault(); e.stopPropagation(); setIsDragOver(false);
+                if (e.dataTransfer.files.length > 0) handleFileDrop(e.dataTransfer.files);
+              }}
+            >
+              {isDragOver && (
+                <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                  <div className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-xl shadow-lg">
+                    <Upload size={16} />
+                    {language === "ko" ? "파일을 놓아주세요 (최대 5MB)" : "Drop files here (max 5MB)"}
+                  </div>
+                </div>
+              )}
               <NotionBlockEditor
                 initialContent={description}
                 onChange={setDescription}
@@ -891,17 +938,45 @@ export function TaskDetailPage() {
                 placeholder={language === "ko" ? "/ 를 입력하여 블록 유형 선택..." : "Type / to select block type..."}
                 language={language}
               />
-            </div>
 
-            {/* Attachments */}
-            {!isNew && (
-              <AttachmentSection
-                attachments={attachments}
-                onChange={setAttachments}
-                language={language}
-                canEdit={canEdit}
-              />
-            )}
+              {/* Inline attached files */}
+              {attachments.length > 0 && (
+                <div className="mt-4 space-y-1">
+                  {attachments.map((att) => {
+                    const isFile = att.type === 'file';
+                    const { icon, color, bg } = isFile
+                      ? { icon: <FileIcon size={14} />, color: 'text-gray-600', bg: 'bg-gray-100' }
+                      : getAttachmentIcon(att.type);
+                    const sizeStr = att.fileSize ? (att.fileSize < 1024 ? `${att.fileSize}B` : att.fileSize < 1048576 ? `${(att.fileSize / 1024).toFixed(0)}KB` : `${(att.fileSize / 1048576).toFixed(1)}MB`) : '';
+                    return (
+                      <div key={att.id} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-colors group">
+                        <div className={cn("w-6 h-6 rounded-md flex items-center justify-center shrink-0", bg)}>
+                          <span className={color}>{icon}</span>
+                        </div>
+                        <a
+                          href={att.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          download={att.fileName}
+                          className="flex-1 text-[13px] text-gray-600 hover:text-blue-600 truncate transition-colors"
+                        >
+                          {att.title}
+                        </a>
+                        {sizeStr && <span className="text-[10px] text-gray-300 shrink-0">{sizeStr}</span>}
+                        {canEdit && (
+                          <button
+                            onClick={() => setAttachments((prev) => prev.filter((a) => a.id !== att.id))}
+                            className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-300 hover:text-red-500 transition-all"
+                          >
+                            <Trash2 size={11} />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             {/* ActivityLogSection — 필요 시 주석 해제하여 사용 */}
             {/* {!isNew && <ActivityLogSection taskId={taskId!} language={language} />} */}

@@ -115,7 +115,7 @@ export interface GoalItem {
 }
 
 // ─── Attachment System ──────────────────────────────────────────────
-export type AttachmentType = 'google-drive' | 'google-doc' | 'google-sheet' | 'google-slide' | 'google-form' | 'generic';
+export type AttachmentType = 'google-drive' | 'google-doc' | 'google-sheet' | 'google-slide' | 'google-form' | 'generic' | 'file';
 
 export interface Attachment {
   id: string;
@@ -123,6 +123,8 @@ export interface Attachment {
   title: string;
   addedAt: string; // ISO date string
   type: AttachmentType;
+  fileName?: string;
+  fileSize?: number; // bytes
 }
 
 export function detectAttachmentType(url: string): AttachmentType {

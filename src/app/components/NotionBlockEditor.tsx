@@ -114,6 +114,11 @@ export function NotionBlockEditor({
 
   const ko = language === "ko";
 
+  // Close slash menu on unmount (prevents portal orphan on navigation)
+  useEffect(() => {
+    return () => { setSlashMenu(null); };
+  }, []);
+
   // Sync blocks → parent onChange
   const prevTextRef = useRef(seed);
   useEffect(() => {
@@ -213,7 +218,9 @@ export function NotionBlockEditor({
     if (!slashMenu) return;
     const block = blocks[slashMenu.blockIdx];
     if (item.type === "divider") {
-      // Replace block content, set type
+      // Replace block content, set type + clear DOM
+      const divEl = blockRefs.current.get(block.id);
+      if (divEl) divEl.textContent = "";
       setBlocks((prev) =>
         prev.map((b) => (b.id === block.id ? { ...b, type: "divider", content: "" } : b))
       );
