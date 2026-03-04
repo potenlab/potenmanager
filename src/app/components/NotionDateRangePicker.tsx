@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, ArrowRight, X, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, ArrowRight, X, Check, Clock } from "lucide-react";
 import { cn } from "../../lib/utils";
 import {
   format,
@@ -27,6 +27,8 @@ interface NotionDateRangePickerProps {
 
 const WEEKDAYS_KO = ["월", "화", "수", "목", "금", "토", "일"];
 const WEEKDAYS_EN = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
+const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
 
 export function NotionDateRangePicker({
   startDate,
@@ -40,6 +42,17 @@ export function NotionDateRangePicker({
   // Staging state — only committed on confirm
   const [tempStart, setTempStart] = useState<Date | null>(startDate);
   const [tempEnd, setTempEnd] = useState<Date | null>(endDate);
+
+  // Time state
+  const [includeTime, setIncludeTime] = useState(() => {
+    if (startDate && (startDate.getHours() !== 0 || startDate.getMinutes() !== 0)) return true;
+    if (endDate && (endDate.getHours() !== 0 || endDate.getMinutes() !== 0)) return true;
+    return false;
+  });
+  const [tempStartHour, setTempStartHour] = useState(startDate?.getHours() ?? 9);
+  const [tempStartMinute, setTempStartMinute] = useState(startDate?.getMinutes() ?? 0);
+  const [tempEndHour, setTempEndHour] = useState(endDate?.getHours() ?? 18);
+  const [tempEndMinute, setTempEndMinute] = useState(endDate?.getMinutes() ?? 0);
 
   const [dragStart, setDragStart] = useState<Date | null>(null);
   const [dragEnd, setDragEnd] = useState<Date | null>(null);
@@ -56,6 +69,13 @@ export function NotionDateRangePicker({
       setTempStart(startDate);
       setTempEnd(endDate);
       setViewMonth(startDate || new Date());
+      const hasTime = (startDate && (startDate.getHours() !== 0 || startDate.getMinutes() !== 0)) ||
+                      (endDate && (endDate.getHours() !== 0 || endDate.getMinutes() !== 0));
+      setIncludeTime(!!hasTime);
+      setTempStartHour(startDate?.getHours() ?? 9);
+      setTempStartMinute(startDate?.getMinutes() ?? 0);
+      setTempEndHour(endDate?.getHours() ?? 18);
+      setTempEndMinute(endDate?.getMinutes() ?? 0);
     }
   }, [open]);
 
@@ -64,7 +84,7 @@ export function NotionDateRangePicker({
     if (open && triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
       const popupWidth = 300;
-      const popupHeight = 440;
+      const popupHeight = 500;
       let top = rect.bottom + 4;
       let left = rect.left;
 
@@ -178,7 +198,16 @@ export function NotionDateRangePicker({
   };
 
   const handleConfirm = () => {
-    onChange(tempStart, tempEnd);
+    let start = tempStart ? new Date(tempStart) : null;
+    let end = tempEnd ? new Date(tempEnd) : null;
+    if (includeTime) {
+      if (start) start.setHours(tempStartHour, tempStartMinute, 0, 0);
+      if (end) end.setHours(tempEndHour, tempEndMinute, 0, 0);
+    } else {
+      if (start) start.setHours(0, 0, 0, 0);
+      if (end) end.setHours(0, 0, 0, 0);
+    }
+    onChange(start, end);
     setOpen(false);
   };
 
@@ -188,16 +217,30 @@ export function NotionDateRangePicker({
 
   const formatDisplay = () => {
     if (!startDate) return language === "ko" ? "날짜 선택" : "Pick a date";
-    const fmt = language === "ko" ? "yyyy년 M월 d일" : "MMM d, yyyy";
+    const hasTime = startDate.getHours() !== 0 || startDate.getMinutes() !== 0 ||
+                    (endDate && (endDate.getHours() !== 0 || endDate.getMinutes() !== 0));
     const opts = { locale: language === "ko" ? koLocale : undefined };
+
     if (!endDate || isSameDay(startDate, endDate)) {
-      return format(startDate, fmt, opts);
+      const fmt = language === "ko" ? "yyyy년 M월 d일" : "MMM d, yyyy";
+      const base = format(startDate, fmt, opts);
+      if (hasTime) {
+        const time = format(startDate, "HH:mm");
+        if (endDate && (endDate.getHours() !== 0 || endDate.getMinutes() !== 0)) {
+          return `${base} ${time} → ${format(endDate, "HH:mm")}`;
+        }
+        return `${base} ${time}`;
+      }
+      return base;
     }
     const fmtShort = language === "ko" ? "M월 d일" : "MMM d";
-    if (startDate.getFullYear() === endDate.getFullYear()) {
-      return `${format(startDate, fmtShort, opts)}  →  ${format(endDate, fmtShort, opts)}`;
-    }
-    return `${format(startDate, fmt, opts)}  →  ${format(endDate, fmt, opts)}`;
+    const sameYear = startDate.getFullYear() === endDate.getFullYear();
+    const fmtFull = language === "ko" ? "yyyy년 M월 d일" : "MMM d, yyyy";
+    const startFmt = sameYear ? fmtShort : fmtFull;
+    const endFmt = sameYear ? fmtShort : fmtFull;
+    const startStr = format(startDate, startFmt, opts) + (hasTime ? ` ${format(startDate, "HH:mm")}` : "");
+    const endStr = format(endDate, endFmt, opts) + (hasTime && (endDate.getHours() || endDate.getMinutes()) ? ` ${format(endDate, "HH:mm")}` : "");
+    return `${startStr}  →  ${endStr}`;
   };
 
   const weekdays = language === "ko" ? WEEKDAYS_KO : WEEKDAYS_EN;
@@ -325,6 +368,65 @@ export function NotionDateRangePicker({
               })}
             </div>
 
+            {/* Time toggle + selectors */}
+            <div className="border-t border-gray-100 px-4 py-2">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIncludeTime(!includeTime)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-colors",
+                    includeTime ? "bg-blue-50 text-blue-600" : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
+                  )}
+                >
+                  <Clock size={12} />
+                  {language === "ko" ? "시간" : "Time"}
+                </button>
+                {includeTime && (
+                  <div className="flex items-center gap-1 ml-auto">
+                    <select
+                      value={tempStartHour}
+                      onChange={(e) => setTempStartHour(+e.target.value)}
+                      className="w-[42px] text-xs py-1 px-0.5 border border-gray-200 rounded-md bg-white text-center focus:outline-none focus:border-blue-400"
+                    >
+                      {HOURS.map((h) => (
+                        <option key={h} value={h}>{String(h).padStart(2, "0")}</option>
+                      ))}
+                    </select>
+                    <span className="text-gray-400 text-xs font-bold">:</span>
+                    <select
+                      value={tempStartMinute}
+                      onChange={(e) => setTempStartMinute(+e.target.value)}
+                      className="w-[42px] text-xs py-1 px-0.5 border border-gray-200 rounded-md bg-white text-center focus:outline-none focus:border-blue-400"
+                    >
+                      {MINUTES.map((m) => (
+                        <option key={m} value={m}>{String(m).padStart(2, "0")}</option>
+                      ))}
+                    </select>
+                    <ArrowRight size={10} className="text-gray-300 mx-1" />
+                    <select
+                      value={tempEndHour}
+                      onChange={(e) => setTempEndHour(+e.target.value)}
+                      className="w-[42px] text-xs py-1 px-0.5 border border-gray-200 rounded-md bg-white text-center focus:outline-none focus:border-blue-400"
+                    >
+                      {HOURS.map((h) => (
+                        <option key={h} value={h}>{String(h).padStart(2, "0")}</option>
+                      ))}
+                    </select>
+                    <span className="text-gray-400 text-xs font-bold">:</span>
+                    <select
+                      value={tempEndMinute}
+                      onChange={(e) => setTempEndMinute(+e.target.value)}
+                      className="w-[42px] text-xs py-1 px-0.5 border border-gray-200 rounded-md bg-white text-center focus:outline-none focus:border-blue-400"
+                    >
+                      {MINUTES.map((m) => (
+                        <option key={m} value={m}>{String(m).padStart(2, "0")}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Footer: range display + actions */}
             <div className="border-t border-gray-100 px-4 py-2.5 space-y-2">
               <div className="flex items-center justify-between">
@@ -333,12 +435,14 @@ export function NotionDateRangePicker({
                     <>
                       <span className="font-medium text-gray-700">
                         {format(tempStart, language === "ko" ? "M/d" : "M/d")}
+                        {includeTime && ` ${String(tempStartHour).padStart(2, "0")}:${String(tempStartMinute).padStart(2, "0")}`}
                       </span>
                       {tempEnd && !isSameDay(tempStart, tempEnd) && (
                         <>
                           <ArrowRight size={12} className="text-gray-400" />
                           <span className="font-medium text-gray-700">
                             {format(tempEnd, language === "ko" ? "M/d" : "M/d")}
+                            {includeTime && ` ${String(tempEndHour).padStart(2, "0")}:${String(tempEndMinute).padStart(2, "0")}`}
                           </span>
                           <span className="text-[10px] text-gray-400 ml-1">
                             {Math.ceil(

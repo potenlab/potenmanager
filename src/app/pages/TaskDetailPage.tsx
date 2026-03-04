@@ -884,11 +884,12 @@ export function TaskDetailPage() {
 
             {/* Description / Editor — no header label */}
             <div className="min-h-[200px] border-t border-gray-100 pt-5">
-              <NotionBlockEditor 
-                initialContent={description} 
-                onChange={setDescription} 
+              <NotionBlockEditor
+                initialContent={description}
+                onChange={setDescription}
                 readOnly={!canEdit}
-                placeholder={language === "ko" ? "내용을 입력하세요..." : "Type something..."}
+                placeholder={language === "ko" ? "/ 를 입력하여 블록 유형 선택..." : "Type / to select block type..."}
+                language={language}
               />
             </div>
 

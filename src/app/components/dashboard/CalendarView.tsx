@@ -389,6 +389,7 @@ function DroppableDayCell({
     <div
       ref={ref}
       data-date={format(day, "yyyy-MM-dd")}
+      onClick={() => { if (selectedIds.size > 0) onDeselectAll(); }}
       className={cn(
         "border-b border-r border-gray-100 py-1.5 transition-colors flex flex-col gap-0.5 relative group",
         !isCurrentMonth && viewMode === "month" && "bg-gray-50/30 text-gray-400",
@@ -478,19 +479,19 @@ function DroppableDayCell({
           )
         )}
 
-        {/* Clickable empty area to trigger quick-add or deselect */}
-        <div
-          className="flex-1 min-h-[24px] cursor-pointer"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (selectedIds.size > 0) {
-              onDeselectAll();
-              return;
-            }
-            const target = e.currentTarget as HTMLElement;
-            onAddTask(day, target.getBoundingClientRect());
-          }}
-        />
+        {/* Hover "+ 새 일정" button */}
+        <div className="flex-1 min-h-[24px] flex items-end justify-center pb-1">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddTask(day, e.currentTarget.getBoundingClientRect());
+            }}
+            className="text-[10px] text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded px-2 py-0.5 transition-all opacity-0 group-hover:opacity-60 hover:!opacity-100 flex items-center gap-0.5"
+          >
+            <Plus size={10} />
+            새 일정
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -874,7 +875,7 @@ export function CalendarView() {
   const navigate = useNavigate();
   const { tasks: calTasks, setTasks: setCalTasks, addTask: addTaskToContext } = useTaskContext();
   const { meetings } = useMeetingContext();
-  const { can, members: teamMembers } = usePermission();
+  const { can, members: teamMembers, currentUser } = usePermission();
 
   // Calendar edit permission: can edit any = full drag, can edit own = own tasks only
   const canEditAnyCalendar = can('calendar.editAny');
@@ -1593,8 +1594,21 @@ export function CalendarView() {
                 onSelectTask={onSelectTask}
                 resizeState={resizeState}
                 onResizeStart={handleResizeStart}
-                onAddTask={(d, rect) => {
-                  navigate(`/tasks/new?date=${format(d, "yyyy-MM-dd")}`);
+                onAddTask={(d) => {
+                  const newId = `task-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+                  addTaskToContext({
+                    id: newId,
+                    title: "제목없음",
+                    titleKo: "제목없음",
+                    level: "Day",
+                    progress: 0,
+                    status: "pending",
+                    priority: "medium",
+                    dueDate: d,
+                    startDate: d,
+                    assigneeIds: [currentUser.id],
+                  } as Task);
+                  navigate(`/tasks/${newId}`);
                 }}
                 onDeselectAll={onDeselectAll}
                 onMeetingClick={(meetingId) => {

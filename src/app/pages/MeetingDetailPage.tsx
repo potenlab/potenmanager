@@ -17,6 +17,7 @@ import { useTrash } from "../context/TrashContext";
 import { TaskCategory } from "../../lib/mockData";
 import { TASK_CATEGORY_CONFIG, findBestAssignee } from "../../lib/jobRoles";
 import { AiAssistantSidebar } from "../components/AiAssistantSidebar";
+import { NotionBlockEditor } from "../components/NotionBlockEditor";
 
 type MeetingStatus = Meeting['status'];
 type MeetingType = Meeting['type'];
@@ -421,8 +422,30 @@ export function MeetingDetailPage() {
               </PropertyItem>
             </div>
 
-            {/* Action Items */}
-            <div className="space-y-3">
+            {/* Notes — above action items */}
+            <div className="min-h-[200px] border-t border-gray-100 pt-5">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">{ko ? '회의록' : 'Meeting Notes'}</span>
+                <button
+                  onClick={saveNotes}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                    notesSaved ? "bg-emerald-50 text-emerald-600" : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                  )}
+                >
+                  {notesSaved ? (ko ? '저장됨!' : 'Saved!') : (ko ? '저장' : 'Save')}
+                </button>
+              </div>
+              <NotionBlockEditor
+                initialContent={notes}
+                onChange={setNotes}
+                placeholder={ko ? '/ 를 입력하여 블록 유형 선택...' : 'Type / to select block type...'}
+                language={language}
+              />
+            </div>
+
+            {/* Action Items — below notes */}
+            <div className="space-y-3 border-t border-gray-100 pt-5">
               <div className="flex items-center gap-2 px-1">
                 <CheckCircle2 size={14} className="text-gray-400" />
                 <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
@@ -525,28 +548,6 @@ export function MeetingDetailPage() {
                   <Plus size={14} />
                 </button>
               </div>
-            </div>
-
-            {/* Notes */}
-            <div className="min-h-[200px] border-t border-gray-100 pt-5">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">{ko ? '회의록' : 'Meeting Notes'}</span>
-                <button
-                  onClick={saveNotes}
-                  className={cn(
-                    "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
-                    notesSaved ? "bg-emerald-50 text-emerald-600" : "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                  )}
-                >
-                  {notesSaved ? (ko ? '저장됨!' : 'Saved!') : (ko ? '저장' : 'Save')}
-                </button>
-              </div>
-              <textarea
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                placeholder={ko ? '회의 내용을 기록하세요...' : 'Write meeting notes here...'}
-                className="w-full text-sm text-gray-700 placeholder-gray-300 resize-none focus:outline-none bg-transparent leading-relaxed min-h-[200px]"
-              />
             </div>
           </div>
         </div>
