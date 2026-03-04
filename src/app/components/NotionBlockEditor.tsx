@@ -246,14 +246,138 @@ export function NotionBlockEditor({
     closeSlashMenu();
   };
 
-  // Paste handler
+  // Parse HTML clipboard into blocks with formatting
+  const parseHtmlToBlocks = (html: string): { type: BlockType; content: string }[] => {
+    const container = document.createElement("div");
+    container.innerHTML = html;
+    const result: { type: BlockType; content: string }[] = [];
+
+    const getTextContent = (el: Element): string => {
+      // Preserve text, stripping tags but keeping content
+      return (el.textContent || "").trim();
+    };
+
+    const processNode = (node: Node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = (node.textContent || "").trim();
+        if (text) result.push({ type: "text", content: text });
+        return;
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) return;
+      const el = node as Element;
+      const tag = el.tagName.toLowerCase();
+
+      if (tag === "h1") { result.push({ type: "h1", content: getTextContent(el) }); return; }
+      if (tag === "h2") { result.push({ type: "h2", content: getTextContent(el) }); return; }
+      if (tag === "h3") { result.push({ type: "h3", content: getTextContent(el) }); return; }
+      if (tag === "hr") { result.push({ type: "divider", content: "" }); return; }
+
+      if (tag === "ul") {
+        el.querySelectorAll(":scope > li").forEach((li) => {
+          result.push({ type: "bullet", content: getTextContent(li) });
+        });
+        return;
+      }
+      if (tag === "ol") {
+        el.querySelectorAll(":scope > li").forEach((li) => {
+          result.push({ type: "numbered", content: getTextContent(li) });
+        });
+        return;
+      }
+      if (tag === "li") {
+        // Standalone li (e.g. from Notion)
+        const parentTag = el.parentElement?.tagName.toLowerCase();
+        const listType: BlockType = parentTag === "ol" ? "numbered" : "bullet";
+        result.push({ type: listType, content: getTextContent(el) });
+        return;
+      }
+
+      if (["p", "div", "blockquote", "section", "article"].includes(tag)) {
+        const text = getTextContent(el);
+        if (text) result.push({ type: "text", content: text });
+        return;
+      }
+      if (tag === "br") return;
+
+      // For other elements (span, strong, em, etc.), recurse into children
+      // but if it looks like an inline element with text, just grab the text
+      if (el.children.length === 0) {
+        const text = getTextContent(el);
+        if (text) result.push({ type: "text", content: text });
+      } else {
+        el.childNodes.forEach(processNode);
+      }
+    };
+
+    container.childNodes.forEach(processNode);
+    return result;
+  };
+
+  // Paste handler — supports HTML (rich text) and plain text
   const handlePaste = useCallback(
     (e: React.ClipboardEvent, idx: number) => {
       e.preventDefault();
+      const html = e.clipboardData.getData("text/html");
       const text = e.clipboardData.getData("text/plain");
-      if (!text) return;
 
-      const lines = text.split(/\r?\n/);
+      // Try HTML first for rich paste
+      if (html) {
+        const parsed = parseHtmlToBlocks(html);
+        if (parsed.length > 0) {
+          const block = blocks[idx];
+          const cursorPos = getCursorPos(block.id);
+          const before = block.content.slice(0, cursorPos);
+          const after = block.content.slice(cursorPos);
+
+          // If single inline paste, just insert text
+          if (parsed.length === 1 && parsed[0].type === "text" && before + after === block.content) {
+            const merged = before + parsed[0].content + after;
+            setBlocks((prev) => prev.map((b) => b.id === block.id ? { ...b, content: merged } : b));
+            requestAnimationFrame(() => {
+              const el = blockRefs.current.get(block.id);
+              if (el) {
+                el.textContent = merged;
+                const range = document.createRange();
+                const sel = window.getSelection();
+                const targetPos = before.length + parsed[0].content.length;
+                let node: Node = el;
+                let offset = 0;
+                const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+                let remaining = targetPos;
+                let textNode: Text | null;
+                while ((textNode = walker.nextNode() as Text | null)) {
+                  if (remaining <= textNode.length) { node = textNode; offset = remaining; break; }
+                  remaining -= textNode.length;
+                }
+                range.setStart(node, offset);
+                range.collapse(true);
+                sel?.removeAllRanges();
+                sel?.addRange(range);
+              }
+            });
+            return;
+          }
+
+          // Multi-block paste
+          const newBlocks: Block[] = parsed.map((p, i) => {
+            if (i === 0) return { id: block.id, content: before + p.content, type: before ? block.type : p.type };
+            if (i === parsed.length - 1) return { id: genId(), content: p.content + after, type: p.type };
+            return { id: genId(), content: p.content, type: p.type };
+          });
+
+          setBlocks((prev) => {
+            const next = [...prev];
+            next.splice(idx, 1, ...newBlocks);
+            return next;
+          });
+          pendingFocusIdx.current = idx + newBlocks.length - 1;
+          return;
+        }
+      }
+
+      // Fallback: plain text
+      if (!text) return;
+      const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
 
       if (lines.length === 1) {
         document.execCommand("insertText", false, text);
