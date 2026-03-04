@@ -28,6 +28,7 @@ import { BizRadarPage } from "./pages/BizRadarPage";
 import { BizRadarDetailPage } from "./pages/BizRadarDetailPage";
 import { LibraryPage } from "./pages/LibraryPage";
 import { LibraryDetailPage } from "./pages/LibraryDetailPage";
+import { TeamBoardDetailPage } from "./pages/TeamBoardDetailPage";
 import { TrashPage } from "./pages/TrashPage";
 
 export const router = createBrowserRouter([
@@ -70,6 +71,8 @@ export const router = createBrowserRouter([
               { path: "library", Component: LibraryPage },
               { path: "library/new", Component: LibraryDetailPage },
               { path: "library/:itemId", Component: LibraryDetailPage },
+              { path: "board/new", Component: TeamBoardDetailPage },
+              { path: "board/:itemId", Component: TeamBoardDetailPage },
               { path: "team", Component: TeamPage },
               { path: "team/permissions", Component: PermissionsPage },
               { path: "team/:memberId", Component: TeamMemberPage },

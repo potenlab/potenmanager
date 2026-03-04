@@ -1180,6 +1180,9 @@ interface BoardItem {
   type: string;
   title: string;
   content: string;
+  description?: string;
+  attachments?: any[];
+  pinned?: boolean;
   createdBy: string;
   createdByName: string;
   createdAt: string;
@@ -1187,6 +1190,7 @@ interface BoardItem {
 }
 
 function TeamBoardSidebar({ orgId }: { orgId: string }) {
+  const navigate = useNavigate();
   const { language } = useLanguage();
   const ko = language === 'ko';
   const { currentUser } = usePermission();
@@ -1330,10 +1334,9 @@ function TeamBoardSidebar({ orgId }: { orgId: string }) {
                   </div>
                 </div>
               ) : (
-                <div key={item.id} onClick={() => canEdit && startEdit(item)}
+                <div key={item.id} onClick={() => navigate(`/board/${item.id}`)}
                   className={cn(
-                    "bg-white p-4 rounded-xl border shadow-sm hover:shadow-md transition-all group relative",
-                    canEdit ? "cursor-pointer" : "cursor-default",
+                    "bg-white p-4 rounded-xl border shadow-sm hover:shadow-md transition-all group relative cursor-pointer",
                     "border-gray-100"
                   )}>
                   <div className="flex items-start gap-2 mb-1">

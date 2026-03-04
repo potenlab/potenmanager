@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router";
 import {
   Plus, Search, BookMarked, Globe, FileText, Link as LinkIcon,
@@ -23,6 +23,8 @@ export const ARCHIVE_CATEGORIES = [
   { value: "learning", labelKo: "학습", labelEn: "Learning" },
 ];
 
+const MAX_CATEGORIES = 20;
+
 export function getCategoryLabel(value: string | undefined, ko: boolean): string {
   if (!value) return "";
   const cat = ARCHIVE_CATEGORIES.find((c) => c.value === value);
@@ -34,23 +36,15 @@ export function isPredefinedCategory(cat: string): boolean {
   return ARCHIVE_CATEGORIES.some((c) => c.value === cat);
 }
 
-// ─── Archive Card ────────────────────────────────────────────────
-function ArchiveCard({
+// ─── Compact Kanban Card ──────────────────────────────────────────
+function KanbanCard({
   item,
   onClick,
-  isSelected,
-  isSelecting,
-  onToggleSelect,
-  onToggleVisibility,
   isOwner,
   onContextMenu,
 }: {
   item: LibraryItem;
   onClick: () => void;
-  isSelected?: boolean;
-  isSelecting?: boolean;
-  onToggleSelect?: (id: string) => void;
-  onToggleVisibility?: (id: string) => void;
   isOwner?: boolean;
   onContextMenu?: (e: React.MouseEvent, id: string) => void;
 }) {
@@ -59,15 +53,10 @@ function ArchiveCard({
 
   const domain = item.url
     ? (() => {
-        try {
-          return new URL(item.url).hostname.replace("www.", "");
-        } catch {
-          return "";
-        }
+        try { return new URL(item.url).hostname.replace("www.", ""); }
+        catch { return ""; }
       })()
     : "";
-
-  const categoryLabel = getCategoryLabel(item.category, ko);
 
   const hasOgImage = item.type === "url" && item.ogMetadata?.ogImage;
   const ogDesc = item.ogMetadata?.ogDescription || item.description;
@@ -77,171 +66,121 @@ function ArchiveCard({
     <div
       onClick={onClick}
       onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, item.id); }}
-      className={cn(
-        "bg-white rounded-xl border shadow-sm hover:shadow-md transition-all cursor-pointer group relative overflow-hidden",
-        isSelected
-          ? "border-blue-400 ring-2 ring-blue-100"
-          : "border-gray-200 hover:border-gray-300"
-      )}
+      className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all cursor-pointer group overflow-hidden"
     >
-      {/* Checkbox */}
-      <div
-        className={cn(
-          "absolute top-2 left-2 z-10 transition-all",
-          isSelecting || isSelected
-            ? "opacity-100"
-            : "opacity-0 group-hover:opacity-100"
-        )}
-      >
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleSelect?.(item.id);
-          }}
-          className={cn(
-            "w-5 h-5 rounded border-2 flex items-center justify-center shadow-sm transition-all",
-            isSelected
-              ? "bg-blue-500 border-blue-500"
-              : "border-gray-300 bg-white hover:border-blue-400"
-          )}
-        >
-          {isSelected && (
-            <Check size={12} className="text-white" strokeWidth={3} />
-          )}
-        </button>
-      </div>
-
-      {/* Notion-style bookmark: text left + image right */}
-      <div className="flex h-full">
-        {/* Left: text content */}
-        <div className="flex-1 min-w-0 p-3.5 flex flex-col justify-between">
-          <div className="min-w-0">
-            <p className="text-[13px] font-semibold text-gray-900 leading-snug line-clamp-2 group-hover:text-blue-600 transition-colors">
-              {item.title || (ko ? "제목 없음" : "Untitled")}
-            </p>
-            {ogDesc && (
-              <p className="text-[11px] text-gray-500 line-clamp-2 mt-1 leading-relaxed">
-                {ogDesc}
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-2 mt-2.5 flex-wrap">
-            {domain && (
-              <span className="flex items-center gap-1.5 text-[11px] text-gray-500 min-w-0">
-                {favicon ? (
-                  <img src={favicon} alt="" className="w-3.5 h-3.5 rounded-sm shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                ) : (
-                  <LinkIcon size={11} className="text-gray-400 shrink-0" />
-                )}
-                <span className="truncate">{item.url}</span>
-              </span>
-            )}
-            {!domain && item.type === "note" && (
-              <span className="flex items-center gap-1 text-[11px] text-gray-400">
-                <FileText size={11} /> {ko ? "노트" : "Note"}
-              </span>
-            )}
-            {categoryLabel && (
-              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 shrink-0">
-                {categoryLabel}
-              </span>
-            )}
-            {/* Visibility toggle */}
-            {isOwner ? (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleVisibility?.(item.id);
-                }}
-                className={cn(
-                  "flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded-full transition-colors shrink-0",
-                  item.visibility === "published"
-                    ? "text-emerald-600 bg-emerald-50 hover:bg-emerald-100"
-                    : "text-gray-400 bg-gray-50 hover:bg-gray-100"
-                )}
-              >
-                {item.visibility === "published" ? <Globe size={8} /> : <Lock size={8} />}
-                {item.visibility === "published" ? (ko ? "공개" : "Public") : (ko ? "비공개" : "Private")}
-              </button>
-            ) : (
-              item.visibility === "published" && (
-                <span className="flex items-center gap-0.5 text-[9px] text-emerald-500 font-medium shrink-0">
-                  <Globe size={8} /> {ko ? "공개" : "Public"}
-                </span>
-              )
-            )}
-          </div>
+      {/* OG image thumbnail */}
+      {hasOgImage && (
+        <div className="h-28 bg-gray-100 overflow-hidden">
+          <img src={item.ogMetadata!.ogImage} alt="" className="w-full h-full object-cover" />
         </div>
-
-        {/* Right: OG image */}
-        {hasOgImage ? (
-          <div className="w-[120px] shrink-0 bg-gray-100">
-            <img
-              src={item.ogMetadata!.ogImage}
-              alt=""
-              className="w-full h-full object-cover"
-            />
-          </div>
-        ) : item.type === "url" ? (
-          <div className="w-[120px] shrink-0 bg-gray-50 flex items-center justify-center">
-            <LinkIcon size={24} className="text-gray-300" />
-          </div>
-        ) : null}
+      )}
+      <div className="p-3">
+        <p className="text-[13px] font-semibold text-gray-900 leading-snug line-clamp-2 group-hover:text-blue-600 transition-colors">
+          {item.title || (ko ? "제목 없음" : "Untitled")}
+        </p>
+        {ogDesc && (
+          <p className="text-[11px] text-gray-500 line-clamp-2 mt-1 leading-relaxed">{ogDesc}</p>
+        )}
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
+          {domain && (
+            <span className="flex items-center gap-1 text-[10px] text-gray-400 min-w-0 truncate">
+              {favicon ? (
+                <img src={favicon} alt="" className="w-3 h-3 rounded-sm shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              ) : (
+                <LinkIcon size={10} className="shrink-0" />
+              )}
+              <span className="truncate">{domain}</span>
+            </span>
+          )}
+          {!domain && item.type === "note" && (
+            <span className="flex items-center gap-1 text-[10px] text-gray-400">
+              <FileText size={10} /> {ko ? "노트" : "Note"}
+            </span>
+          )}
+          {isOwner && (
+            <span className={cn(
+              "flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ml-auto",
+              item.visibility === "published"
+                ? "text-emerald-600 bg-emerald-50"
+                : "text-gray-400 bg-gray-50"
+            )}>
+              {item.visibility === "published" ? <Globe size={8} /> : <Lock size={8} />}
+              {item.visibility === "published" ? (ko ? "공개" : "Public") : (ko ? "비공개" : "Private")}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-// ─── Selection Toolbar ───────────────────────────────────────────
-function SelectionToolbar({
-  count,
-  language,
-  onPublish,
-  onUnpublish,
-  onDelete,
-  onClear,
+// ─── Kanban Column ────────────────────────────────────────────────
+function KanbanColumn({
+  title,
+  items,
+  onCardClick,
+  onAddItem,
+  isOwnerFn,
+  onContextMenu,
+  onRemoveColumn,
+  isCustom,
 }: {
-  count: number;
-  language: string;
-  onPublish: () => void;
-  onUnpublish: () => void;
-  onDelete: () => void;
-  onClear: () => void;
+  title: string;
+  items: LibraryItem[];
+  onCardClick: (id: string) => void;
+  onAddItem?: (category: string) => void;
+  isOwnerFn: (item: LibraryItem) => boolean;
+  onContextMenu: (e: React.MouseEvent, id: string) => void;
+  onRemoveColumn?: () => void;
+  isCustom?: boolean;
 }) {
-  if (count === 0) return null;
-  const ko = language === "ko";
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white rounded-2xl shadow-2xl px-5 py-3 flex items-center gap-3 animate-in slide-in-from-bottom-4">
-      <span className="text-sm font-bold">
-        {count}
-        {ko ? "개 선택" : " selected"}
-      </span>
-      <div className="w-px h-5 bg-gray-700" />
-      <button
-        onClick={onPublish}
-        className="text-xs px-2.5 py-1 rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-1"
-      >
-        <Globe size={12} /> {ko ? "공개" : "Publish"}
-      </button>
-      <button
-        onClick={onUnpublish}
-        className="text-xs px-2.5 py-1 rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-1"
-      >
-        <BookMarked size={12} /> {ko ? "비공개" : "Private"}
-      </button>
-      <div className="w-px h-5 bg-gray-700" />
-      <button
-        onClick={onDelete}
-        className="text-xs px-2.5 py-1 rounded-lg text-red-400 hover:bg-red-900/40 transition-colors flex items-center gap-1"
-      >
-        <Trash2 size={12} /> {ko ? "삭제" : "Delete"}
-      </button>
-      <button
-        onClick={onClear}
-        className="p-1 text-gray-400 hover:text-white rounded transition-colors ml-1"
-      >
-        <X size={14} />
-      </button>
+    <div className="flex flex-col w-[280px] shrink-0 bg-gray-50/70 rounded-2xl border border-gray-100">
+      {/* Column header */}
+      <div className="flex items-center justify-between px-3.5 py-3 border-b border-gray-100">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-[13px] font-bold text-gray-700 truncate">{title}</span>
+          <span className="text-[11px] font-semibold text-gray-400 bg-gray-200/60 rounded-full px-1.5 min-w-[20px] text-center">
+            {items.length}
+          </span>
+        </div>
+        <div className="flex items-center gap-0.5 shrink-0">
+          {onAddItem && (
+            <button
+              onClick={() => onAddItem(title)}
+              className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+            >
+              <Plus size={14} />
+            </button>
+          )}
+          {isCustom && onRemoveColumn && items.length === 0 && (
+            <button
+              onClick={onRemoveColumn}
+              className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+            >
+              <Trash2 size={12} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Cards */}
+      <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-[100px] max-h-[calc(100vh-240px)] scrollbar-hide">
+        {items.map((item) => (
+          <KanbanCard
+            key={item.id}
+            item={item}
+            onClick={() => onCardClick(item.id)}
+            isOwner={isOwnerFn(item)}
+            onContextMenu={onContextMenu}
+          />
+        ))}
+        {items.length === 0 && (
+          <div className="flex items-center justify-center py-8 text-gray-300 text-[11px]">
+            비어 있음
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -255,17 +194,22 @@ export function LibraryPage() {
     items,
     myItems,
     teamItems,
+    customCategories,
     isLoading,
     updateItem,
     removeItem,
     getItem,
+    addCategory,
+    removeCategory,
   } = useLibrary();
   const { currentUser } = useTeam();
   const { moveToTrash } = useTrash();
 
   const [activeTab, setActiveTab] = useState<"all" | "my" | "team">("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+  const newCatInputRef = useRef<HTMLInputElement>(null);
 
   // ── Right-click context menu ──
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; id: string } | null>(null);
@@ -275,129 +219,106 @@ export function LibraryPage() {
   }, []);
   const closeCtxMenu = useCallback(() => setCtxMenu(null), []);
 
-  // All visible items (my items + others' published items)
+  // All visible items
   const allVisibleItems = useMemo(
-    () =>
-      items.filter(
-        (i) =>
-          i.ownerId === currentUser.id || i.visibility === "published"
-      ),
+    () => items.filter((i) => i.ownerId === currentUser.id || i.visibility === "published"),
     [items, currentUser.id]
   );
 
-  const baseItems =
-    activeTab === "all"
-      ? allVisibleItems
-      : activeTab === "my"
-        ? myItems
-        : teamItems;
+  const baseItems = activeTab === "all" ? allVisibleItems : activeTab === "my" ? myItems : teamItems;
 
-  // Filter by category + search
+  // Search filter
   const filteredItems = useMemo(() => {
-    let result = baseItems;
-
-    if (categoryFilter) {
-      if (categoryFilter === "other") {
-        result = result.filter(
-          (i) => i.category && !isPredefinedCategory(i.category)
-        );
-      } else {
-        result = result.filter((i) => i.category === categoryFilter);
-      }
-    }
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (i) =>
-          i.title.toLowerCase().includes(q) ||
-          i.description?.toLowerCase().includes(q) ||
-          i.url?.toLowerCase().includes(q)
-      );
-    }
-
-    return result.sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    if (!searchQuery.trim()) return baseItems;
+    const q = searchQuery.toLowerCase();
+    return baseItems.filter(
+      (i) =>
+        i.title.toLowerCase().includes(q) ||
+        i.description?.toLowerCase().includes(q) ||
+        i.url?.toLowerCase().includes(q)
     );
-  }, [baseItems, categoryFilter, searchQuery]);
+  }, [baseItems, searchQuery]);
 
-  // Category counts for filter badges
-  const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    baseItems.forEach((i) => {
-      if (!i.category) return;
-      if (isPredefinedCategory(i.category)) {
-        counts[i.category] = (counts[i.category] || 0) + 1;
+  // Build column list: uncategorized + predefined + custom
+  const allColumns = useMemo(() => {
+    const cols: { key: string; label: string; isCustom: boolean }[] = [];
+    // Uncategorized
+    cols.push({ key: "__uncategorized__", label: ko ? "미분류" : "Uncategorized", isCustom: false });
+    // Predefined
+    ARCHIVE_CATEGORIES.forEach((cat) => {
+      cols.push({ key: cat.value, label: ko ? cat.labelKo : cat.labelEn, isCustom: false });
+    });
+    // Custom
+    customCategories.forEach((name) => {
+      cols.push({ key: name, label: name, isCustom: true });
+    });
+    return cols;
+  }, [ko, customCategories]);
+
+  // Group items into columns
+  const columnItems = useMemo(() => {
+    const map: Record<string, LibraryItem[]> = {};
+    allColumns.forEach((col) => { map[col.key] = []; });
+
+    filteredItems.forEach((item) => {
+      const cat = item.category;
+      if (!cat) {
+        map["__uncategorized__"]?.push(item);
+      } else if (map[cat]) {
+        map[cat].push(item);
       } else {
-        counts["other"] = (counts["other"] || 0) + 1;
+        // Custom category from item that isn't in our column list (e.g. from "other" input)
+        if (!map[cat]) map[cat] = [];
+        map[cat].push(item);
       }
     });
-    return counts;
-  }, [baseItems]);
 
-  // Selection
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const isSelecting = selectedIds.size > 0;
-  const toggleSelect = useCallback((id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+    // Sort each column by date
+    Object.values(map).forEach((arr) => {
+      arr.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     });
-  }, []);
-  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && selectedIds.size > 0) clearSelection();
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [selectedIds, clearSelection]);
+    return map;
+  }, [filteredItems, allColumns]);
 
-  // Visibility toggle
-  const handleToggleVisibility = useCallback(
-    (id: string) => {
-      const item = items.find((i) => i.id === id);
-      if (item) {
-        updateItem(id, {
-          visibility:
-            item.visibility === "published" ? "private" : "published",
-        });
+  // Extra columns from items with categories not in allColumns
+  const extraColumns = useMemo(() => {
+    const knownKeys = new Set(allColumns.map((c) => c.key));
+    const extras: { key: string; label: string; isCustom: boolean }[] = [];
+    Object.keys(columnItems).forEach((key) => {
+      if (!knownKeys.has(key) && columnItems[key].length > 0) {
+        extras.push({ key, label: key, isCustom: true });
       }
-    },
-    [items, updateItem]
+    });
+    return extras;
+  }, [allColumns, columnItems]);
+
+  const displayColumns = useMemo(
+    () => [...allColumns, ...extraColumns],
+    [allColumns, extraColumns]
   );
 
-  // Bulk operations
-  const handleBulkPublish = useCallback(() => {
-    selectedIds.forEach((id) =>
-      updateItem(id, { visibility: "published" })
-    );
-    clearSelection();
-  }, [selectedIds, updateItem, clearSelection]);
+  const totalCatCount = ARCHIVE_CATEGORIES.length + customCategories.length + extraColumns.length;
 
-  const handleBulkUnpublish = useCallback(() => {
-    selectedIds.forEach((id) =>
-      updateItem(id, { visibility: "private" })
-    );
-    clearSelection();
-  }, [selectedIds, updateItem, clearSelection]);
+  const handleAddCategory = () => {
+    const name = newCatName.trim();
+    if (!name) return;
+    if (totalCatCount >= MAX_CATEGORIES) return;
+    addCategory(name);
+    setNewCatName("");
+    setAddingCategory(false);
+  };
 
-  const handleBulkDelete = useCallback(() => {
-    if (
-      !confirm(
-        ko
-          ? `${selectedIds.size}개 자료를 삭제하시겠습니까?`
-          : `Delete ${selectedIds.size} items?`
-      )
-    )
-      return;
-    selectedIds.forEach((id) => removeItem(id));
-    clearSelection();
-  }, [selectedIds, removeItem, clearSelection, ko]);
+  const isOwnerFn = useCallback(
+    (item: LibraryItem) => item.ownerId === currentUser.id,
+    [currentUser.id]
+  );
+
+  useEffect(() => {
+    if (addingCategory && newCatInputRef.current) {
+      newCatInputRef.current.focus();
+    }
+  }, [addingCategory]);
 
   if (isLoading) {
     return (
@@ -410,7 +331,7 @@ export function LibraryPage() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <header className="mb-5 shrink-0">
+      <header className="mb-4 shrink-0">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
           <div>
             <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">
@@ -436,11 +357,7 @@ export function LibraryPage() {
         <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
           <div className="flex items-center gap-2">
             <button
-              onClick={() => {
-                setActiveTab("all");
-                setSearchQuery("");
-                setCategoryFilter("");
-              }}
+              onClick={() => { setActiveTab("all"); setSearchQuery(""); }}
               className={cn(
                 "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border",
                 activeTab === "all"
@@ -450,23 +367,12 @@ export function LibraryPage() {
             >
               <Archive size={15} />
               {ko ? "전체" : "All"}
-              <span
-                className={cn(
-                  "text-[10px] px-1.5 py-0.5 rounded-full font-bold",
-                  activeTab === "all"
-                    ? "bg-gray-700 text-gray-200"
-                    : "bg-gray-100 text-gray-500"
-                )}
-              >
+              <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-bold", activeTab === "all" ? "bg-gray-700 text-gray-200" : "bg-gray-100 text-gray-500")}>
                 {allVisibleItems.length}
               </span>
             </button>
             <button
-              onClick={() => {
-                setActiveTab("my");
-                setSearchQuery("");
-                setCategoryFilter("");
-              }}
+              onClick={() => { setActiveTab("my"); setSearchQuery(""); }}
               className={cn(
                 "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border",
                 activeTab === "my"
@@ -476,23 +382,12 @@ export function LibraryPage() {
             >
               <BookMarked size={15} />
               {ko ? "내 자료" : "Mine"}
-              <span
-                className={cn(
-                  "text-[10px] px-1.5 py-0.5 rounded-full font-bold",
-                  activeTab === "my"
-                    ? "bg-blue-200 text-blue-700"
-                    : "bg-gray-100 text-gray-500"
-                )}
-              >
+              <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-bold", activeTab === "my" ? "bg-blue-200 text-blue-700" : "bg-gray-100 text-gray-500")}>
                 {myItems.length}
               </span>
             </button>
             <button
-              onClick={() => {
-                setActiveTab("team");
-                setSearchQuery("");
-                setCategoryFilter("");
-              }}
+              onClick={() => { setActiveTab("team"); setSearchQuery(""); }}
               className={cn(
                 "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border",
                 activeTab === "team"
@@ -502,14 +397,7 @@ export function LibraryPage() {
             >
               <Globe size={15} />
               {ko ? "팀 공유" : "Team"}
-              <span
-                className={cn(
-                  "text-[10px] px-1.5 py-0.5 rounded-full font-bold",
-                  activeTab === "team"
-                    ? "bg-emerald-200 text-emerald-700"
-                    : "bg-gray-100 text-gray-500"
-                )}
-              >
+              <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-bold", activeTab === "team" ? "bg-emerald-200 text-emerald-700" : "bg-gray-100 text-gray-500")}>
                 {teamItems.length}
               </span>
             </button>
@@ -527,110 +415,77 @@ export function LibraryPage() {
             </div>
           </div>
         </div>
-
-        {/* Category filter chips */}
-        <div className="flex items-center gap-2 mt-3 overflow-x-auto pb-1 scrollbar-hide">
-          <button
-            onClick={() => setCategoryFilter("")}
-            className={cn(
-              "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all border",
-              !categoryFilter
-                ? "bg-gray-900 text-white border-gray-900"
-                : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
-            )}
-          >
-            {ko ? "전체" : "All"}
-          </button>
-          {ARCHIVE_CATEGORIES.map((cat) => {
-            const count = categoryCounts[cat.value] || 0;
-            return (
-              <button
-                key={cat.value}
-                onClick={() =>
-                  setCategoryFilter(
-                    categoryFilter === cat.value ? "" : cat.value
-                  )
-                }
-                className={cn(
-                  "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all border flex items-center gap-1",
-                  categoryFilter === cat.value
-                    ? "bg-blue-50 text-blue-700 border-blue-200"
-                    : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
-                )}
-              >
-                {ko ? cat.labelKo : cat.labelEn}
-                {count > 0 && (
-                  <span className="text-[9px] font-bold">{count}</span>
-                )}
-              </button>
-            );
-          })}
-          {(categoryCounts["other"] || 0) > 0 && (
-            <button
-              onClick={() =>
-                setCategoryFilter(
-                  categoryFilter === "other" ? "" : "other"
-                )
-              }
-              className={cn(
-                "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all border flex items-center gap-1",
-                categoryFilter === "other"
-                  ? "bg-blue-50 text-blue-700 border-blue-200"
-                  : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
-              )}
-            >
-              {ko ? "기타" : "Other"}
-              <span className="text-[9px] font-bold">
-                {categoryCounts["other"]}
-              </span>
-            </button>
-          )}
-        </div>
       </header>
 
-      {/* Card Grid */}
-      <div className="flex-1 overflow-y-auto pb-20">
-        {filteredItems.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-            {filteredItems.map((item) => (
-              <ArchiveCard
-                key={item.id}
-                item={item}
-                onClick={() => navigate(`/library/${item.id}`)}
-                isSelected={selectedIds.has(item.id)}
-                isSelecting={isSelecting}
-                onToggleSelect={toggleSelect}
-                onToggleVisibility={handleToggleVisibility}
-                isOwner={item.ownerId === currentUser.id}
-                onContextMenu={handleCardContextMenu}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-20 text-gray-300">
-            <Archive size={40} className="mb-3 opacity-50" />
-            <p className="text-sm font-medium">
-              {ko ? "자료가 없습니다" : "No items yet"}
-            </p>
-            <button
-              onClick={() => navigate("/library/new")}
-              className="mt-3 text-sm text-blue-500 hover:text-blue-600 font-medium"
-            >
-              {ko ? "+ 자료 추가하기" : "+ Add an item"}
-            </button>
-          </div>
-        )}
-      </div>
+      {/* Kanban Board */}
+      <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4">
+        <div className="flex gap-3 h-full min-w-max pr-4">
+          {displayColumns.map((col) => (
+            <KanbanColumn
+              key={col.key}
+              title={col.label}
+              items={columnItems[col.key] || []}
+              onCardClick={(id) => navigate(`/library/${id}`)}
+              onAddItem={col.key !== "__uncategorized__" ? undefined : undefined}
+              isOwnerFn={isOwnerFn}
+              onContextMenu={handleCardContextMenu}
+              isCustom={col.isCustom}
+              onRemoveColumn={col.isCustom ? () => removeCategory(col.key) : undefined}
+            />
+          ))}
 
-      {/* Selection toolbar */}
-      <SelectionToolbar
-        count={selectedIds.size}
-        language={language}
-        onPublish={handleBulkPublish}
-        onUnpublish={handleBulkUnpublish}
-        onDelete={handleBulkDelete}
-        onClear={clearSelection}
-      />
+          {/* Add category column */}
+          {totalCatCount < MAX_CATEGORIES && (
+            <div className="w-[280px] shrink-0">
+              {addingCategory ? (
+                <div className="bg-gray-50/70 rounded-2xl border border-gray-200 border-dashed p-3 space-y-2">
+                  <input
+                    ref={newCatInputRef}
+                    type="text"
+                    value={newCatName}
+                    onChange={(e) => setNewCatName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleAddCategory();
+                      if (e.key === "Escape") { setAddingCategory(false); setNewCatName(""); }
+                    }}
+                    placeholder={ko ? "카테고리 이름" : "Category name"}
+                    className="w-full text-sm px-3 py-2 rounded-lg border border-gray-200 outline-none focus:ring-2 focus:ring-blue-100"
+                    maxLength={30}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleAddCategory}
+                      disabled={!newCatName.trim()}
+                      className="flex-1 px-3 py-1.5 bg-blue-500 text-white text-xs font-bold rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors"
+                    >
+                      {ko ? "추가" : "Add"}
+                    </button>
+                    <button
+                      onClick={() => { setAddingCategory(false); setNewCatName(""); }}
+                      className="px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100 rounded-lg"
+                    >
+                      {ko ? "취소" : "Cancel"}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-gray-400">
+                    {ko
+                      ? `카테고리 ${totalCatCount}/${MAX_CATEGORIES}`
+                      : `Categories ${totalCatCount}/${MAX_CATEGORIES}`}
+                  </p>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setAddingCategory(true)}
+                  className="w-full flex items-center justify-center gap-2 py-4 text-sm text-gray-400 hover:text-blue-600 bg-gray-50/50 hover:bg-blue-50/50 rounded-2xl border-2 border-dashed border-gray-200 hover:border-blue-300 transition-all"
+                >
+                  <Plus size={16} />
+                  {ko ? "카테고리 추가" : "Add Category"}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Right-click context menu */}
       {ctxMenu && (

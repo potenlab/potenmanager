@@ -14,6 +14,8 @@ import { useTrash } from "../context/TrashContext";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { AiAssistantSidebar } from "../components/AiAssistantSidebar";
 import { ARCHIVE_CATEGORIES, isPredefinedCategory } from "./LibraryPage";
+import { InlineText } from "../components/detail/InlineText";
+import { PropertyItem } from "../components/detail/PropertyItem";
 
 const URL_REGEX = /https?:\/\/[^\s<>"')\]]+/;
 
@@ -26,49 +28,6 @@ function getYouTubeVideoId(url: string): string | null {
   return null;
 }
 
-// ─── Inline Editable Title ─────────────────────────────────────────
-function InlineTitle({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [isFocused, setIsFocused] = useState(false);
-
-  useEffect(() => {
-    if (ref.current && !isFocused) ref.current.textContent = value;
-  }, [value, isFocused]);
-
-  const handleBlur = () => {
-    setIsFocused(false);
-    const v = ref.current?.textContent?.trim() || "";
-    if (v !== value) onChange(v);
-  };
-
-  return (
-    <div
-      ref={ref}
-      contentEditable
-      suppressContentEditableWarning
-      onFocus={() => setIsFocused(true)}
-      onBlur={handleBlur}
-      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); ref.current?.blur(); } }}
-      data-placeholder={placeholder}
-      className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight tracking-tight outline-none rounded-lg transition-colors
-        empty:before:content-[attr(data-placeholder)] empty:before:text-gray-300 empty:before:pointer-events-none
-        hover:bg-gray-50/50 focus:bg-gray-50 focus:ring-2 focus:ring-blue-100 px-1 -mx-1
-        border-b-2 border-transparent focus:border-gray-200 rounded-none pb-0.5"
-    />
-  );
-}
-
-// ─── Property Row ──────────────────────────────────────────────────
-function PropertyItem({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50/80 transition-colors group">
-      <div className="flex items-center gap-2 w-[110px] shrink-0 text-gray-400 font-medium text-xs">
-        {icon} <span>{label}</span>
-      </div>
-      <div className="flex-1 min-w-0">{children}</div>
-    </div>
-  );
-}
 
 // ─── Category Select ───────────────────────────────────────────────
 function CategorySelect({ value, onChange, ko }: { value: string; onChange: (v: string) => void; ko: boolean }) {
@@ -243,10 +202,12 @@ export function LibraryDetailPage() {
 
             {/* Title */}
             <div>
-              <InlineTitle
+              <InlineText
                 value={item.title}
                 onChange={(v) => handleUpdate({ title: v })}
                 placeholder={ko ? '제목을 입력하세요' : 'Enter title'}
+                className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight tracking-tight focus:ring-0 focus:bg-transparent hover:bg-transparent border-b-2 border-transparent focus:border-gray-200 rounded-none pb-0.5"
+                as="h1"
               />
             </div>
 

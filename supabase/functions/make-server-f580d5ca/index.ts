@@ -864,6 +864,19 @@ app.get("/make-server-f580d5ca/team-board/:orgId", async (c) => {
   }
 });
 
+app.get("/make-server-f580d5ca/team-board/:orgId/:id", async (c) => {
+  try {
+    const orgId = c.req.param("orgId");
+    const id = c.req.param("id");
+    const item = await kv.get(`team-board:${orgId}:${id}`);
+    if (!item) return c.json({ error: "Not found" }, 404);
+    return c.json(item);
+  } catch (e) {
+    console.log("Error fetching team board item:", e);
+    return c.json({ error: "Failed to fetch", message: String(e) }, 500);
+  }
+});
+
 app.post("/make-server-f580d5ca/team-board/:orgId", async (c) => {
   try {
     const orgId = c.req.param("orgId");
@@ -1570,6 +1583,28 @@ app.delete("/make-server-f580d5ca/library/:id", async (c) => {
   } catch (e) {
     console.log("Error deleting library item:", e);
     return c.json({ error: "Failed to delete library item", message: String(e) }, 500);
+  }
+});
+
+// ─── Library Custom Categories ──────────────────────────────────────
+app.get("/make-server-f580d5ca/library/categories", async (c) => {
+  try {
+    const data = await kv.get(pfx(c, "library-categories"));
+    return c.json(data || []);
+  } catch (e) {
+    console.log("Error fetching library categories:", e);
+    return c.json([], 200);
+  }
+});
+
+app.put("/make-server-f580d5ca/library/categories", async (c) => {
+  try {
+    const categories = await c.req.json();
+    await kv.set(pfx(c, "library-categories"), categories);
+    return c.json({ success: true });
+  } catch (e) {
+    console.log("Error saving library categories:", e);
+    return c.json({ error: "Failed to save categories", message: String(e) }, 500);
   }
 });
 

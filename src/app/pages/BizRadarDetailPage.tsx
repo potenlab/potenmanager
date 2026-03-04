@@ -17,6 +17,11 @@ import { createPortal } from "react-dom";
 import { TaskCategory } from "../../lib/mockData";
 import { TASK_CATEGORY_CONFIG, findBestAssignee } from "../../lib/jobRoles";
 import { AiAssistantSidebar } from "../components/AiAssistantSidebar";
+import { InlineText } from "../components/detail/InlineText";
+import { InlineDropdown } from "../components/detail/InlineDropdown";
+import { PropertyItem } from "../components/detail/PropertyItem";
+import { usePortalPosition } from "../hooks/usePortalPosition";
+import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
 
 const STAGE_CONFIG: Record<BizStage, { label: string; labelKo: string; icon: React.ReactNode; color: string }> = {
   discovered: { label: "Discovered", labelKo: "발굴", icon: <Compass size={14} />, color: "text-purple-600" },
@@ -44,91 +49,6 @@ const CONNECTION_TYPE_CONFIG: Record<ConnectionType, { label: string; labelKo: s
   other:       { label: "Other",       labelKo: "기타",     color: "text-gray-600",   bg: "bg-gray-50" },
 };
 
-// ─── Inline Editable Title ──────────────────────────────────────
-function InlineTitle({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [isFocused, setIsFocused] = useState(false);
-
-  useEffect(() => {
-    if (ref.current && !isFocused) ref.current.textContent = value;
-  }, [value, isFocused]);
-
-  const handleBlur = () => {
-    setIsFocused(false);
-    const v = ref.current?.textContent?.trim() || "";
-    if (v !== value) onChange(v);
-  };
-
-  return (
-    <div
-      ref={ref}
-      contentEditable
-      suppressContentEditableWarning
-      onFocus={() => setIsFocused(true)}
-      onBlur={handleBlur}
-      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); ref.current?.blur(); } }}
-      data-placeholder={placeholder}
-      className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight tracking-tight outline-none rounded-lg empty:before:content-[attr(data-placeholder)] empty:before:text-gray-300 empty:before:pointer-events-none hover:bg-gray-50/50 focus:bg-gray-50 focus:ring-2 focus:ring-blue-100 px-1 -mx-1 border-b-2 border-transparent focus:border-gray-200 rounded-none pb-0.5"
-    />
-  );
-}
-
-// ─── Portal Dropdown ────────────────────────────────────────────
-function usePortalPosition(open: boolean, triggerRef: React.RefObject<HTMLElement | null>) {
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  useEffect(() => {
-    if (!open || !triggerRef.current) { setPos(null); return; }
-    const rect = triggerRef.current.getBoundingClientRect();
-    let top = rect.bottom + 4;
-    let left = rect.left;
-    if (left + 240 > window.innerWidth - 16) left = window.innerWidth - 256;
-    if (top + 300 > window.innerHeight - 16) top = rect.top - 304;
-    setPos({ top, left });
-  }, [open]);
-  return pos;
-}
-
-function InlineDropdown<T extends string>({
-  value, options, onChange, renderOption, renderValue,
-}: {
-  value: T; options: T[]; onChange: (v: T) => void;
-  renderOption: (opt: T) => React.ReactNode; renderValue: (val: T) => React.ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const popupRef = useRef<HTMLDivElement>(null);
-  const pos = usePortalPosition(open, triggerRef);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (triggerRef.current?.contains(e.target as Node) || popupRef.current?.contains(e.target as Node)) return;
-      setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  return (
-    <>
-      <button ref={triggerRef} onClick={() => setOpen(!open)} className="flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors text-sm hover:bg-gray-100">
-        {renderValue(value)}
-        <ChevronDown size={12} className="text-gray-400" />
-      </button>
-      {open && pos && createPortal(
-        <div ref={popupRef} className="fixed bg-white border border-gray-200 rounded-xl shadow-lg z-[9999] min-w-[160px] py-1" style={{ top: pos.top, left: pos.left }}>
-          {options.map((opt) => (
-            <button key={opt} onClick={() => { onChange(opt); setOpen(false); }}
-              className={cn("w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 transition-colors", opt === value && "bg-blue-50/50")}>
-              {renderOption(opt)}
-              {opt === value && <Check size={14} className="ml-auto text-blue-600" />}
-            </button>
-          ))}
-        </div>,
-        document.body
-      )}
-    </>
-  );
-}
 
 // ─── Assignee Picker ──────────────────────────────────────────
 function AssigneePicker({ selectedId, onChange, language }: { selectedId?: string; onChange: (id: string | undefined) => void; language: string }) {
@@ -183,17 +103,6 @@ function AssigneePicker({ selectedId, onChange, language }: { selectedId?: strin
   );
 }
 
-// ─── Property Row ───────────────────────────────────────────────
-function PropertyItem({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50/80 transition-colors group">
-      <div className="flex items-center gap-2 w-[110px] shrink-0 text-gray-400 font-medium text-xs">
-        {icon} <span>{label}</span>
-      </div>
-      <div className="flex-1">{children}</div>
-    </div>
-  );
-}
 
 function formatValue(v?: number): string {
   if (!v) return '-';
@@ -384,10 +293,12 @@ export function BizRadarDetailPage() {
             )}
 
             {/* Title */}
-            <InlineTitle value={item.title} onChange={handleTitleChange}
+            <InlineText value={item.title} onChange={handleTitleChange}
               placeholder={ko
                 ? (isConnection ? '연결 제목' : '기회 제목')
-                : (isConnection ? 'Connection Title' : 'Opportunity Title')} />
+                : (isConnection ? 'Connection Title' : 'Opportunity Title')}
+              className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight tracking-tight focus:ring-0 focus:bg-transparent hover:bg-transparent border-b-2 border-transparent focus:border-gray-200 rounded-none pb-0.5"
+              as="h1" />
 
             {/* Properties */}
             <div className="bg-gray-50/50 rounded-2xl border border-gray-100 divide-y divide-gray-100 overflow-hidden">
@@ -633,6 +544,7 @@ export function BizRadarDetailPage() {
                 placeholder={ko ? '기회에 대한 메모를 작성하세요...' : 'Write notes about this opportunity...'}
                 className="w-full text-sm text-gray-700 placeholder-gray-300 resize-none focus:outline-none bg-transparent leading-relaxed min-h-[200px]"
               />
+              <UrlPreviewSection content={notes} language={language} />
             </div>
           </div>
         </div>

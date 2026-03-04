@@ -142,6 +142,8 @@ export const api = {
   // ── Team Board ──
   getTeamBoardItems: (orgId: string) =>
     request<any[]>(`/team-board/${orgId}`),
+  getTeamBoardItem: (orgId: string, id: string) =>
+    request<any>(`/team-board/${orgId}/${id}`),
   createTeamBoardItem: (orgId: string, item: any) =>
     request<any>(`/team-board/${orgId}`, { method: 'POST', body: JSON.stringify(item) }),
   updateTeamBoardItem: (orgId: string, id: string, data: any) =>
@@ -194,6 +196,10 @@ export const api = {
     request<any>(`/library/${id}`, { method: 'DELETE' }),
   fetchOgMetadata: (url: string) =>
     request<any>('/library/og', { method: 'POST', body: JSON.stringify({ url }) }),
+  getLibraryCategories: () =>
+    request<string[]>('/library/categories'),
+  saveLibraryCategories: (categories: string[]) =>
+    request<any>('/library/categories', { method: 'PUT', body: JSON.stringify(categories) }),
 
   // ── AI Strategy ──
   generateStrategy: (data: {

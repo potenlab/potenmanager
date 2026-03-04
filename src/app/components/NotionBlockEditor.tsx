@@ -496,6 +496,11 @@ export function NotionBlockEditor({
       const cursorPos = getCursorPos(block.id);
       const before = block.content.slice(0, cursorPos);
       const after = block.content.slice(cursorPos);
+
+      // Update DOM immediately so onBlur reads the correct (split) text
+      const el = blockRefs.current.get(block.id);
+      if (el) el.textContent = before;
+
       // Continue list type for new blocks, otherwise default to text
       const newType: BlockType = (block.type === "bullet" || block.type === "numbered") ? block.type : "text";
       const newBlock: Block = { id: genId(), content: after, type: newType };

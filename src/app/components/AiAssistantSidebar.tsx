@@ -93,7 +93,7 @@ const ALL_FEATURES: {
 export interface AiSidebarProps {
   title: string;
   description?: string;
-  entityType: "task" | "goal" | "radar" | "library" | "meeting";
+  entityType: "task" | "goal" | "radar" | "library" | "meeting" | "board";
   language: string;
   enabledFeatures?: Exclude<AIFeature, null>[];
 

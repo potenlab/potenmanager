@@ -34,12 +34,15 @@ interface LibraryContextType {
   items: LibraryItem[];
   myItems: LibraryItem[];
   teamItems: LibraryItem[];
+  customCategories: string[];
   addItem: (item: LibraryItem) => void;
   updateItem: (id: string, updates: Partial<LibraryItem>) => void;
   removeItem: (id: string) => void;
   getItem: (id: string) => LibraryItem | undefined;
   publishItem: (id: string) => void;
   unpublishItem: (id: string) => void;
+  addCategory: (name: string) => void;
+  removeCategory: (name: string) => void;
   fetchOgMetadata: (url: string) => Promise<OgMetadata | null>;
   isLoading: boolean;
   isSynced: boolean;
@@ -49,12 +52,15 @@ const defaultValue: LibraryContextType = {
   items: [],
   myItems: [],
   teamItems: [],
+  customCategories: [],
   addItem: () => {},
   updateItem: () => {},
   removeItem: () => {},
   getItem: () => undefined,
   publishItem: () => {},
   unpublishItem: () => {},
+  addCategory: () => {},
+  removeCategory: () => {},
   fetchOgMetadata: async () => null,
   isLoading: true,
   isSynced: false,
@@ -64,6 +70,7 @@ const LibraryContext = createContext<LibraryContextType>(defaultValue);
 
 export function LibraryProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<LibraryItem[]>([]);
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSynced, setIsSynced] = useState(false);
   const initRef = useRef(false);
@@ -75,10 +82,14 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
     const init = async () => {
       try {
-        const serverItems = await api.getLibraryItems();
+        const [serverItems, cats] = await Promise.all([
+          api.getLibraryItems(),
+          api.getLibraryCategories().catch(() => []),
+        ]);
         if (serverItems && serverItems.length > 0) {
           setItems(serverItems as LibraryItem[]);
         }
+        if (Array.isArray(cats)) setCustomCategories(cats);
         setIsSynced(true);
       } catch (err) {
         console.error("[LibraryContext] Server sync failed:", err);
@@ -170,6 +181,23 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     updateItem(id, { visibility: 'private' });
   }, [updateItem]);
 
+  const addCategory = useCallback((name: string) => {
+    setCustomCategories(prev => {
+      if (prev.includes(name)) return prev;
+      const next = [...prev, name];
+      api.saveLibraryCategories(next).catch(() => {});
+      return next;
+    });
+  }, []);
+
+  const removeCategory = useCallback((name: string) => {
+    setCustomCategories(prev => {
+      const next = prev.filter(c => c !== name);
+      api.saveLibraryCategories(next).catch(() => {});
+      return next;
+    });
+  }, []);
+
   const fetchOgMetadata = useCallback(async (url: string): Promise<OgMetadata | null> => {
     try {
       const data = await api.fetchOgMetadata(url);
@@ -180,9 +208,9 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<LibraryContextType>(() => ({
-    items, myItems, teamItems, addItem, updateItem, removeItem,
-    getItem, publishItem, unpublishItem, fetchOgMetadata, isLoading, isSynced,
-  }), [items, myItems, teamItems, addItem, updateItem, removeItem, getItem, publishItem, unpublishItem, fetchOgMetadata, isLoading, isSynced]);
+    items, myItems, teamItems, customCategories, addItem, updateItem, removeItem,
+    getItem, publishItem, unpublishItem, addCategory, removeCategory, fetchOgMetadata, isLoading, isSynced,
+  }), [items, myItems, teamItems, customCategories, addItem, updateItem, removeItem, getItem, publishItem, unpublishItem, addCategory, removeCategory, fetchOgMetadata, isLoading, isSynced]);
 
   return (
     <LibraryContext.Provider value={value}>
