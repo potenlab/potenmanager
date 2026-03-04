@@ -150,6 +150,8 @@ export const api = {
     request<any>(`/radar/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteRadarItem: (id: string) =>
     request<any>(`/radar/${id}`, { method: 'DELETE' }),
+  fetchWishketProjects: () =>
+    request<any>('/radar/wishket'),
 
   // ── Meetings ──
   getMeetings: async () => {

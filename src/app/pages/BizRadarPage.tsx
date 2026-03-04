@@ -6,6 +6,7 @@ import {
   LayoutGrid, List as ListIcon, MoreHorizontal,
   Trash2, X, Check, Building2, User as UserIcon, Calendar,
   DollarSign, Percent, Tag, Briefcase, Link2, Globe, Loader2,
+  RefreshCw, ExternalLink, Clock, ArrowDownUp,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
@@ -385,6 +386,48 @@ export function BizRadarPage() {
   const [crawlUrl, setCrawlUrl] = useState('');
   const [crawlLoading, setCrawlLoading] = useState(false);
 
+  // Wishket tab state
+  const [showWishket, setShowWishket] = useState(false);
+  const [wishketProjects, setWishketProjects] = useState<any[]>([]);
+  const [wishketLoading, setWishketLoading] = useState(false);
+  const [wishketError, setWishketError] = useState<string | null>(null);
+  const [wishketFetchedAt, setWishketFetchedAt] = useState<string | null>(null);
+
+  const loadWishketProjects = useCallback(async () => {
+    setWishketLoading(true);
+    setWishketError(null);
+    try {
+      const data = await api.fetchWishketProjects();
+      setWishketProjects(data.projects || []);
+      setWishketFetchedAt(data.fetchedAt || null);
+    } catch (e: any) {
+      setWishketError(e.message || 'Failed to load');
+    } finally {
+      setWishketLoading(false);
+    }
+  }, []);
+
+  const handleImportWishket = useCallback((project: any) => {
+    const now = new Date().toISOString();
+    const id = `biz-${Date.now()}`;
+    addItem({
+      id,
+      title: project.title,
+      description: `${project.projectType} · ${project.duration}일 · ${project.budget || '금액 미정'}`,
+      category: 'sales',
+      type: 'project',
+      stage: 'discovered',
+      source: project.url,
+      value: project.budgetValue || undefined,
+      tags: project.skills || [],
+      actionItems: [],
+      assigneeId: currentUser.id,
+      createdAt: now,
+      updatedAt: now,
+    });
+    navigate(`/radar/${id}`);
+  }, [addItem, currentUser.id, navigate]);
+
   const isSelecting = selectedIds.size > 0;
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -549,10 +592,10 @@ export function BizRadarPage() {
         {/* Category Tabs: 영업 / 연결 */}
         <div className="flex items-center gap-3 mb-4">
           <button
-            onClick={() => { setActiveCategory('sales'); clearSelection(); setSearchQuery(''); }}
+            onClick={() => { setActiveCategory('sales'); setShowWishket(false); clearSelection(); setSearchQuery(''); }}
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border",
-              activeCategory === 'sales'
+              activeCategory === 'sales' && !showWishket
                 ? "bg-blue-50 text-blue-700 border-blue-200 shadow-sm"
                 : "bg-white text-gray-500 border-gray-100 hover:border-gray-300 hover:text-gray-700"
             )}
@@ -566,10 +609,10 @@ export function BizRadarPage() {
             </span>
           </button>
           <button
-            onClick={() => { setActiveCategory('connection'); clearSelection(); setSearchQuery(''); }}
+            onClick={() => { setActiveCategory('connection'); setShowWishket(false); clearSelection(); setSearchQuery(''); }}
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border",
-              activeCategory === 'connection'
+              activeCategory === 'connection' && !showWishket
                 ? "bg-purple-50 text-purple-700 border-purple-200 shadow-sm"
                 : "bg-white text-gray-500 border-gray-100 hover:border-gray-300 hover:text-gray-700"
             )}
@@ -582,72 +625,216 @@ export function BizRadarPage() {
               {items.filter(i => i.category === 'connection').length}
             </span>
           </button>
+
+          {/* Wishket Tab — 포텐랩 전용 */}
+          <button
+            onClick={() => {
+              setShowWishket(true);
+              setActiveCategory('sales');
+              clearSelection();
+              setSearchQuery('');
+              if (wishketProjects.length === 0 && !wishketLoading) loadWishketProjects();
+            }}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border",
+              showWishket
+                ? "bg-orange-50 text-orange-700 border-orange-200 shadow-sm"
+                : "bg-white text-gray-500 border-gray-100 hover:border-gray-300 hover:text-gray-700"
+            )}
+          >
+            <Globe size={16} />
+            위시켓
+          </button>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center">
-          <div className="flex-1 sm:max-w-md">
-            <div className="flex items-center w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-400 transition-all shadow-sm">
-              <Search className="text-gray-400 mr-2 shrink-0" size={18} />
-              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={ko
-                  ? (activeCategory === 'sales' ? "영업 기회 검색..." : "연결 검색...")
-                  : (activeCategory === 'sales' ? "Search sales..." : "Search connections...")}
-                className="w-full text-sm outline-none bg-transparent placeholder-gray-400 text-gray-900" />
+        {!showWishket && (
+          <>
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center">
+              <div className="flex-1 sm:max-w-md">
+                <div className="flex items-center w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-400 transition-all shadow-sm">
+                  <Search className="text-gray-400 mr-2 shrink-0" size={18} />
+                  <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={ko
+                      ? (activeCategory === 'sales' ? "영업 기회 검색..." : "연결 검색...")
+                      : (activeCategory === 'sales' ? "Search sales..." : "Search connections...")}
+                    className="w-full text-sm outline-none bg-transparent placeholder-gray-400 text-gray-900" />
+                </div>
+              </div>
+              <div className="flex bg-gray-100 p-1 rounded-xl">
+                <button onClick={() => setViewMode('board')}
+                  className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                    viewMode === 'board' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
+                  <LayoutGrid size={14} /> Board
+                </button>
+                <button onClick={() => setViewMode('list')}
+                  className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                    viewMode === 'list' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
+                  <ListIcon size={14} /> List
+                </button>
+              </div>
             </div>
-          </div>
-          <div className="flex bg-gray-100 p-1 rounded-xl">
-            <button onClick={() => setViewMode('board')}
-              className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
-                viewMode === 'board' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
-              <LayoutGrid size={14} /> Board
-            </button>
-            <button onClick={() => setViewMode('list')}
-              className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
-                viewMode === 'list' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
-              <ListIcon size={14} /> List
-            </button>
-          </div>
-        </div>
 
-        {/* URL Import Panel */}
-        {showUrlInput && (
-          <div className="mt-3 p-4 bg-purple-50/50 border border-purple-100 rounded-xl">
-            <p className="text-xs font-semibold text-purple-700 mb-2 flex items-center gap-1.5">
-              <Globe size={13} />
-              {ko ? '어디서 업무를 찾으시겠습니까?' : 'Where do you want to find opportunities?'}
-            </p>
-            <div className="flex gap-2">
-              <input
-                value={crawlUrl}
-                onChange={e => setCrawlUrl(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleCrawlUrl()}
-                placeholder={ko ? 'URL을 입력하세요 (예: https://example.com/project)' : 'Enter URL (e.g., https://example.com/project)'}
-                className="flex-1 px-4 py-2.5 bg-white border border-purple-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 focus:border-purple-400 placeholder-gray-400"
-              />
-              <button
-                onClick={handleCrawlUrl}
-                disabled={!crawlUrl.trim() || crawlLoading}
-                className="px-5 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-semibold hover:bg-purple-700 transition-colors disabled:opacity-40 flex items-center gap-2 shrink-0"
-              >
-                {crawlLoading ? <Loader2 size={14} className="animate-spin" /> : <Globe size={14} />}
-                {ko ? '가져오기' : 'Import'}
-              </button>
-              <button
-                onClick={() => { setShowUrlInput(false); setCrawlUrl(''); }}
-                className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <p className="text-[10px] text-purple-500/70 mt-2">
-              {ko ? 'URL의 제목과 설명을 자동으로 가져와 새로운 기회로 등록합니다' : 'Automatically extracts title and description from the URL to create a new opportunity'}
-            </p>
-          </div>
+            {/* URL Import Panel */}
+            {showUrlInput && (
+              <div className="mt-3 p-4 bg-purple-50/50 border border-purple-100 rounded-xl">
+                <p className="text-xs font-semibold text-purple-700 mb-2 flex items-center gap-1.5">
+                  <Globe size={13} />
+                  {ko ? '어디서 업무를 찾으시겠습니까?' : 'Where do you want to find opportunities?'}
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    value={crawlUrl}
+                    onChange={e => setCrawlUrl(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleCrawlUrl()}
+                    placeholder={ko ? 'URL을 입력하세요 (예: https://example.com/project)' : 'Enter URL (e.g., https://example.com/project)'}
+                    className="flex-1 px-4 py-2.5 bg-white border border-purple-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 focus:border-purple-400 placeholder-gray-400"
+                  />
+                  <button
+                    onClick={handleCrawlUrl}
+                    disabled={!crawlUrl.trim() || crawlLoading}
+                    className="px-5 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-semibold hover:bg-purple-700 transition-colors disabled:opacity-40 flex items-center gap-2 shrink-0"
+                  >
+                    {crawlLoading ? <Loader2 size={14} className="animate-spin" /> : <Globe size={14} />}
+                    {ko ? '가져오기' : 'Import'}
+                  </button>
+                  <button
+                    onClick={() => { setShowUrlInput(false); setCrawlUrl(''); }}
+                    className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                <p className="text-[10px] text-purple-500/70 mt-2">
+                  {ko ? 'URL의 제목과 설명을 자동으로 가져와 새로운 기회로 등록합니다' : 'Automatically extracts title and description from the URL to create a new opportunity'}
+                </p>
+              </div>
+            )}
+          </>
         )}
       </header>
 
       <div className="flex-1 overflow-x-auto pb-4">
-        {viewMode === 'board' ? (
+        {showWishket ? (
+          /* ─── Wishket Project List ───────────────────────────── */
+          <div className="space-y-4">
+            {/* Header bar */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-gray-700">
+                  {wishketProjects.length > 0 ? `${wishketProjects.length}개 프로젝트` : ''}
+                </span>
+                {wishketFetchedAt && (
+                  <span className="text-[10px] text-gray-400">
+                    {new Date(wishketFetchedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 기준
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={loadWishketProjects}
+                disabled={wishketLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-orange-600 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors disabled:opacity-50"
+              >
+                <RefreshCw size={13} className={wishketLoading ? 'animate-spin' : ''} />
+                {ko ? '새로고침' : 'Refresh'}
+              </button>
+            </div>
+
+            {/* Loading */}
+            {wishketLoading && wishketProjects.length === 0 && (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 size={24} className="animate-spin text-orange-500" />
+                <span className="ml-2 text-sm text-gray-500">위시켓에서 프로젝트를 가져오는 중...</span>
+              </div>
+            )}
+
+            {/* Error */}
+            {wishketError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-600">
+                {wishketError}
+              </div>
+            )}
+
+            {/* Project list */}
+            {wishketProjects.length > 0 && (
+              <div className="space-y-2">
+                {wishketProjects.map((p: any) => (
+                  <div key={p.id} className="bg-white border border-gray-200 rounded-xl p-4 hover:border-orange-300 hover:shadow-sm transition-all group">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-1 min-w-0">
+                        {/* Title */}
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className={cn(
+                            "text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0",
+                            p.projectType === '기간제' ? "bg-blue-50 text-blue-600" : "bg-emerald-50 text-emerald-600"
+                          )}>
+                            {p.projectType}
+                          </span>
+                          <h3 className="text-sm font-semibold text-gray-900 truncate">{p.title}</h3>
+                        </div>
+                        {/* Meta row */}
+                        <div className="flex items-center gap-3 text-xs text-gray-500 mb-2">
+                          {p.budget && (
+                            <span className="flex items-center gap-1">
+                              <DollarSign size={11} />
+                              {p.budget}{p.isMonthly ? '/월' : ''}
+                            </span>
+                          )}
+                          {p.duration > 0 && (
+                            <span className="flex items-center gap-1">
+                              <Calendar size={11} />
+                              {p.duration}일
+                            </span>
+                          )}
+                          {p.deadlineText && (
+                            <span className="flex items-center gap-1 text-orange-600 font-medium">
+                              <Clock size={11} />
+                              {p.deadlineText}
+                            </span>
+                          )}
+                        </div>
+                        {/* Skills */}
+                        {p.skills?.length > 0 && (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {p.skills.map((s: string, i: number) => (
+                              <span key={i} className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md">{s}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {/* Actions */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <a
+                          href={p.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                          title="위시켓에서 보기"
+                        >
+                          <ExternalLink size={16} />
+                        </a>
+                        <button
+                          onClick={() => handleImportWishket(p)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors opacity-0 group-hover:opacity-100"
+                        >
+                          <Plus size={13} />
+                          가져오기
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!wishketLoading && !wishketError && wishketProjects.length === 0 && (
+              <div className="text-center py-20 text-gray-400">
+                <Globe size={40} className="mx-auto mb-3 text-gray-300" />
+                <p className="text-sm">위시켓 프로젝트를 불러오려면 새로고침을 눌러주세요</p>
+              </div>
+            )}
+          </div>
+        ) : viewMode === 'board' ? (
           <div className="h-full flex flex-col">
             <div className="flex flex-col md:flex-row gap-4 md:gap-4 md:min-w-[1200px] h-full">
               {ACTIVE_STAGES.map(stage => (

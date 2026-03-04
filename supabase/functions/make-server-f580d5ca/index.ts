@@ -900,6 +900,97 @@ app.delete("/make-server-f580d5ca/radar/:id", async (c) => {
   }
 });
 
+// ─── Wishket Scraper ────────────────────────────────────────────────
+app.get("/make-server-f580d5ca/radar/wishket", async (c) => {
+  try {
+    const res = await fetch("https://www.wishket.com/project/", {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "ko-KR,ko;q=0.9",
+      },
+    });
+    if (!res.ok) return c.json({ error: "Failed to fetch wishket", status: res.status }, 502);
+    const html = await res.text();
+
+    // Parse project cards from HTML
+    const projects: any[] = [];
+    // Split by project-info-box containers
+    const cards = html.split('project-info-box');
+    for (let i = 1; i < cards.length; i++) {
+      const card = cards[i];
+      try {
+        // Extract project URL and ID
+        const urlMatch = card.match(/href="\/project\/(\d+)\/"/);
+        const projectId = urlMatch?.[1] || '';
+        const projectUrl = projectId ? `https://www.wishket.com/project/${projectId}/` : '';
+
+        // Extract title - look for text between title-related tags
+        const titleMatch = card.match(/<h[23][^>]*class="[^"]*title[^"]*"[^>]*>([^<]+)</)
+          || card.match(/class="[^"]*title[^"]*"[^>]*>([^<]+)</)
+          || card.match(/href="\/project\/\d+\/"[^>]*>\s*([^<]+)</);
+        const title = titleMatch?.[1]?.trim() || '';
+
+        // Extract budget
+        const priceMatch = card.match(/(\d[\d,]+)원/);
+        const priceText = priceMatch ? priceMatch[0] : '';
+        const priceValue = priceMatch ? parseInt(priceMatch[1].replace(/,/g, '')) : 0;
+        const isMonthly = card.includes('/월');
+
+        // Extract type badge (기간제 or 외주)
+        const isTermBased = card.includes('기간제');
+        const projectType = isTermBased ? '기간제' : '외주';
+
+        // Extract duration
+        const durationMatch = card.match(/(\d+)일/);
+        const duration = durationMatch ? parseInt(durationMatch[1]) : 0;
+
+        // Extract deadline text
+        const deadlineMatch = card.match(/마감\s*([^<]+?)전/);
+        const deadlineText = deadlineMatch ? `마감 ${deadlineMatch[1].trim()} 전` : '';
+
+        // Extract skills
+        const skillMatches: string[] = [];
+        const skillSection = card.match(/skills[^>]*>([\s\S]*?)<\/(?:div|ul|section)/i);
+        if (skillSection) {
+          const skillTags = skillSection[1].match(/>([^<]+)</g);
+          skillTags?.forEach(s => {
+            const clean = s.replace(/^>/, '').replace(/<$/, '').trim();
+            if (clean && clean.length > 1 && !clean.includes('경력')) skillMatches.push(clean);
+          });
+        }
+
+        if (title && projectId) {
+          projects.push({
+            id: projectId,
+            title,
+            url: projectUrl,
+            budget: priceText,
+            budgetValue: priceValue,
+            isMonthly,
+            projectType,
+            duration,
+            deadlineText,
+            skills: skillMatches.filter(s => s !== '·').slice(0, 5),
+          });
+        }
+      } catch { /* skip malformed card */ }
+    }
+
+    // Sort by deadline (closest first — shorter text = sooner)
+    projects.sort((a, b) => {
+      if (!a.deadlineText) return 1;
+      if (!b.deadlineText) return -1;
+      return a.deadlineText.localeCompare(b.deadlineText);
+    });
+
+    return c.json({ projects, fetchedAt: new Date().toISOString() });
+  } catch (e) {
+    console.log("Error scraping wishket:", e);
+    return c.json({ error: "Wishket scraping failed", message: String(e) }, 500);
+  }
+});
+
 // ─── Meeting Routes ─────────────────────────────────────────────────
 app.get("/make-server-f580d5ca/meetings", async (c) => {
   try {

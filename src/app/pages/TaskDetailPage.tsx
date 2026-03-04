@@ -875,16 +875,6 @@ export function TaskDetailPage() {
             {/* Sub-tasks with checkboxes */}
             {!isNew && <SubTaskSection taskId={taskId!} language={language} canEdit={canEdit} />}
 
-            {/* Attachments */}
-            {!isNew && (
-              <AttachmentSection
-                attachments={attachments}
-                onChange={setAttachments}
-                language={language}
-                canEdit={canEdit}
-              />
-            )}
-
             {/* Category-specific Helpers */}
             {!isNew && canEdit && category && (
               <CategoryHelpers category={category} language={language} onInsertToDescription={(text) => {
@@ -901,6 +891,16 @@ export function TaskDetailPage() {
                 placeholder={language === "ko" ? "내용을 입력하세요..." : "Type something..."}
               />
             </div>
+
+            {/* Attachments */}
+            {!isNew && (
+              <AttachmentSection
+                attachments={attachments}
+                onChange={setAttachments}
+                language={language}
+                canEdit={canEdit}
+              />
+            )}
 
             {/* ActivityLogSection — 필요 시 주석 해제하여 사용 */}
             {/* {!isNew && <ActivityLogSection taskId={taskId!} language={language} />} */}
