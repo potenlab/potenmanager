@@ -99,6 +99,8 @@ export function NotionBlockEditor({
   const [blocks, setBlocks] = useState<Block[]>(() => parseBlocks(seed));
   const [focusedIdx, setFocusedIdx] = useState<number | null>(null);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const lastClickedIdx = useRef<number | null>(null);
   const blockRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const pendingFocusIdx = useRef<number | null>(null);
   const isComposingRef = useRef(false);
@@ -307,6 +309,24 @@ export function NotionBlockEditor({
       }
     }
 
+    // Ctrl+A: select all blocks
+    if (e.key === "a" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      const ids = new Set(blocks.map((b) => b.id));
+      setSelectedIds(ids);
+      lastClickedIdx.current = 0;
+      // Remove contentEditable cursor
+      window.getSelection()?.removeAllRanges();
+      return;
+    }
+
+    // Delete/Backspace with multi-selection
+    if ((e.key === "Backspace" || e.key === "Delete") && selectedIds.size > 1) {
+      e.preventDefault();
+      deleteSelectedBlocks();
+      return;
+    }
+
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       if (slashMenu) return;
@@ -391,6 +411,26 @@ export function NotionBlockEditor({
       }
     }
 
+    // Escape: clear selection
+    if (e.key === "Escape" && selectedIds.size > 0 && !slashMenu) {
+      e.preventDefault();
+      clearSelection();
+      return;
+    }
+
+    // Shift+Arrow: extend block selection
+    if (e.shiftKey && (e.key === "ArrowUp" || e.key === "ArrowDown") && !slashMenu) {
+      e.preventDefault();
+      const anchor = lastClickedIdx.current ?? idx;
+      const newIdx = e.key === "ArrowUp" ? Math.max(0, idx - 1) : Math.min(blocks.length - 1, idx + 1);
+      selectRange(anchor, newIdx);
+      // Move focus to the new block so next shift+arrow continues from there
+      pendingFocusIdx.current = newIdx;
+      setBlocks((prev) => [...prev]);
+      window.getSelection()?.removeAllRanges();
+      return;
+    }
+
     if (e.key === "ArrowUp" && !slashMenu) {
       const el = blockRefs.current.get(block.id);
       const sel = window.getSelection();
@@ -445,6 +485,48 @@ export function NotionBlockEditor({
     pendingFocusIdx.current = idx + 1;
   };
 
+  // Multi-select helpers
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
+
+  const selectRange = useCallback((fromIdx: number, toIdx: number) => {
+    const start = Math.min(fromIdx, toIdx);
+    const end = Math.max(fromIdx, toIdx);
+    const ids = new Set<string>();
+    for (let i = start; i <= end; i++) {
+      ids.add(blocks[i].id);
+    }
+    setSelectedIds(ids);
+  }, [blocks]);
+
+  const handleBlockMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
+    if (readOnly) return;
+    if (e.shiftKey && lastClickedIdx.current !== null) {
+      e.preventDefault();
+      selectRange(lastClickedIdx.current, idx);
+      // Remove browser text selection caused by shift-click
+      window.getSelection()?.removeAllRanges();
+    } else if (!e.shiftKey) {
+      if (selectedIds.size > 0) {
+        clearSelection();
+      }
+      lastClickedIdx.current = idx;
+    }
+  }, [readOnly, selectedIds, selectRange, clearSelection]);
+
+  const deleteSelectedBlocks = useCallback(() => {
+    if (selectedIds.size === 0) return;
+    setBlocks((prev) => {
+      const remaining = prev.filter((b) => !selectedIds.has(b.id));
+      if (remaining.length === 0) return [{ id: genId(), content: "", type: "text" as BlockType }];
+      return remaining;
+    });
+    const firstSelectedIdx = blocks.findIndex((b) => selectedIds.has(b.id));
+    pendingFocusIdx.current = Math.max(0, firstSelectedIdx - 1);
+    clearSelection();
+  }, [selectedIds, blocks, clearSelection]);
+
   // Get numbered list index for display
   const getNumberedIndex = (idx: number): number => {
     let count = 1;
@@ -460,7 +542,11 @@ export function NotionBlockEditor({
       {blocks.map((block, idx) => (
         <div
           key={block.id}
-          className="group/block relative flex items-start"
+          className={cn(
+            "group/block relative flex items-start",
+            selectedIds.has(block.id) && "bg-blue-50 rounded-[4px]"
+          )}
+          onMouseDown={(e) => handleBlockMouseDown(e, idx)}
           onMouseEnter={() => !readOnly && setHoveredIdx(idx)}
           onMouseLeave={() => setHoveredIdx(null)}
         >
@@ -515,7 +601,12 @@ export function NotionBlockEditor({
               }}
               contentEditable={!readOnly}
               suppressContentEditableWarning
-              onFocus={() => !readOnly && setFocusedIdx(idx)}
+              onFocus={() => {
+                if (!readOnly) {
+                  setFocusedIdx(idx);
+                  lastClickedIdx.current = idx;
+                }
+              }}
               onBlur={() => {
                 if (focusedIdx === idx) setFocusedIdx(null);
                 if (!readOnly) {
