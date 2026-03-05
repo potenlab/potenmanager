@@ -41,7 +41,7 @@ interface NavItemData {
 }
 
 function getDefaultNavIds() {
-  return ["tasks", "dashboard", "organization", "calendar", "meetings", "radar", "library", "team"];
+  return ["tasks", "dashboard", "management", "calendar", "meetings", "radar", "library", "team"];
 }
 
 function loadNavOrder(): string[] {
@@ -93,7 +93,7 @@ export function Sidebar() {
   const navItemDefs: NavItemData[] = [
     { id: "tasks", to: "/tasks", icon: <CheckSquare size={20} />, label: t("my_tasks") },
     { id: "dashboard", to: "/", icon: <LayoutDashboard size={20} />, label: t("dashboard") },
-    { id: "organization", to: "/organization", icon: <Building2 size={20} />, label: t("tab_goal") },
+    { id: "management", to: "/management", icon: <Building2 size={20} />, label: language === 'ko' ? '관리' : 'Management' },
     { id: "calendar", to: "/calendar", icon: <Calendar size={20} />, label: t("calendar") },
     { id: "meetings", to: "/meetings", icon: <Video size={20} />, label: language === 'ko' ? '회의/미팅' : 'Meetings' },
     { id: "radar", to: "/radar", icon: <Radar size={20} />, label: language === 'ko' ? '비즈 레이더' : 'Biz Radar' },
@@ -120,13 +120,15 @@ export function Sidebar() {
       {/* Brand Logo */}
       <div className="p-6 md:p-8 pb-4 overflow-hidden">
         <div className="flex items-center gap-3 mb-6 md:mb-8 min-w-[200px]">
-          {org?.logoUrl ? (
-            <img src={org.logoUrl} alt="logo" className="w-10 h-10 rounded-xl object-cover shrink-0" />
-          ) : (
-            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shrink-0">
-              <Zap size={20} fill="currentColor" />
-            </div>
-          )}
+          <button onClick={() => { navigate('/organization'); closeSidebar(); }} className="shrink-0 hover:opacity-80 transition-opacity" title={language === 'ko' ? '조직 비전' : 'Organization Vision'}>
+            {org?.logoUrl ? (
+              <img src={org.logoUrl} alt="logo" className="w-10 h-10 rounded-xl object-cover" />
+            ) : (
+              <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white">
+                <Zap size={20} fill="currentColor" />
+              </div>
+            )}
+          </button>
           <div className={cn("transition-opacity duration-200", isCompact ? "opacity-0" : "opacity-100")}>
             <h1 className="font-bold text-lg text-gray-900 leading-tight whitespace-nowrap">Poten Manager</h1>
             {org && allOrgs.length > 1 ? (

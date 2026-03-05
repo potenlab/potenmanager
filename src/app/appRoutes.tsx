@@ -30,6 +30,7 @@ import { LibraryPage } from "./pages/LibraryPage";
 import { LibraryDetailPage } from "./pages/LibraryDetailPage";
 import { TeamBoardDetailPage } from "./pages/TeamBoardDetailPage";
 import { TrashPage } from "./pages/TrashPage";
+import { ManagementPage } from "./pages/ManagementPage";
 
 export const router = createBrowserRouter([
   {
@@ -56,6 +57,7 @@ export const router = createBrowserRouter([
               { path: "tasks", Component: TasksPage },
               { path: "tasks/:taskId", Component: TaskDetailPage },
               { path: "calendar", Component: CalendarPage },
+              { path: "management", Component: ManagementPage },
               { path: "organization", Component: GoalPage },
               { path: "organization/setup", Component: GoalSetupWizardPage },
               { path: "organization/edit", Component: GoalEditPage },
