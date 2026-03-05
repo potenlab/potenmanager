@@ -23,6 +23,7 @@ import {
   Target,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
+import { getUserColor } from "../../../lib/mockData";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSidebar } from "../../context/SidebarContext";
 import { usePermission } from "../../context/PermissionContext";
@@ -263,6 +264,15 @@ export function Sidebar() {
                                     {language === "ko" ? "(나)" : "(me)"}
                                   </span>
                                 )}
+                                {(() => {
+                                  const mColor = getUserColor(member.id);
+                                  return mColor ? (
+                                    <span
+                                      className="w-2.5 h-2.5 rounded-full shrink-0 border border-white shadow-sm"
+                                      style={{ backgroundColor: mColor }}
+                                    />
+                                  ) : null;
+                                })()}
                               </div>
                               {member.jobTitle && (
                                 <span className="text-[11px] text-gray-400 truncate block leading-tight">

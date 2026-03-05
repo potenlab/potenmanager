@@ -57,6 +57,13 @@ interface DragItem {
   status: Task['status'];
 }
 
+// Track alt key globally for clone-on-drop
+const altKeyRef = { current: false };
+if (typeof window !== 'undefined') {
+  window.addEventListener('keydown', (e) => { if (e.key === 'Alt') altKeyRef.current = true; });
+  window.addEventListener('keyup', (e) => { if (e.key === 'Alt') altKeyRef.current = false; });
+}
+
 // TASK_CATEGORY_CONFIG is now imported from ../../lib/jobRoles
 
 // ─── Draggable Task Card (with selection) ───────────────────────────
@@ -207,7 +214,7 @@ function TaskColumn({
   icon: React.ReactNode;
   onAddTask: (title: string, status: Task['status']) => void;
   status: Task['status'];
-  onDrop: (taskIds: string[], newStatus: Task['status']) => void;
+  onDrop: (taskIds: string[], newStatus: Task['status'], clone?: boolean) => void;
   isAdding?: boolean;
   onStartAdd?: () => void;
   onCancelAdd?: () => void;
@@ -236,7 +243,7 @@ function TaskColumn({
   const [{ isOver, canDrop }, dropRef] = useDrop<DragItem, void, { isOver: boolean; canDrop: boolean }>({
     accept: DRAG_TYPE,
     canDrop: (item) => item.status !== status,
-    drop: (item) => onDrop(item.ids, status),
+    drop: (item) => onDrop(item.ids, status, altKeyRef.current),
     collect: (monitor) => ({ isOver: monitor.isOver(), canDrop: monitor.canDrop() }),
   });
 
@@ -368,7 +375,7 @@ function BoardView({
   overdueTasks: Task[];
   completedTasks: Task[];
   columns: 3 | 4 | 5;
-  onStatusChange: (taskIds: string[], newStatus: Task['status']) => void;
+  onStatusChange: (taskIds: string[], newStatus: Task['status'], clone?: boolean) => void;
   onAddTask: (title: string, status: Task['status']) => void;
   language: string;
   addingInColumn: Task['status'] | null;
@@ -563,12 +570,28 @@ export function TasksPage() {
 
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
-  // ESC to clear selection + close filter
+  // ESC to clear selection, Delete to bulk-delete selected
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') { clearSelection(); setShowCatFilter(false); } };
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { clearSelection(); setShowCatFilter(false); }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.size > 0) {
+        // Don't intercept if user is typing in an input/textarea
+        const tag = (e.target as HTMLElement)?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) return;
+        e.preventDefault();
+        selectedIds.forEach(id => {
+          const task = getTask(id);
+          if (task) {
+            moveToTrash({ id: task.id, type: 'task', title: task.title, data: task, deletedAt: new Date().toISOString() });
+            removeTask(id);
+          }
+        });
+        clearSelection();
+      }
+    };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [clearSelection]);
+  }, [clearSelection, selectedIds, getTask, removeTask, moveToTrash]);
 
   // Close category filter on outside click
   const catFilterRef = useRef<HTMLDivElement>(null);
@@ -665,11 +688,31 @@ export function TasksPage() {
     addTaskToContext(newTask);
   }, [currentUser.id, addTaskToContext]);
 
-  const handleStatusChange = useCallback((taskIds: string[], newStatus: Task['status']) => {
+  const handleStatusChange = useCallback((taskIds: string[], newStatus: Task['status'], clone?: boolean) => {
     const progress = newStatus === 'completed' ? 100 : newStatus === 'in-progress' ? 50 : 0;
-    taskIds.forEach(id => updateTask(id, { status: newStatus, progress }));
+    if (clone) {
+      // Alt+drag: duplicate tasks with new status
+      taskIds.forEach(id => {
+        const original = getTask(id);
+        if (!original) return;
+        const newId = `t${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
+        const cloned: Task = {
+          ...original,
+          id: newId,
+          status: newStatus,
+          progress,
+          title: original.title,
+          titleKo: original.titleKo ? `${original.titleKo}` : undefined,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        addTaskToContext(cloned);
+      });
+    } else {
+      taskIds.forEach(id => updateTask(id, { status: newStatus, progress }));
+    }
     clearSelection();
-  }, [clearSelection, updateTask]);
+  }, [clearSelection, updateTask, getTask, addTaskToContext]);
 
   return (
     <div className="h-full flex flex-col">

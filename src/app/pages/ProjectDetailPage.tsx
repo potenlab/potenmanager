@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  ArrowLeft, Trash2, ChevronDown, Layout,
+  ArrowLeft, Trash2, ChevronDown, LayoutGrid,
   Calendar, Users, Circle, Palette, Camera,
   Building2, DollarSign, FolderKanban, Link2, Plus, X,
 } from "lucide-react";
@@ -170,7 +170,7 @@ export function ProjectDetailPage() {
                 className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-100/50 transition-colors"
               >
                 <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
-                  <Layout size={12} />
+                  <LayoutGrid size={12} />
                   {ko ? "속성" : "Properties"}
                 </span>
                 <div className="flex items-center gap-2">

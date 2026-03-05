@@ -4,7 +4,7 @@ import { useDrag, useDrop } from "react-dnd";
 import {
   Plus, Search, BookMarked, Globe, FileText, Link as LinkIcon,
   Trash2, X, ExternalLink, Check, Archive, Lock, Pencil, MoreHorizontal,
-  LayoutGrid, List, Grid3X3,
+  LayoutGrid, List, Grid3X3, FolderOpen, ChevronRight,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
@@ -251,11 +251,13 @@ export function LibraryPage() {
 
   // ── Right-click context menu ──
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; id: string } | null>(null);
+  const [showCatSub, setShowCatSub] = useState(false);
   const handleCardContextMenu = useCallback((e: React.MouseEvent, id: string) => {
     e.preventDefault();
     setCtxMenu({ x: e.clientX, y: e.clientY, id });
+    setShowCatSub(false);
   }, []);
-  const closeCtxMenu = useCallback(() => setCtxMenu(null), []);
+  const closeCtxMenu = useCallback(() => { setCtxMenu(null); setShowCatSub(false); }, []);
 
   // All visible items
   const allVisibleItems = useMemo(
@@ -744,11 +746,19 @@ export function LibraryPage() {
       )}
 
       {/* Right-click context menu */}
-      {ctxMenu && (
+      {ctxMenu && (() => {
+        const ctxItem = getItem(ctxMenu.id);
+        const currentCat = ctxItem?.category;
+        const catOptions: { key: string; label: string }[] = [
+          { key: "__uncategorized__", label: ko ? "미분류" : "Uncategorized" },
+          ...ARCHIVE_CATEGORIES.map((c) => ({ key: c.value, label: ko ? c.labelKo : c.labelEn })),
+          ...customCategories.map((name) => ({ key: name, label: name })),
+        ];
+        return (
         <>
           <div className="fixed inset-0 z-[70]" onClick={closeCtxMenu} onContextMenu={(e) => { e.preventDefault(); closeCtxMenu(); }} />
           <div
-            className="fixed z-[71] bg-white border border-gray-200 rounded-xl shadow-xl py-1 min-w-[140px] animate-in fade-in zoom-in-95 duration-100"
+            className="fixed z-[71] bg-white border border-gray-200 rounded-xl shadow-xl py-1 min-w-[160px] animate-in fade-in zoom-in-95 duration-100"
             style={{ left: ctxMenu.x, top: ctxMenu.y }}
           >
             <button
@@ -757,6 +767,47 @@ export function LibraryPage() {
             >
               <Pencil size={13} /> {ko ? '수정' : 'Edit'}
             </button>
+            <div className="mx-2 my-0.5 border-t border-gray-100" />
+            {/* Category change */}
+            <div className="relative">
+              <button
+                onClick={() => setShowCatSub((p) => !p)}
+                onMouseEnter={() => setShowCatSub(true)}
+                className="w-full px-3 py-2 text-xs text-left text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+              >
+                <FolderOpen size={13} />
+                <span className="flex-1">{ko ? '카테고리 변경' : 'Change Category'}</span>
+                <ChevronRight size={12} className="text-gray-400" />
+              </button>
+              {showCatSub && (
+                <div
+                  className="absolute left-full top-0 ml-1 bg-white border border-gray-200 rounded-xl shadow-xl py-1 min-w-[150px] max-h-[320px] overflow-y-auto z-[72] animate-in fade-in slide-in-from-left-1 duration-100"
+                >
+                  {catOptions.map((opt) => {
+                    const isActive = opt.key === "__uncategorized__" ? !currentCat : currentCat === opt.key;
+                    return (
+                      <button
+                        key={opt.key}
+                        onClick={() => {
+                          const newCat = opt.key === "__uncategorized__" ? undefined : opt.key;
+                          updateItem(ctxMenu.id, { category: newCat });
+                          closeCtxMenu();
+                        }}
+                        className={cn(
+                          "w-full px-3 py-2 text-xs text-left flex items-center gap-2 transition-colors",
+                          isActive
+                            ? "bg-blue-50 text-blue-700 font-semibold"
+                            : "text-gray-700 hover:bg-gray-50"
+                        )}
+                      >
+                        {isActive && <Check size={12} className="text-blue-600 shrink-0" />}
+                        <span className={isActive ? "" : "ml-[20px]"}>{opt.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
             <div className="mx-2 my-0.5 border-t border-gray-100" />
             <button
               onClick={() => {
@@ -773,7 +824,8 @@ export function LibraryPage() {
             </button>
           </div>
         </>
-      )}
+        );
+      })()}
     </div>
   );
 }

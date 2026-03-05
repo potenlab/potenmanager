@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   Plus, Trash2, ExternalLink, FileText, Globe,
-  Calculator, Layout, CheckSquare, Paperclip,
+  Calculator, LayoutGrid, CheckSquare, Paperclip,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { Attachment, detectAttachmentType } from "../../../lib/mockData";
@@ -27,7 +27,7 @@ export function getAttachmentIcon(type: Attachment['type']) {
     case 'google-drive': return { icon: <FileText size={14} />, color: 'text-green-600', bg: 'bg-green-50' };
     case 'google-doc':   return { icon: <FileText size={14} />, color: 'text-blue-600', bg: 'bg-blue-50' };
     case 'google-sheet': return { icon: <Calculator size={14} />, color: 'text-emerald-600', bg: 'bg-emerald-50' };
-    case 'google-slide': return { icon: <Layout size={14} />, color: 'text-amber-600', bg: 'bg-amber-50' };
+    case 'google-slide': return { icon: <LayoutGrid size={14} />, color: 'text-amber-600', bg: 'bg-amber-50' };
     case 'google-form':  return { icon: <CheckSquare size={14} />, color: 'text-purple-600', bg: 'bg-purple-50' };
     default:             return { icon: <Globe size={14} />, color: 'text-gray-500', bg: 'bg-gray-50' };
   }

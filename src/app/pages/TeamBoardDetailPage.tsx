@@ -5,7 +5,7 @@ import {
   ArrowLeft,
   Loader2,
   X,
-  Layout,
+  LayoutGrid,
   Trash2,
   StickyNote,
   MessageSquare,
@@ -245,7 +245,7 @@ export function TeamBoardDetailPage() {
                 <button onClick={() => setPropsExpanded(p => !p)}
                   className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-100/50 transition-colors">
                   <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
-                    <Layout size={12} /> {ko ? '속성' : 'Properties'}
+                    <LayoutGrid size={12} /> {ko ? '속성' : 'Properties'}
                   </span>
                   <div className="flex items-center gap-2">
                     {!propsExpanded && (
