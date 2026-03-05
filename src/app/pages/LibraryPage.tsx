@@ -241,7 +241,7 @@ export function LibraryPage() {
   const { currentUser } = useTeam();
   const { moveToTrash } = useTrash();
 
-  const [activeTab, setActiveTab] = useState<"all" | "my" | "team">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "private" | "team">("all");
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<"kanban" | "compact" | "grid">("kanban");
   const [searchQuery, setSearchQuery] = useState("");
@@ -263,7 +263,13 @@ export function LibraryPage() {
     [items, currentUser.id]
   );
 
-  const baseItems = activeTab === "all" ? allVisibleItems : activeTab === "my" ? myItems : teamItems;
+  // 개인자료: 내 자료 중 비공개만
+  const privateItems = useMemo(
+    () => myItems.filter((i) => i.visibility !== "published"),
+    [myItems]
+  );
+
+  const baseItems = activeTab === "all" ? allVisibleItems : activeTab === "private" ? privateItems : teamItems;
 
   // Search filter
   const filteredItems = useMemo(() => {
@@ -371,29 +377,20 @@ export function LibraryPage() {
     <div className="h-full flex flex-col">
       {/* Header */}
       <header className="mb-4 shrink-0">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
-          <div>
-            <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">
-              <Archive className="inline-block mr-2 -mt-0.5" size={22} />
-              {ko ? "아카이빙" : "Archive"}
-            </h1>
-            <p className="text-gray-500 text-xs sm:text-sm">
-              {ko
-                ? `전체 ${allVisibleItems.length}건 · 내 자료 ${myItems.length}건 · 팀 공유 ${teamItems.length}건`
-                : `All ${allVisibleItems.length} · Mine ${myItems.length} · Team ${teamItems.length}`}
-            </p>
-          </div>
-          <button
-            onClick={() => navigate("/library/new")}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-sm transition-all"
-          >
-            <Plus size={16} />
-            {ko ? "자료 추가" : "Add Item"}
-          </button>
+        <div className="mb-4">
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">
+            <Archive className="inline-block mr-2 -mt-0.5" size={22} />
+            {ko ? "아카이빙" : "Archive"}
+          </h1>
+          <p className="text-gray-500 text-xs sm:text-sm">
+            {ko
+              ? `전체 ${allVisibleItems.length}건 · 개인 ${privateItems.length}건 · 팀 공유 ${teamItems.length}건`
+              : `All ${allVisibleItems.length} · Private ${privateItems.length} · Team ${teamItems.length}`}
+          </p>
         </div>
 
-        {/* Tabs + Search */}
-        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+        {/* Tabs + View Toggle + Search */}
+        <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <button
               onClick={() => { setActiveTab("all"); setSearchQuery(""); }}
@@ -411,18 +408,18 @@ export function LibraryPage() {
               </span>
             </button>
             <button
-              onClick={() => { setActiveTab("my"); setSearchQuery(""); }}
+              onClick={() => { setActiveTab("private"); setSearchQuery(""); }}
               className={cn(
                 "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border",
-                activeTab === "my"
+                activeTab === "private"
                   ? "bg-blue-50 text-blue-700 border-blue-200 shadow-sm"
                   : "bg-white text-gray-500 border-gray-100 hover:border-gray-300"
               )}
             >
-              <BookMarked size={15} />
-              {ko ? "내 자료" : "Mine"}
-              <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-bold", activeTab === "my" ? "bg-blue-200 text-blue-700" : "bg-gray-100 text-gray-500")}>
-                {myItems.length}
+              <Lock size={15} />
+              {ko ? "개인자료" : "Private"}
+              <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-bold", activeTab === "private" ? "bg-blue-200 text-blue-700" : "bg-gray-100 text-gray-500")}>
+                {privateItems.length}
               </span>
             </button>
             <button
@@ -441,7 +438,40 @@ export function LibraryPage() {
               </span>
             </button>
           </div>
-          <div className="flex-1 sm:max-w-xs">
+          <div className="flex items-center gap-1 shrink-0 border border-gray-200 rounded-lg p-0.5">
+            <button
+              onClick={() => setViewMode("kanban")}
+              className={cn(
+                "p-1.5 rounded-md transition-all",
+                viewMode === "kanban" ? "bg-gray-900 text-white" : "text-gray-400 hover:text-gray-600"
+              )}
+              title={ko ? "칸반 보기" : "Kanban view"}
+            >
+              <LayoutGrid size={14} />
+            </button>
+            <button
+              onClick={() => setViewMode("grid")}
+              className={cn(
+                "p-1.5 rounded-md transition-all",
+                viewMode === "grid" ? "bg-gray-900 text-white" : "text-gray-400 hover:text-gray-600"
+              )}
+              title={ko ? "썸네일 보기" : "Grid view"}
+            >
+              <Grid3X3 size={14} />
+            </button>
+            <button
+              onClick={() => setViewMode("compact")}
+              className={cn(
+                "p-1.5 rounded-md transition-all",
+                viewMode === "compact" ? "bg-gray-900 text-white" : "text-gray-400 hover:text-gray-600"
+              )}
+              title={ko ? "작게 보기" : "Compact view"}
+            >
+              <List size={14} />
+            </button>
+          </div>
+          <div className="flex-1" />
+          <div className="sm:max-w-xs w-full sm:w-auto">
             <div className="flex items-center w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-400 transition-all shadow-sm">
               <Search className="text-gray-400 mr-2 shrink-0" size={16} />
               <input
@@ -456,8 +486,8 @@ export function LibraryPage() {
         </div>
 
         {/* Category tabs + view toggle */}
-        <div className="flex items-center gap-2 mt-3">
-          <div className="flex-1 overflow-x-auto no-scrollbar">
+        <div className="mt-3">
+          <div className="overflow-x-auto no-scrollbar">
             <div className="flex items-center gap-1.5">
               <button
                 onClick={() => setSelectedCategories(new Set())}
@@ -512,38 +542,6 @@ export function LibraryPage() {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-1 shrink-0 border border-gray-200 rounded-lg p-0.5">
-            <button
-              onClick={() => setViewMode("kanban")}
-              className={cn(
-                "p-1.5 rounded-md transition-all",
-                viewMode === "kanban" ? "bg-gray-900 text-white" : "text-gray-400 hover:text-gray-600"
-              )}
-              title={ko ? "칸반 보기" : "Kanban view"}
-            >
-              <LayoutGrid size={14} />
-            </button>
-            <button
-              onClick={() => setViewMode("grid")}
-              className={cn(
-                "p-1.5 rounded-md transition-all",
-                viewMode === "grid" ? "bg-gray-900 text-white" : "text-gray-400 hover:text-gray-600"
-              )}
-              title={ko ? "썸네일 보기" : "Grid view"}
-            >
-              <Grid3X3 size={14} />
-            </button>
-            <button
-              onClick={() => setViewMode("compact")}
-              className={cn(
-                "p-1.5 rounded-md transition-all",
-                viewMode === "compact" ? "bg-gray-900 text-white" : "text-gray-400 hover:text-gray-600"
-              )}
-              title={ko ? "작게 보기" : "Compact view"}
-            >
-              <List size={14} />
-            </button>
-          </div>
         </div>
       </header>
 
@@ -593,6 +591,7 @@ export function LibraryPage() {
                 categoryKey={col.key}
                 items={columnItems[col.key] || []}
                 onCardClick={(id) => navigate(`/library/${id}`)}
+                onAddItem={() => navigate(`/library/new?category=${col.key === "__uncategorized__" ? "" : col.key}`)}
                 isOwnerFn={isOwnerFn}
                 onContextMenu={handleCardContextMenu}
                 isCustom={col.isCustom}
@@ -659,6 +658,18 @@ export function LibraryPage() {
                 );
               })
             )}
+            {/* Add new item card */}
+            <div
+              onClick={() => navigate("/library/new")}
+              className="bg-white rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 cursor-pointer transition-all group overflow-hidden"
+            >
+              <div className="aspect-square flex flex-col items-center justify-center gap-2">
+                <Plus size={24} className="text-gray-300 group-hover:text-blue-500 transition-colors" />
+                <span className="text-xs font-medium text-gray-400 group-hover:text-blue-600 transition-colors">
+                  {ko ? "새 자료" : "New Item"}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       ) : (
@@ -716,6 +727,18 @@ export function LibraryPage() {
                 );
               })
             )}
+            {/* Add new item row */}
+            <div
+              onClick={() => navigate("/library/new")}
+              className="flex items-center gap-3 px-3 py-2.5 bg-white rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 cursor-pointer transition-all group"
+            >
+              <div className="w-10 h-10 rounded-lg border border-dashed border-gray-200 group-hover:border-blue-300 flex items-center justify-center shrink-0">
+                <Plus size={16} className="text-gray-300 group-hover:text-blue-500 transition-colors" />
+              </div>
+              <span className="text-[13px] font-medium text-gray-400 group-hover:text-blue-600 transition-colors">
+                {ko ? "새 자료" : "New Item"}
+              </span>
+            </div>
           </div>
         </div>
       )}

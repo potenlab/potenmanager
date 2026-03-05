@@ -6,7 +6,6 @@ import {
   Mail,
   Phone,
   Briefcase,
-  MapPin,
   Globe,
   Building2,
   Shield,
@@ -92,8 +91,6 @@ export function MyPage() {
 
   // Profile fields from server
   const [phone, setPhone] = useState("");
-  const [company, setCompany] = useState("");
-  const [location, setLocation] = useState("");
   const [jobRole, setJobRole] = useState<JobRole | undefined>(currentUser.jobRole);
 
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -135,12 +132,14 @@ export function MyPage() {
     profileLoaded.current = true;
     api.getProfile(currentUser.id).then((profile: any) => {
       if (profile.phone) setPhone(profile.phone);
-      if (profile.company) setCompany(profile.company);
-      if (profile.location) setLocation(profile.location);
       if (profile.avatar) setCustomAvatar(profile.avatar);
       if (profile.jobRole) {
         setJobRole(profile.jobRole as JobRole);
         updateMember(currentUser.id, { jobRole: profile.jobRole as JobRole });
+      }
+      if (profile.calendarColor) {
+        setUserColor(currentUser.id, profile.calendarColor);
+        setMyColor(profile.calendarColor);
       }
     }).catch(() => {});
   }, [currentUser.id]);
@@ -150,6 +149,7 @@ export function MyPage() {
   const email = authUser?.email || "";
   const avatar = customAvatar || currentUser.avatar || authUser?.user_metadata?.avatar_url || "";
   const role = currentUser.role === "owner" ? "Founder / CEO" : "Team Member";
+  const title = currentUser.role === "owner" ? "Founder / CEO" : (ko ? "팀 멤버" : "Team Member");
 
   const handleSelectMyColor = (hex: string) => {
     const owner = getColorOwner(hex);
@@ -157,9 +157,11 @@ export function MyPage() {
     if (myColor === hex) {
       setUserColor(currentUser.id, null);
       setMyColor(null);
+      api.updateProfile(currentUser.id, { calendarColor: '' }).catch(() => {});
     } else {
       setUserColor(currentUser.id, hex);
       setMyColor(hex);
+      api.updateProfile(currentUser.id, { calendarColor: hex }).catch(() => {});
     }
   };
 
@@ -167,9 +169,7 @@ export function MyPage() {
     { key: "name", label: "Name", labelKo: "이름", value: name, icon: <UserIcon size={16} />, editable: true },
     { key: "email", label: "Email", labelKo: "이메일", value: email, icon: <Mail size={16} /> },
     { key: "phone", label: "Phone", labelKo: "전화번호", value: phone || (language === "ko" ? "미설정" : "Not set"), icon: <Phone size={16} />, editable: true },
-    { key: "role", label: "Role", labelKo: "역할", value: role, icon: <Briefcase size={16} /> },
-    { key: "company", label: "Company", labelKo: "회사", value: company || (language === "ko" ? "미설정" : "Not set"), icon: <Globe size={16} />, editable: true },
-    { key: "location", label: "Location", labelKo: "위치", value: location || (language === "ko" ? "미설정" : "Not set"), icon: <MapPin size={16} />, editable: true },
+    { key: "role", label: "Title", labelKo: "직책", value: title, icon: <Briefcase size={16} /> },
   ];
 
   const startEdit = (key: string, currentValue: string) => {
@@ -191,14 +191,6 @@ export function MyPage() {
       case "phone":
         setPhone(v);
         api.updateProfile(currentUser.id, { phone: v }).catch(() => {});
-        break;
-      case "company":
-        setCompany(v);
-        api.updateProfile(currentUser.id, { company: v }).catch(() => {});
-        break;
-      case "location":
-        setLocation(v);
-        api.updateProfile(currentUser.id, { location: v }).catch(() => {});
         break;
     }
     setEditingField(null);
@@ -278,7 +270,7 @@ export function MyPage() {
           {/* Name & Role */}
           <div className="px-6 pt-3 pb-5">
             <h2 className="text-xl font-bold text-gray-900">{name}</h2>
-            <p className="text-sm text-gray-500 mt-0.5">{role}</p>
+            <p className="text-sm text-gray-500 mt-0.5">{title}</p>
             <div className="flex items-center gap-2 mt-2">
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-600">
                 <Shield size={12} />
@@ -574,6 +566,7 @@ export function MyPage() {
                     onClick={() => {
                       setUserColor(currentUser.id, null);
                       setMyColor(null);
+                      api.updateProfile(currentUser.id, { calendarColor: '' }).catch(() => {});
                     }}
                     className="text-[10px] text-gray-400 hover:text-red-500 transition-colors font-medium"
                   >

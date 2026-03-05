@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router";
+import { useParams, useNavigate, useSearchParams } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import {
   ArrowLeft, Globe, Lock, Link as LinkIcon,
@@ -87,6 +87,7 @@ function CategorySelect({ value, onChange, ko }: { value: string; onChange: (v: 
 export function LibraryDetailPage() {
   const { itemId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { language } = useLanguage();
   const ko = language === 'ko';
   const { addItem, updateItem, removeItem, getItem, fetchOgMetadata } = useLibrary();
@@ -101,11 +102,13 @@ export function LibraryDetailPage() {
     if (isNew && !localId) {
       const id = `lib-${Date.now()}`;
       const now = new Date().toISOString();
+      const categoryParam = searchParams.get("category") || undefined;
       const newItem: LibraryItem = {
         id,
         title: '',
         type: 'url',
         visibility: 'private',
+        category: categoryParam,
         ownerId: currentUser.id,
         ownerName: currentUser.name,
         createdAt: now,

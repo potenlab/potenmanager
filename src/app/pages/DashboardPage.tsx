@@ -323,7 +323,7 @@ export function DashboardPage() {
   ];
 
   return (
-    <div className="h-full flex flex-col -m-6 md:-m-8">
+    <div className="min-h-[calc(100%+3rem)] md:min-h-[calc(100%+4rem)] flex flex-col -m-6 md:-m-8 bg-[#FAFAFA]">
       {/* Tab Bar */}
       <div className="shrink-0 bg-white border-b border-gray-200 px-6 md:px-8">
         <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">

@@ -121,6 +121,36 @@ export function NotionBlockEditor({
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
+  // Wrapper ref for focus when block-level selection is active
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Undo/Redo system
+  const blocksRef = useRef(blocks);
+  blocksRef.current = blocks;
+  const undoStackRef = useRef<Block[][]>([]);
+  const redoStackRef = useRef<Block[][]>([]);
+  const lastUndoPushTime = useRef(0);
+
+  const pushUndo = useCallback(() => {
+    undoStackRef.current.push(blocksRef.current.map(b => ({ ...b })));
+    if (undoStackRef.current.length > 50) undoStackRef.current.shift();
+    redoStackRef.current = [];
+  }, []);
+
+  const undo = useCallback(() => {
+    if (undoStackRef.current.length === 0) return;
+    redoStackRef.current.push(blocksRef.current.map(b => ({ ...b })));
+    setBlocks(undoStackRef.current.pop()!);
+    setSelectedIds(new Set());
+  }, []);
+
+  const redo = useCallback(() => {
+    if (redoStackRef.current.length === 0) return;
+    undoStackRef.current.push(blocksRef.current.map(b => ({ ...b })));
+    setBlocks(redoStackRef.current.pop()!);
+    setSelectedIds(new Set());
+  }, []);
+
   // Slash command menu state
   const [slashMenu, setSlashMenu] = useState<{ blockIdx: number; filter: string; selectedIdx: number; pos: { top: number; left: number } } | null>(null);
 
@@ -228,6 +258,7 @@ export function NotionBlockEditor({
 
   const selectSlashItem = (item: SlashMenuItem) => {
     if (!slashMenu) return;
+    pushUndo();
     const block = blocks[slashMenu.blockIdx];
     if (item.type === "page") {
       const subPage = createSubPage(parentType || "unknown", parentId || "unknown");
@@ -466,14 +497,27 @@ export function NotionBlockEditor({
       }
     }
 
+    // Ctrl+Z: undo
+    if (e.key === "z" && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+      e.preventDefault();
+      undo();
+      return;
+    }
+    // Ctrl+Y or Ctrl+Shift+Z: redo
+    if ((e.key === "y" && (e.ctrlKey || e.metaKey)) || (e.key === "z" && (e.ctrlKey || e.metaKey) && e.shiftKey)) {
+      e.preventDefault();
+      redo();
+      return;
+    }
+
     // Ctrl+A: select all blocks
     if (e.key === "a" && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       const ids = new Set(blocks.map((b) => b.id));
       setSelectedIds(ids);
       lastClickedIdx.current = 0;
-      // Remove contentEditable cursor
       window.getSelection()?.removeAllRanges();
+      wrapperRef.current?.focus();
       return;
     }
 
@@ -500,20 +544,51 @@ export function NotionBlockEditor({
           "text/html": new Blob([html], { type: "text/html" }),
         }),
       ]).catch(() => { navigator.clipboard.writeText(plain); });
-      if (e.key === "x") deleteSelectedBlocks();
+      if (e.key === "x") { pushUndo(); deleteSelectedBlocks(); }
       return;
     }
 
-    // Delete/Backspace with multi-selection
-    if ((e.key === "Backspace" || e.key === "Delete") && selectedIds.size > 1) {
+    // Delete/Backspace with selection
+    if ((e.key === "Backspace" || e.key === "Delete") && selectedIds.size > 0) {
       e.preventDefault();
+      pushUndo();
       deleteSelectedBlocks();
+      return;
+    }
+
+    // Typing over selection — replace selected blocks with typed character
+    if (selectedIds.size > 1 && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      pushUndo();
+      const firstIdx = blocks.findIndex(b => selectedIds.has(b.id));
+      const newId = genId();
+      setBlocks(prev => {
+        const remaining = prev.filter(b => !selectedIds.has(b.id));
+        const newBlock: Block = { id: newId, content: e.key, type: "text" };
+        remaining.splice(Math.min(firstIdx, remaining.length), 0, newBlock);
+        return remaining.length > 0 ? remaining : [newBlock];
+      });
+      setSelectedIds(new Set());
+      requestAnimationFrame(() => {
+        const el = blockRefs.current.get(newId);
+        if (el) {
+          el.focus();
+          const range = document.createRange();
+          const sel = window.getSelection();
+          if (el.childNodes.length > 0) range.setStartAfter(el.lastChild!);
+          else range.setStart(el, 0);
+          range.collapse(true);
+          sel?.removeAllRanges();
+          sel?.addRange(range);
+        }
+      });
       return;
     }
 
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       if (slashMenu) return;
+      pushUndo();
 
       const cursorPos = getCursorPos(block.id);
       const before = block.content.slice(0, cursorPos);
@@ -554,11 +629,13 @@ export function NotionBlockEditor({
         // If block has a non-text type, first convert to text
         if (block.type !== "text") {
           e.preventDefault();
+          pushUndo();
           setBlockType(block.id, "text");
           return;
         }
         if (idx > 0) {
           e.preventDefault();
+          pushUndo();
           const prevBlock = blocks[idx - 1];
           const mergedContent = prevBlock.content + block.content;
 
@@ -613,10 +690,8 @@ export function NotionBlockEditor({
       const anchor = lastClickedIdx.current ?? idx;
       const newIdx = e.key === "ArrowUp" ? Math.max(0, idx - 1) : Math.min(blocks.length - 1, idx + 1);
       selectRange(anchor, newIdx);
-      // Move focus to the new block so next shift+arrow continues from there
-      pendingFocusIdx.current = newIdx;
-      setBlocks((prev) => [...prev]);
       window.getSelection()?.removeAllRanges();
+      wrapperRef.current?.focus();
       return;
     }
 
@@ -656,6 +731,7 @@ export function NotionBlockEditor({
   };
 
   const deleteBlock = (idx: number) => {
+    pushUndo();
     if (blocks.length <= 1) {
       setBlocks([{ id: blocks[0].id, content: "", type: "text" }]);
       return;
@@ -750,8 +826,89 @@ export function NotionBlockEditor({
     return count;
   };
 
+  // Wrapper-level keyDown: handles keys when wrapper has focus (after Ctrl+A or clicking embedded blocks)
+  const handleWrapperKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if ((e.target as HTMLElement).getAttribute("contenteditable")) return;
+
+    // Ctrl+Z / Ctrl+Y
+    if (e.key === "z" && (e.ctrlKey || e.metaKey) && !e.shiftKey) { e.preventDefault(); undo(); return; }
+    if ((e.key === "y" && (e.ctrlKey || e.metaKey)) || (e.key === "z" && (e.ctrlKey || e.metaKey) && e.shiftKey)) { e.preventDefault(); redo(); return; }
+
+    if (selectedIds.size === 0) return;
+
+    // Ctrl+A
+    if (e.key === "a" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      setSelectedIds(new Set(blocks.map(b => b.id)));
+      return;
+    }
+    // Ctrl+C/X
+    if ((e.key === "c" || e.key === "x") && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      const selected = blocks.filter(b => selectedIds.has(b.id));
+      const plain = selected.map(serializeBlock).join("\n");
+      const html = selected.map((b) => {
+        const c = b.content || "";
+        switch (b.type) {
+          case "h1": return `<h1>${c}</h1>`;
+          case "h2": return `<h2>${c}</h2>`;
+          case "h3": return `<h3>${c}</h3>`;
+          case "bullet": return `<ul><li>${c}</li></ul>`;
+          case "numbered": return `<ol><li>${c}</li></ol>`;
+          case "divider": return `<hr>`;
+          default: return `<p>${c}</p>`;
+        }
+      }).join("\n");
+      navigator.clipboard.write([
+        new ClipboardItem({
+          "text/plain": new Blob([plain], { type: "text/plain" }),
+          "text/html": new Blob([html], { type: "text/html" }),
+        }),
+      ]).catch(() => { navigator.clipboard.writeText(plain); });
+      if (e.key === "x") { pushUndo(); deleteSelectedBlocks(); }
+      return;
+    }
+    // Escape
+    if (e.key === "Escape") { e.preventDefault(); setSelectedIds(new Set()); return; }
+    // Delete/Backspace
+    if (e.key === "Delete" || e.key === "Backspace") {
+      e.preventDefault();
+      pushUndo();
+      deleteSelectedBlocks();
+      return;
+    }
+    // Printable char — replace selection with new typed block
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      pushUndo();
+      const firstIdx = blocks.findIndex(b => selectedIds.has(b.id));
+      const newId = genId();
+      setBlocks(prev => {
+        const remaining = prev.filter(b => !selectedIds.has(b.id));
+        const newBlock: Block = { id: newId, content: e.key, type: "text" };
+        remaining.splice(Math.min(firstIdx, remaining.length), 0, newBlock);
+        return remaining.length > 0 ? remaining : [newBlock];
+      });
+      setSelectedIds(new Set());
+      requestAnimationFrame(() => {
+        const el = blockRefs.current.get(newId);
+        if (el) {
+          el.focus();
+          const range = document.createRange();
+          const sel = window.getSelection();
+          if (el.childNodes.length > 0) range.setStartAfter(el.lastChild!);
+          else range.setStart(el, 0);
+          range.collapse(true);
+          sel?.removeAllRanges();
+          sel?.addRange(range);
+        }
+      });
+      return;
+    }
+  }, [selectedIds, blocks, deleteSelectedBlocks, pushUndo, undo, redo]);
+
   return (
-    <div className="space-y-0">
+    <div ref={wrapperRef} className="space-y-0 outline-none" tabIndex={-1} onKeyDown={handleWrapperKeyDown}>
       {blocks.map((block, idx) => (
         <div
           key={block.id}
@@ -798,7 +955,20 @@ export function NotionBlockEditor({
           {/* Block content */}
           {block.type === "page" ? (
             <button
-              onClick={() => navigate(`/pages/${block.content}`)}
+              onClick={(e) => {
+                if (!readOnly && (e.shiftKey || e.ctrlKey || e.metaKey)) {
+                  e.preventDefault();
+                  if (e.shiftKey && lastClickedIdx.current !== null) {
+                    selectRange(lastClickedIdx.current, idx);
+                  } else {
+                    setSelectedIds(new Set([block.id]));
+                    lastClickedIdx.current = idx;
+                  }
+                  wrapperRef.current?.focus();
+                  return;
+                }
+                navigate(`/pages/${block.content}`);
+              }}
               className="flex-1 flex items-center gap-3 px-4 py-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300 transition-all text-left group/page cursor-pointer"
             >
               <FileText size={18} className="text-gray-400 group-hover/page:text-gray-600 shrink-0" />
@@ -808,7 +978,20 @@ export function NotionBlockEditor({
               <ArrowRight size={14} className="ml-auto text-gray-300 group-hover/page:text-gray-500 shrink-0" />
             </button>
           ) : block.type === "divider" ? (
-            <div className="flex-1 py-3 px-1">
+            <div
+              className="flex-1 py-3 px-1 cursor-pointer"
+              onClick={(e) => {
+                if (readOnly) return;
+                e.stopPropagation();
+                if (e.shiftKey && lastClickedIdx.current !== null) {
+                  selectRange(lastClickedIdx.current, idx);
+                } else {
+                  setSelectedIds(new Set([block.id]));
+                  lastClickedIdx.current = idx;
+                }
+                wrapperRef.current?.focus();
+              }}
+            >
               <hr className="border-gray-200" />
             </div>
           ) : (
@@ -829,6 +1012,12 @@ export function NotionBlockEditor({
                 if (!readOnly) {
                   setFocusedIdx(idx);
                   lastClickedIdx.current = idx;
+                  // Debounced undo snapshot on focus
+                  const now = Date.now();
+                  if (now - lastUndoPushTime.current > 1000) {
+                    pushUndo();
+                    lastUndoPushTime.current = now;
+                  }
                 }
               }}
               onBlur={() => {
