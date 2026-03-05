@@ -20,6 +20,7 @@ import {
   LogOut,
   FlaskConical,
   Trash2,
+  Target,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { useLanguage } from "../../context/LanguageContext";
@@ -41,7 +42,7 @@ interface NavItemData {
 }
 
 function getDefaultNavIds() {
-  return ["tasks", "dashboard", "management", "calendar", "meetings", "radar", "library", "team"];
+  return ["tasks", "dashboard", "management", "goals", "calendar", "meetings", "radar", "library", "team"];
 }
 
 function loadNavOrder(): string[] {
@@ -94,6 +95,7 @@ export function Sidebar() {
     { id: "tasks", to: "/tasks", icon: <CheckSquare size={20} />, label: t("my_tasks") },
     { id: "dashboard", to: "/", icon: <LayoutDashboard size={20} />, label: t("dashboard") },
     { id: "management", to: "/management", icon: <Building2 size={20} />, label: language === 'ko' ? '관리' : 'Management' },
+    { id: "goals", to: "/organization/vision", icon: <Target size={20} />, label: language === 'ko' ? '목표/전략' : 'Goals' },
     { id: "calendar", to: "/calendar", icon: <Calendar size={20} />, label: t("calendar") },
     { id: "meetings", to: "/meetings", icon: <Video size={20} />, label: language === 'ko' ? '회의/미팅' : 'Meetings' },
     { id: "radar", to: "/radar", icon: <Radar size={20} />, label: language === 'ko' ? '비즈 레이더' : 'Biz Radar' },

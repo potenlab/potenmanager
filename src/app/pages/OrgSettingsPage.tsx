@@ -1,7 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { useNavigate } from "react-router";
 import {
-  ArrowLeft,
   Camera,
   Building2,
   Check,
@@ -89,7 +87,6 @@ function InlineField({
 }
 
 export function OrgSettingsPage() {
-  const navigate = useNavigate();
   const { language } = useLanguage();
   const ko = language === "ko";
   const { org, updateOrgName, updateOrgLogo, updateOrgField } = useInvite();
@@ -127,15 +124,9 @@ export function OrgSettingsPage() {
     <div className="max-w-2xl mx-auto py-6 px-4 pb-20">
       {/* Header */}
       <div className="flex items-center gap-3 mb-8">
-        <button
-          onClick={() => navigate("/organization")}
-          className="p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-        >
-          <ArrowLeft size={20} />
-        </button>
         <div className="flex-1">
           <h1 className="text-lg font-bold text-gray-900">
-            {ko ? "조직 설정" : "Organization Settings"}
+            {ko ? "조직 정보" : "Organization Info"}
           </h1>
           <p className="text-xs text-gray-400">
             {ko ? "기본 회사 정보를 관리합니다" : "Manage basic company information"}

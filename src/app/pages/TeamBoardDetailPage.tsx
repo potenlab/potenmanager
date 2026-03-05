@@ -360,6 +360,8 @@ export function TeamBoardDetailPage() {
                   readOnly={!canEdit}
                   placeholder={ko ? "/ 를 입력하여 블록 유형 선택..." : "Type / to select block type..."}
                   language={language}
+                  parentType="board"
+                  parentId={itemId}
                 />
 
                 {/* URL previews auto-detected from content */}

@@ -1,17 +1,19 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router";
 import {
-  Building2, FolderKanban, Palette, Plus, Pencil, Trash2,
-  Calendar, Users, ChevronRight, MoreHorizontal, Check, X,
-  Upload, Image as ImageIcon, Globe, Link as LinkIcon,
+  Building2, FolderKanban, Palette, Plus, Trash2,
+  Calendar, Users, StickyNote, MoreVertical, Edit3, User, Loader2,
+  Image as ImageIcon, Globe,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
 import { useTeam } from "../context/TeamContext";
+import { useInvite } from "../context/InviteContext";
 import { usePermission } from "../context/PermissionContext";
+import { api } from "../../lib/api";
 
-// ─── Types ───────────────────────────────────────────────────────
-interface Project {
+// ─── Types (exported for detail pages) ───────────────────────────
+export interface Project {
   id: string;
   name: string;
   description: string;
@@ -21,30 +23,59 @@ interface Project {
   endDate?: string;
   memberIds: string[];
   createdAt: string;
+  logoUrl?: string;
+  client?: string;
+  budget?: string;
+  category?: "internal" | "outsource" | "contract" | "other";
+  links?: { label: string; url: string }[];
 }
 
-interface BrandAsset {
+export interface BrandAsset {
   id: string;
   type: "logo" | "color" | "font" | "guideline" | "template";
   name: string;
   value: string; // color hex, font name, or URL
   description?: string;
   createdAt: string;
+  imageUrl?: string;
+  guidelines?: string;
+  attachments?: { name: string; url: string }[];
 }
 
-const PROJECT_STATUS_CONFIG = {
+interface BoardItem {
+  id: string;
+  type: string;
+  title: string;
+  content: string;
+  description?: string;
+  attachments?: any[];
+  pinned?: boolean;
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export const PROJECT_STATUS_CONFIG = {
   planning: { label: "기획 중", labelEn: "Planning", color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200" },
   active: { label: "진행 중", labelEn: "Active", color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200" },
   paused: { label: "일시 중지", labelEn: "Paused", color: "text-gray-500", bg: "bg-gray-50", border: "border-gray-200" },
   completed: { label: "완료", labelEn: "Completed", color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200" },
 };
 
-const PROJECT_COLORS = [
+export const PROJECT_CATEGORY_CONFIG = {
+  internal: { label: "내부 프로젝트", labelEn: "Internal" },
+  outsource: { label: "외주", labelEn: "Outsource" },
+  contract: { label: "수주", labelEn: "Contract" },
+  other: { label: "기타", labelEn: "Other" },
+};
+
+export const PROJECT_COLORS = [
   "#3B82F6", "#8B5CF6", "#EC4899", "#F59E0B", "#10B981",
   "#06B6D4", "#F97316", "#EF4444", "#6366F1", "#14B8A6",
 ];
 
-const BRAND_TYPE_CONFIG = {
+export const BRAND_TYPE_CONFIG = {
   logo: { label: "로고", labelEn: "Logo", icon: <ImageIcon size={14} /> },
   color: { label: "브랜드 컬러", labelEn: "Brand Color", icon: <Palette size={14} /> },
   font: { label: "폰트", labelEn: "Font", icon: <span className="text-xs font-bold">Aa</span> },
@@ -52,25 +83,25 @@ const BRAND_TYPE_CONFIG = {
   template: { label: "템플릿", labelEn: "Template", icon: <FolderKanban size={14} /> },
 };
 
-const STORAGE_KEY_PROJECTS = "poten_management_projects";
-const STORAGE_KEY_BRAND = "poten_management_brand";
+export const STORAGE_KEY_PROJECTS = "poten_management_projects";
+export const STORAGE_KEY_BRAND = "poten_management_brand";
 
-function loadProjects(): Project[] {
+export function loadProjects(): Project[] {
   try {
     const s = localStorage.getItem(STORAGE_KEY_PROJECTS);
     return s ? JSON.parse(s) : [];
   } catch { return []; }
 }
-function saveProjects(projects: Project[]) {
+export function saveProjects(projects: Project[]) {
   localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(projects));
 }
-function loadBrandAssets(): BrandAsset[] {
+export function loadBrandAssets(): BrandAsset[] {
   try {
     const s = localStorage.getItem(STORAGE_KEY_BRAND);
     return s ? JSON.parse(s) : [];
   } catch { return []; }
 }
-function saveBrandAssets(assets: BrandAsset[]) {
+export function saveBrandAssets(assets: BrandAsset[]) {
   localStorage.setItem(STORAGE_KEY_BRAND, JSON.stringify(assets));
 }
 
@@ -91,10 +122,16 @@ function ProjectCard({
       className="bg-white rounded-2xl border border-gray-100 hover:border-gray-300 hover:shadow-md p-5 cursor-pointer transition-all group"
     >
       <div className="flex items-start gap-3 mb-3">
-        <div
-          className="w-3 h-3 rounded-full mt-1.5 shrink-0"
-          style={{ backgroundColor: project.color }}
-        />
+        {project.logoUrl ? (
+          <img src={project.logoUrl} alt="" className="w-9 h-9 rounded-xl object-cover shrink-0 border border-gray-100" />
+        ) : (
+          <div
+            className="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center"
+            style={{ backgroundColor: project.color + "20" }}
+          >
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: project.color }} />
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <h3 className="text-[15px] font-bold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
             {project.name}
@@ -140,224 +177,193 @@ function ProjectCard({
   );
 }
 
-// ─── Project Edit Modal ──────────────────────────────────────────
-function ProjectEditModal({
-  project, ko, members, onSave, onClose,
-}: {
-  project: Project | null; ko: boolean;
-  members: { id: string; name: string }[];
-  onSave: (p: Project) => void; onClose: () => void;
-}) {
-  const isNew = !project;
-  const [form, setForm] = useState<Project>(project || {
-    id: `proj-${Date.now()}`,
-    name: "",
-    description: "",
-    status: "planning",
-    color: PROJECT_COLORS[Math.floor(Math.random() * PROJECT_COLORS.length)],
-    memberIds: [],
-    createdAt: new Date().toISOString(),
-  });
+// ─── Team Board Tab ──────────────────────────────────────────────
+function TeamBoardTab({ ko }: { ko: boolean }) {
+  const navigate = useNavigate();
+  const { currentUser } = usePermission();
+  const { org } = useInvite();
+  const orgId = org?.id || "";
+
+  const [items, setItems] = useState<BoardItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [menuId, setMenuId] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const userRole = currentUser.role as string;
+  const isManager = userRole === "owner" || userRole === "admin";
+
+  useEffect(() => {
+    if (isAdding && inputRef.current) inputRef.current.focus();
+  }, [isAdding]);
+
+  useEffect(() => {
+    if (!orgId) return;
+    api.getTeamBoardItems(orgId).then(data => {
+      setItems(data || []);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, [orgId]);
+
+  const handleAdd = useCallback(async () => {
+    if (!newTitle.trim()) return;
+    const item = {
+      type: "memo",
+      title: newTitle.trim(),
+      content: "",
+      createdBy: currentUser.id,
+      createdByName: currentUser.name,
+    };
+    try {
+      const created = await api.createTeamBoardItem(orgId, item);
+      setItems(prev => [created, ...prev]);
+      setNewTitle("");
+    } catch {}
+  }, [newTitle, orgId, currentUser]);
+
+  const handleAddKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") { e.preventDefault(); handleAdd(); }
+    else if (e.key === "Escape") { setNewTitle(""); setIsAdding(false); }
+  };
+
+  const handleUpdate = useCallback(async (id: string) => {
+    if (!editTitle.trim()) return;
+    try {
+      const updated = await api.updateTeamBoardItem(orgId, id, { title: editTitle.trim(), content: editContent.trim() });
+      setItems(prev => prev.map(i => i.id === id ? updated : i));
+      setEditingId(null);
+    } catch {}
+  }, [orgId, editTitle, editContent]);
+
+  const handleDelete = useCallback(async (item: BoardItem) => {
+    if (item.createdBy !== currentUser.id && isManager) {
+      if (!window.confirm(ko ? `${item.createdByName}님이 작성한 항목을 삭제하시겠습니까?` : `Delete ${item.createdByName}'s item?`)) return;
+    }
+    try {
+      await api.deleteTeamBoardItem(orgId, item.id);
+      setItems(prev => prev.filter(i => i.id !== item.id));
+    } catch {}
+  }, [orgId, currentUser.id, isManager, ko]);
+
+  const startEdit = (item: BoardItem) => {
+    setEditingId(item.id);
+    setEditTitle(item.title);
+    setEditContent(item.content);
+    setMenuId(null);
+  };
+
+  if (loading) {
+    return <div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-400" /></div>;
+  }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 p-6" onClick={e => e.stopPropagation()}>
-        <h2 className="text-lg font-bold text-gray-900 mb-4">
-          {isNew ? (ko ? "프로젝트 추가" : "Add Project") : (ko ? "프로젝트 수정" : "Edit Project")}
-        </h2>
+    <div>
+      {/* Inline add */}
+      {isAdding && (
+        <div className="bg-white rounded-xl border border-blue-200 shadow-sm ring-2 ring-blue-100 overflow-hidden mb-3">
+          <input ref={inputRef} value={newTitle} onChange={e => setNewTitle(e.target.value)}
+            onKeyDown={handleAddKeyDown}
+            onBlur={() => { if (newTitle.trim()) handleAdd(); else { setNewTitle(""); setIsAdding(false); } }}
+            placeholder={ko ? "제목을 입력하세요..." : "Enter title..."}
+            className="w-full px-4 py-3 text-sm outline-none bg-transparent placeholder-gray-400 text-gray-900" />
+          <div className="flex items-center px-3 py-2 bg-gray-50/80 border-t border-gray-100">
+            <span className="text-[10px] text-gray-400">{ko ? "Enter로 추가 · Esc로 취소" : "Enter to add · Esc to cancel"}</span>
+          </div>
+        </div>
+      )}
 
-        <div className="space-y-4">
-          <div>
-            <label className="text-xs font-semibold text-gray-500 mb-1 block">{ko ? "이름" : "Name"}</label>
-            <input
-              value={form.name}
-              onChange={e => setForm({ ...form, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
-              placeholder={ko ? "프로젝트 이름" : "Project name"}
-              autoFocus
-            />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-500 mb-1 block">{ko ? "설명" : "Description"}</label>
-            <textarea
-              value={form.description}
-              onChange={e => setForm({ ...form, description: e.target.value })}
-              rows={2}
-              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-100 resize-none"
-              placeholder={ko ? "간단한 설명" : "Brief description"}
-            />
-          </div>
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <label className="text-xs font-semibold text-gray-500 mb-1 block">{ko ? "상태" : "Status"}</label>
-              <select
-                value={form.status}
-                onChange={e => setForm({ ...form, status: e.target.value as Project["status"] })}
-                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm outline-none"
-              >
-                {Object.entries(PROJECT_STATUS_CONFIG).map(([k, v]) => (
-                  <option key={k} value={k}>{ko ? v.label : v.labelEn}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-500 mb-1 block">{ko ? "컬러" : "Color"}</label>
-              <div className="flex gap-1.5 flex-wrap">
-                {PROJECT_COLORS.map(c => (
-                  <button
-                    key={c}
-                    onClick={() => setForm({ ...form, color: c })}
-                    className={cn("w-6 h-6 rounded-full transition-all", form.color === c && "ring-2 ring-offset-2 ring-blue-400")}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <label className="text-xs font-semibold text-gray-500 mb-1 block">{ko ? "시작일" : "Start"}</label>
-              <input type="date" value={form.startDate || ""} onChange={e => setForm({ ...form, startDate: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm outline-none" />
-            </div>
-            <div className="flex-1">
-              <label className="text-xs font-semibold text-gray-500 mb-1 block">{ko ? "종료일" : "End"}</label>
-              <input type="date" value={form.endDate || ""} onChange={e => setForm({ ...form, endDate: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm outline-none" />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-500 mb-1 block">{ko ? "멤버" : "Members"}</label>
-            <div className="flex flex-wrap gap-1.5">
-              {members.map(m => {
-                const sel = form.memberIds.includes(m.id);
-                return (
-                  <button
-                    key={m.id}
-                    onClick={() => setForm({ ...form, memberIds: sel ? form.memberIds.filter(i => i !== m.id) : [...form.memberIds, m.id] })}
-                    className={cn(
-                      "px-2.5 py-1 rounded-lg text-xs font-medium transition-all border",
-                      sel ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
-                    )}
-                  >
-                    {m.name}
+      {items.length === 0 && !isAdding ? (
+        <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+          <StickyNote size={48} className="mb-3 text-gray-300" />
+          <p className="text-sm font-medium">{ko ? "팀 보드가 비어있습니다" : "No board items yet"}</p>
+          <button onClick={() => setIsAdding(true)} className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-semibold">
+            + {ko ? "첫 항목 추가하기" : "Add your first item"}
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {items.map(item => {
+            const canEditItem = item.createdBy === currentUser.id;
+            const canDeleteItem = canEditItem || isManager;
+            const isEditing = editingId === item.id;
+
+            return isEditing ? (
+              <div key={item.id} className="bg-white rounded-xl border border-blue-200 shadow-sm ring-2 ring-blue-100 p-3 space-y-2">
+                <input value={editTitle} onChange={e => setEditTitle(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleUpdate(item.id); } else if (e.key === "Escape") setEditingId(null); }}
+                  className="w-full text-sm font-medium bg-gray-50 rounded-lg px-3 py-2 border border-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-300" autoFocus />
+                <textarea value={editContent} onChange={e => setEditContent(e.target.value)} rows={3}
+                  onKeyDown={e => { if (e.key === "Escape") setEditingId(null); }}
+                  placeholder={ko ? "내용 (선택사항)" : "Content (optional)"}
+                  className="w-full text-xs bg-gray-50 rounded-lg px-3 py-2 border border-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-300 resize-none" />
+                <div className="flex gap-2">
+                  <button onClick={() => handleUpdate(item.id)} className="flex-1 text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors">
+                    {ko ? "저장" : "Save"}
                   </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-2 mt-6">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-xl transition-colors">
-            {ko ? "취소" : "Cancel"}
-          </button>
-          <button
-            onClick={() => { if (form.name.trim()) onSave(form); }}
-            disabled={!form.name.trim()}
-            className="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
-          >
-            {isNew ? (ko ? "추가" : "Add") : (ko ? "저장" : "Save")}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Brand Asset Edit Modal ──────────────────────────────────────
-function BrandEditModal({
-  asset, ko, onSave, onClose,
-}: {
-  asset: BrandAsset | null; ko: boolean;
-  onSave: (a: BrandAsset) => void; onClose: () => void;
-}) {
-  const isNew = !asset;
-  const [form, setForm] = useState<BrandAsset>(asset || {
-    id: `brand-${Date.now()}`,
-    type: "color",
-    name: "",
-    value: "#3B82F6",
-    description: "",
-    createdAt: new Date().toISOString(),
-  });
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6" onClick={e => e.stopPropagation()}>
-        <h2 className="text-lg font-bold text-gray-900 mb-4">
-          {isNew ? (ko ? "브랜드 자산 추가" : "Add Brand Asset") : (ko ? "브랜드 자산 수정" : "Edit Brand Asset")}
-        </h2>
-
-        <div className="space-y-4">
-          <div>
-            <label className="text-xs font-semibold text-gray-500 mb-1 block">{ko ? "유형" : "Type"}</label>
-            <div className="flex flex-wrap gap-1.5">
-              {Object.entries(BRAND_TYPE_CONFIG).map(([k, v]) => (
-                <button
-                  key={k}
-                  onClick={() => setForm({ ...form, type: k as BrandAsset["type"] })}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border",
-                    form.type === k ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-white text-gray-500 border-gray-200"
+                  <button onClick={() => setEditingId(null)} className="text-xs px-3 py-1.5 rounded-lg text-gray-500 hover:bg-gray-100">
+                    {ko ? "취소" : "Cancel"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div key={item.id} onClick={() => navigate(`/board/${item.id}`)}
+                className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-gray-300 transition-all group relative cursor-pointer">
+                <div className="flex items-start gap-2 mb-1">
+                  <h4 className="font-medium text-sm text-gray-900 leading-snug flex-1 min-w-0">{item.title}</h4>
+                  {(canEditItem || canDeleteItem) && (
+                    <div className="relative shrink-0">
+                      <button onClick={e => { e.stopPropagation(); setMenuId(menuId === item.id ? null : item.id); }}
+                        className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity p-0.5">
+                        <MoreVertical size={14} />
+                      </button>
+                      {menuId === item.id && (
+                        <div className="absolute right-0 top-6 z-10 bg-white border border-gray-200 rounded-lg shadow-lg py-1 w-24">
+                          {canEditItem && (
+                            <button onClick={e => { e.stopPropagation(); startEdit(item); }} className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-1.5">
+                              <Edit3 size={10} /> {ko ? "수정" : "Edit"}
+                            </button>
+                          )}
+                          {canDeleteItem && (
+                            <button onClick={e => { e.stopPropagation(); setMenuId(null); handleDelete(item); }} className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-1.5">
+                              <Trash2 size={10} /> {ko ? "삭제" : "Delete"}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   )}
-                >
-                  {v.icon} {ko ? v.label : v.labelEn}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-500 mb-1 block">{ko ? "이름" : "Name"}</label>
-            <input
-              value={form.name}
-              onChange={e => setForm({ ...form, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-100"
-              placeholder={ko ? "예: 메인 로고" : "e.g. Main Logo"}
-            />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-500 mb-1 block">
-              {form.type === "color" ? (ko ? "컬러 코드" : "Color Code") :
-               form.type === "font" ? (ko ? "폰트 이름" : "Font Name") :
-               (ko ? "URL 또는 값" : "URL or Value")}
-            </label>
-            <div className="flex items-center gap-2">
-              {form.type === "color" && (
-                <input type="color" value={form.value} onChange={e => setForm({ ...form, value: e.target.value })}
-                  className="w-10 h-10 rounded-lg border border-gray-200 cursor-pointer" />
-              )}
-              <input
-                value={form.value}
-                onChange={e => setForm({ ...form, value: e.target.value })}
-                className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-100 font-mono"
-                placeholder={form.type === "color" ? "#000000" : form.type === "font" ? "Pretendard" : "https://..."}
-              />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-500 mb-1 block">{ko ? "설명 (선택)" : "Description (optional)"}</label>
-            <input
-              value={form.description || ""}
-              onChange={e => setForm({ ...form, description: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-100"
-            />
-          </div>
-        </div>
+                </div>
+                {item.content && (
+                  <p className="text-xs text-gray-500 line-clamp-2 mb-3">{item.content}</p>
+                )}
+                <div className="flex items-center justify-between border-t border-gray-50 pt-3 mt-2">
+                  <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                    <User size={11} />
+                    <span>{item.createdByName}</span>
+                  </div>
+                  {item.createdAt && (
+                    <span className="text-xs text-gray-400">
+                      {new Date(item.createdAt).toLocaleDateString(ko ? "ko-KR" : "en-US", { month: "short", day: "numeric" })}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
 
-        <div className="flex justify-end gap-2 mt-6">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-xl">
-            {ko ? "취소" : "Cancel"}
-          </button>
-          <button
-            onClick={() => { if (form.name.trim()) onSave(form); }}
-            disabled={!form.name.trim()}
-            className="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50"
-          >
-            {isNew ? (ko ? "추가" : "Add") : (ko ? "저장" : "Save")}
-          </button>
+          {/* Bottom add button */}
+          {!isAdding && items.length > 0 && (
+            <button onClick={() => setIsAdding(true)}
+              className="flex items-center justify-center gap-2 py-8 rounded-xl text-gray-400 text-sm hover:text-blue-600 hover:bg-gray-50 border-2 border-dashed border-gray-200 hover:border-blue-300 transition-all">
+              <Plus size={16} /> <span>{ko ? "항목 추가" : "Add Item"}</span>
+            </button>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -369,42 +375,38 @@ export function ManagementPage() {
   const { members } = useTeam();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState<"projects" | "branding">("projects");
+  const [activeTab, setActiveTab] = useState<"projects" | "branding" | "board">("projects");
   const [projects, setProjects] = useState<Project[]>(loadProjects);
   const [brandAssets, setBrandAssets] = useState<BrandAsset[]>(loadBrandAssets);
-  const [editProject, setEditProject] = useState<Project | null | "new">(null);
-  const [editBrand, setEditBrand] = useState<BrandAsset | null | "new">(null);
 
-  // Persist
-  useEffect(() => { saveProjects(projects); }, [projects]);
-  useEffect(() => { saveBrandAssets(brandAssets); }, [brandAssets]);
-
-  const handleSaveProject = (p: Project) => {
-    setProjects(prev => {
-      const idx = prev.findIndex(x => x.id === p.id);
-      if (idx >= 0) { const next = [...prev]; next[idx] = p; return next; }
-      return [...prev, p];
-    });
-    setEditProject(null);
-  };
+  // Re-read from localStorage when navigating back from detail pages
+  useEffect(() => {
+    setProjects(loadProjects());
+    setBrandAssets(loadBrandAssets());
+  }, []);
 
   const handleDeleteProject = (id: string) => {
     if (!confirm(ko ? "이 프로젝트를 삭제하시겠습니까?" : "Delete this project?")) return;
-    setProjects(prev => prev.filter(p => p.id !== id));
-  };
-
-  const handleSaveBrand = (a: BrandAsset) => {
-    setBrandAssets(prev => {
-      const idx = prev.findIndex(x => x.id === a.id);
-      if (idx >= 0) { const next = [...prev]; next[idx] = a; return next; }
-      return [...prev, a];
+    setProjects(prev => {
+      const next = prev.filter(p => p.id !== id);
+      saveProjects(next);
+      return next;
     });
-    setEditBrand(null);
   };
 
   const handleDeleteBrand = (id: string) => {
     if (!confirm(ko ? "삭제하시겠습니까?" : "Delete?")) return;
-    setBrandAssets(prev => prev.filter(a => a.id !== id));
+    setBrandAssets(prev => {
+      const next = prev.filter(a => a.id !== id);
+      saveBrandAssets(next);
+      return next;
+    });
+  };
+
+  const handleAddClick = () => {
+    if (activeTab === "projects") navigate("/management/projects/new");
+    else if (activeTab === "branding") navigate("/management/branding/new");
+    else navigate("/board/new");
   };
 
   return (
@@ -418,17 +420,19 @@ export function ManagementPage() {
               {ko ? "관리" : "Management"}
             </h1>
             <p className="text-gray-500 text-xs sm:text-sm">
-              {ko ? "프로젝트와 브랜딩 자산을 관리합니다" : "Manage projects and brand assets"}
+              {ko ? "프로젝트, 브랜딩, 팀 보드를 관리합니다" : "Manage projects, branding, and team board"}
             </p>
           </div>
           <button
-            onClick={() => activeTab === "projects" ? setEditProject("new") : setEditBrand("new")}
+            onClick={handleAddClick}
             className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-sm transition-all"
           >
             <Plus size={16} />
             {activeTab === "projects"
               ? (ko ? "프로젝트 추가" : "Add Project")
-              : (ko ? "브랜드 자산 추가" : "Add Brand Asset")}
+              : activeTab === "branding"
+              ? (ko ? "브랜드 자산 추가" : "Add Brand Asset")
+              : (ko ? "보드 항목 추가" : "Add Board Item")}
           </button>
         </div>
 
@@ -464,6 +468,18 @@ export function ManagementPage() {
               {brandAssets.length}
             </span>
           </button>
+          <button
+            onClick={() => setActiveTab("board")}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border",
+              activeTab === "board"
+                ? "bg-gray-900 text-white border-gray-900 shadow-sm"
+                : "bg-white text-gray-500 border-gray-100 hover:border-gray-300"
+            )}
+          >
+            <StickyNote size={15} />
+            {ko ? "팀 보드" : "Team Board"}
+          </button>
         </div>
       </header>
 
@@ -475,7 +491,7 @@ export function ManagementPage() {
               <FolderKanban size={48} className="mb-3 text-gray-300" />
               <p className="text-sm font-medium">{ko ? "프로젝트가 없습니다" : "No projects yet"}</p>
               <button
-                onClick={() => setEditProject("new")}
+                onClick={() => navigate("/management/projects/new")}
                 className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-semibold"
               >
                 + {ko ? "첫 프로젝트 만들기" : "Create your first project"}
@@ -489,19 +505,19 @@ export function ManagementPage() {
                   project={p}
                   ko={ko}
                   members={members}
-                  onClick={() => setEditProject(p)}
+                  onClick={() => navigate(`/management/projects/${p.id}`)}
                   onDelete={() => handleDeleteProject(p.id)}
                 />
               ))}
             </div>
           )
-        ) : (
+        ) : activeTab === "branding" ? (
           brandAssets.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-gray-400">
               <Palette size={48} className="mb-3 text-gray-300" />
               <p className="text-sm font-medium">{ko ? "브랜드 자산이 없습니다" : "No brand assets yet"}</p>
               <button
-                onClick={() => setEditBrand("new")}
+                onClick={() => navigate("/management/branding/new")}
                 className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-semibold"
               >
                 + {ko ? "첫 자산 등록하기" : "Add your first asset"}
@@ -523,17 +539,17 @@ export function ManagementPage() {
                       {items.map(asset => (
                         <div
                           key={asset.id}
-                          onClick={() => setEditBrand(asset)}
+                          onClick={() => navigate(`/management/branding/${asset.id}`)}
                           className="flex items-center gap-3 px-4 py-3 bg-white rounded-xl border border-gray-100 hover:border-gray-300 hover:shadow-sm cursor-pointer transition-all group"
                         >
-                          {type === "color" && (
-                            <div className="w-8 h-8 rounded-lg border border-gray-200 shrink-0" style={{ backgroundColor: asset.value }} />
-                          )}
-                          {type === "logo" && asset.value.startsWith("http") && (
-                            <img src={asset.value} alt="" className="w-8 h-8 rounded-lg object-contain bg-gray-50 shrink-0" />
-                          )}
-                          {type !== "color" && !(type === "logo" && asset.value.startsWith("http")) && (
-                            <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 shrink-0">
+                          {asset.imageUrl ? (
+                            <img src={asset.imageUrl} alt="" className="w-9 h-9 rounded-xl object-cover shrink-0 border border-gray-100" />
+                          ) : type === "color" ? (
+                            <div className="w-9 h-9 rounded-xl border border-gray-200 shrink-0" style={{ backgroundColor: asset.value }} />
+                          ) : type === "logo" && asset.value.startsWith("http") ? (
+                            <img src={asset.value} alt="" className="w-9 h-9 rounded-xl object-contain bg-gray-50 shrink-0" />
+                          ) : (
+                            <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center text-gray-400 shrink-0">
                               {cfg.icon}
                             </div>
                           )}
@@ -555,27 +571,11 @@ export function ManagementPage() {
               })}
             </div>
           )
+        ) : (
+          <TeamBoardTab ko={ko} />
         )}
       </div>
 
-      {/* Modals */}
-      {editProject !== null && (
-        <ProjectEditModal
-          project={editProject === "new" ? null : editProject}
-          ko={ko}
-          members={members}
-          onSave={handleSaveProject}
-          onClose={() => setEditProject(null)}
-        />
-      )}
-      {editBrand !== null && (
-        <BrandEditModal
-          asset={editBrand === "new" ? null : editBrand}
-          ko={ko}
-          onSave={handleSaveBrand}
-          onClose={() => setEditBrand(null)}
-        />
-      )}
     </div>
   );
 }

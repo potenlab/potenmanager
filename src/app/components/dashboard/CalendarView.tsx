@@ -1103,15 +1103,17 @@ export function CalendarView() {
     };
   }, [checkAutoScroll, clearAutoScroll]);
 
-  // Handle drop: update task dueDate and persist to server
+  // Handle drop: update task dates and persist to server
   const handleDropTask = useCallback(
     (taskIds: string[], newDate: Date) => {
-      // The first taskId is the one being dragged – use its dueDate as the anchor
+      // Use the task's visual start date as anchor so dropping on a date
+      // makes that date the new START of the range (not the end).
       const anchorTask = calTasks.find((t) => t.id === taskIds[0]);
       if (!anchorTask) return;
-      const anchorDue = anchorTask.dueDate ? new Date(anchorTask.dueDate) : null;
-      if (!anchorDue) return;
-      const anchorDelta = newDate.getTime() - anchorDue.getTime();
+      const range = getTaskDateRange(anchorTask);
+      if (!range) return;
+      const anchorStart = range.start;
+      const anchorDelta = newDate.getTime() - anchorStart.getTime();
       if (anchorDelta === 0) return;
 
       // Update each task via context (persists to server)
@@ -1528,6 +1530,15 @@ export function CalendarView() {
             );
           })}
           <div className="flex items-center gap-1.5 ml-auto">
+            <span
+              className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-black/5"
+              style={{ backgroundColor: "#7C3AED" }}
+            />
+            <span className="text-xs font-medium text-gray-500">
+              {language === "ko" ? "회의" : "Meeting"}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
             <span
               className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-black/5"
               style={{ background: "linear-gradient(135deg, #FF6B35, #F72585)" }}

@@ -1,295 +1,374 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import {
   BarChart3,
   Users,
-  Radar,
-  ArrowRight,
-  Compass,
-  Eye,
-  Send,
-  MessageSquare,
-  Trophy,
   DollarSign,
-  Plus,
+  UserCircle,
+  TrendingUp,
+  ArrowUpRight,
+  Zap,
+  Link2,
+  Sparkles,
 } from "lucide-react";
+import {
+  AreaChart, Area, BarChart, Bar, LineChart, Line,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from "recharts";
 import { cn } from "../../lib/utils";
 import { RevenueOverview } from "../components/dashboard/RevenueOverview";
 import { UserOverview } from "../components/dashboard/UserOverview";
 import { useLanguage } from "../context/LanguageContext";
-import { useBizRadar, BizStage, BizCategory } from "../context/BizRadarContext";
 
-type DashboardTab = "performance" | "team" | "radar";
+type DashboardTab = "performance" | "team" | "revenue" | "users";
 
-function formatValue(v?: number): string {
-  if (!v) return '-';
-  if (v >= 100000000) return `${(v / 100000000).toFixed(1)}억`;
-  if (v >= 10000) return `${(v / 10000).toFixed(0)}만`;
-  return v.toLocaleString();
-}
+// ─── Sample Revenue Data ────────────────────────────────────────
+const SAMPLE_REVENUE_DATA = [
+  { month: "Jan", revenue: 4200, mrr: 3800 },
+  { month: "Feb", revenue: 5100, mrr: 4100 },
+  { month: "Mar", revenue: 4800, mrr: 4300 },
+  { month: "Apr", revenue: 6200, mrr: 4800 },
+  { month: "May", revenue: 7100, mrr: 5200 },
+  { month: "Jun", revenue: 6800, mrr: 5600 },
+  { month: "Jul", revenue: 8200, mrr: 6100 },
+  { month: "Aug", revenue: 9400, mrr: 6800 },
+  { month: "Sep", revenue: 8800, mrr: 7200 },
+  { month: "Oct", revenue: 10200, mrr: 7800 },
+  { month: "Nov", revenue: 11500, mrr: 8400 },
+  { month: "Dec", revenue: 12800, mrr: 9200 },
+];
 
-const STAGE_ICON: Record<BizStage, React.ReactNode> = {
-  discovered: <Compass size={14} className="text-purple-500" />,
-  reviewing: <Eye size={14} className="text-blue-500" />,
-  proposal: <Send size={14} className="text-amber-500" />,
-  negotiation: <MessageSquare size={14} className="text-rose-500" />,
-  won: <Trophy size={14} className="text-emerald-500" />,
-  lost: <span className="text-gray-400 text-xs">✗</span>,
-};
+// ─── Sample User Data ───────────────────────────────────────────
+const SAMPLE_USER_DATA = [
+  { month: "Jan", dau: 120, mau: 850, signups: 45 },
+  { month: "Feb", dau: 145, mau: 920, signups: 52 },
+  { month: "Mar", dau: 168, mau: 1050, signups: 61 },
+  { month: "Apr", dau: 190, mau: 1180, signups: 73 },
+  { month: "May", dau: 215, mau: 1320, signups: 68 },
+  { month: "Jun", dau: 240, mau: 1450, signups: 82 },
+  { month: "Jul", dau: 278, mau: 1620, signups: 95 },
+  { month: "Aug", dau: 310, mau: 1800, signups: 88 },
+  { month: "Sep", dau: 345, mau: 1950, signups: 102 },
+  { month: "Oct", dau: 380, mau: 2100, signups: 115 },
+  { month: "Nov", dau: 420, mau: 2350, signups: 128 },
+  { month: "Dec", dau: 460, mau: 2600, signups: 140 },
+];
 
-const STAGE_LABEL_KO: Record<BizStage, string> = {
-  discovered: '발굴', reviewing: '검토', proposal: '제안', negotiation: '협상', won: '성사', lost: '실패',
-};
-
-const STAGE_LABEL_EN: Record<BizStage, string> = {
-  discovered: 'Discovered', reviewing: 'Reviewing', proposal: 'Proposal', negotiation: 'Negotiation', won: 'Won', lost: 'Lost',
-};
-
-// ─── Biz Radar Dashboard Widget ─────────────────────────────────
-function BizRadarWidget() {
-  const { language } = useLanguage();
-  const ko = language === 'ko';
-  const navigate = useNavigate();
-  const { items } = useBizRadar();
-
-  const salesItems = items.filter(i => (i.category || 'sales') === 'sales');
-  const connectionItems = items.filter(i => i.category === 'connection');
-
-  const salesActive = salesItems.filter(i => i.stage !== 'won' && i.stage !== 'lost').length;
-  const salesWonValue = salesItems.filter(i => i.stage === 'won').reduce((s, i) => s + (i.value || 0), 0);
-  const connActive = connectionItems.filter(i => i.stage !== 'won' && i.stage !== 'lost').length;
-  const connWonCount = connectionItems.filter(i => i.stage === 'won').length;
-
-  const stages: BizStage[] = ['discovered', 'reviewing', 'proposal', 'negotiation', 'won'];
-  const countByStage = stages.map(s => ({ stage: s, count: items.filter(i => i.stage === s).length }));
-
+// ─── Revenue Dashboard (Sample) ─────────────────────────────────
+function RevenueDashboard({ ko }: { ko: boolean }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden h-full flex flex-col">
-      <div className="p-5 border-b border-gray-100 flex justify-between items-center">
-        <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-          <Radar size={18} className="text-amber-500" />
-          {ko ? '비즈 레이더' : 'Biz Radar'}
-        </h3>
-        <button
-          onClick={() => navigate('/radar')}
-          className="flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-        >
-          {ko ? '전체 보기' : 'View All'} <ArrowRight size={12} />
-        </button>
+    <div className="space-y-6">
+      {/* Metric Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <MetricCard
+          label={ko ? "월 매출" : "Monthly Revenue"}
+          value="₩12,800,000"
+          change="+12.3%"
+          positive
+          icon={<DollarSign size={16} />}
+          color="emerald"
+        />
+        <MetricCard
+          label="MRR"
+          value="₩9,200,000"
+          change="+9.5%"
+          positive
+          icon={<TrendingUp size={16} />}
+          color="blue"
+        />
+        <MetricCard
+          label={ko ? "성장률" : "Growth Rate"}
+          value="23.4%"
+          change="+2.1%p"
+          positive
+          icon={<ArrowUpRight size={16} />}
+          color="purple"
+        />
+        <MetricCard
+          label={ko ? "유료 고객" : "Paid Customers"}
+          value="847"
+          change="+34"
+          positive
+          icon={<UserCircle size={16} />}
+          color="amber"
+        />
       </div>
 
-      <div className="p-5 flex-1">
-        {/* Summary Stats - Two rows: Sales + Connections */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          <div className="bg-blue-50 rounded-xl p-3 text-center">
-            <p className="text-xl font-bold text-blue-600">{salesActive}</p>
-            <p className="text-[10px] text-blue-500 mt-0.5">{ko ? '영업 진행' : 'Sales Active'}</p>
-          </div>
-          <div className="bg-emerald-50 rounded-xl p-3 text-center">
-            <p className="text-xl font-bold text-emerald-600">{formatValue(salesWonValue)}</p>
-            <p className="text-[10px] text-emerald-500 mt-0.5">{ko ? '영업 성사' : 'Sales Won'}</p>
-          </div>
-          <div className="bg-purple-50 rounded-xl p-3 text-center">
-            <p className="text-xl font-bold text-purple-600">{connActive}</p>
-            <p className="text-[10px] text-purple-500 mt-0.5">{ko ? '연결 진행' : 'Conn. Active'}</p>
-          </div>
-          <div className="bg-amber-50 rounded-xl p-3 text-center">
-            <p className="text-xl font-bold text-amber-600">{connWonCount}</p>
-            <p className="text-[10px] text-amber-500 mt-0.5">{ko ? '연결 성사' : 'Conn. Won'}</p>
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white rounded-xl border border-gray-100 p-5">
+          <h3 className="text-sm font-semibold text-gray-700 mb-4">
+            {ko ? "매출 추이" : "Revenue Trend"}
+          </h3>
+          <div className="h-[280px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={SAMPLE_REVENUE_DATA}>
+                <defs>
+                  <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 10000).toFixed(0)}만`} />
+                <Tooltip formatter={(v: number) => [`₩${v.toLocaleString()}`, ko ? "매출" : "Revenue"]} />
+                <Area type="monotone" dataKey="revenue" stroke="#10B981" strokeWidth={2} fill="url(#revGrad)" />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         </div>
-
-        {/* Pipeline Funnel */}
-        <div className="space-y-2 mb-6">
-          <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-            {ko ? '파이프라인' : 'Pipeline'}
-          </h4>
-          {countByStage.map(({ stage, count }) => {
-            const maxCount = Math.max(...countByStage.map(c => c.count), 1);
-            const pct = (count / maxCount) * 100;
-            return (
-              <div key={stage} className="flex items-center gap-3">
-                <div className="flex items-center gap-1.5 w-20 shrink-0">
-                  {STAGE_ICON[stage]}
-                  <span className="text-xs text-gray-600 font-medium">{ko ? STAGE_LABEL_KO[stage] : STAGE_LABEL_EN[stage]}</span>
-                </div>
-                <div className="flex-1 h-5 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className={cn(
-                      "h-full rounded-full transition-all duration-500",
-                      stage === 'won' ? "bg-emerald-400" : stage === 'negotiation' ? "bg-rose-400" : stage === 'proposal' ? "bg-amber-400" : stage === 'reviewing' ? "bg-blue-400" : "bg-purple-400"
-                    )}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-                <span className="text-xs font-bold text-gray-600 w-6 text-right">{count}</span>
-              </div>
-            );
-          })}
+        <div className="bg-white rounded-xl border border-gray-100 p-5">
+          <h3 className="text-sm font-semibold text-gray-700 mb-4">
+            {ko ? "MRR 변화" : "MRR Growth"}
+          </h3>
+          <div className="h-[280px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={SAMPLE_REVENUE_DATA}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 10000).toFixed(0)}만`} />
+                <Tooltip formatter={(v: number) => [`₩${v.toLocaleString()}`, "MRR"]} />
+                <Bar dataKey="mrr" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
+      </div>
 
-        {/* Recent Items */}
-        <div>
-          <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-            {ko ? '최근 기회' : 'Recent'}
-          </h4>
-          {items.length === 0 ? (
-            <div className="text-center py-8">
-              <Radar size={32} className="text-gray-200 mx-auto mb-2" />
-              <p className="text-sm text-gray-400">{ko ? '등록된 기회가 없습니다' : 'No opportunities yet'}</p>
-              <button
-                onClick={() => navigate('/radar/new')}
-                className="mt-3 text-xs text-blue-600 hover:underline flex items-center gap-1 mx-auto"
-              >
-                <Plus size={12} /> {ko ? '첫 기회 추가' : 'Add first opportunity'}
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {items
-                .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-                .slice(0, 5)
-                .map(item => (
-                  <div
-                    key={item.id}
-                    onClick={() => navigate(`/radar/${item.id}`)}
-                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors group"
-                  >
-                    <div className="shrink-0">{STAGE_ICON[item.stage]}</div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">{item.title || (ko ? '제목 없음' : 'Untitled')}</p>
-                      <div className="flex items-center gap-1.5">
-                        {item.contactCompany && <p className="text-[11px] text-gray-400">{item.contactCompany}</p>}
-                        <span className={cn("text-[9px] px-1 py-0.5 rounded font-bold",
-                          item.category === 'connection' ? "bg-purple-50 text-purple-500" : "bg-blue-50 text-blue-500"
-                        )}>
-                          {item.category === 'connection' ? (ko ? '연결' : 'Conn') : (ko ? '영업' : 'Sales')}
-                        </span>
-                      </div>
-                    </div>
-                    {item.value && (
-                      <span className="text-xs font-semibold text-gray-500 shrink-0 flex items-center gap-0.5">
-                        <DollarSign size={10} />{formatValue(item.value)}
-                      </span>
-                    )}
-                    <ArrowRight size={12} className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                  </div>
-                ))}
-            </div>
-          )}
+      {/* API Integration CTA */}
+      <ApiIntegrationCard
+        ko={ko}
+        title={ko ? "결제/매출 API 연동" : "Payment & Revenue API"}
+        description={
+          ko
+            ? "Stripe, Toss Payments, 아임포트 등 결제 API 키를 연동하여 실시간 매출 데이터를 불러옵니다."
+            : "Connect your Stripe, Toss Payments, or other payment APIs to pull real-time revenue data."
+        }
+        services={["Stripe", "Toss Payments", "Iamport"]}
+      />
+    </div>
+  );
+}
+
+// ─── Users Dashboard (Sample) ───────────────────────────────────
+function UsersDashboard({ ko }: { ko: boolean }) {
+  return (
+    <div className="space-y-6">
+      {/* Metric Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <MetricCard
+          label="DAU"
+          value="460"
+          change="+9.5%"
+          positive
+          icon={<Users size={16} />}
+          color="blue"
+        />
+        <MetricCard
+          label="MAU"
+          value="2,600"
+          change="+10.6%"
+          positive
+          icon={<Users size={16} />}
+          color="purple"
+        />
+        <MetricCard
+          label={ko ? "신규 가입" : "New Signups"}
+          value="140"
+          change="+9.4%"
+          positive
+          icon={<UserCircle size={16} />}
+          color="emerald"
+        />
+        <MetricCard
+          label={ko ? "리텐션" : "Retention"}
+          value="68.2%"
+          change="+1.3%p"
+          positive
+          icon={<TrendingUp size={16} />}
+          color="amber"
+        />
+      </div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white rounded-xl border border-gray-100 p-5">
+          <h3 className="text-sm font-semibold text-gray-700 mb-4">
+            {ko ? "DAU / MAU 추이" : "DAU / MAU Trend"}
+          </h3>
+          <div className="h-[280px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={SAMPLE_USER_DATA}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip />
+                <Line type="monotone" dataKey="dau" stroke="#3B82F6" strokeWidth={2} dot={{ r: 3 }} name="DAU" />
+                <Line type="monotone" dataKey="mau" stroke="#8B5CF6" strokeWidth={2} dot={{ r: 3 }} name="MAU" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 p-5">
+          <h3 className="text-sm font-semibold text-gray-700 mb-4">
+            {ko ? "신규 가입자" : "New Signups"}
+          </h3>
+          <div className="h-[280px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={SAMPLE_USER_DATA}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip />
+                <Bar dataKey="signups" fill="#8B5CF6" radius={[4, 4, 0, 0]} name={ko ? "가입자" : "Signups"} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* API Integration CTA */}
+      <ApiIntegrationCard
+        ko={ko}
+        title={ko ? "유저 분석 API 연동" : "User Analytics API"}
+        description={
+          ko
+            ? "Google Analytics, Mixpanel, Amplitude 등 분석 API를 연동하여 실시간 유저 데이터를 불러옵니다."
+            : "Connect Google Analytics, Mixpanel, or Amplitude to pull real-time user analytics."
+        }
+        services={["Google Analytics", "Mixpanel", "Amplitude"]}
+      />
+    </div>
+  );
+}
+
+// ─── Shared Components ──────────────────────────────────────────
+const COLOR_MAP = {
+  emerald: { bg: "bg-emerald-50", text: "text-emerald-600", border: "border-emerald-100" },
+  blue: { bg: "bg-blue-50", text: "text-blue-600", border: "border-blue-100" },
+  purple: { bg: "bg-purple-50", text: "text-purple-600", border: "border-purple-100" },
+  amber: { bg: "bg-amber-50", text: "text-amber-600", border: "border-amber-100" },
+};
+
+function MetricCard({
+  label, value, change, positive, icon, color,
+}: {
+  label: string; value: string; change: string; positive: boolean;
+  icon: React.ReactNode; color: keyof typeof COLOR_MAP;
+}) {
+  const c = COLOR_MAP[color];
+  return (
+    <div className={cn("rounded-xl border p-4", c.border, c.bg)}>
+      <div className={cn("flex items-center gap-1.5 text-xs font-medium mb-2", c.text)}>
+        {icon} {label}
+      </div>
+      <div className="text-2xl font-bold text-gray-900">{value}</div>
+      <div className={cn("flex items-center gap-1 text-xs mt-2", positive ? "text-emerald-600" : "text-rose-600")}>
+        {positive ? <TrendingUp size={12} /> : <TrendingUp size={12} className="rotate-180" />}
+        {change}
+      </div>
+    </div>
+  );
+}
+
+function ApiIntegrationCard({
+  ko, title, description, services,
+}: {
+  ko: boolean; title: string; description: string; services: string[];
+}) {
+  return (
+    <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-blue-200 bg-gradient-to-br from-blue-50/80 via-white to-purple-50/50 p-6">
+      <div className="absolute top-4 right-4 opacity-10">
+        <Sparkles size={64} className="text-blue-500" />
+      </div>
+      <div className="flex items-start gap-4">
+        <div className="p-3 rounded-xl bg-blue-100">
+          <Link2 size={20} className="text-blue-600" />
+        </div>
+        <div className="flex-1">
+          <h3 className="text-base font-bold text-gray-900 mb-1">{title}</h3>
+          <p className="text-sm text-gray-500 mb-4 max-w-lg">{description}</p>
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            {services.map((s) => (
+              <span key={s} className="text-xs font-medium px-2.5 py-1 rounded-lg bg-white border border-gray-200 text-gray-600">
+                {s}
+              </span>
+            ))}
+          </div>
+          <button
+            onClick={() => alert(ko ? "API 키 연동 기능은 곧 제공됩니다!" : "API key integration coming soon!")}
+            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm"
+          >
+            <Zap size={14} />
+            {ko ? "API 키 연동하기" : "Connect API Key"}
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
+// ─── Main Dashboard ─────────────────────────────────────────────
 export function DashboardPage() {
   const [activeTab, setActiveTab] = useState<DashboardTab>("performance");
-  const { t } = useLanguage();
+  const { language } = useLanguage();
+  const ko = language === "ko";
 
-  const tabs = [
-    {
-      id: "performance" as const,
-      label: t("tab_performance" as any),
-      icon: BarChart3,
-      color: "text-emerald-600",
-      bgColor: "bg-emerald-50",
-      borderColor: "border-emerald-100"
-    },
-    {
-      id: "team" as const,
-      label: t("tab_team" as any),
-      icon: Users,
-      color: "text-blue-600",
-      bgColor: "bg-blue-50",
-      borderColor: "border-blue-100"
-    },
-    {
-      id: "radar" as const,
-      label: t("tab_opportunity"),
-      icon: Radar,
-      color: "text-amber-500",
-      bgColor: "bg-amber-50",
-      borderColor: "border-amber-100"
-    },
+  const tabs: { id: DashboardTab; label: string; icon: React.ElementType; color: string }[] = [
+    { id: "performance", label: ko ? "성과" : "Performance", icon: BarChart3, color: "emerald" },
+    { id: "team", label: ko ? "팀" : "Team", icon: Users, color: "blue" },
+    { id: "revenue", label: ko ? "매출" : "Revenue", icon: DollarSign, color: "purple" },
+    { id: "users", label: ko ? "유저" : "Users", icon: UserCircle, color: "amber" },
   ];
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-12">
-      {/* Tab Navigation Grid */}
-      <div className="grid grid-cols-3 gap-4">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={cn(
-              "relative overflow-hidden p-4 rounded-xl border text-left transition-all duration-200 group",
-              activeTab === tab.id
-                ? "bg-white border-blue-500 ring-1 ring-blue-500 shadow-md"
-                : "bg-white border-gray-100 hover:border-gray-300 hover:shadow-sm"
-            )}
-          >
-            <div className="flex items-start justify-between mb-2">
-              <div className={cn("p-2 rounded-lg", tab.bgColor)}>
-                <tab.icon size={20} className={tab.color} />
-              </div>
-              {activeTab === tab.id && (
-                <motion.div
-                  layoutId="active-dot"
-                  className="w-2 h-2 rounded-full bg-blue-500"
-                />
-              )}
-            </div>
-            <div className="font-semibold text-gray-900">{tab.label}</div>
-            <div className="text-xs text-gray-500 mt-1 flex items-center gap-1 group-hover:text-blue-600 transition-colors">
-              {t("view_details")} <ArrowRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-            </div>
-          </button>
-        ))}
+    <div className="h-full flex flex-col -m-6 md:-m-8">
+      {/* Tab Bar */}
+      <div className="shrink-0 bg-white border-b border-gray-200 px-6 md:px-8">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+          {tabs.map((tab) => {
+            const active = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  "relative flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors",
+                  active
+                    ? "text-gray-900"
+                    : "text-gray-500 hover:text-gray-700"
+                )}
+              >
+                <tab.icon size={16} className={active ? cn(COLOR_MAP[tab.color as keyof typeof COLOR_MAP].text) : ""} />
+                {tab.label}
+                {active && (
+                  <motion.div
+                    layoutId="dashboard-tab-indicator"
+                    className="absolute bottom-0 left-2 right-2 h-0.5 bg-blue-600 rounded-full"
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="min-h-[600px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto bg-[#FAFAFA] p-6 md:p-8">
         <AnimatePresence mode="wait">
-          {activeTab === "performance" && (
-            <motion.div
-              key="performance"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="h-full"
-            >
-              <RevenueOverview />
-            </motion.div>
-          )}
-
-          {activeTab === "team" && (
-            <motion.div
-              key="team"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="h-full"
-            >
-              <UserOverview />
-            </motion.div>
-          )}
-
-          {activeTab === "radar" && (
-            <motion.div
-              key="radar"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="h-full"
-            >
-              <BizRadarWidget />
-            </motion.div>
-          )}
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.15 }}
+          >
+            {activeTab === "performance" && <RevenueOverview />}
+            {activeTab === "team" && <UserOverview />}
+            {activeTab === "revenue" && <RevenueDashboard ko={ko} />}
+            {activeTab === "users" && <UsersDashboard ko={ko} />}
+          </motion.div>
         </AnimatePresence>
       </div>
     </div>

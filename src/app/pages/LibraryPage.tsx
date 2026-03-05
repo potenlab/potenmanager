@@ -1,15 +1,19 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router";
+import { useDrag, useDrop } from "react-dnd";
 import {
   Plus, Search, BookMarked, Globe, FileText, Link as LinkIcon,
   Trash2, X, ExternalLink, Check, Archive, Lock, Pencil, MoreHorizontal,
-  LayoutGrid, List,
+  LayoutGrid, List, Grid3X3,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
 import { useLibrary, LibraryItem } from "../context/LibraryContext";
 import { useTeam } from "../context/TeamContext";
 import { useTrash } from "../context/TrashContext";
+
+const LIBRARY_DRAG_TYPE = "LIBRARY_CARD";
+interface LibraryDragItem { id: string; category?: string; }
 
 // ─── Predefined Archive Categories ──────────────────────────────
 export const ARCHIVE_CATEGORIES = [
@@ -52,6 +56,12 @@ function KanbanCard({
   const { language } = useLanguage();
   const ko = language === "ko";
 
+  const [{ isDragging }, dragRef] = useDrag<LibraryDragItem, void, { isDragging: boolean }>({
+    type: LIBRARY_DRAG_TYPE,
+    item: { id: item.id, category: item.category },
+    collect: (monitor) => ({ isDragging: monitor.isDragging() }),
+  });
+
   const domain = item.url
     ? (() => {
         try { return new URL(item.url).hostname.replace("www.", ""); }
@@ -65,9 +75,13 @@ function KanbanCard({
 
   return (
     <div
-      onClick={onClick}
+      ref={dragRef}
+      onClick={() => { if (!isDragging) onClick(); }}
       onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, item.id); }}
-      className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all cursor-pointer group overflow-hidden"
+      className={cn(
+        "bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all cursor-grab active:cursor-grabbing group overflow-hidden",
+        isDragging && "opacity-40 border-blue-300 ring-2 ring-blue-200 scale-[0.97]"
+      )}
     >
       {/* OG image thumbnail */}
       {hasOgImage && (
@@ -118,6 +132,7 @@ function KanbanCard({
 // ─── Kanban Column ────────────────────────────────────────────────
 function KanbanColumn({
   title,
+  categoryKey,
   items,
   onCardClick,
   onAddItem,
@@ -125,8 +140,10 @@ function KanbanColumn({
   onContextMenu,
   onRemoveColumn,
   isCustom,
+  onDrop,
 }: {
   title: string;
+  categoryKey: string;
   items: LibraryItem[];
   onCardClick: (id: string) => void;
   onAddItem?: (category: string) => void;
@@ -134,9 +151,27 @@ function KanbanColumn({
   onContextMenu: (e: React.MouseEvent, id: string) => void;
   onRemoveColumn?: () => void;
   isCustom?: boolean;
+  onDrop: (itemId: string, targetCategory: string) => void;
 }) {
+  const [{ isOver, canDrop }, dropRef] = useDrop<LibraryDragItem, void, { isOver: boolean; canDrop: boolean }>({
+    accept: LIBRARY_DRAG_TYPE,
+    canDrop: (item) => (item.category || "__uncategorized__") !== categoryKey,
+    drop: (item) => onDrop(item.id, categoryKey),
+    collect: (monitor) => ({ isOver: monitor.isOver(), canDrop: monitor.canDrop() }),
+  });
+
   return (
-    <div className="flex flex-col w-[280px] shrink-0 bg-gray-50/70 rounded-2xl border border-gray-100">
+    <div
+      ref={dropRef}
+      className={cn(
+        "flex flex-col w-[280px] shrink-0 rounded-2xl border transition-all duration-200",
+        isOver && canDrop
+          ? "bg-blue-50/80 border-blue-300 ring-2 ring-blue-200/50 shadow-lg"
+          : canDrop
+            ? "bg-gray-50/70 border-gray-200 border-dashed"
+            : "bg-gray-50/70 border-gray-100"
+      )}
+    >
       {/* Column header */}
       <div className="flex items-center justify-between px-3.5 py-3 border-b border-gray-100">
         <div className="flex items-center gap-2 min-w-0">
@@ -208,7 +243,7 @@ export function LibraryPage() {
 
   const [activeTab, setActiveTab] = useState<"all" | "my" | "team">("all");
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
-  const [viewMode, setViewMode] = useState<"kanban" | "compact">("kanban");
+  const [viewMode, setViewMode] = useState<"kanban" | "compact" | "grid">("kanban");
   const [searchQuery, setSearchQuery] = useState("");
   const [addingCategory, setAddingCategory] = useState(false);
   const [newCatName, setNewCatName] = useState("");
@@ -489,6 +524,16 @@ export function LibraryPage() {
               <LayoutGrid size={14} />
             </button>
             <button
+              onClick={() => setViewMode("grid")}
+              className={cn(
+                "p-1.5 rounded-md transition-all",
+                viewMode === "grid" ? "bg-gray-900 text-white" : "text-gray-400 hover:text-gray-600"
+              )}
+              title={ko ? "썸네일 보기" : "Grid view"}
+            >
+              <Grid3X3 size={14} />
+            </button>
+            <button
               onClick={() => setViewMode("compact")}
               className={cn(
                 "p-1.5 rounded-md transition-all",
@@ -545,14 +590,75 @@ export function LibraryPage() {
               <KanbanColumn
                 key={col.key}
                 title={col.label}
+                categoryKey={col.key}
                 items={columnItems[col.key] || []}
                 onCardClick={(id) => navigate(`/library/${id}`)}
                 isOwnerFn={isOwnerFn}
                 onContextMenu={handleCardContextMenu}
                 isCustom={col.isCustom}
                 onRemoveColumn={col.isCustom ? () => removeCategory(col.key) : undefined}
+                onDrop={(itemId, targetCategory) => {
+                  const newCat = targetCategory === "__uncategorized__" ? undefined : targetCategory;
+                  updateItem(itemId, { category: newCat });
+                }}
               />
             ))}
+          </div>
+        </div>
+      ) : viewMode === "grid" ? (
+        /* Thumbnail Grid View — square 1:1 cards */
+        <div className="flex-1 overflow-y-auto pb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 px-1">
+            {displayColumns.flatMap((col) =>
+              (columnItems[col.key] || []).map((item) => {
+                const ogImage = item.ogMetadata?.ogImage;
+                const favicon = item.ogMetadata?.favicon;
+                const domain = item.url
+                  ? (() => { try { return new URL(item.url).hostname.replace("www.", ""); } catch { return ""; } })()
+                  : "";
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => navigate(`/library/${item.id}`)}
+                    onContextMenu={(e) => { e.preventDefault(); handleCardContextMenu(e, item.id); }}
+                    className="bg-white rounded-xl border border-gray-100 hover:border-gray-300 hover:shadow-md cursor-pointer transition-all group overflow-hidden"
+                  >
+                    <div className="aspect-square bg-gray-50 overflow-hidden relative">
+                      {ogImage ? (
+                        <img src={ogImage} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          {item.type === "note" ? (
+                            <FileText size={28} className="text-gray-200" />
+                          ) : (
+                            <LinkIcon size={28} className="text-gray-200" />
+                          )}
+                        </div>
+                      )}
+                      {/* Category badge */}
+                      <span className="absolute top-1.5 left-1.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-black/50 text-white backdrop-blur-sm truncate max-w-[calc(100%-12px)]">
+                        {getCategoryLabel(item.category, ko) || (ko ? "미분류" : "N/A")}
+                      </span>
+                    </div>
+                    <div className="p-2">
+                      <p className="text-[12px] font-semibold text-gray-900 leading-snug line-clamp-2 group-hover:text-blue-600 transition-colors">
+                        {item.title || (ko ? "제목 없음" : "Untitled")}
+                      </p>
+                      {domain && (
+                        <span className="flex items-center gap-1 text-[10px] text-gray-400 mt-1 truncate">
+                          {favicon ? (
+                            <img src={favicon} alt="" className="w-3 h-3 rounded-sm shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          ) : (
+                            <LinkIcon size={9} className="shrink-0" />
+                          )}
+                          <span className="truncate">{domain}</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       ) : (

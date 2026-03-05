@@ -7,7 +7,7 @@ import {
   Trash2, X, Check, Building2, User as UserIcon, Calendar,
   DollarSign, Percent, Tag, Briefcase, Link2, Globe, Loader2,
   RefreshCw, ExternalLink, Clock, ArrowDownUp, Users,
-  ChevronLeft, ChevronRight, Sparkles, ArrowDown, ArrowUp,
+  ChevronLeft, ChevronRight, Sparkles, ArrowDown, ArrowUp, BarChart3, ArrowRight,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
@@ -388,6 +388,7 @@ export function BizRadarPage() {
   const [addingInColumn, setAddingInColumn] = useState<BizStage | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showUrlInput, setShowUrlInput] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(false);
   const [crawlUrl, setCrawlUrl] = useState('');
   const [crawlLoading, setCrawlLoading] = useState(false);
 
@@ -701,6 +702,15 @@ export function BizRadarPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button onClick={() => setShowDashboard(!showDashboard)}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors border",
+                showDashboard
+                  ? "bg-amber-50 text-amber-700 border-amber-200"
+                  : "bg-white text-gray-600 border-gray-200 hover:border-amber-300 hover:text-amber-600"
+              )}>
+              <BarChart3 size={16} /> {ko ? '대시보드' : 'Dashboard'}
+            </button>
             <button onClick={() => setShowUrlInput(!showUrlInput)}
               className={cn(
                 "flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors border",
@@ -716,6 +726,53 @@ export function BizRadarPage() {
             </button>
           </div>
         </div>
+
+        {/* Inline Dashboard Widget */}
+        {showDashboard && (
+          <div className="mb-4 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="p-5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+                <div className="bg-blue-50 rounded-xl p-3 text-center">
+                  <p className="text-xl font-bold text-blue-600">{items.filter(i => (i.category || 'sales') === 'sales' && i.stage !== 'won' && i.stage !== 'lost').length}</p>
+                  <p className="text-[10px] text-blue-500 mt-0.5">{ko ? '영업 진행' : 'Sales Active'}</p>
+                </div>
+                <div className="bg-emerald-50 rounded-xl p-3 text-center">
+                  <p className="text-xl font-bold text-emerald-600">{formatValue(items.filter(i => (i.category || 'sales') === 'sales' && i.stage === 'won').reduce((s, i) => s + (i.value || 0), 0))}</p>
+                  <p className="text-[10px] text-emerald-500 mt-0.5">{ko ? '영업 성사' : 'Sales Won'}</p>
+                </div>
+                <div className="bg-purple-50 rounded-xl p-3 text-center">
+                  <p className="text-xl font-bold text-purple-600">{items.filter(i => i.category === 'connection' && i.stage !== 'won' && i.stage !== 'lost').length}</p>
+                  <p className="text-[10px] text-purple-500 mt-0.5">{ko ? '연결 진행' : 'Conn. Active'}</p>
+                </div>
+                <div className="bg-amber-50 rounded-xl p-3 text-center">
+                  <p className="text-xl font-bold text-amber-600">{items.filter(i => i.category === 'connection' && i.stage === 'won').length}</p>
+                  <p className="text-[10px] text-amber-500 mt-0.5">{ko ? '연결 성사' : 'Conn. Won'}</p>
+                </div>
+              </div>
+              {/* Pipeline */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">{ko ? '파이프라인' : 'Pipeline'}</h4>
+                {(['discovered', 'reviewing', 'proposal', 'negotiation', 'won'] as BizStage[]).map(stage => {
+                  const count = items.filter(i => i.stage === stage).length;
+                  const max = Math.max(...(['discovered', 'reviewing', 'proposal', 'negotiation', 'won'] as BizStage[]).map(s => items.filter(i => i.stage === s).length), 1);
+                  const cfg = STAGE_CONFIG[stage];
+                  return (
+                    <div key={stage} className="flex items-center gap-3">
+                      <div className="flex items-center gap-1.5 w-20 shrink-0">
+                        {cfg.icon}
+                        <span className="text-xs text-gray-600 font-medium">{ko ? cfg.labelKo : cfg.label}</span>
+                      </div>
+                      <div className="flex-1 h-5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className={cn("h-full rounded-full transition-all duration-500", cfg.headerBg)} style={{ width: `${(count / max) * 100}%` }} />
+                      </div>
+                      <span className="text-xs font-bold text-gray-600 w-6 text-right">{count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Category Tabs: 영업 / 연결 */}
         <div className="flex items-center gap-3 mb-4">

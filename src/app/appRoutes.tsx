@@ -31,6 +31,9 @@ import { LibraryDetailPage } from "./pages/LibraryDetailPage";
 import { TeamBoardDetailPage } from "./pages/TeamBoardDetailPage";
 import { TrashPage } from "./pages/TrashPage";
 import { ManagementPage } from "./pages/ManagementPage";
+import { ProjectDetailPage } from "./pages/ProjectDetailPage";
+import { BrandDetailPage } from "./pages/BrandDetailPage";
+import { SubPageDetailPage } from "./pages/SubPageDetailPage";
 
 export const router = createBrowserRouter([
   {
@@ -58,10 +61,12 @@ export const router = createBrowserRouter([
               { path: "tasks/:taskId", Component: TaskDetailPage },
               { path: "calendar", Component: CalendarPage },
               { path: "management", Component: ManagementPage },
-              { path: "organization", Component: GoalPage },
+              { path: "management/projects/:projectId", Component: ProjectDetailPage },
+              { path: "management/branding/:brandId", Component: BrandDetailPage },
+              { path: "organization", Component: OrgSettingsPage },
+              { path: "organization/vision", Component: GoalPage },
               { path: "organization/setup", Component: GoalSetupWizardPage },
               { path: "organization/edit", Component: GoalEditPage },
-              { path: "organization/settings", Component: OrgSettingsPage },
               { path: "organization/:goalId", Component: GoalDetailPage },
               { path: "strategy", Component: GoalsPage },
               { path: "strategy/new", Component: StrategyCreationPage },
@@ -80,6 +85,7 @@ export const router = createBrowserRouter([
               { path: "team/:memberId", Component: TeamMemberPage },
               { path: "notifications", Component: NotificationsPage },
               { path: "mypage", Component: MyPage },
+              { path: "pages/:pageId", Component: SubPageDetailPage },
               { path: "trash", Component: TrashPage },
               { path: "*", Component: DashboardPage },
             ],

@@ -12,6 +12,7 @@ import { useLibrary, LibraryItem } from "../context/LibraryContext";
 import { useTeam } from "../context/TeamContext";
 import { useTrash } from "../context/TrashContext";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
+import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
 import { ARCHIVE_CATEGORIES, isPredefinedCategory } from "./LibraryPage";
 import { InlineText } from "../components/detail/InlineText";
 import { PropertyItem } from "../components/detail/PropertyItem";
@@ -319,7 +320,11 @@ export function LibraryDetailPage() {
                 initialContent={item.description || ''}
                 onChange={handleContentChange}
                 placeholder={ko ? 'URL을 붙여넣거나 메모를 입력하세요...' : 'Paste a URL or write a note...'}
+                parentType="library"
+                parentId={item.id}
               />
+
+              <UrlPreviewSection content={item.description || ''} language={language} />
             </div>
 
           </div>

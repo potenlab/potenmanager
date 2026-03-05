@@ -17,6 +17,7 @@ import { useTrash } from "../context/TrashContext";
 import { TaskCategory } from "../../lib/mockData";
 import { TASK_CATEGORY_CONFIG, findBestAssignee } from "../../lib/jobRoles";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
+import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
 import { NotionDateRangePicker } from "../components/NotionDateRangePicker";
 
 type MeetingStatus = Meeting['status'];
@@ -575,7 +576,11 @@ export function MeetingDetailPage() {
                 onChange={setNotes}
                 placeholder={ko ? '/ 를 입력하여 블록 유형 선택...' : 'Type / to select block type...'}
                 language={language}
+                parentType="meeting"
+                parentId={meetingId}
               />
+
+              <UrlPreviewSection content={notes} language={language} />
             </div>
 
             {/* Action Items — below notes */}

@@ -640,6 +640,8 @@ export function TaskDetailPage() {
                 readOnly={!canEdit}
                 placeholder={language === "ko" ? "/ 를 입력하여 블록 유형 선택..." : "Type / to select block type..."}
                 language={language}
+                parentType="task"
+                parentId={taskId}
               />
 
               {/* URL previews auto-detected from content */}

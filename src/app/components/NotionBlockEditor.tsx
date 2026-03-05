@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback, KeyboardEvent } from "react";
+import { useNavigate } from "react-router";
 import { cn } from "../../lib/utils";
-import { GripVertical, Plus, Trash2, Type, Heading1, Heading2, Heading3, List, ListOrdered, Minus } from "lucide-react";
+import { GripVertical, Plus, Trash2, Type, Heading1, Heading2, Heading3, List, ListOrdered, Minus, FileText, ArrowRight } from "lucide-react";
 import { createPortal } from "react-dom";
+import { createSubPage, getSubPage } from "../../lib/subPages";
 
-type BlockType = "text" | "h1" | "h2" | "h3" | "bullet" | "numbered" | "divider";
+type BlockType = "text" | "h1" | "h2" | "h3" | "bullet" | "numbered" | "divider" | "page";
 
 interface Block {
   id: string;
@@ -19,6 +21,7 @@ const BLOCK_TYPE_STYLES: Record<BlockType, string> = {
   bullet: "text-[15px] text-gray-700 leading-relaxed min-h-[28px] py-[3px]",
   numbered: "text-[15px] text-gray-700 leading-relaxed min-h-[28px] py-[3px]",
   divider: "min-h-[1px] py-[3px]",
+  page: "min-h-[40px] py-[3px]",
 };
 
 interface SlashMenuItem {
@@ -38,6 +41,7 @@ const SLASH_MENU_ITEMS: SlashMenuItem[] = [
   { type: "bullet", label: "Bullet List", labelKo: "글머리 기호", desc: "Unordered list", descKo: "순서 없는 목록", icon: <List size={16} /> },
   { type: "numbered", label: "Numbered List", labelKo: "번호 매기기", desc: "Ordered list", descKo: "순서 있는 목록", icon: <ListOrdered size={16} /> },
   { type: "divider", label: "Divider", labelKo: "구분선", desc: "Horizontal line", descKo: "수평선", icon: <Minus size={16} /> },
+  { type: "page", label: "Page", labelKo: "페이지", desc: "Embed a sub-page", descKo: "하위 페이지 만들기", icon: <FileText size={16} /> },
 ];
 
 // Markdown-like serialization: # H1, ## H2, ### H3, - bullet, 1. numbered, --- divider
@@ -49,11 +53,14 @@ function serializeBlock(b: Block): string {
     case "bullet": return `- ${b.content}`;
     case "numbered": return `1. ${b.content}`;
     case "divider": return "---";
+    case "page": return `[page:${b.content}]`;
     default: return b.content;
   }
 }
 
 function parseBlockLine(line: string): { type: BlockType; content: string } {
+  const pageMatch = line.match(/^\[page:([^\]]+)\]$/);
+  if (pageMatch) return { type: "page", content: pageMatch[1] };
   if (line === "---") return { type: "divider", content: "" };
   if (line.startsWith("### ")) return { type: "h3", content: line.slice(4) };
   if (line.startsWith("## ")) return { type: "h2", content: line.slice(3) };
@@ -87,6 +94,8 @@ export function NotionBlockEditor({
   placeholder,
   readOnly = false,
   language = "ko",
+  parentType,
+  parentId,
 }: {
   value?: string;
   initialContent?: string;
@@ -94,7 +103,10 @@ export function NotionBlockEditor({
   placeholder?: string;
   readOnly?: boolean;
   language?: string;
+  parentType?: string;
+  parentId?: string;
 }) {
+  const navigate = useNavigate();
   const seed = value ?? initialContent ?? "";
   const [blocks, setBlocks] = useState<Block[]>(() => parseBlocks(seed));
   const [focusedIdx, setFocusedIdx] = useState<number | null>(null);
@@ -217,6 +229,16 @@ export function NotionBlockEditor({
   const selectSlashItem = (item: SlashMenuItem) => {
     if (!slashMenu) return;
     const block = blocks[slashMenu.blockIdx];
+    if (item.type === "page") {
+      const subPage = createSubPage(parentType || "unknown", parentId || "unknown");
+      const el = blockRefs.current.get(block.id);
+      if (el) el.textContent = "";
+      setBlocks((prev) =>
+        prev.map((b) => (b.id === block.id ? { ...b, type: "page", content: subPage.id } : b))
+      );
+      closeSlashMenu();
+      return;
+    }
     if (item.type === "divider") {
       // Replace block content, set type + clear DOM
       const divEl = blockRefs.current.get(block.id);
@@ -774,7 +796,18 @@ export function NotionBlockEditor({
           )}
 
           {/* Block content */}
-          {block.type === "divider" ? (
+          {block.type === "page" ? (
+            <button
+              onClick={() => navigate(`/pages/${block.content}`)}
+              className="flex-1 flex items-center gap-3 px-4 py-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300 transition-all text-left group/page cursor-pointer"
+            >
+              <FileText size={18} className="text-gray-400 group-hover/page:text-gray-600 shrink-0" />
+              <span className="text-[15px] text-gray-700 font-medium truncate">
+                {getSubPage(block.content)?.title || (ko ? "제목 없음" : "Untitled")}
+              </span>
+              <ArrowRight size={14} className="ml-auto text-gray-300 group-hover/page:text-gray-500 shrink-0" />
+            </button>
+          ) : block.type === "divider" ? (
             <div className="flex-1 py-3 px-1">
               <hr className="border-gray-200" />
             </div>
