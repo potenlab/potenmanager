@@ -25,7 +25,6 @@ import { useLanguage } from "../context/LanguageContext";
 import { useInvite } from "../context/InviteContext";
 import { usePermission } from "../context/PermissionContext";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
-import { AiAssistantSidebar } from "../components/AiAssistantSidebar";
 import { InlineText } from "../components/detail/InlineText";
 import { InlineDropdown } from "../components/detail/InlineDropdown";
 import { PropertyItem } from "../components/detail/PropertyItem";
@@ -228,9 +227,7 @@ export function TeamBoardDetailPage() {
           </div>
         </div>
 
-        {/* Content Grid: main + AI sidebar */}
-        <div className="flex gap-6">
-          <div className="flex-1 min-w-0 max-w-3xl">
+        <div className="max-w-3xl">
             <div className="space-y-6">
 
               {/* Title */}
@@ -406,18 +403,6 @@ export function TeamBoardDetailPage() {
 
             </div>
           </div>
-
-          {/* AI Assistant Sidebar (right) */}
-          {item && canEdit && (
-            <AiAssistantSidebar
-              title={title}
-              description={description}
-              entityType="board"
-              language={language}
-              onApplyDescription={setDescription}
-            />
-          )}
-        </div>
       </div>
     </div>
   );

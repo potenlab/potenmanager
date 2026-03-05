@@ -17,6 +17,7 @@ import {
   Zap,
   TrendingUp,
   Trash2,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { GoalLevel } from "../../lib/mockData";
@@ -25,7 +26,7 @@ import { usePermission } from "../context/PermissionContext";
 import { useGoalContext } from "../context/GoalContext";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { NotionDateRangePicker } from "../components/NotionDateRangePicker";
-import { AiAssistantSidebar } from "../components/AiAssistantSidebar";
+import { TaskRecommendationPanel } from "../components/tasks/TaskRecommendationPanel";
 import { useState, useRef, useEffect } from "react";
 
 type GoalStatus = "pending" | "in-progress" | "completed";
@@ -215,6 +216,7 @@ export function GoalDetailPage() {
 
   const canEdit = can("goal.editAny");
   const canDelete = can("goal.deleteAny");
+  const [showRecommendPanel, setShowRecommendPanel] = useState(false);
 
   // ─── Auto-save handlers ──────────────────────────────────────────
   const handleTitleChange = (v: string) => {
@@ -307,6 +309,15 @@ export function GoalDetailPage() {
             {ko ? "조직으로" : "Organization"}
           </button>
           <div className="flex items-center gap-2">
+            {canEdit && (
+              <button
+                onClick={() => setShowRecommendPanel(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-purple-600 hover:bg-purple-50 rounded-xl transition-all border border-purple-200"
+              >
+                <Sparkles size={14} />
+                {ko ? "AI 업무 추천" : "AI Task Suggest"}
+              </button>
+            )}
             {canDelete && (
               <button onClick={handleDelete} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
                 <Trash2 size={18} />
@@ -315,9 +326,7 @@ export function GoalDetailPage() {
           </div>
         </div>
 
-        {/* Content + AI Sidebar */}
-        <div className="flex gap-6">
-        <div className="flex-1 min-w-0 max-w-3xl">
+        <div className="max-w-3xl">
 
           <div className="space-y-6">
             {/* Title */}
@@ -456,15 +465,11 @@ export function GoalDetailPage() {
           </div>
         </div>
 
-        {/* AI Assistant Sidebar */}
-        {canEdit && (
-          <AiAssistantSidebar
-            title={title}
-            entityType="goal"
-            language={language}
-          />
-        )}
-        </div>
+        {/* AI Task Recommendation Panel */}
+        <TaskRecommendationPanel
+          isOpen={showRecommendPanel}
+          onClose={() => setShowRecommendPanel(false)}
+        />
       </div>
     </div>
   );

@@ -12,7 +12,6 @@ import { useLibrary, LibraryItem } from "../context/LibraryContext";
 import { useTeam } from "../context/TeamContext";
 import { useTrash } from "../context/TrashContext";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
-import { AiAssistantSidebar } from "../components/AiAssistantSidebar";
 import { ARCHIVE_CATEGORIES, isPredefinedCategory } from "./LibraryPage";
 import { InlineText } from "../components/detail/InlineText";
 import { PropertyItem } from "../components/detail/PropertyItem";
@@ -183,8 +182,7 @@ export function LibraryDetailPage() {
   return (
     <div className="h-full overflow-y-auto bg-white scrollbar-hide">
       <div className="max-w-6xl mx-auto py-4 sm:py-7 px-4 sm:px-8 pb-64">
-        <div className="flex gap-6">
-        <div className="flex-1 min-w-0 max-w-3xl">
+        <div className="max-w-3xl">
           <div className="space-y-6">
 
             {/* Navigation */}
@@ -325,15 +323,6 @@ export function LibraryDetailPage() {
             </div>
 
           </div>
-        </div>
-
-        {/* AI Assistant Sidebar */}
-        <AiAssistantSidebar
-          title={item.title}
-          description={item.description}
-          entityType="library"
-          language={language}
-        />
         </div>
       </div>
     </div>

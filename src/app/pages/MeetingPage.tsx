@@ -11,7 +11,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { useMeetingContext, Meeting } from "../context/MeetingContext";
 import { useTeam } from "../context/TeamContext";
 import { MeetingListView } from "../components/meeting/MeetingListView";
-import { isToday } from "date-fns";
+import { isToday, format, addDays } from "date-fns";
 import { useTrash } from "../context/TrashContext";
 
 const DRAG_TYPE = "MEETING_CARD";
@@ -456,15 +456,34 @@ export function MeetingPage() {
   const completedCount = meetings.filter(m => m.status === 'completed').length;
 
   const handleDrop = useCallback((meetingId: string, targetColumn: ColumnKey) => {
-    if (targetColumn === 'completed') updateMeeting(meetingId, { status: 'completed' });
-    else if (targetColumn === 'today') {
-      const d = new Date(); d.setHours(10, 0, 0, 0);
+    const meeting = getMeeting(meetingId);
+    if (!meeting) return;
+    const oldDate = new Date(meeting.date);
+
+    if (targetColumn === 'today') {
+      // 오늘로 이동: 날짜를 오늘로, 시간은 유지
+      const ok = confirm(ko ? '이 회의를 오늘로 옮기시겠습니까?\n날짜가 오늘로 변경됩니다.' : 'Move this meeting to today?\nThe date will be changed to today.');
+      if (!ok) return;
+      const d = new Date();
+      d.setHours(oldDate.getHours(), oldDate.getMinutes(), 0, 0);
       updateMeeting(meetingId, { status: 'scheduled', date: d.toISOString() });
+    } else if (targetColumn === 'completed') {
+      // 완료로 이동: 날짜를 오늘로, 시간은 유지
+      const ok = confirm(ko ? '이 회의를 완료로 옮기시겠습니까?\n날짜가 오늘로 변경됩니다.' : 'Mark this meeting as completed?\nThe date will be changed to today.');
+      if (!ok) return;
+      const d = new Date();
+      d.setHours(oldDate.getHours(), oldDate.getMinutes(), 0, 0);
+      updateMeeting(meetingId, { status: 'completed', date: d.toISOString() });
     } else {
-      const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(10, 0, 0, 0);
-      updateMeeting(meetingId, { status: 'scheduled', date: d.toISOString() });
+      // 예정으로 이동: 날짜를 물어봄
+      const input = prompt(ko ? '회의 날짜를 입력하세요 (YYYY-MM-DD)' : 'Enter meeting date (YYYY-MM-DD)', format(addDays(new Date(), 1), 'yyyy-MM-dd'));
+      if (!input) return;
+      const parsed = new Date(input + 'T00:00:00');
+      if (isNaN(parsed.getTime())) { alert(ko ? '올바른 날짜 형식이 아닙니다.' : 'Invalid date format.'); return; }
+      parsed.setHours(oldDate.getHours(), oldDate.getMinutes(), 0, 0);
+      updateMeeting(meetingId, { status: 'scheduled', date: parsed.toISOString() });
     }
-  }, [updateMeeting]);
+  }, [updateMeeting, getMeeting, ko]);
 
   // ── Right-click context menu ──
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; id: string } | null>(null);

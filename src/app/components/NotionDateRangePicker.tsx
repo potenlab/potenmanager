@@ -23,6 +23,10 @@ interface NotionDateRangePickerProps {
   endDate: Date | null;
   onChange: (start: Date | null, end: Date | null) => void;
   language: string;
+  /** Single-date mode: no range selection, one time input only */
+  singleDate?: boolean;
+  /** Hide time toggle and input inside the picker */
+  hideTime?: boolean;
 }
 
 const WEEKDAYS_KO = ["월", "화", "수", "목", "금", "토", "일"];
@@ -46,6 +50,8 @@ export function NotionDateRangePicker({
   endDate,
   onChange,
   language,
+  singleDate = false,
+  hideTime = false,
 }: NotionDateRangePickerProps) {
   const [open, setOpen] = useState(false);
   const [viewMonth, setViewMonth] = useState(startDate || new Date());
@@ -64,6 +70,9 @@ export function NotionDateRangePicker({
   const [tempStartMinute, setTempStartMinute] = useState(startDate?.getMinutes() ?? 0);
   const [tempEndHour, setTempEndHour] = useState(endDate?.getHours() ?? 18);
   const [tempEndMinute, setTempEndMinute] = useState(endDate?.getMinutes() ?? 0);
+  // Local text state for free-form time typing
+  const [startTimeText, setStartTimeText] = useState(formatTime(startDate?.getHours() ?? 9, startDate?.getMinutes() ?? 0));
+  const [endTimeText, setEndTimeText] = useState(formatTime(endDate?.getHours() ?? 18, endDate?.getMinutes() ?? 0));
 
   const [dragStart, setDragStart] = useState<Date | null>(null);
   const [dragEnd, setDragEnd] = useState<Date | null>(null);
@@ -83,10 +92,16 @@ export function NotionDateRangePicker({
       const hasTime = (startDate && (startDate.getHours() !== 0 || startDate.getMinutes() !== 0)) ||
                       (endDate && (endDate.getHours() !== 0 || endDate.getMinutes() !== 0));
       setIncludeTime(!!hasTime);
-      setTempStartHour(startDate?.getHours() ?? 9);
-      setTempStartMinute(startDate?.getMinutes() ?? 0);
-      setTempEndHour(endDate?.getHours() ?? 18);
-      setTempEndMinute(endDate?.getMinutes() ?? 0);
+      const sh = startDate?.getHours() ?? 9;
+      const sm = startDate?.getMinutes() ?? 0;
+      const eh = endDate?.getHours() ?? 18;
+      const em = endDate?.getMinutes() ?? 0;
+      setTempStartHour(sh);
+      setTempStartMinute(sm);
+      setTempEndHour(eh);
+      setTempEndMinute(em);
+      setStartTimeText(formatTime(sh, sm));
+      setEndTimeText(formatTime(eh, em));
     }
   }, [open]);
 
@@ -161,7 +176,11 @@ export function NotionDateRangePicker({
     const s = dragStart;
     const e = dragEnd || dragStart;
 
-    if (isSameDay(s, e)) {
+    if (singleDate) {
+      // Single date mode: always pick just one date, no range
+      setTempStart(s);
+      setTempEnd(null);
+    } else if (isSameDay(s, e)) {
       // Single click
       if (tempStart && !isSameDay(s, tempStart)) {
         if (isBefore(s, tempStart)) {
@@ -380,6 +399,7 @@ export function NotionDateRangePicker({
             </div>
 
             {/* Time toggle + direct input */}
+            {!hideTime && (
             <div className="border-t border-gray-100 px-4 py-2.5">
               <div className="flex items-center gap-2">
                 <button
@@ -396,41 +416,64 @@ export function NotionDateRangePicker({
                   <div className="flex items-center gap-1.5 ml-auto">
                     <input
                       type="text"
-                      value={formatTime(tempStartHour, tempStartMinute)}
+                      value={startTimeText}
                       onChange={(e) => {
-                        const val = e.target.value;
-                        const parsed = parseTimeStr(val);
+                        setStartTimeText(e.target.value);
+                        const parsed = parseTimeStr(e.target.value);
                         if (parsed) { setTempStartHour(parsed.h); setTempStartMinute(parsed.m); }
                       }}
-                      onBlur={(e) => {
-                        const parsed = parseTimeStr(e.target.value);
-                        if (!parsed) e.target.value = formatTime(tempStartHour, tempStartMinute);
+                      onBlur={() => {
+                        const parsed = parseTimeStr(startTimeText);
+                        if (parsed) { setTempStartHour(parsed.h); setTempStartMinute(parsed.m); }
+                        setStartTimeText(formatTime(tempStartHour, tempStartMinute));
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          const parsed = parseTimeStr(startTimeText);
+                          if (parsed) { setTempStartHour(parsed.h); setTempStartMinute(parsed.m); }
+                          setStartTimeText(formatTime(parsed?.h ?? tempStartHour, parsed?.m ?? tempStartMinute));
+                          (e.target as HTMLInputElement).blur();
+                        }
                       }}
                       placeholder="09:00"
                       className="w-[56px] text-xs py-1 px-1.5 border border-gray-200 rounded-md bg-white text-center focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 font-mono"
                       maxLength={5}
                     />
-                    <ArrowRight size={10} className="text-gray-300" />
-                    <input
-                      type="text"
-                      value={formatTime(tempEndHour, tempEndMinute)}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        const parsed = parseTimeStr(val);
-                        if (parsed) { setTempEndHour(parsed.h); setTempEndMinute(parsed.m); }
-                      }}
-                      onBlur={(e) => {
-                        const parsed = parseTimeStr(e.target.value);
-                        if (!parsed) e.target.value = formatTime(tempEndHour, tempEndMinute);
-                      }}
-                      placeholder="18:00"
-                      className="w-[56px] text-xs py-1 px-1.5 border border-gray-200 rounded-md bg-white text-center focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 font-mono"
-                      maxLength={5}
-                    />
+                    {!singleDate && (
+                      <>
+                        <ArrowRight size={10} className="text-gray-300" />
+                        <input
+                          type="text"
+                          value={endTimeText}
+                          onChange={(e) => {
+                            setEndTimeText(e.target.value);
+                            const parsed = parseTimeStr(e.target.value);
+                            if (parsed) { setTempEndHour(parsed.h); setTempEndMinute(parsed.m); }
+                          }}
+                          onBlur={() => {
+                            const parsed = parseTimeStr(endTimeText);
+                            if (parsed) { setTempEndHour(parsed.h); setTempEndMinute(parsed.m); }
+                            setEndTimeText(formatTime(tempEndHour, tempEndMinute));
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              const parsed = parseTimeStr(endTimeText);
+                              if (parsed) { setTempEndHour(parsed.h); setTempEndMinute(parsed.m); }
+                              setEndTimeText(formatTime(parsed?.h ?? tempEndHour, parsed?.m ?? tempEndMinute));
+                              (e.target as HTMLInputElement).blur();
+                            }
+                          }}
+                          placeholder="18:00"
+                          className="w-[56px] text-xs py-1 px-1.5 border border-gray-200 rounded-md bg-white text-center focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 font-mono"
+                          maxLength={5}
+                        />
+                      </>
+                    )}
                   </div>
                 )}
               </div>
             </div>
+            )}
 
             {/* Footer: range display + actions */}
             <div className="border-t border-gray-100 px-4 py-2.5 space-y-2">

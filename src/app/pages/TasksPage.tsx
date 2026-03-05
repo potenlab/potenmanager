@@ -11,7 +11,6 @@ import {
   Circle,
   LayoutGrid,
   List as ListIcon,
-  Sparkles,
   Trash2,
   X,
   Check,
@@ -48,7 +47,6 @@ import { PermissionGate } from "../components/layout/PermissionGate";
 import { differenceInDays, format } from "date-fns";
 import { ko as koLocale } from "date-fns/locale";
 import { TaskListView } from "../components/tasks/TaskListView";
-import { TaskRecommendationPanel } from "../components/tasks/TaskRecommendationPanel";
 import { useTrash } from "../context/TrashContext";
 
 const DRAG_TYPE = "TASK_CARD";
@@ -357,8 +355,8 @@ function SelectionToolbar({
 
 // ─── Board View ─────────────────────────────────────────────────────
 function BoardView({
-  pendingTasks, inProgressTasks, completedTasks,
-  showCompleted,
+  pendingTasks, inProgressTasks, urgentTasks, overdueTasks, completedTasks,
+  columns,
   onStatusChange, onAddTask, language,
   addingInColumn, onStartAdd, onCancelAdd,
   isSelecting, selectedIds, onToggleSelect,
@@ -366,8 +364,10 @@ function BoardView({
 }: {
   pendingTasks: Task[];
   inProgressTasks: Task[];
+  urgentTasks: Task[];
+  overdueTasks: Task[];
   completedTasks: Task[];
-  showCompleted: boolean;
+  columns: 3 | 4 | 5;
   onStatusChange: (taskIds: string[], newStatus: Task['status']) => void;
   onAddTask: (title: string, status: Task['status']) => void;
   language: string;
@@ -459,7 +459,7 @@ function BoardView({
     <div ref={boardRef} className="h-full flex flex-col" onMouseDown={handleBoardMouseDown}>
       <div className={cn(
         "flex flex-col md:flex-row gap-4 md:gap-6 h-full",
-        showCompleted ? "md:min-w-[1200px]" : "md:min-w-[900px]"
+        columns === 5 ? "md:min-w-[1500px]" : columns === 4 ? "md:min-w-[1200px]" : "md:min-w-[900px]"
       )}>
         <TaskColumn
           title={language === 'ko' ? "할 일" : "To Do"} count={pendingTasks.length} tasks={pendingTasks}
@@ -475,7 +475,25 @@ function BoardView({
           isAdding={addingInColumn === 'in-progress'} onStartAdd={() => onStartAdd('in-progress')} onCancelAdd={onCancelAdd}
           isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
         />
-        {showCompleted && (
+        {columns >= 4 && (
+          <TaskColumn
+            title={language === 'ko' ? "긴급" : "Urgent"} count={urgentTasks.length} tasks={urgentTasks}
+            icon={<Zap size={16} className="text-red-500" />}
+            onAddTask={onAddTask} status="pending" onDrop={onStatusChange}
+            isAdding={false} onStartAdd={() => {}} onCancelAdd={onCancelAdd}
+            isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
+          />
+        )}
+        {columns >= 4 && (
+          <TaskColumn
+            title={language === 'ko' ? "지연" : "Overdue"} count={overdueTasks.length} tasks={overdueTasks}
+            icon={<AlertTriangle size={16} className="text-amber-500" />}
+            onAddTask={onAddTask} status="pending" onDrop={onStatusChange}
+            isAdding={false} onStartAdd={() => {}} onCancelAdd={onCancelAdd}
+            isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
+          />
+        )}
+        {columns >= 5 && (
           <TaskColumn
             title={language === 'ko' ? "완료" : "Done"} count={completedTasks.length} tasks={completedTasks}
             icon={<CheckCircle2 size={16} className="text-emerald-600" />}
@@ -497,14 +515,13 @@ function BoardView({
 // ─── Main Page ──────────────────────────────────────────────────────
 export function TasksPage() {
   const { t, language } = useLanguage();
-  const { tasks: allTasks, setTasks: setAllTasks, removeTask, getTask } = useTaskContext();
+  const { tasks: allTasks, updateTask, addTask: addTaskToContext, removeTask, getTask } = useTaskContext();
   const { moveToTrash } = useTrash();
   const { currentUser } = usePermission();
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
-  const [columns, setColumns] = useState<3 | 4>(4);
+  const [columns, setColumns] = useState<3 | 4 | 5>(5);
   const [searchQuery, setSearchQuery] = useState('');
   const [addingInColumn, setAddingInColumn] = useState<Task['status'] | null>(null);
-  const [showRecommendPanel, setShowRecommendPanel] = useState(false);
   const [showMemo, setShowMemo] = useState(false);
   const [memoContent, setMemoContent] = useState(() => {
     try { return localStorage.getItem('poten_my_memo') || ''; } catch { return ''; }
@@ -565,13 +582,10 @@ export function TasksPage() {
   }, [showCatFilter]);
 
   const handleBulkMove = useCallback((newStatus: Task['status']) => {
-    setAllTasks(prev => prev.map(t =>
-      selectedIds.has(t.id)
-        ? { ...t, status: newStatus, progress: newStatus === 'completed' ? 100 : newStatus === 'in-progress' ? 50 : 0 }
-        : t
-    ));
+    const progress = newStatus === 'completed' ? 100 : newStatus === 'in-progress' ? 50 : 0;
+    selectedIds.forEach(id => updateTask(id, { status: newStatus, progress }));
     clearSelection();
-  }, [selectedIds, clearSelection]);
+  }, [selectedIds, clearSelection, updateTask]);
 
   const handleBulkDelete = useCallback(() => {
     selectedIds.forEach(id => {
@@ -613,8 +627,33 @@ export function TasksPage() {
     return result;
   }, [myTasks, searchQuery, language, filterCategory]);
 
-  const pendingTasks = filteredTasks.filter(task => task.status === 'pending');
-  const inProgressTasks = filteredTasks.filter(task => task.status === 'in-progress');
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+
+  const showSeparateColumns = columns >= 4;
+
+  // 긴급: priority가 high이고 완료가 아닌 태스크
+  const urgentTasks = showSeparateColumns
+    ? filteredTasks.filter(task => task.status !== 'completed' && task.priority === 'high')
+    : [];
+  const urgentIds = new Set(urgentTasks.map(t => t.id));
+
+  // 지연: 마감일이 지났고 완료가 아닌 태스크 (긴급에 이미 포함된 건 제외)
+  const overdueTasks = showSeparateColumns
+    ? filteredTasks.filter(task => {
+        if (task.status === 'completed') return false;
+        if (urgentIds.has(task.id)) return false;
+        if (!task.dueDate) return false;
+        const due = new Date(task.dueDate);
+        due.setHours(0, 0, 0, 0);
+        return due < now;
+      })
+    : [];
+  const overdueIds = new Set(overdueTasks.map(t => t.id));
+
+  // 할 일 / 진행 중: 4단 이상이면 긴급·지연 제외, 3단이면 전부 포함
+  const pendingTasks = filteredTasks.filter(task => task.status === 'pending' && !urgentIds.has(task.id) && !overdueIds.has(task.id));
+  const inProgressTasks = filteredTasks.filter(task => task.status === 'in-progress' && !urgentIds.has(task.id) && !overdueIds.has(task.id));
   const completedTasks = filteredTasks.filter(task => task.status === 'completed');
 
   const handleAddTask = useCallback((title: string, status: Task['status']) => {
@@ -623,16 +662,14 @@ export function TasksPage() {
       progress: status === 'completed' ? 100 : status === 'in-progress' ? 50 : 0,
       status, dueDate: new Date(), assigneeId: currentUser.id, assigneeIds: [currentUser.id], priority: 'medium',
     };
-    setAllTasks(prev => [...prev, newTask]);
-  }, [currentUser.id]);
+    addTaskToContext(newTask);
+  }, [currentUser.id, addTaskToContext]);
 
   const handleStatusChange = useCallback((taskIds: string[], newStatus: Task['status']) => {
-    const idSet = new Set(taskIds);
-    setAllTasks(prev => prev.map(t =>
-      idSet.has(t.id) ? { ...t, status: newStatus, progress: newStatus === 'completed' ? 100 : newStatus === 'in-progress' ? 50 : 0 } : t
-    ));
+    const progress = newStatus === 'completed' ? 100 : newStatus === 'in-progress' ? 50 : 0;
+    taskIds.forEach(id => updateTask(id, { status: newStatus, progress }));
     clearSelection();
-  }, [clearSelection]);
+  }, [clearSelection, updateTask]);
 
   return (
     <div className="h-full flex flex-col">
@@ -642,8 +679,8 @@ export function TasksPage() {
             <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">{t("my_tasks")}</h1>
             <p className="text-gray-500 text-xs sm:text-sm">
               {language === 'ko'
-                ? `할 일 ${pendingTasks.length}개 · 진행 중 ${inProgressTasks.length}개 · 완료 ${completedTasks.length}개`
-                : `${pendingTasks.length} to do · ${inProgressTasks.length} in progress · ${completedTasks.length} completed`}
+                ? `할 일 ${pendingTasks.length} · 진행 중 ${inProgressTasks.length} · 긴급 ${urgentTasks.length} · 지연 ${overdueTasks.length} · 완료 ${completedTasks.length}`
+                : `${pendingTasks.length} to do · ${inProgressTasks.length} in progress · ${urgentTasks.length} urgent · ${overdueTasks.length} overdue · ${completedTasks.length} done`}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -657,13 +694,6 @@ export function TasksPage() {
               <StickyNote size={15} />
               {language === 'ko' ? '내 메모장' : 'My Memo'}
             </button>
-            <PermissionGate permission="ai.recommend">
-              <button onClick={() => setShowRecommendPanel(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl text-sm font-medium hover:from-blue-600 hover:to-blue-700 transition-all shadow-sm shadow-blue-200 group">
-                <Sparkles size={15} className="group-hover:animate-pulse" />
-                {language === 'ko' ? 'AI 업무 추천' : 'AI Recommend'}
-              </button>
-            </PermissionGate>
           </div>
         </div>
 
@@ -737,16 +767,22 @@ export function TasksPage() {
             {viewMode === 'board' && (
               <div className="flex bg-gray-100 p-1 rounded-xl">
                 <button onClick={() => setColumns(3)}
-                  title={language === 'ko' ? '3단 (완료 숨기기)' : '3 columns (hide done)'}
+                  title={language === 'ko' ? '3단 (할 일·진행 중·긴급)' : '3 columns'}
                   className={cn("flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
                     columns === 3 ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
                   <Columns3 size={14} /> 3
                 </button>
                 <button onClick={() => setColumns(4)}
-                  title={language === 'ko' ? '4단 (완료 포함)' : '4 columns (with done)'}
+                  title={language === 'ko' ? '4단 (긴급·지연 포함)' : '4 columns'}
                   className={cn("flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
                     columns === 4 ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
                   <Columns4 size={14} /> 4
+                </button>
+                <button onClick={() => setColumns(5)}
+                  title={language === 'ko' ? '5단 (완료 포함)' : '5 columns (with done)'}
+                  className={cn("flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
+                    columns === 5 ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
+                  <Columns4 size={14} /> 5
                 </button>
               </div>
             )}
@@ -757,8 +793,8 @@ export function TasksPage() {
       <div className="flex-1 overflow-x-auto pb-4">
         {viewMode === 'board' ? (
           <BoardView
-            pendingTasks={pendingTasks} inProgressTasks={inProgressTasks} completedTasks={completedTasks}
-            showCompleted={columns === 4}
+            pendingTasks={pendingTasks} inProgressTasks={inProgressTasks} urgentTasks={urgentTasks} overdueTasks={overdueTasks} completedTasks={completedTasks}
+            columns={columns}
             onStatusChange={handleStatusChange} onAddTask={handleAddTask} language={language}
             addingInColumn={addingInColumn} onStartAdd={setAddingInColumn} onCancelAdd={() => setAddingInColumn(null)}
             isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={toggleSelect}
@@ -777,7 +813,6 @@ export function TasksPage() {
         onMoveTo={handleBulkMove} onDelete={handleBulkDelete} onClear={clearSelection}
       />
 
-      <TaskRecommendationPanel isOpen={showRecommendPanel} onClose={() => setShowRecommendPanel(false)} />
 
       {/* Sticky Memo */}
       {showMemo && (

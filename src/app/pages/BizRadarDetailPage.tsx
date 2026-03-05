@@ -16,7 +16,6 @@ import { cn } from "../../lib/utils";
 import { createPortal } from "react-dom";
 import { TaskCategory } from "../../lib/mockData";
 import { TASK_CATEGORY_CONFIG, findBestAssignee } from "../../lib/jobRoles";
-import { AiAssistantSidebar } from "../components/AiAssistantSidebar";
 import { InlineText } from "../components/detail/InlineText";
 import { InlineDropdown } from "../components/detail/InlineDropdown";
 import { PropertyItem } from "../components/detail/PropertyItem";
@@ -280,8 +279,7 @@ export function BizRadarDetailPage() {
           </div>
         </div>
 
-        <div className="flex gap-6">
-        <div className="flex-1 min-w-0 max-w-3xl">
+        <div className="max-w-3xl">
           <div className="space-y-6">
 
             {/* Category Badge */}
@@ -547,15 +545,6 @@ export function BizRadarDetailPage() {
               <UrlPreviewSection content={notes} language={language} />
             </div>
           </div>
-        </div>
-
-        {/* AI Assistant Sidebar */}
-        <AiAssistantSidebar
-          title={item.title}
-          description={notes}
-          entityType="radar"
-          language={language}
-        />
         </div>
       </div>
 

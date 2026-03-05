@@ -16,7 +16,6 @@ import { createPortal } from "react-dom";
 import { useTrash } from "../context/TrashContext";
 import { TaskCategory } from "../../lib/mockData";
 import { TASK_CATEGORY_CONFIG, findBestAssignee } from "../../lib/jobRoles";
-import { AiAssistantSidebar } from "../components/AiAssistantSidebar";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { NotionDateRangePicker } from "../components/NotionDateRangePicker";
 
@@ -197,6 +196,116 @@ function PropertyItem({ icon, label, children }: { icon: React.ReactNode; label:
   );
 }
 
+// ─── Meeting Time Input (AM/PM + direct input) ─────────────────────
+function MeetingTimeInput({
+  hour,
+  minute,
+  onChange,
+  language,
+}: {
+  hour: number;
+  minute: number;
+  onChange: (h: number, m: number) => void;
+  language: string;
+}) {
+  const ko = language === "ko";
+  const isAm = hour < 12;
+  const display12h = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+  const [timeText, setTimeText] = useState(
+    `${String(display12h).padStart(2, "0")}:${String(minute).padStart(2, "0")}`
+  );
+
+  // Sync when props change
+  useEffect(() => {
+    const h12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    setTimeText(`${String(h12).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
+  }, [hour, minute]);
+
+  const commitTime = (text: string, am: boolean) => {
+    const trimmed = text.trim();
+    // Support "4" → 04:00, "10" → 10:00, "430" → 4:30, "4:30" → 4:30
+    let h: number, m: number;
+    const colonMatch = trimmed.match(/^(\d{1,2}):(\d{2})$/);
+    const plainMatch = trimmed.match(/^(\d{1,4})$/);
+    if (colonMatch) {
+      h = parseInt(colonMatch[1], 10);
+      m = parseInt(colonMatch[2], 10);
+    } else if (plainMatch) {
+      const num = parseInt(plainMatch[1], 10);
+      if (num <= 12) {
+        h = num; m = 0; // "4" → 4:00
+      } else if (num >= 100) {
+        h = Math.floor(num / 100); m = num % 100; // "430" → 4:30
+      } else {
+        h = num; m = 0;
+      }
+    } else {
+      return;
+    }
+    if (h < 1 || h > 12 || m < 0 || m > 59) return;
+    // Convert 12h to 24h
+    if (am) {
+      h = h === 12 ? 0 : h;
+    } else {
+      h = h === 12 ? 12 : h + 12;
+    }
+    onChange(h, m);
+  };
+
+  const toggleAmPm = () => {
+    const newHour = isAm ? hour + 12 : hour - 12;
+    onChange(Math.max(0, Math.min(23, newHour)), minute);
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      {/* AM/PM toggle */}
+      <div className="flex bg-gray-100 rounded-lg p-0.5">
+        <button
+          onClick={() => { if (!isAm) toggleAmPm(); }}
+          className={cn(
+            "px-2.5 py-1 rounded-md text-xs font-semibold transition-all",
+            isAm ? "bg-white text-blue-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
+          )}
+        >
+          {ko ? "오전" : "AM"}
+        </button>
+        <button
+          onClick={() => { if (isAm) toggleAmPm(); }}
+          className={cn(
+            "px-2.5 py-1 rounded-md text-xs font-semibold transition-all",
+            !isAm ? "bg-white text-blue-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
+          )}
+        >
+          {ko ? "오후" : "PM"}
+        </button>
+      </div>
+
+      {/* Time input */}
+      <input
+        type="text"
+        value={timeText}
+        onChange={(e) => setTimeText(e.target.value)}
+        onBlur={() => {
+          commitTime(timeText, isAm);
+          // Reset to current if invalid
+          const h12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+          setTimeText(`${String(h12).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            commitTime(timeText, isAm);
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+        className="w-[60px] text-sm font-mono font-semibold text-gray-700 py-1 px-2 border border-gray-200 rounded-lg bg-white text-center focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
+        maxLength={5}
+        placeholder="02:00"
+      />
+    </div>
+  );
+}
+
 // ─── Main Detail Page ───────────────────────────────────────────────
 export function MeetingDetailPage() {
   const { meetingId } = useParams<{ meetingId: string }>();
@@ -272,10 +381,39 @@ export function MeetingDetailPage() {
   const handleStatusChange = (s: MeetingStatus) => updateMeeting(meeting.id, { status: s });
   const handleTypeChange = (t: MeetingType) => updateMeeting(meeting.id, { type: t });
   const handleDurationChange = (d: string) => updateMeeting(meeting.id, { duration: Number(d) });
-  const handleLocationChange = (loc: string) => updateMeeting(meeting.id, { location: loc || undefined });
+  const [locationText, setLocationText] = useState(meeting?.location || '');
+  // Sync locationText when meeting changes externally
+  useEffect(() => { if (meeting) setLocationText(meeting.location || ''); }, [meeting?.id]);
+  const handleLocationBlur = () => {
+    const loc = locationText.trim();
+    if (loc !== (meeting.location || '')) {
+      updateMeeting(meeting.id, { location: loc || undefined });
+    }
+  };
   const handleAttendeeChange = (ids: string[]) => updateMeeting(meeting.id, { attendeeIds: ids });
+  // 날짜 기준 자동 상태: 지났으면 완료, 오늘이면 유지, 미래면 예정
+  const autoStatus = (date: Date): MeetingStatus => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    if (d.getTime() < today.getTime()) return 'completed';
+    if (d.getTime() > today.getTime()) return 'scheduled';
+    return meeting.status; // 오늘이면 현재 상태 유지
+  };
+
   const handleDatePickerChange = (start: Date | null) => {
-    if (start) updateMeeting(meeting.id, { date: start.toISOString() });
+    if (start) {
+      const old = new Date(meeting.date);
+      start.setHours(old.getHours(), old.getMinutes(), 0, 0);
+      updateMeeting(meeting.id, { date: start.toISOString(), status: autoStatus(start) });
+    }
+  };
+
+  const handleTimeChange = (hour: number, minute: number) => {
+    const d = new Date(meeting.date);
+    d.setHours(hour, minute, 0, 0);
+    updateMeeting(meeting.id, { date: d.toISOString() });
   };
 
   // Auto-save notes on change
@@ -353,8 +491,7 @@ export function MeetingDetailPage() {
           </div>
         </div>
 
-        <div className="flex gap-6">
-        <div className="flex-1 min-w-0 max-w-3xl">
+        <div className="max-w-3xl">
           <div className="space-y-6">
 
             {/* Title */}
@@ -363,16 +500,9 @@ export function MeetingDetailPage() {
             {/* Properties */}
             <div className="bg-gray-50/50 rounded-2xl border border-gray-100 divide-y divide-gray-100 overflow-hidden">
               <PropertyItem icon={<CircleDot size={14} />} label={ko ? '상태' : 'Status'}>
-                <InlineDropdown
-                  value={meeting.status}
-                  options={['scheduled', 'completed', 'cancelled'] as MeetingStatus[]}
-                  onChange={handleStatusChange}
-                  renderValue={(v) => {
-                    const cfg = STATUS_CONFIG[v];
-                    return <span className={cn("flex items-center gap-1.5 font-bold", cfg.color)}>{cfg.icon} {ko ? cfg.labelKo : cfg.label}</span>;
-                  }}
-                  renderOption={(o) => <span className={cn("flex items-center gap-2", STATUS_CONFIG[o].color)}>{STATUS_CONFIG[o].icon} {ko ? STATUS_CONFIG[o].labelKo : STATUS_CONFIG[o].label}</span>}
-                />
+                <span className={cn("flex items-center gap-1.5 px-2 py-1 text-sm font-bold", STATUS_CONFIG[meeting.status].color)}>
+                  {STATUS_CONFIG[meeting.status].icon} {ko ? STATUS_CONFIG[meeting.status].labelKo : STATUS_CONFIG[meeting.status].label}
+                </span>
               </PropertyItem>
 
               <PropertyItem icon={<Video size={14} />} label={ko ? '유형' : 'Type'}>
@@ -386,12 +516,23 @@ export function MeetingDetailPage() {
               </PropertyItem>
 
               <PropertyItem icon={<Calendar size={14} />} label={ko ? '일시' : 'Date & Time'}>
-                <NotionDateRangePicker
-                  startDate={meetingDate}
-                  endDate={null}
-                  onChange={(s) => handleDatePickerChange(s)}
-                  language={language}
-                />
+                <div className="flex items-center gap-3">
+                  <NotionDateRangePicker
+                    startDate={meetingDate}
+                    endDate={null}
+                    onChange={(s) => handleDatePickerChange(s)}
+                    language={language}
+                    singleDate
+                    hideTime
+                  />
+                  <div className="w-px h-5 bg-gray-200" />
+                  <MeetingTimeInput
+                    hour={meetingDate.getHours()}
+                    minute={meetingDate.getMinutes()}
+                    onChange={handleTimeChange}
+                    language={language}
+                  />
+                </div>
               </PropertyItem>
 
               <PropertyItem icon={<Timer size={14} />} label={ko ? '소요시간' : 'Duration'}>
@@ -406,8 +547,10 @@ export function MeetingDetailPage() {
 
               <PropertyItem icon={<MapPin size={14} />} label={ko ? '장소' : 'Location'}>
                 <input
-                  value={meeting.location || ''}
-                  onChange={(e) => handleLocationChange(e.target.value)}
+                  value={locationText}
+                  onChange={(e) => setLocationText(e.target.value)}
+                  onBlur={handleLocationBlur}
+                  onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                   placeholder={ko ? '장소 또는 링크' : 'Room or link'}
                   className="px-2 py-1 rounded-md text-sm bg-transparent hover:bg-gray-100 focus:bg-gray-100 outline-none focus:ring-2 focus:ring-blue-100 transition-colors font-medium text-gray-700 placeholder-gray-300 w-full"
                 />
@@ -541,15 +684,6 @@ export function MeetingDetailPage() {
               </div>
             </div>
           </div>
-        </div>
-
-        {/* AI Assistant Sidebar */}
-        <AiAssistantSidebar
-          title={meeting.title}
-          description={notes}
-          entityType="meeting"
-          language={language}
-        />
         </div>
       </div>
 

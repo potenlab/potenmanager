@@ -40,7 +40,6 @@ import { useTaskContext } from "../context/TaskContext";
 import { usePermission } from "../context/PermissionContext";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { NotionDateRangePicker } from "../components/NotionDateRangePicker";
-import { AiAssistantSidebar } from "../components/AiAssistantSidebar";
 import { InlineText } from "../components/detail/InlineText";
 import { InlineDropdown } from "../components/detail/InlineDropdown";
 import { PropertyItem } from "../components/detail/PropertyItem";
@@ -492,9 +491,7 @@ export function TaskDetailPage() {
           </div>
         </div>
 
-        {/* Content Grid: main + AI sidebar */}
-        <div className="flex gap-6">
-        <div className="flex-1 min-w-0 max-w-3xl">
+        <div className="max-w-3xl">
 
           {/* Title & Description */}
           <div className="space-y-6">
@@ -690,23 +687,6 @@ export function TaskDetailPage() {
             {/* ActivityLogSection — 필요 시 주석 해제하여 사용 */}
             {/* {!isNew && <ActivityLogSection taskId={taskId!} language={language} />} */}
           </div>
-        </div>
-
-        {/* AI Assistant Sidebar (right) */}
-        {!isNew && canEdit && (
-          <AiAssistantSidebar
-            title={title}
-            description={description}
-            entityType="task"
-            language={language}
-            taskCategory={category}
-            taskPriority={priority}
-            onAddSubtasks={handleAddSubtasks}
-            onApplyDescription={setDescription}
-            onApplyPriority={(p) => setPriority(p as TaskPriority)}
-            onApplyCategory={(c) => setCategory(c as TaskCategory)}
-          />
-        )}
         </div>
       </div>
     </div>

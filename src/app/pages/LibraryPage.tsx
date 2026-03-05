@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import {
   Plus, Search, BookMarked, Globe, FileText, Link as LinkIcon,
   Trash2, X, ExternalLink, Check, Archive, Lock, Pencil, MoreHorizontal,
+  LayoutGrid, List,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
@@ -206,6 +207,8 @@ export function LibraryPage() {
   const { moveToTrash } = useTrash();
 
   const [activeTab, setActiveTab] = useState<"all" | "my" | "team">("all");
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<"kanban" | "compact">("kanban");
   const [searchQuery, setSearchQuery] = useState("");
   const [addingCategory, setAddingCategory] = useState(false);
   const [newCatName, setNewCatName] = useState("");
@@ -293,10 +296,11 @@ export function LibraryPage() {
     return extras;
   }, [allColumns, columnItems]);
 
-  const displayColumns = useMemo(
-    () => [...allColumns, ...extraColumns],
-    [allColumns, extraColumns]
-  );
+  const displayColumns = useMemo(() => {
+    const all = [...allColumns, ...extraColumns];
+    if (selectedCategories.size === 0) return all;
+    return all.filter((col) => selectedCategories.has(col.key));
+  }, [allColumns, extraColumns, selectedCategories]);
 
   const totalCatCount = ARCHIVE_CATEGORIES.length + customCategories.length + extraColumns.length;
 
@@ -415,77 +419,200 @@ export function LibraryPage() {
             </div>
           </div>
         </div>
-      </header>
 
-      {/* Kanban Board */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4">
-        <div className="flex gap-3 h-full min-w-max pr-4">
-          {displayColumns.map((col) => (
-            <KanbanColumn
-              key={col.key}
-              title={col.label}
-              items={columnItems[col.key] || []}
-              onCardClick={(id) => navigate(`/library/${id}`)}
-              onAddItem={col.key !== "__uncategorized__" ? undefined : undefined}
-              isOwnerFn={isOwnerFn}
-              onContextMenu={handleCardContextMenu}
-              isCustom={col.isCustom}
-              onRemoveColumn={col.isCustom ? () => removeCategory(col.key) : undefined}
-            />
-          ))}
-
-          {/* Add category column */}
-          {totalCatCount < MAX_CATEGORIES && (
-            <div className="w-[280px] shrink-0">
-              {addingCategory ? (
-                <div className="bg-gray-50/70 rounded-2xl border border-gray-200 border-dashed p-3 space-y-2">
-                  <input
-                    ref={newCatInputRef}
-                    type="text"
-                    value={newCatName}
-                    onChange={(e) => setNewCatName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleAddCategory();
-                      if (e.key === "Escape") { setAddingCategory(false); setNewCatName(""); }
+        {/* Category tabs + view toggle */}
+        <div className="flex items-center gap-2 mt-3">
+          <div className="flex-1 overflow-x-auto no-scrollbar">
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setSelectedCategories(new Set())}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border",
+                  selectedCategories.size === 0
+                    ? "bg-gray-900 text-white border-gray-900"
+                    : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
+                )}
+              >
+                {ko ? "전체" : "All"}
+              </button>
+              {[...allColumns, ...extraColumns].map((col) => {
+                const count = (columnItems[col.key] || []).length;
+                const isSelected = selectedCategories.has(col.key);
+                return (
+                  <button
+                    key={col.key}
+                    onClick={() => {
+                      const next = new Set(selectedCategories);
+                      if (next.has(col.key)) next.delete(col.key);
+                      else next.add(col.key);
+                      setSelectedCategories(next);
                     }}
-                    placeholder={ko ? "카테고리 이름" : "Category name"}
-                    className="w-full text-sm px-3 py-2 rounded-lg border border-gray-200 outline-none focus:ring-2 focus:ring-blue-100"
-                    maxLength={30}
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleAddCategory}
-                      disabled={!newCatName.trim()}
-                      className="flex-1 px-3 py-1.5 bg-blue-500 text-white text-xs font-bold rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors"
-                    >
-                      {ko ? "추가" : "Add"}
-                    </button>
-                    <button
-                      onClick={() => { setAddingCategory(false); setNewCatName(""); }}
-                      className="px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100 rounded-lg"
-                    >
-                      {ko ? "취소" : "Cancel"}
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-gray-400">
-                    {ko
-                      ? `카테고리 ${totalCatCount}/${MAX_CATEGORIES}`
-                      : `Categories ${totalCatCount}/${MAX_CATEGORIES}`}
-                  </p>
-                </div>
-              ) : (
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border",
+                      isSelected
+                        ? "bg-blue-50 text-blue-700 border-blue-200"
+                        : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
+                    )}
+                  >
+                    {col.label}
+                    {count > 0 && (
+                      <span className={cn(
+                        "text-[10px] px-1.5 py-0.5 rounded-full font-bold",
+                        isSelected ? "bg-blue-200 text-blue-700" : "bg-gray-100 text-gray-400"
+                      )}>
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+              {totalCatCount < MAX_CATEGORIES && (
                 <button
                   onClick={() => setAddingCategory(true)}
-                  className="w-full flex items-center justify-center gap-2 py-4 text-sm text-gray-400 hover:text-blue-600 bg-gray-50/50 hover:bg-blue-50/50 rounded-2xl border-2 border-dashed border-gray-200 hover:border-blue-300 transition-all"
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-gray-400 hover:text-blue-600 hover:bg-blue-50 border border-dashed border-gray-200 hover:border-blue-300 whitespace-nowrap transition-all"
                 >
-                  <Plus size={16} />
-                  {ko ? "카테고리 추가" : "Add Category"}
+                  <Plus size={12} />
+                  {ko ? "추가" : "Add"}
                 </button>
               )}
             </div>
-          )}
+          </div>
+          <div className="flex items-center gap-1 shrink-0 border border-gray-200 rounded-lg p-0.5">
+            <button
+              onClick={() => setViewMode("kanban")}
+              className={cn(
+                "p-1.5 rounded-md transition-all",
+                viewMode === "kanban" ? "bg-gray-900 text-white" : "text-gray-400 hover:text-gray-600"
+              )}
+              title={ko ? "칸반 보기" : "Kanban view"}
+            >
+              <LayoutGrid size={14} />
+            </button>
+            <button
+              onClick={() => setViewMode("compact")}
+              className={cn(
+                "p-1.5 rounded-md transition-all",
+                viewMode === "compact" ? "bg-gray-900 text-white" : "text-gray-400 hover:text-gray-600"
+              )}
+              title={ko ? "작게 보기" : "Compact view"}
+            >
+              <List size={14} />
+            </button>
+          </div>
         </div>
-      </div>
+      </header>
+
+      {/* Add category inline input (shown when adding from tab bar) */}
+      {addingCategory && (
+        <div className="shrink-0 mb-3 flex items-center gap-2 px-1">
+          <input
+            ref={newCatInputRef}
+            type="text"
+            value={newCatName}
+            onChange={(e) => setNewCatName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleAddCategory();
+              if (e.key === "Escape") { setAddingCategory(false); setNewCatName(""); }
+            }}
+            placeholder={ko ? "카테고리 이름" : "Category name"}
+            className="text-sm px-3 py-1.5 rounded-lg border border-gray-200 outline-none focus:ring-2 focus:ring-blue-100 w-48"
+            maxLength={30}
+          />
+          <button
+            onClick={handleAddCategory}
+            disabled={!newCatName.trim()}
+            className="px-3 py-1.5 bg-blue-500 text-white text-xs font-bold rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors"
+          >
+            {ko ? "추가" : "Add"}
+          </button>
+          <button
+            onClick={() => { setAddingCategory(false); setNewCatName(""); }}
+            className="px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100 rounded-lg"
+          >
+            {ko ? "취소" : "Cancel"}
+          </button>
+          <span className="text-[10px] text-gray-400">
+            {totalCatCount}/{MAX_CATEGORIES}
+          </span>
+        </div>
+      )}
+
+      {viewMode === "kanban" ? (
+        /* Kanban Board */
+        <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4">
+          <div className="flex gap-3 h-full min-w-max pr-4">
+            {displayColumns.map((col) => (
+              <KanbanColumn
+                key={col.key}
+                title={col.label}
+                items={columnItems[col.key] || []}
+                onCardClick={(id) => navigate(`/library/${id}`)}
+                isOwnerFn={isOwnerFn}
+                onContextMenu={handleCardContextMenu}
+                isCustom={col.isCustom}
+                onRemoveColumn={col.isCustom ? () => removeCategory(col.key) : undefined}
+              />
+            ))}
+          </div>
+        </div>
+      ) : (
+        /* Compact List View */
+        <div className="flex-1 overflow-y-auto pb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 px-1">
+            {displayColumns.flatMap((col) =>
+              (columnItems[col.key] || []).map((item) => {
+                const domain = item.url
+                  ? (() => { try { return new URL(item.url).hostname.replace("www.", ""); } catch { return ""; } })()
+                  : "";
+                const favicon = item.ogMetadata?.favicon;
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => navigate(`/library/${item.id}`)}
+                    onContextMenu={(e) => { e.preventDefault(); handleCardContextMenu(e, item.id); }}
+                    className="flex items-center gap-3 px-3 py-2.5 bg-white rounded-xl border border-gray-100 hover:border-gray-300 hover:shadow-sm cursor-pointer transition-all group"
+                  >
+                    {item.ogMetadata?.ogImage && (
+                      <img src={item.ogMetadata.ogImage} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+                        {item.title || (ko ? "제목 없음" : "Untitled")}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {domain && (
+                          <span className="flex items-center gap-1 text-[10px] text-gray-400 truncate">
+                            {favicon ? (
+                              <img src={favicon} alt="" className="w-3 h-3 rounded-sm shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                            ) : (
+                              <LinkIcon size={9} className="shrink-0" />
+                            )}
+                            {domain}
+                          </span>
+                        )}
+                        {!domain && item.type === "note" && (
+                          <span className="flex items-center gap-1 text-[10px] text-gray-400">
+                            <FileText size={9} /> {ko ? "노트" : "Note"}
+                          </span>
+                        )}
+                        <span className="text-[10px] text-gray-300">
+                          {getCategoryLabel(item.category, ko) || (ko ? "미분류" : "Uncategorized")}
+                        </span>
+                      </div>
+                    </div>
+                    {isOwnerFn(item) && (
+                      <span className={cn(
+                        "shrink-0 w-2 h-2 rounded-full",
+                        item.visibility === "published" ? "bg-emerald-400" : "bg-gray-300"
+                      )} />
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Right-click context menu */}
       {ctxMenu && (

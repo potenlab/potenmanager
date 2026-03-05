@@ -97,8 +97,8 @@ function getTaskDateRange(task: Task): { start: Date; end: Date } | null {
 
 // ─── Status stripe colors ───────────────────────────────────────────
 const STATUS_STRIPE_COLOR: Record<string, string> = {
-  pending: "#EF4444",      // Red
-  "in-progress": "#F97316", // Orange
+  pending: "#EAB308",      // Yellow
+  "in-progress": "#3B82F6", // Blue
   completed: "#22C55E",     // Green
 };
 
@@ -127,6 +127,7 @@ function ResizableTaskBar({
   onClick,
   onSelect,
   onResizeStart,
+  onContextMenu,
   canDragTask = true,
 }: {
   task: Task;
@@ -138,6 +139,7 @@ function ResizableTaskBar({
   onClick: (task: Task, rect: DOMRect) => void;
   onSelect: (taskId: string, multi: boolean) => void;
   onResizeStart: (taskId: string, edge: "left" | "right", e: React.MouseEvent) => void;
+  onContextMenu: (task: Task, x: number, y: number) => void;
   canDragTask?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -175,6 +177,12 @@ function ResizableTaskBar({
       onSelect(task.id, false);
       onClick(task, ref.current.getBoundingClientRect());
     }
+  };
+
+  const handleRightClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onContextMenu(task, e.clientX, e.clientY);
   };
 
   const showLeftHandle = canDragTask && (position === "single" || position === "start");
@@ -215,8 +223,9 @@ function ResizableTaskBar({
     <div
       ref={ref}
       onClick={handleClick}
+      onContextMenu={handleRightClick}
       className={cn(
-        "text-[10px] font-medium py-1.5 transition-all relative group/bar overflow-hidden",
+        "text-[10px] font-medium h-[26px] flex items-center transition-all relative group/bar overflow-hidden",
         position === "single" && "shadow-sm",
         isDragging && "opacity-40 ring-2 ring-blue-300",
         !isResizing && canDragTask && "cursor-grab active:cursor-grabbing",
@@ -340,6 +349,7 @@ function DroppableDayCell({
   onAddTask,
   onDeselectAll,
   onMeetingClick,
+  onContextMenu,
   canDragTaskFn,
 }: {
   day: Date;
@@ -358,6 +368,7 @@ function DroppableDayCell({
   onAddTask: (day: Date, rect: DOMRect) => void;
   onDeselectAll: () => void;
   onMeetingClick: (meetingId: string) => void;
+  onContextMenu: (task: Task, x: number, y: number) => void;
   canDragTaskFn?: (task: Task) => boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -417,35 +428,7 @@ function DroppableDayCell({
       </div>
 
       <div className="flex flex-col gap-0.5 flex-1 overflow-y-auto no-scrollbar">
-        {/* Meetings rendered before tasks */}
-        {dayMeetings.map((meeting) => {
-          const meetingDate = new Date(meeting.date);
-          const timeStr = format(meetingDate, "HH:mm");
-          const durationStr = meeting.duration >= 60
-            ? `${Math.floor(meeting.duration / 60)}h${meeting.duration % 60 > 0 ? meeting.duration % 60 + 'm' : ''}`
-            : `${meeting.duration}m`;
-          return (
-            <div
-              key={`meeting-${meeting.id}`}
-              className="mx-1.5 cursor-pointer"
-              onClick={(e) => {
-                e.stopPropagation();
-                onMeetingClick(meeting.id);
-              }}
-            >
-              <div
-                className="text-[10px] font-medium py-1.5 rounded shadow-sm border border-purple-200/60 bg-purple-50 text-purple-700 border-l-[3px] border-l-purple-500 hover:bg-purple-100 transition-colors"
-              >
-                <div className="flex items-center gap-1 px-2 overflow-hidden">
-                  <Video size={14} className="text-purple-500 shrink-0" />
-                  <span className="truncate">{meeting.title}</span>
-                  <span className="ml-auto text-[9px] text-purple-400 shrink-0 whitespace-nowrap">{timeStr} · {durationStr}</span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-
+        {/* Tasks first (multi-day bars need consistent alignment) */}
         {dayTasks.map(({ task, position }, idx) =>
           task ? (
             <div
@@ -453,9 +436,9 @@ function DroppableDayCell({
               className={cn(
                 "relative",
                 position === "single" && "mx-1.5",
-                position === "start" && "ml-1.5 -mr-px z-[2]",
-                position === "middle" && "-mx-px z-[2]",
-                position === "end" && "-ml-px mr-1.5 z-[2]"
+                position === "start" && "ml-1.5 -mr-[3px] z-[2]",
+                position === "middle" && "-mx-[3px] z-[2]",
+                position === "end" && "-ml-[3px] mr-1.5 z-[2]"
               )}
             >
               <ResizableTaskBar
@@ -468,16 +451,27 @@ function DroppableDayCell({
                 onClick={onTaskClick}
                 onSelect={onSelectTask}
                 onResizeStart={onResizeStart}
+                onContextMenu={onContextMenu}
                 canDragTask={canDragTaskFn ? canDragTaskFn(task) : true}
               />
             </div>
           ) : (
             /* Invisible placeholder to keep slots aligned across days */
-            <div key={`ph-${idx}`} className="py-1.5 text-[10px] mx-1.5 pointer-events-none invisible">
-              <div className="flex items-center gap-1 px-2"><span>&nbsp;</span></div>
-            </div>
+            <div key={`ph-${idx}`} className="h-[26px] mx-1.5 pointer-events-none invisible" />
           )
         )}
+
+        {/* Meetings (after tasks so multi-day bars stay at top) */}
+        {dayMeetings.map((meeting) => (
+          <div
+            key={meeting.id}
+            onClick={(e) => { e.stopPropagation(); onMeetingClick(meeting.id); }}
+            className="mx-1.5 h-[26px] flex items-center gap-1 px-2 rounded-md cursor-pointer transition-colors text-[11px] font-medium bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200/60"
+          >
+            <Video size={11} className="shrink-0 text-purple-400" />
+            <span className="truncate">{meeting.title}</span>
+          </div>
+        ))}
 
         {/* Hover "+ 새 일정" button */}
         <div className="flex-1 min-h-[24px] flex items-end justify-center pb-1">
@@ -873,7 +867,7 @@ function QuickAddPopover({
 export function CalendarView() {
   const { language, t } = useLanguage();
   const navigate = useNavigate();
-  const { tasks: calTasks, setTasks: setCalTasks, addTask: addTaskToContext } = useTaskContext();
+  const { tasks: calTasks, addTask: addTaskToContext, updateTask, removeTask } = useTaskContext();
   const { meetings } = useMeetingContext();
   const { can, members: teamMembers, currentUser } = usePermission();
 
@@ -899,6 +893,32 @@ export function CalendarView() {
   // Quick view modal state
   const [quickViewTask, setQuickViewTask] = useState<Task | null>(null);
   const [quickViewRect, setQuickViewRect] = useState<DOMRect | null>(null);
+
+  // Context menu state (right-click)
+  const [ctxMenu, setCtxMenu] = useState<{ task: Task; x: number; y: number } | null>(null);
+  const ctxMenuRef = useRef<HTMLDivElement>(null);
+
+  const handleContextMenu = useCallback((task: Task, x: number, y: number) => {
+    setCtxMenu({ task, x, y });
+    setQuickViewTask(null);
+  }, []);
+
+  // Close context menu on outside click or Escape
+  useEffect(() => {
+    if (!ctxMenu) return;
+    const handleClick = (e: MouseEvent) => {
+      if (ctxMenuRef.current && !ctxMenuRef.current.contains(e.target as Node)) setCtxMenu(null);
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setCtxMenu(null);
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [ctxMenu]);
 
   // Resize state
   const [resizeState, setResizeState] = useState<ResizeState | null>(null);
@@ -1083,37 +1103,33 @@ export function CalendarView() {
     };
   }, [checkAutoScroll, clearAutoScroll]);
 
-  // Handle drop: update task dueDate
+  // Handle drop: update task dueDate and persist to server
   const handleDropTask = useCallback(
     (taskIds: string[], newDate: Date) => {
       // The first taskId is the one being dragged – use its dueDate as the anchor
-      setCalTasks((prev) => {
-        const anchorTask = prev.find((t) => t.id === taskIds[0]);
-        if (!anchorTask) return prev;
-        const anchorDue = anchorTask.dueDate ? new Date(anchorTask.dueDate) : null;
-        if (!anchorDue) return prev;
-        const anchorDelta = newDate.getTime() - anchorDue.getTime();
+      const anchorTask = calTasks.find((t) => t.id === taskIds[0]);
+      if (!anchorTask) return;
+      const anchorDue = anchorTask.dueDate ? new Date(anchorTask.dueDate) : null;
+      if (!anchorDue) return;
+      const anchorDelta = newDate.getTime() - anchorDue.getTime();
+      if (anchorDelta === 0) return;
 
-        return prev.map((t) => {
-          if (!taskIds.includes(t.id)) return t;
-          const taskDue = t.dueDate ? new Date(t.dueDate) : null;
-          if (!taskDue) return t;
-          const newDue = new Date(taskDue.getTime() + anchorDelta);
-          return {
-            ...t,
-            dueDate: newDue,
-            ...(t.startDate
-              ? { startDate: new Date(new Date(t.startDate).getTime() + anchorDelta) }
-              : {}),
-            ...(t.endDate
-              ? { endDate: new Date(new Date(t.endDate).getTime() + anchorDelta) }
-              : {}),
-          };
-        });
-      });
+      // Update each task via context (persists to server)
+      for (const tid of taskIds) {
+        const t = calTasks.find((tk) => tk.id === tid);
+        if (!t) continue;
+        const taskDue = t.dueDate ? new Date(t.dueDate) : null;
+        if (!taskDue) continue;
+        const updates: Partial<Task> = {
+          dueDate: new Date(taskDue.getTime() + anchorDelta),
+        };
+        if (t.startDate) updates.startDate = new Date(new Date(t.startDate).getTime() + anchorDelta);
+        if (t.endDate) updates.endDate = new Date(new Date(t.endDate).getTime() + anchorDelta);
+        updateTask(tid, updates);
+      }
       setQuickViewTask(null);
     },
-    []
+    [calTasks, updateTask]
   );
 
   const handleTaskClick = useCallback((task: Task, rect: DOMRect) => {
@@ -1210,29 +1226,12 @@ export function CalendarView() {
       const { taskId, edge, originalStart, originalEnd } = resizeRef.current;
       const previewDate = resizeState.previewDate;
 
-      setCalTasks((prev) =>
-        prev.map((t) => {
-          if (t.id !== taskId) return t;
-
-          if (edge === "left") {
-            const newStart = previewDate;
-            return {
-              ...t,
-              startDate: newStart,
-              dueDate: originalEnd,
-              endDate: originalEnd,
-            };
-          } else {
-            const newEnd = previewDate;
-            return {
-              ...t,
-              startDate: originalStart,
-              dueDate: newEnd,
-              endDate: newEnd,
-            };
-          }
-        })
-      );
+      // Persist to server via updateTask
+      if (edge === "left") {
+        updateTask(taskId, { startDate: previewDate, dueDate: originalEnd, endDate: originalEnd });
+      } else {
+        updateTask(taskId, { startDate: originalStart, dueDate: previewDate, endDate: previewDate });
+      }
 
       setResizeState(null);
       resizeRef.current = null;
@@ -1264,6 +1263,9 @@ export function CalendarView() {
     for (let i = 0; i < days.length; i += 7) {
       weekRows.push(days.slice(i, Math.min(i + 7, days.length)));
     }
+
+    // Cross-week slot persistence: tasks spanning multiple weeks keep their slot
+    const persistentSlots = new Map<string, number>();
 
     for (const weekDays of weekRows) {
       if (weekDays.length === 0) continue;
@@ -1314,7 +1316,11 @@ export function CalendarView() {
       }
 
       // Sort: multi-day first (longer → earlier start), then single-day by date
+      // Additionally, tasks with persistent slots come first to reserve their positions
       weekTasks.sort((a, b) => {
+        const aHasSlot = persistentSlots.has(a.task.id) ? 1 : 0;
+        const bHasSlot = persistentSlots.has(b.task.id) ? 1 : 0;
+        if (aHasSlot !== bHasSlot) return bHasSlot - aHasSlot; // persistent first
         if (a.isMultiDay && !b.isMultiDay) return -1;
         if (!a.isMultiDay && b.isMultiDay) return 1;
         if (a.isMultiDay && b.isMultiDay) {
@@ -1325,19 +1331,33 @@ export function CalendarView() {
         return a.range.start.getTime() - b.range.start.getTime();
       });
 
-      // Greedy slot allocation
+      // Greedy slot allocation with cross-week persistence
       const slotGrid: (string | null)[][] = weekDays.map(() => []);
       const MAX_SLOTS = 30;
 
       for (const wt of weekTasks) {
-        let slot = 0;
-        while (slot < MAX_SLOTS) {
-          if (wt.dayIndices.every((di) => !slotGrid[di][slot])) break;
-          slot++;
+        let slot: number;
+        const prevSlot = persistentSlots.get(wt.task.id);
+
+        // If this task had a slot in a previous week and it's still free, reuse it
+        if (prevSlot !== undefined && wt.dayIndices.every((di) => !slotGrid[di][prevSlot])) {
+          slot = prevSlot;
+        } else {
+          slot = 0;
+          while (slot < MAX_SLOTS) {
+            if (wt.dayIndices.every((di) => !slotGrid[di][slot])) break;
+            slot++;
+          }
         }
+
         for (const di of wt.dayIndices) {
           while (slotGrid[di].length <= slot) slotGrid[di].push(null);
           slotGrid[di][slot] = wt.task.id;
+        }
+
+        // If task continues beyond this week, remember its slot
+        if (isAfter(wt.range.end, wEnd)) {
+          persistentSlots.set(wt.task.id, slot);
         }
       }
 
@@ -1517,13 +1537,13 @@ export function CalendarView() {
             </span>
           </div>
           <div className="flex items-center gap-1.5 border-l border-gray-200 pl-4">
-            <span className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-black/5" style={{ backgroundColor: "#EF4444" }} />
+            <span className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-black/5" style={{ backgroundColor: "#EAB308" }} />
             <span className="text-xs font-medium text-gray-500">
               {language === "ko" ? "할 일" : "To Do"}
             </span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-black/5" style={{ backgroundColor: "#F97316" }} />
+            <span className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-black/5" style={{ backgroundColor: "#3B82F6" }} />
             <span className="text-xs font-medium text-gray-500">
               {language === "ko" ? "진행 중" : "In Progress"}
             </span>
@@ -1614,6 +1634,7 @@ export function CalendarView() {
                 onMeetingClick={(meetingId) => {
                   navigate(`/meetings/${meetingId}`);
                 }}
+                onContextMenu={handleContextMenu}
                 canDragTaskFn={(task: Task) => {
                   if (canEditAnyCalendar) return true;
                   if (canEditOwnCalendar) {
@@ -1686,6 +1707,54 @@ export function CalendarView() {
             className="ml-1 p-1 hover:bg-white/20 rounded-full transition-colors"
           >
             <X size={14} />
+          </button>
+        </div>,
+        document.body
+      )}
+
+      {/* Right-click context menu */}
+      {ctxMenu && createPortal(
+        <div
+          ref={ctxMenuRef}
+          className="fixed z-[10001] bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[160px] animate-in fade-in zoom-in-95 duration-100"
+          style={{ left: ctxMenu.x, top: ctxMenu.y }}
+        >
+          <button
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            onClick={() => {
+              navigate(`/tasks/${ctxMenu.task.id}`);
+              setCtxMenu(null);
+            }}
+          >
+            <Maximize2 size={14} className="text-gray-400" />
+            {language === "ko" ? "상세 보기" : "Open detail"}
+          </button>
+          <button
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            onClick={() => {
+              const task = ctxMenu.task;
+              const next = task.status === "completed" ? "pending" : task.status === "in-progress" ? "completed" : "in-progress";
+              updateTask(task.id, { status: next });
+              setCtxMenu(null);
+            }}
+          >
+            {ctxMenu.task.status === "completed"
+              ? <Circle size={14} className="text-gray-400" />
+              : <CheckCircle2 size={14} className="text-green-500" />}
+            {language === "ko"
+              ? ctxMenu.task.status === "completed" ? "미완료로 변경" : ctxMenu.task.status === "in-progress" ? "완료로 변경" : "진행 중으로 변경"
+              : ctxMenu.task.status === "completed" ? "Mark incomplete" : ctxMenu.task.status === "in-progress" ? "Mark complete" : "Mark in progress"}
+          </button>
+          <div className="border-t border-gray-100 my-1" />
+          <button
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+            onClick={() => {
+              removeTask(ctxMenu.task.id);
+              setCtxMenu(null);
+            }}
+          >
+            <X size={14} />
+            {language === "ko" ? "삭제" : "Delete"}
           </button>
         </div>,
         document.body
