@@ -24,7 +24,6 @@ import {
   Columns4,
   DollarSign,
   PenTool,
-  Video,
   Megaphone,
   Code,
   Palette,
@@ -37,8 +36,6 @@ import {
   StickyNote,
   GripHorizontal,
   Target,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Task, TaskCategory, getAllAssigneeIds } from "../../lib/mockData";
@@ -47,10 +44,9 @@ import { useLanguage } from "../context/LanguageContext";
 import { useTaskContext } from "../context/TaskContext";
 import { useGoalContext } from "../context/GoalContext";
 import { usePermission } from "../context/PermissionContext";
-import { useMeetingContext, Meeting } from "../context/MeetingContext";
+import { CalendarView } from "../components/dashboard/CalendarView";
 import { PermissionGate } from "../components/layout/PermissionGate";
 import { differenceInDays, format } from "date-fns";
-import { ko as koLocale } from "date-fns/locale";
 import { TaskListView } from "../components/tasks/TaskListView";
 import { useTrash } from "../context/TrashContext";
 import { loadCards as loadMgmtCards } from "./ManagementPage";
@@ -402,439 +398,6 @@ function SelectionToolbar({
   );
 }
 
-// ─── Calendar View ──────────────────────────────────────────────────
-type CalItemType = 'task' | 'meeting';
-interface CalItem {
-  id: string;
-  type: CalItemType;
-  title: string;
-  date: Date;
-  status: string;
-  priority?: string;
-}
-
-const CAL_DRAG = 'CAL_ITEM';
-interface CalDragItem { id: string; type: CalItemType; fromDate: string; }
-
-function CalendarView({ tasks, language }: { tasks: Task[]; language: string }) {
-  const navigate = useNavigate();
-  const { addTask: addTaskCtx, updateTask, getTask } = useTaskContext();
-  const { meetings, addMeeting, updateMeeting } = useMeetingContext();
-  const { currentUser } = usePermission();
-  const isAdminOrOwner = currentUser.role === 'owner' || currentUser.role === 'admin';
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [showPrevWeeks, setShowPrevWeeks] = useState(false);
-  const [popupData, setPopupData] = useState<{ type: CalItemType; date: Date } | null>(null);
-  const [popupTitle, setPopupTitle] = useState('');
-  const popupRef = useRef<HTMLDivElement>(null);
-  const popupInputRef = useRef<HTMLInputElement>(null);
-
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-  const ko = language === 'ko';
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  // Build all calendar items (tasks + meetings)
-  const calItems = useMemo(() => {
-    const items: CalItem[] = [];
-    tasks.forEach(t => {
-      if (!t.dueDate) return;
-      items.push({ id: t.id, type: 'task', title: ko ? (t.titleKo || t.title) : t.title, date: new Date(t.dueDate), status: t.status, priority: t.priority });
-    });
-    meetings.forEach(m => {
-      items.push({ id: m.id, type: 'meeting', title: m.title, date: new Date(m.date), status: m.status, priority: undefined });
-    });
-    return items;
-  }, [tasks, meetings, ko]);
-
-  // Group by dateKey
-  const itemsByDate = useMemo(() => {
-    const map: Record<string, CalItem[]> = {};
-    calItems.forEach(item => {
-      const d = item.date;
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      if (!map[key]) map[key] = [];
-      map[key].push(item);
-    });
-    return map;
-  }, [calItems]);
-
-  // Build cells
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
-  const startPad = firstDay.getDay();
-  const totalDays = lastDay.getDate();
-
-  const cells: (number | null)[] = [];
-  for (let i = 0; i < startPad; i++) cells.push(null);
-  for (let d = 1; d <= totalDays; d++) cells.push(d);
-  while (cells.length % 7 !== 0) cells.push(null);
-
-  // Split into weeks
-  const weeks: (number | null)[][] = [];
-  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
-
-  // Find current week index
-  const todayInMonth = today.getFullYear() === year && today.getMonth() === month;
-  const currentWeekIdx = todayInMonth
-    ? weeks.findIndex(w => w.includes(today.getDate()))
-    : 0;
-
-  // Show from current week (or all if showPrevWeeks)
-  const visibleWeeks = showPrevWeeks ? weeks : weeks.slice(Math.max(0, currentWeekIdx));
-
-  // Max items in any day per week (for variable height)
-  const weekMaxItems = (week: (number | null)[]) => {
-    let max = 0;
-    week.forEach(day => {
-      if (day === null) return;
-      const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      max = Math.max(max, (itemsByDate[key] || []).length);
-    });
-    return max;
-  };
-
-  const prevMonth = () => { setCurrentDate(new Date(year, month - 1, 1)); setShowPrevWeeks(false); };
-  const nextMonth = () => { setCurrentDate(new Date(year, month + 1, 1)); setShowPrevWeeks(false); };
-  const goToday = () => { setCurrentDate(new Date()); setShowPrevWeeks(false); };
-
-  const monthLabel = ko ? `${year}년 ${month + 1}월` : format(currentDate, 'MMMM yyyy');
-  const dayHeaders = ko ? ['일', '월', '화', '수', '목', '금', '토'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-  const statusColor = (s: string) =>
-    s === 'completed' ? 'bg-emerald-500' : s === 'in-progress' || s === 'scheduled' ? 'bg-blue-500' : 'bg-gray-400';
-  const priorityBorder = (p?: string) =>
-    p === 'high' ? 'border-l-red-400' : p === 'medium' ? 'border-l-amber-400' : 'border-l-gray-300';
-
-  // Drag: move or clone item to a new date
-  const handleDrop = useCallback((dateKey: string, item: CalDragItem) => {
-    if (item.fromDate === dateKey) return;
-    const [y, m, d] = dateKey.split('-').map(Number);
-    const newDate = new Date(y, m - 1, d);
-    const isClone = altKeyRef.current;
-
-    if (item.type === 'task') {
-      if (isClone) {
-        const orig = getTask(item.id);
-        if (!orig) return;
-        // Find clone number
-        const base = (ko ? orig.titleKo || orig.title : orig.title).replace(/\s*\(\d+\)$/, '');
-        const existing = tasks.filter(t => {
-          const tt = ko ? (t.titleKo || t.title) : t.title;
-          return tt.startsWith(base) && tt !== base;
-        }).length;
-        const cloneTitle = `${base} (${existing + 1})`;
-        const newId = `t${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
-        addTaskCtx({ ...orig, id: newId, title: cloneTitle, titleKo: cloneTitle, dueDate: newDate, startDate: newDate } as Task);
-      } else {
-        updateTask(item.id, { dueDate: newDate, startDate: newDate });
-      }
-    } else if (item.type === 'meeting' && isAdminOrOwner) {
-      const orig = meetings.find(m => m.id === item.id);
-      if (!orig) return;
-      if (isClone) {
-        const base = orig.title.replace(/\s*\(\d+\)$/, '');
-        const existing = meetings.filter(m => m.title.startsWith(base) && m.title !== base).length;
-        const cloneTitle = `${base} (${existing + 1})`;
-        const newId = `mtg-${Date.now()}`;
-        addMeeting({ ...orig, id: newId, title: cloneTitle, date: newDate.toISOString(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
-      } else {
-        updateMeeting(item.id, { date: newDate.toISOString(), updatedAt: new Date().toISOString() });
-      }
-    }
-  }, [tasks, meetings, ko, getTask, updateTask, addTaskCtx, addMeeting, updateMeeting, isAdminOrOwner]);
-
-  // Popup: create task or meeting
-  const openPopup = (type: CalItemType, date: Date) => {
-    setPopupData({ type, date });
-    setPopupTitle('');
-    setTimeout(() => popupInputRef.current?.focus(), 50);
-  };
-
-  const submitPopup = () => {
-    if (!popupData || !popupTitle.trim()) return;
-    const { type, date } = popupData;
-    if (type === 'task') {
-      const newId = `t${Date.now()}`;
-      addTaskCtx({
-        id: newId, title: popupTitle.trim(), titleKo: popupTitle.trim(),
-        level: 'Day' as const, progress: 0, status: 'pending',
-        dueDate: date, startDate: date, assigneeId: currentUser.id, assigneeIds: [currentUser.id], priority: 'medium',
-      } as Task);
-    } else {
-      const newId = `mtg-${Date.now()}`;
-      addMeeting({
-        id: newId, title: popupTitle.trim(), date: date.toISOString(),
-        duration: 30, type: 'other', status: 'scheduled',
-        attendeeIds: [currentUser.id], organizerId: currentUser.id,
-        actionItems: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-      });
-    }
-    setPopupData(null);
-    setPopupTitle('');
-  };
-
-  const closePopup = () => {
-    // ESC: if task type, still create empty-title task placeholder
-    if (popupData?.type === 'task') {
-      const { date } = popupData;
-      const newId = `t${Date.now()}`;
-      addTaskCtx({
-        id: newId, title: ko ? '새 업무' : 'New Task', titleKo: ko ? '새 업무' : 'New Task',
-        level: 'Day' as const, progress: 0, status: 'pending',
-        dueDate: date, startDate: date, assigneeId: currentUser.id, assigneeIds: [currentUser.id], priority: 'medium',
-      } as Task);
-    }
-    setPopupData(null);
-    setPopupTitle('');
-  };
-
-  useEffect(() => {
-    if (!popupData) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closePopup();
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [popupData]);
-
-  return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
-            <ChevronLeft size={18} />
-          </button>
-          <h3 className="text-lg font-bold text-gray-900 min-w-[160px] text-center">{monthLabel}</h3>
-          <button onClick={nextMonth} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
-            <ChevronRight size={18} />
-          </button>
-        </div>
-        <div className="flex items-center gap-2">
-          {!showPrevWeeks && currentWeekIdx > 0 && (
-            <button onClick={() => setShowPrevWeeks(true)}
-              className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 font-medium transition-colors">
-              {ko ? '이전 주 보기' : 'Show prev weeks'}
-            </button>
-          )}
-          {showPrevWeeks && (
-            <button onClick={() => setShowPrevWeeks(false)}
-              className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 font-medium transition-colors">
-              {ko ? '이번 주부터' : 'From this week'}
-            </button>
-          )}
-          <button onClick={goToday}
-            className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium transition-colors">
-            {ko ? '오늘' : 'Today'}
-          </button>
-        </div>
-      </div>
-
-      {/* Day headers */}
-      <div className="grid grid-cols-7 mb-1">
-        {dayHeaders.map((d, i) => (
-          <div key={d} className={cn("text-center text-[11px] font-semibold py-2",
-            i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-gray-400'
-          )}>{d}</div>
-        ))}
-      </div>
-
-      {/* Calendar grid — week rows */}
-      <div className="flex-1 border-t border-l border-gray-200 overflow-y-auto">
-        {visibleWeeks.map((week, wi) => {
-          const maxItems = weekMaxItems(week);
-          const rowMinH = maxItems === 0 ? 48 : Math.max(68, 28 + maxItems * 22);
-          return (
-            <div key={wi} className="grid grid-cols-7" style={{ minHeight: rowMinH }}>
-              {week.map((day, di) => (
-                <CalendarCell
-                  key={`${wi}-${di}`}
-                  day={day} year={year} month={month} colIdx={di}
-                  items={day ? (itemsByDate[`${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`] || []) : []}
-                  isToday={day !== null && todayInMonth && day === today.getDate()}
-                  ko={ko}
-                  statusColor={statusColor}
-                  priorityBorder={priorityBorder}
-                  onDrop={handleDrop}
-                  onOpenItem={(item) => {
-                    if (item.type === 'task') navigate(`/tasks/${item.id}`);
-                    else navigate(`/meetings/${item.id}`);
-                  }}
-                  onAddTask={(date) => openPopup('task', date)}
-                  onAddMeeting={isAdminOrOwner ? (date) => openPopup('meeting', date) : undefined}
-                  isAdminOrOwner={isAdminOrOwner}
-                />
-              ))}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Popup modal for new task/meeting */}
-      {popupData && (
-        <>
-          <div className="fixed inset-0 bg-black/20 z-[80]" onClick={closePopup} />
-          <div ref={popupRef}
-            className="fixed z-[81] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className={cn("px-5 py-3 border-b flex items-center gap-2",
-              popupData.type === 'task' ? "bg-blue-50 border-blue-100" : "bg-purple-50 border-purple-100"
-            )}>
-              {popupData.type === 'task' ? <Circle size={14} className="text-blue-500" /> : <Video size={14} className="text-purple-500" />}
-              <span className="text-sm font-bold text-gray-800">
-                {popupData.type === 'task'
-                  ? (ko ? '새 업무' : 'New Task')
-                  : (ko ? '새 회의' : 'New Meeting')
-                }
-              </span>
-              <span className="text-xs text-gray-400 ml-auto">
-                {format(popupData.date, ko ? 'M월 d일' : 'MMM d', { locale: ko ? koLocale : undefined })}
-              </span>
-            </div>
-            <div className="p-5">
-              <input ref={popupInputRef}
-                value={popupTitle} onChange={e => setPopupTitle(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') submitPopup(); }}
-                placeholder={popupData.type === 'task' ? (ko ? '업무 제목...' : 'Task title...') : (ko ? '회의 제목...' : 'Meeting title...')}
-                className="w-full text-sm px-4 py-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all" />
-              <div className="flex items-center justify-between mt-4">
-                <span className="text-[10px] text-gray-400">
-                  {ko ? 'Enter로 생성 · ESC로 닫기' : 'Enter to create · ESC to close'}
-                  {popupData.type === 'task' && (ko ? ' (ESC: 빈 업무 생성)' : ' (ESC: create empty task)')}
-                </span>
-                <button onClick={submitPopup}
-                  className="px-4 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors">
-                  {ko ? '생성' : 'Create'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-// ─── Calendar Cell (droppable) ──────────────────────────────────────
-function CalendarCell({
-  day, year, month, colIdx, items, isToday, ko,
-  statusColor, priorityBorder, onDrop, onOpenItem, onAddTask, onAddMeeting, isAdminOrOwner,
-}: {
-  day: number | null; year: number; month: number; colIdx: number;
-  items: CalItem[]; isToday: boolean; ko: boolean;
-  statusColor: (s: string) => string;
-  priorityBorder: (p?: string) => string;
-  onDrop: (dateKey: string, item: CalDragItem) => void;
-  onOpenItem: (item: CalItem) => void;
-  onAddTask: (date: Date) => void;
-  onAddMeeting?: (date: Date) => void;
-  isAdminOrOwner: boolean;
-}) {
-  const dateKey = day ? `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` : '';
-
-  const [{ isOver }, dropRef] = useDrop<CalDragItem, void, { isOver: boolean }>({
-    accept: CAL_DRAG,
-    canDrop: () => day !== null,
-    drop: (dragItem) => { if (day !== null) onDrop(dateKey, dragItem); },
-    collect: (monitor) => ({ isOver: monitor.isOver() && monitor.canDrop() }),
-  });
-
-  const [showAdd, setShowAdd] = useState(false);
-  const addRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!showAdd) return;
-    const h = (e: MouseEvent) => { if (addRef.current && !addRef.current.contains(e.target as Node)) setShowAdd(false); };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, [showAdd]);
-
-  const date = day ? new Date(year, month, day) : null;
-
-  return (
-    <div ref={dropRef} className={cn(
-      "border-r border-b border-gray-200 p-1 transition-colors relative group/cell",
-      day === null ? 'bg-gray-50/50' : isOver ? 'bg-blue-50/60' : 'bg-white hover:bg-gray-50/30',
-    )}>
-      {day !== null && (
-        <>
-          <div className="flex items-center justify-between px-1 mb-0.5">
-            <span className={cn("text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full",
-              isToday ? 'bg-blue-600 text-white' : colIdx === 0 ? 'text-red-400' : colIdx === 6 ? 'text-blue-400' : 'text-gray-600'
-            )}>{day}</span>
-            <div className="relative" ref={addRef}>
-              <button
-                onClick={() => setShowAdd(!showAdd)}
-                className="text-gray-300 hover:text-blue-500 opacity-0 group-hover/cell:opacity-100 transition-all p-0.5 rounded hover:bg-blue-50"
-              >
-                <Plus size={13} />
-              </button>
-              {showAdd && date && (
-                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 min-w-[100px] animate-in fade-in duration-100">
-                  <button onClick={() => { onAddTask(date); setShowAdd(false); }}
-                    className="w-full px-3 py-1.5 text-[11px] text-left hover:bg-blue-50 flex items-center gap-1.5 text-gray-700 transition-colors">
-                    <Circle size={10} className="text-blue-500" /> {ko ? '업무' : 'Task'}
-                  </button>
-                  {onAddMeeting && (
-                    <button onClick={() => { onAddMeeting(date); setShowAdd(false); }}
-                      className="w-full px-3 py-1.5 text-[11px] text-left hover:bg-purple-50 flex items-center gap-1.5 text-gray-700 transition-colors">
-                      <Video size={10} className="text-purple-500" /> {ko ? '회의' : 'Meeting'}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="space-y-0.5 overflow-y-auto max-h-[80px] custom-scrollbar">
-            {items.map(item => (
-              <CalendarItemChip key={`${item.type}-${item.id}`} item={item} dateKey={dateKey} ko={ko}
-                statusColor={statusColor} priorityBorder={priorityBorder} onOpen={onOpenItem}
-                canDrag={item.type === 'task' || isAdminOrOwner} />
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-// ─── Calendar Item Chip (draggable) ─────────────────────────────────
-function CalendarItemChip({
-  item, dateKey, ko, statusColor, priorityBorder, onOpen, canDrag,
-}: {
-  item: CalItem; dateKey: string; ko: boolean;
-  statusColor: (s: string) => string;
-  priorityBorder: (p?: string) => string;
-  onOpen: (item: CalItem) => void;
-  canDrag: boolean;
-}) {
-  const [{ isDragging }, dragRef] = useDrag<CalDragItem, void, { isDragging: boolean }>({
-    type: CAL_DRAG,
-    item: { id: item.id, type: item.type, fromDate: dateKey },
-    canDrag: () => canDrag,
-    collect: (monitor) => ({ isDragging: monitor.isDragging() }),
-  });
-
-  const isMeeting = item.type === 'meeting';
-
-  return (
-    <button ref={dragRef} onClick={() => onOpen(item)}
-      className={cn(
-        "w-full text-left px-1.5 py-0.5 rounded text-[10px] truncate border-l-2 transition-colors",
-        isDragging ? 'opacity-40' : 'hover:bg-gray-100',
-        isMeeting ? 'border-l-purple-400' : priorityBorder(item.priority),
-        canDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
-      )}>
-      {isMeeting
-        ? <Video size={9} className="inline-block mr-0.5 text-purple-500 -mt-px" />
-        : <span className={cn("inline-block w-1.5 h-1.5 rounded-full mr-1", statusColor(item.status))} />
-      }
-      {item.title}
-    </button>
-  );
-}
-
 // ─── Board View ─────────────────────────────────────────────────────
 function BoardView({
   pendingTasks, inProgressTasks, urgentTasks, overdueTasks, completedTasks,
@@ -1109,9 +672,10 @@ export function TasksPage() {
   const closeCtxMenu = useCallback(() => setCtxMenu(null), []);
 
   // Show only current user's tasks in "내 업무"
+  const myTaskFilter = useCallback((t: Task) => getAllAssigneeIds(t).includes(currentUser.id), [currentUser.id]);
   const myTasks = useMemo(() => {
-    return allTasks.filter(t => getAllAssigneeIds(t).includes(currentUser.id));
-  }, [allTasks, currentUser.id]);
+    return allTasks.filter(myTaskFilter);
+  }, [allTasks, myTaskFilter]);
 
   const filteredTasks = useMemo(() => {
     let result = myTasks;
@@ -1337,7 +901,7 @@ export function TasksPage() {
             onBulkSelect={setSelectedIds} onCardContextMenu={handleCardContextMenu}
           />
         ) : viewMode === 'calendar' ? (
-          <CalendarView tasks={myTasks} language={language} />
+          <CalendarView taskFilter={myTaskFilter} />
         ) : (
           <div className="h-full">
             <TaskListView tasks={filteredTasks} onStatusChange={(id, status) => handleStatusChange([id], status)} />

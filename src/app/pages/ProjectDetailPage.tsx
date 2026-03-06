@@ -96,7 +96,7 @@ export function ProjectDetailPage() {
     if (!confirm(ko ? "이 프로젝트를 삭제하시겠습니까?" : "Delete this project?")) return;
     const next = projects.filter((p) => p.id !== project.id);
     saveProjects(next);
-    navigate("/management");
+    navigate("/management/projects");
   };
 
   if (!project) {
@@ -118,7 +118,7 @@ export function ProjectDetailPage() {
             <div className="flex items-center justify-between">
               <nav className="flex items-center gap-1 text-sm">
                 <button
-                  onClick={() => navigate("/management")}
+                  onClick={() => navigate("/management/projects")}
                   className="text-gray-400 hover:text-blue-600 transition-colors font-medium"
                 >
                   {ko ? "프로젝트" : "Projects"}

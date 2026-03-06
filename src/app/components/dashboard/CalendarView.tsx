@@ -878,10 +878,11 @@ function QuickAddPopover({
 }
 
 // ─── Main CalendarView ──────────────────────────────────────────────
-export function CalendarView() {
+export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => boolean } = {}) {
   const { language, t } = useLanguage();
   const navigate = useNavigate();
-  const { tasks: calTasks, addTask: addTaskToContext, updateTask, removeTask } = useTaskContext();
+  const { tasks: allContextTasks, addTask: addTaskToContext, updateTask, removeTask } = useTaskContext();
+  const calTasks = useMemo(() => taskFilter ? allContextTasks.filter(taskFilter) : allContextTasks, [allContextTasks, taskFilter]);
   const { meetings, addMeeting } = useMeetingContext();
   const { can, members: teamMembers, currentUser } = usePermission();
 

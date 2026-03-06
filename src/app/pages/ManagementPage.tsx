@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import { useDrag, useDrop } from "react-dnd";
 import {
   FolderKanban, Palette, Plus, Trash2,
@@ -454,8 +454,8 @@ function MgmtColumn({
 export function ManagementPage() {
   const { language } = useLanguage();
   const ko = language === "ko";
-  const [searchParams] = useSearchParams();
-  const board: BoardType = searchParams.get("tab") === "branding" ? "branding" : "projects";
+  const { boardType } = useParams<{ boardType: string }>();
+  const board: BoardType = boardType === "branding" ? "branding" : "projects";
 
   const [columns, setColumns] = useState<KanbanColumn[]>(() => loadColumns(board));
   const [cards, setCards] = useState<KanbanCard[]>(() => loadCards(board));

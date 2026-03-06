@@ -60,7 +60,7 @@ export const router = createBrowserRouter([
               { path: "tasks", Component: TasksPage },
               { path: "tasks/:taskId", Component: TaskDetailPage },
               { path: "calendar", Component: CalendarPage },
-              { path: "management", Component: ManagementPage },
+              { path: "management/:boardType", Component: ManagementPage },
               { path: "management/projects/:projectId", Component: ProjectDetailPage },
               { path: "management/branding/:brandId", Component: BrandDetailPage },
               { path: "organization", Component: OrgSettingsPage },
