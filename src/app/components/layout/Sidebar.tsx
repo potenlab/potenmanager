@@ -5,14 +5,11 @@ import {
   LayoutDashboard,
   Calendar,
   CheckSquare,
-  Users,
   Settings,
   Zap,
   Video,
   Radar,
   BookMarked,
-  Globe,
-  ChevronDown,
   ChevronsUpDown,
   Check,
   Building2,
@@ -46,7 +43,7 @@ interface NavGroup {
 
 const DEFAULT_GROUPS: NavGroup[] = [
   { id: "work", labelKo: "업무", labelEn: "Work", itemIds: ["tasks", "calendar", "library"] },
-  { id: "org", labelKo: "조직", labelEn: "Organization", itemIds: ["goals", "projects", "branding", "team"] },
+  { id: "org", labelKo: "조직", labelEn: "Organization", itemIds: ["goals", "projects", "branding"] },
   { id: "tools", labelKo: "도구", labelEn: "Tools", itemIds: ["meetings", "radar"] },
 ];
 
@@ -157,7 +154,6 @@ export function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const ko = language === "ko";
-  const [teamExpanded, setTeamExpanded] = useState(true);
   const [orgSwitcherOpen, setOrgSwitcherOpen] = useState(false);
 
   // Per-group item ordering (stored in localStorage)
@@ -184,7 +180,6 @@ export function Sidebar() {
   }, []);
 
   const isCompact = !isMobile && width < 240;
-  const isTeamActive = location.pathname.startsWith("/team");
 
   // Nav item definitions
   const navItemMap: Record<string, { to: string; icon: ReactNode; label: string }> = {
@@ -203,91 +198,6 @@ export function Sidebar() {
   };
 
   const renderNavItem = (id: string, groupId: string) => {
-    // "team" is special — has expandable sub-items
-    if (id === "team") {
-      return (
-        <DraggableNavItem key="team" id="team" groupId={groupId} moveItem={moveItem}>
-          <div>
-            <div className="flex items-center">
-              <NavLink
-                to="/team"
-                end
-                onClick={closeSidebar}
-                className={({ isActive }) =>
-                  cn(
-                    "flex-1 flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 overflow-hidden whitespace-nowrap",
-                    isTeamActive
-                      ? "bg-blue-50 text-blue-600 shadow-sm border border-blue-100"
-                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 border border-transparent"
-                  )
-                }
-                title={isCompact ? t("team") : undefined}
-              >
-                <div className="shrink-0">
-                  <Users size={18} />
-                </div>
-                <span className={cn("transition-opacity duration-200 flex-1", isCompact ? "opacity-0 w-0" : "opacity-100")}>
-                  {t("team")}
-                </span>
-              </NavLink>
-              {!isCompact && (
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setTeamExpanded(!teamExpanded);
-                  }}
-                  className={cn(
-                    "p-1.5 rounded-lg transition-all mr-1 shrink-0",
-                    isTeamActive ? "text-blue-400 hover:text-blue-600 hover:bg-blue-100" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-                  )}
-                >
-                  <ChevronDown size={14} className={cn("transition-transform duration-200", !teamExpanded && "-rotate-90")} />
-                </button>
-              )}
-            </div>
-
-            {/* Team members sub-items */}
-            {!isCompact && teamExpanded && (
-              <div className="ml-4 mt-0.5 space-y-0.5 border-l-2 border-gray-200 pl-3 animate-in slide-in-from-top-1 fade-in duration-200">
-                {members.map((member) => (
-                  <NavLink
-                    key={member.id}
-                    to={`/team/${member.id}`}
-                    onClick={closeSidebar}
-                    className={({ isActive }) =>
-                      cn(
-                        "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-150 group/member",
-                        isActive ? "bg-blue-50/80 text-blue-600 font-medium" : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-                      )
-                    }
-                  >
-                    <div className="relative shrink-0">
-                      <img src={member.avatar} alt={member.name} className="w-6 h-6 rounded-full object-cover border border-gray-200 group-hover/member:border-blue-200 transition-colors" />
-                      <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-500 border-[1.5px] border-white rounded-full" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1">
-                        <span className="truncate text-[13px]">{member.name}</span>
-                        {member.id === currentUser.id && (
-                          <span className="text-[10px] text-blue-400 font-medium shrink-0">{ko ? "(나)" : "(me)"}</span>
-                        )}
-                        {(() => {
-                          const mColor = getUserColor(member.id);
-                          return mColor ? <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-white shadow-sm" style={{ backgroundColor: mColor }} /> : null;
-                        })()}
-                      </div>
-                      {member.jobTitle && <span className="text-[11px] text-gray-400 truncate block leading-tight">{member.jobTitle}</span>}
-                    </div>
-                  </NavLink>
-                ))}
-              </div>
-            )}
-          </div>
-        </DraggableNavItem>
-      );
-    }
-
     const item = navItemMap[id];
     if (!item) return null;
 
@@ -328,8 +238,8 @@ export function Sidebar() {
       className={cn("bg-[#F8F9FA] border-r border-[#E7E7E7] flex flex-col select-none", isMobile ? "w-[280px] h-full" : "h-screen fixed left-0 top-0 z-50")}
       style={isMobile ? undefined : { width }}
     >
-      {/* Brand Logo */}
-      <div className="p-6 md:p-8 pb-4 overflow-hidden">
+      {/* Brand Logo + Nav (scrollable) */}
+      <div className="p-6 md:p-8 pb-4 overflow-y-auto overflow-x-hidden flex-1 scrollbar-hide">
         <div className="flex items-center gap-3 mb-6 md:mb-8 min-w-[200px]">
           <button onClick={() => { navigate("/organization"); closeSidebar(); }} className="shrink-0 hover:opacity-80 transition-opacity" title={ko ? "조직 비전" : "Organization Vision"}>
             {org?.logoUrl ? (
@@ -410,18 +320,59 @@ export function Sidebar() {
         </nav>
       </div>
 
-      <div className="flex-1" />
+      {/* Bottom: Profile + Team + Settings */}
+      <div className="px-6 md:px-8 pb-6 md:pb-8 pt-0 overflow-hidden shrink-0">
+        <div className="pt-3 border-t border-gray-200 space-y-1">
+          {/* User Profile */}
+          <div
+            onClick={() => { navigate("/mypage"); closeSidebar(); }}
+            className="flex items-center gap-3 p-2 rounded-xl hover:bg-white cursor-pointer transition-colors border border-transparent hover:border-gray-100 hover:shadow-sm overflow-hidden"
+          >
+            <img src={currentUser.avatar} alt={currentUser.name} className="w-9 h-9 rounded-full object-cover border border-gray-200 shrink-0" />
+            {!isCompact && (
+              <>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">{currentUser.name}</p>
+                  <p className="text-[11px] text-gray-500 truncate">{currentUser.role}</p>
+                </div>
+                <Settings size={16} className="text-gray-400 shrink-0" />
+              </>
+            )}
+          </div>
 
-      {/* Language Toggle & User Profile */}
-      <div className="p-6 md:p-8 pt-0 overflow-hidden">
-        <div className="pt-4 border-t border-gray-200 space-y-2">
+          {/* Team members (always visible) */}
           {!isCompact && (
-            <div className="flex items-center justify-between px-2">
-              <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
-                <Globe size={14} />
-                <span>Language</span>
-              </div>
-              <div className="flex bg-gray-200 p-0.5 rounded-lg">
+            <div className="space-y-0.5 pl-2">
+              {members.filter(m => m.id !== currentUser.id).map((member) => (
+                <NavLink
+                  key={member.id}
+                  to={`/team/${member.id}`}
+                  onClick={closeSidebar}
+                  className={({ isActive }) =>
+                    cn(
+                      "flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm transition-all duration-150 group/member",
+                      isActive ? "bg-blue-50/80 text-blue-600 font-medium" : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                    )
+                  }
+                >
+                  <div className="relative shrink-0">
+                    <img src={member.avatar} alt={member.name} className="w-5 h-5 rounded-full object-cover border border-gray-200 group-hover/member:border-blue-200 transition-colors" />
+                    <div className="absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 bg-green-500 border border-white rounded-full" />
+                  </div>
+                  <span className="truncate text-[12px]">{member.name}</span>
+                  {(() => {
+                    const mColor = getUserColor(member.id);
+                    return mColor ? <span className="w-2 h-2 rounded-full shrink-0 ml-auto" style={{ backgroundColor: mColor }} /> : null;
+                  })()}
+                </NavLink>
+              ))}
+            </div>
+          )}
+
+          {/* Settings row: language, trash, logout */}
+          <div className="flex items-center gap-1 pt-2 border-t border-gray-100 mt-2">
+            {!isCompact && (
+              <div className="flex bg-gray-200 p-0.5 rounded-lg shrink-0">
                 <button
                   onClick={() => setLanguage("ko")}
                   className={cn("px-2 py-0.5 text-[10px] rounded-md transition-all", language === "ko" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-900")}
@@ -435,37 +386,14 @@ export function Sidebar() {
                   EN
                 </button>
               </div>
-            </div>
-          )}
-
-          <div
-            onClick={() => { navigate("/mypage"); closeSidebar(); }}
-            className="flex items-center gap-3 p-2 rounded-xl hover:bg-white cursor-pointer transition-colors border border-transparent hover:border-gray-100 hover:shadow-sm overflow-hidden"
-          >
-            <img src={currentUser.avatar} alt={currentUser.name} className="w-10 h-10 rounded-full object-cover border border-gray-200 shrink-0" />
-            {!isCompact && (
-              <>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 truncate">{currentUser.name}</p>
-                  <p className="text-xs text-gray-500 truncate">{currentUser.role}</p>
-                </div>
-                <Settings size={18} className="text-gray-400 shrink-0" />
-              </>
             )}
-          </div>
-
-          {/* 로그아웃 버튼 */}
-          <div className="flex items-center gap-1">
+            <div className="flex-1" />
             <button
-              onClick={async () => {
-                localStorage.removeItem("poten_dev_mode");
-                await signOut();
-                navigate("/login", { replace: true });
-              }}
-              className={cn("flex-1 flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors", isCompact && "justify-center")}
+              onClick={() => { navigate("/trash"); closeSidebar(); }}
+              className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              title={ko ? "휴지통" : "Trash"}
             >
-              <LogOut size={16} className="shrink-0" />
-              {!isCompact && <span>{ko ? "로그아웃" : "Sign out"}</span>}
+              <Trash2 size={14} />
             </button>
             {!isCompact && (
               <button
@@ -474,25 +402,27 @@ export function Sidebar() {
                   localStorage.setItem("poten_dev_mode", "true");
                   navigate("/onboarding");
                 }}
-                className="p-2 rounded-xl text-gray-300 hover:text-[#0079FF] hover:bg-blue-50 transition-colors shrink-0"
+                className="p-2 rounded-lg text-gray-300 hover:text-[#0079FF] hover:bg-blue-50 transition-colors"
                 title={ko ? "온보딩 미리보기 (개발용)" : "Preview Onboarding (dev)"}
               >
                 <FlaskConical size={14} />
               </button>
             )}
+            <button
+              onClick={async () => {
+                localStorage.removeItem("poten_dev_mode");
+                await signOut();
+                navigate("/login", { replace: true });
+              }}
+              className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+              title={ko ? "로그아웃" : "Sign out"}
+            >
+              <LogOut size={14} />
+            </button>
           </div>
 
-          {/* 휴지통 */}
-          <button
-            onClick={() => { navigate("/trash"); closeSidebar(); }}
-            className={cn("flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors w-full", isCompact && "justify-center")}
-          >
-            <Trash2 size={14} className="shrink-0" />
-            {!isCompact && <span className="text-xs">{ko ? "휴지통" : "Trash"}</span>}
-          </button>
-
           {/* Version */}
-          {!isCompact && <p className="text-[10px] text-gray-300 text-center pt-2">v{APP_VERSION}</p>}
+          {!isCompact && <p className="text-[10px] text-gray-300 text-center pt-1">v{APP_VERSION}</p>}
         </div>
       </div>
 

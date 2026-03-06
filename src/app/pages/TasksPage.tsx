@@ -274,7 +274,7 @@ function TaskColumn({
 
       <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar min-h-[60px]">
         {isAdding && (
-          <div className="bg-white rounded-xl border border-blue-200 shadow-sm ring-2 ring-blue-100 overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <input ref={inputRef} value={newTitle} onChange={(e) => setNewTitle(e.target.value)}
               onKeyDown={handleKeyDown}
               onBlur={() => { if (newTitle.trim()) handleSubmit(); else handleCancel(); }}

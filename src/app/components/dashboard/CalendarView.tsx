@@ -347,6 +347,7 @@ function DroppableDayCell({
   resizeState,
   onResizeStart,
   onAddTask,
+  onAddMeeting,
   onDeselectAll,
   onMeetingClick,
   onContextMenu,
@@ -366,6 +367,7 @@ function DroppableDayCell({
   resizeState: ResizeState | null;
   onResizeStart: (taskId: string, edge: "left" | "right", e: React.MouseEvent) => void;
   onAddTask: (day: Date, rect: DOMRect) => void;
+  onAddMeeting?: (day: Date) => void;
   onDeselectAll: () => void;
   onMeetingClick: (meetingId: string) => void;
   onContextMenu: (task: Task, x: number, y: number) => void;
@@ -473,18 +475,30 @@ function DroppableDayCell({
           </div>
         ))}
 
-        {/* Hover "+ 새 일정" button */}
-        <div className="flex-1 min-h-[24px] flex items-end justify-center pb-1">
+        {/* Hover add buttons */}
+        <div className="flex-1 min-h-[24px] flex items-end justify-center pb-1 gap-1">
           <button
             onClick={(e) => {
               e.stopPropagation();
               onAddTask(day, e.currentTarget.getBoundingClientRect());
             }}
-            className="text-[10px] text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded px-2 py-0.5 transition-all opacity-0 group-hover:opacity-60 hover:!opacity-100 flex items-center gap-0.5"
+            className="text-[10px] text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded px-1.5 py-0.5 transition-all opacity-0 group-hover:opacity-60 hover:!opacity-100 flex items-center gap-0.5"
           >
-            <Plus size={10} />
-            새 일정
+            <Plus size={9} />
+            업무
           </button>
+          {onAddMeeting && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddMeeting(day);
+              }}
+              className="text-[10px] text-gray-400 hover:text-purple-500 hover:bg-purple-50 rounded px-1.5 py-0.5 transition-all opacity-0 group-hover:opacity-60 hover:!opacity-100 flex items-center gap-0.5"
+            >
+              <Video size={9} />
+              회의
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -868,7 +882,7 @@ export function CalendarView() {
   const { language, t } = useLanguage();
   const navigate = useNavigate();
   const { tasks: calTasks, addTask: addTaskToContext, updateTask, removeTask } = useTaskContext();
-  const { meetings } = useMeetingContext();
+  const { meetings, addMeeting } = useMeetingContext();
   const { can, members: teamMembers, currentUser } = usePermission();
 
   // Calendar edit permission: can edit any = full drag, can edit own = own tasks only
@@ -1640,6 +1654,26 @@ export function CalendarView() {
                     assigneeIds: [currentUser.id],
                   } as Task);
                   navigate(`/tasks/${newId}`);
+                }}
+                onAddMeeting={(d) => {
+                  const id = `mt-${Date.now()}`;
+                  const meetingDate = new Date(d);
+                  meetingDate.setHours(10, 0, 0, 0);
+                  addMeeting({
+                    id,
+                    title: '',
+                    date: meetingDate.toISOString(),
+                    duration: 60,
+                    type: 'other',
+                    status: 'scheduled',
+                    attendeeIds: [currentUser.id],
+                    organizerId: currentUser.id,
+                    notes: '',
+                    actionItems: [],
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  });
+                  navigate(`/meetings/${id}`);
                 }}
                 onDeselectAll={onDeselectAll}
                 onMeetingClick={(meetingId) => {
