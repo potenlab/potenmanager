@@ -12,13 +12,12 @@ import {
   BookMarked,
   ChevronsUpDown,
   Check,
-  Building2,
   X,
   LogOut,
   FlaskConical,
   Trash2,
-  Target,
   FolderKanban,
+  Palette,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { getUserColor } from "../../../lib/mockData";
@@ -42,7 +41,7 @@ interface NavGroup {
 
 const DEFAULT_GROUPS: NavGroup[] = [
   { id: "work", labelKo: "업무", labelEn: "Work", itemIds: ["tasks", "calendar", "library"] },
-  { id: "org", labelKo: "조직", labelEn: "Organization", itemIds: ["goals", "management"] },
+  { id: "org", labelKo: "조직", labelEn: "Organization", itemIds: ["projects", "branding"] },
   { id: "tools", labelKo: "도구", labelEn: "Tools", itemIds: ["meetings", "radar"] },
 ];
 
@@ -184,8 +183,8 @@ export function Sidebar() {
     tasks: { to: "/tasks", icon: <CheckSquare size={18} />, label: t("my_tasks") },
     calendar: { to: "/calendar", icon: <Calendar size={18} />, label: t("calendar") },
     library: { to: "/library", icon: <BookMarked size={18} />, label: ko ? "아카이빙" : "Archive" },
-    goals: { to: "/organization/vision", icon: <Target size={18} />, label: ko ? "목표·전략" : "Goals" },
-    management: { to: "/management", icon: <FolderKanban size={18} />, label: ko ? "관리" : "Management" },
+    projects: { to: "/management", icon: <FolderKanban size={18} />, label: ko ? "프로젝트" : "Projects" },
+    branding: { to: "/management?tab=branding", icon: <Palette size={18} />, label: ko ? "브랜딩" : "Branding" },
     meetings: { to: "/meetings", icon: <Video size={18} />, label: ko ? "회의/미팅" : "Meetings" },
     radar: { to: "/radar", icon: <Radar size={18} />, label: ko ? "비즈 레이더" : "Biz Radar" },
   };

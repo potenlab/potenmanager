@@ -22,6 +22,8 @@ import {
   AlertTriangle,
   Edit3,
   MoreVertical,
+  StickyNote,
+  User,
 } from "lucide-react";
 import { differenceInDays, format } from "date-fns";
 import { ko as koLocale } from "date-fns/locale";
@@ -34,6 +36,7 @@ import { useGoalContext } from "../context/GoalContext";
 import { PermissionGate } from "../components/layout/PermissionGate";
 import { StrategyTabContent } from "./GoalsPage";
 import type { GoalItem } from "../../lib/mockData";
+import { api } from "../../lib/api";
 
 // ── Category definitions (shared with edit page) ──────────────────
 interface CategoryDef {
@@ -497,8 +500,8 @@ export function GoalPage() {
     : null;
 
   return (
-    <div className="pb-12">
-    <div className="max-w-4xl space-y-6">
+    <div className="pb-12 flex gap-6">
+    <div className="flex-1 min-w-0 max-w-4xl space-y-6">
       {/* Organization Info Card */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-24 bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-600 relative">
@@ -1210,7 +1213,222 @@ export function GoalPage() {
       {activeTab === "strategy" && <StrategyTabContent />}
     </div>
 
+    {/* Right Sidebar: Team Board */}
+    {org && (
+      <div className="hidden lg:block w-80 shrink-0">
+        <TeamBoardSidebar orgId={org.id} />
+      </div>
+    )}
     </div>
   );
 }
 
+// ─── Team Board Sidebar (single kanban column) ─────────────────────
+interface BoardItem {
+  id: string;
+  type: string;
+  title: string;
+  content: string;
+  createdBy: string;
+  createdByName: string;
+  createdAt?: string;
+}
+
+function TeamBoardSidebar({ orgId }: { orgId: string }) {
+  const navigate = useNavigate();
+  const { language } = useLanguage();
+  const ko = language === 'ko';
+  const { currentUser } = usePermission();
+
+  const [items, setItems] = useState<BoardItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editContent, setEditContent] = useState('');
+  const [menuId, setMenuId] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const userRole = currentUser.role as string;
+  const isManager = userRole === 'owner' || userRole === 'admin';
+
+  useEffect(() => {
+    if (isAdding && inputRef.current) inputRef.current.focus();
+  }, [isAdding]);
+
+  useEffect(() => {
+    api.getTeamBoardItems(orgId).then(data => {
+      setItems(data || []);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, [orgId]);
+
+  const handleAdd = useCallback(async () => {
+    if (!newTitle.trim()) return;
+    const item = {
+      type: 'memo',
+      title: newTitle.trim(),
+      content: '',
+      createdBy: currentUser.id,
+      createdByName: currentUser.name,
+    };
+    try {
+      const created = await api.createTeamBoardItem(orgId, item);
+      setItems(prev => [created, ...prev]);
+      setNewTitle('');
+    } catch {}
+  }, [newTitle, orgId, currentUser]);
+
+  const handleAddKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') { e.preventDefault(); handleAdd(); }
+    else if (e.key === 'Escape') { setNewTitle(''); setIsAdding(false); }
+  };
+
+  const handleUpdate = useCallback(async (id: string) => {
+    if (!editTitle.trim()) return;
+    try {
+      const updated = await api.updateTeamBoardItem(orgId, id, { title: editTitle.trim(), content: editContent.trim() });
+      setItems(prev => prev.map(i => i.id === id ? updated : i));
+      setEditingId(null);
+    } catch {}
+  }, [orgId, editTitle, editContent]);
+
+  const handleDelete = useCallback(async (item: BoardItem) => {
+    if (item.createdBy !== currentUser.id && isManager) {
+      const confirmed = window.confirm(
+        ko ? `${item.createdByName}님이 작성한 항목을 삭제하시겠습니까?` : `Delete ${item.createdByName}'s item?`
+      );
+      if (!confirmed) return;
+    }
+    try {
+      await api.deleteTeamBoardItem(orgId, item.id);
+      setItems(prev => prev.filter(i => i.id !== item.id));
+    } catch {}
+  }, [orgId, currentUser.id, isManager, ko]);
+
+  const startEdit = (item: BoardItem) => {
+    setEditingId(item.id);
+    setEditTitle(item.title);
+    setEditContent(item.content);
+    setMenuId(null);
+  };
+
+  return (
+    <div className="sticky top-6 flex flex-col rounded-2xl border border-gray-100 bg-gray-50/50 p-4 h-fit max-h-[calc(100vh-120px)]">
+      <div className="flex items-center justify-between mb-4 px-1">
+        <div className="flex items-center gap-2">
+          <StickyNote size={16} className="text-blue-600" />
+          <h3 className="font-semibold text-gray-700 text-sm">{ko ? '팀 보드' : 'Team Board'}</h3>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-200 text-gray-600">{items.length}</span>
+        </div>
+        <button onClick={() => setIsAdding(true)} className="text-gray-400 hover:text-blue-600 p-1 rounded hover:bg-blue-50 transition-colors">
+          <Plus size={16} />
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar min-h-[60px]">
+        {isAdding && (
+          <div className="bg-white rounded-xl border border-blue-200 shadow-sm ring-2 ring-blue-100 overflow-hidden">
+            <input ref={inputRef} value={newTitle} onChange={e => setNewTitle(e.target.value)}
+              onKeyDown={handleAddKeyDown}
+              onBlur={() => { if (newTitle.trim()) handleAdd(); else { setNewTitle(''); setIsAdding(false); } }}
+              placeholder={ko ? '제목을 입력하세요...' : 'Enter title...'}
+              className="w-full px-4 py-3 text-sm outline-none bg-transparent placeholder-gray-400 text-gray-900" />
+            <div className="flex items-center px-3 py-2 bg-gray-50/80 border-t border-gray-100">
+              <span className="text-[10px] text-gray-400">{ko ? 'Enter로 추가 · Esc로 취소' : 'Enter to add · Esc to cancel'}</span>
+            </div>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-gray-400" /></div>
+        ) : items.length === 0 && !isAdding ? (
+          <button onClick={() => setIsAdding(true)}
+            className="w-full flex flex-col items-center justify-center py-8 text-gray-300 hover:text-blue-500 hover:bg-blue-50/50 rounded-xl transition-all cursor-pointer group">
+            <Plus size={20} className="mb-1.5 opacity-50 group-hover:opacity-100 transition-opacity" />
+            <p className="text-xs font-medium">{ko ? '항목을 추가해보세요' : 'Add an item'}</p>
+          </button>
+        ) : (
+          <>
+            {items.map(item => {
+              const canEdit = item.createdBy === currentUser.id;
+              const canDelete = canEdit || isManager;
+              const isEditing = editingId === item.id;
+
+              return isEditing ? (
+                <div key={item.id} className="bg-white rounded-xl border border-blue-200 shadow-sm ring-2 ring-blue-100 p-3 space-y-2">
+                  <input value={editTitle} onChange={e => setEditTitle(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleUpdate(item.id); } else if (e.key === 'Escape') setEditingId(null); }}
+                    className="w-full text-sm font-medium bg-gray-50 rounded-lg px-3 py-2 border border-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-300" autoFocus />
+                  <textarea value={editContent} onChange={e => setEditContent(e.target.value)} rows={3}
+                    onKeyDown={e => { if (e.key === 'Escape') setEditingId(null); }}
+                    placeholder={ko ? '내용 (선택사항)' : 'Content (optional)'}
+                    className="w-full text-xs bg-gray-50 rounded-lg px-3 py-2 border border-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-300 resize-none" />
+                  <div className="flex gap-2">
+                    <button onClick={() => handleUpdate(item.id)} className="flex-1 text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors">
+                      {ko ? '저장' : 'Save'}
+                    </button>
+                    <button onClick={() => setEditingId(null)} className="text-xs px-3 py-1.5 rounded-lg text-gray-500 hover:bg-gray-100">
+                      {ko ? '취소' : 'Cancel'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div key={item.id} onClick={() => navigate(`/board/${item.id}`)}
+                  className="bg-white p-4 rounded-xl border shadow-sm hover:shadow-md transition-all group relative cursor-pointer border-gray-100">
+                  <div className="flex items-start gap-2 mb-1">
+                    <h4 className="font-medium text-sm text-gray-900 leading-snug flex-1 min-w-0">{item.title}</h4>
+                    {(canEdit || canDelete) && (
+                      <div className="relative shrink-0">
+                        <button onClick={e => { e.stopPropagation(); setMenuId(menuId === item.id ? null : item.id); }}
+                          className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity p-0.5">
+                          <MoreVertical size={14} />
+                        </button>
+                        {menuId === item.id && (
+                          <div className="absolute right-0 top-6 z-10 bg-white border border-gray-200 rounded-lg shadow-lg py-1 w-24">
+                            {canEdit && (
+                              <button onClick={e => { e.stopPropagation(); startEdit(item); }} className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-1.5">
+                                <Edit3 size={10} /> {ko ? '수정' : 'Edit'}
+                              </button>
+                            )}
+                            {canDelete && (
+                              <button onClick={e => { e.stopPropagation(); setMenuId(null); handleDelete(item); }} className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-1.5">
+                                <Trash2 size={10} /> {ko ? '삭제' : 'Delete'}
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {item.content && (
+                    <p className="text-xs text-gray-500 line-clamp-2 mb-3">{item.content}</p>
+                  )}
+                  <div className="flex items-center justify-between border-t border-gray-50 pt-3 mt-2">
+                    <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                      <User size={11} />
+                      <span>{item.createdByName}</span>
+                    </div>
+                    {item.createdAt && (
+                      <span className="text-xs text-gray-400">
+                        {new Date(item.createdAt).toLocaleDateString(ko ? 'ko-KR' : 'en-US', { month: 'short', day: 'numeric' })}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {!isAdding && items.length > 0 && (
+              <button onClick={() => setIsAdding(true)}
+                className="w-full py-2.5 rounded-xl text-gray-400 text-sm hover:text-blue-600 hover:bg-gray-100/80 transition-all flex items-center gap-2 px-3">
+                <Plus size={14} /> <span>{ko ? '항목 추가' : 'Add Item'}</span>
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

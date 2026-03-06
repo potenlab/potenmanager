@@ -533,7 +533,7 @@ export function TasksPage() {
   const [memoContent, setMemoContent] = useState(() => {
     try { return localStorage.getItem('poten_my_memo') || ''; } catch { return ''; }
   });
-  const [memoPos, setMemoPos] = useState({ x: typeof window !== 'undefined' ? window.innerWidth - 350 : 500, y: typeof window !== 'undefined' ? window.innerHeight - 460 : 300 });
+  const [memoPos, setMemoPos] = useState({ x: typeof window !== 'undefined' ? Math.min(window.innerWidth - 340, window.innerWidth * 0.5) : 400, y: typeof window !== 'undefined' ? Math.min(window.innerHeight - 420, 300) : 200 });
   const memoDragRef = useRef<{ dragging: boolean; offsetX: number; offsetY: number }>({ dragging: false, offsetX: 0, offsetY: 0 });
 
   // Auto-save memo
