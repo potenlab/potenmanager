@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, ReactNode } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router";
+import { NavLink, useNavigate } from "react-router";
 import { useDrag, useDrop } from "react-dnd";
 import {
   LayoutDashboard,
@@ -19,7 +19,6 @@ import {
   Trash2,
   Target,
   FolderKanban,
-  Palette,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { getUserColor } from "../../../lib/mockData";
@@ -43,7 +42,7 @@ interface NavGroup {
 
 const DEFAULT_GROUPS: NavGroup[] = [
   { id: "work", labelKo: "업무", labelEn: "Work", itemIds: ["tasks", "calendar", "library"] },
-  { id: "org", labelKo: "조직", labelEn: "Organization", itemIds: ["goals", "projects", "branding"] },
+  { id: "org", labelKo: "조직", labelEn: "Organization", itemIds: ["goals", "management"] },
   { id: "tools", labelKo: "도구", labelEn: "Tools", itemIds: ["meetings", "radar"] },
 ];
 
@@ -151,7 +150,6 @@ export function Sidebar() {
   const { currentUser, members } = usePermission();
   const { signOut } = useAuth();
   const { org, allOrgs, activeOrgId, switchOrg } = useInvite();
-  const location = useLocation();
   const navigate = useNavigate();
   const ko = language === "ko";
   const [orgSwitcherOpen, setOrgSwitcherOpen] = useState(false);
@@ -187,8 +185,7 @@ export function Sidebar() {
     calendar: { to: "/calendar", icon: <Calendar size={18} />, label: t("calendar") },
     library: { to: "/library", icon: <BookMarked size={18} />, label: ko ? "아카이빙" : "Archive" },
     goals: { to: "/organization/vision", icon: <Target size={18} />, label: ko ? "목표·전략" : "Goals" },
-    projects: { to: "/management?tab=projects", icon: <FolderKanban size={18} />, label: ko ? "프로젝트" : "Projects" },
-    branding: { to: "/management?tab=branding", icon: <Palette size={18} />, label: ko ? "브랜딩" : "Branding" },
+    management: { to: "/management", icon: <FolderKanban size={18} />, label: ko ? "관리" : "Management" },
     meetings: { to: "/meetings", icon: <Video size={18} />, label: ko ? "회의/미팅" : "Meetings" },
     radar: { to: "/radar", icon: <Radar size={18} />, label: ko ? "비즈 레이더" : "Biz Radar" },
   };
@@ -201,32 +198,9 @@ export function Sidebar() {
     const item = navItemMap[id];
     if (!item) return null;
 
-    // For management sub-routes, check if active by pathname + query
-    const isManagementItem = id === "projects" || id === "branding";
-
     return (
       <DraggableNavItem key={id} id={id} groupId={groupId} moveItem={moveItem}>
-        {isManagementItem ? (
-          <NavLink
-            to={item.to}
-            onClick={closeSidebar}
-            className={() => {
-              const isActive = location.pathname === "/management" && location.search.includes(`tab=${id}`);
-              // Also highlight projects if no tab param (default tab)
-              const isDefault = id === "projects" && location.pathname === "/management" && !location.search.includes("tab=");
-              return cn(
-                "flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 overflow-hidden whitespace-nowrap",
-                isActive || isDefault
-                  ? "bg-blue-50 text-blue-600 shadow-sm border border-blue-100"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 border border-transparent"
-              );
-            }}
-            title={isCompact ? item.label : undefined}
-          >
-            <div className="shrink-0">{item.icon}</div>
-            <span className={cn("transition-opacity duration-200", isCompact ? "opacity-0 w-0" : "opacity-100")}>{item.label}</span>
-          </NavLink>
-        ) : (
+        {(
           <NavItem to={item.to} icon={item.icon} label={item.label} compact={isCompact} onClick={closeSidebar} />
         )}
       </DraggableNavItem>

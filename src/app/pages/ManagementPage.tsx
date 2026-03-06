@@ -1,16 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate } from "react-router";
+import { useDrag, useDrop } from "react-dnd";
 import {
   Building2, FolderKanban, Palette, Plus, Trash2,
-  Calendar, Users, StickyNote, MoreVertical, Edit3, User, Loader2,
-  Image as ImageIcon, Globe,
+  Calendar, MoreVertical, Edit3, X, Check,
+  Image as ImageIcon, Globe, GripVertical,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
-import { useTeam } from "../context/TeamContext";
-import { useInvite } from "../context/InviteContext";
-import { usePermission } from "../context/PermissionContext";
-import { api } from "../../lib/api";
 
 // ─── Types (exported for detail pages) ───────────────────────────
 export interface Project {
@@ -34,26 +31,12 @@ export interface BrandAsset {
   id: string;
   type: "logo" | "color" | "font" | "guideline" | "template";
   name: string;
-  value: string; // color hex, font name, or URL
+  value: string;
   description?: string;
   createdAt: string;
   imageUrl?: string;
   guidelines?: string;
   attachments?: { name: string; url: string }[];
-}
-
-interface BoardItem {
-  id: string;
-  type: string;
-  title: string;
-  content: string;
-  description?: string;
-  attachments?: any[];
-  pinned?: boolean;
-  createdBy: string;
-  createdByName: string;
-  createdAt: string;
-  updatedAt?: string;
 }
 
 export const PROJECT_STATUS_CONFIG = {
@@ -105,19 +88,74 @@ export function saveBrandAssets(assets: BrandAsset[]) {
   localStorage.setItem(STORAGE_KEY_BRAND, JSON.stringify(assets));
 }
 
-// ─── Unified Management Card ─────────────────────────────────────
-function ManagementCard({
-  title, description, icon, statusLabel, statusColor, statusBg,
-  meta, avatars, onClick, onEdit, onDelete, ko,
+// ─── Kanban Data Model ──────────────────────────────────────────
+interface KanbanColumn {
+  id: string;
+  name: string;
+  order: number;
+}
+
+interface KanbanCard {
+  id: string;
+  columnId: string;
+  title: string;
+  description?: string;
+  color?: string;
+  imageUrl?: string;
+  type: "project" | "brand" | "general";
+  order: number;
+  createdAt: string;
+}
+
+const STORAGE_COLUMNS = "poten_mgmt_kanban_columns";
+const STORAGE_CARDS = "poten_mgmt_kanban_cards";
+
+function loadColumns(): KanbanColumn[] {
+  try {
+    const s = localStorage.getItem(STORAGE_COLUMNS);
+    if (s) return JSON.parse(s);
+  } catch {}
+  // Default columns
+  return [
+    { id: "col-project", name: "프로젝트", order: 0 },
+    { id: "col-brand", name: "브랜딩", order: 1 },
+    { id: "col-general", name: "일반", order: 2 },
+  ];
+}
+
+function saveColumns(cols: KanbanColumn[]) {
+  localStorage.setItem(STORAGE_COLUMNS, JSON.stringify(cols));
+}
+
+function loadCards(): KanbanCard[] {
+  try {
+    const s = localStorage.getItem(STORAGE_CARDS);
+    if (s) return JSON.parse(s);
+  } catch {}
+  return [];
+}
+
+function saveCards(cards: KanbanCard[]) {
+  localStorage.setItem(STORAGE_CARDS, JSON.stringify(cards));
+}
+
+// ─── Drag Types ─────────────────────────────────────────────────
+const CARD_DRAG = "MGMT_CARD";
+const COL_DRAG = "MGMT_COL";
+
+interface CardDragItem { id: string; columnId: string; index: number; }
+interface ColDragItem { id: string; index: number; }
+
+// ─── Kanban Card Component ──────────────────────────────────────
+function KanbanCardItem({
+  card, index, columnId, ko, onDelete, onMove,
 }: {
-  title: string; description?: string;
-  icon: React.ReactNode;
-  statusLabel?: string; statusColor?: string; statusBg?: string;
-  meta?: string;
-  avatars?: { id: string; name: string; avatar?: string }[];
-  onClick: () => void; onEdit: () => void; onDelete: () => void;
-  ko: boolean;
+  card: KanbanCard; index: number; columnId: string; ko: boolean;
+  onDelete: (id: string) => void;
+  onMove: (dragId: string, targetColId: string, targetIndex: number) => void;
 }) {
+  const navigate = useNavigate();
+  const ref = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -130,302 +168,284 @@ function ManagementCard({
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen]);
 
+  const [{ isDragging }, drag] = useDrag<CardDragItem, void, { isDragging: boolean }>({
+    type: CARD_DRAG,
+    item: { id: card.id, columnId, index },
+    collect: (monitor) => ({ isDragging: monitor.isDragging() }),
+  });
+
+  const [, drop] = useDrop<CardDragItem>({
+    accept: CARD_DRAG,
+    hover(item) {
+      if (item.id === card.id) return;
+      onMove(item.id, columnId, index);
+      item.columnId = columnId;
+      item.index = index;
+    },
+  });
+
+  drag(drop(ref));
+
+  const handleClick = () => {
+    if (card.type === "project") navigate(`/management/projects/${card.id}`);
+    else if (card.type === "brand") navigate(`/management/branding/${card.id}`);
+  };
+
+  const typeBadge = card.type === "project"
+    ? { label: ko ? "프로젝트" : "Project", cls: "bg-blue-50 text-blue-600" }
+    : card.type === "brand"
+    ? { label: ko ? "브랜딩" : "Brand", cls: "bg-purple-50 text-purple-600" }
+    : null;
+
   return (
     <div
-      onClick={onClick}
-      className="bg-white rounded-2xl border border-gray-100 hover:border-gray-300 hover:shadow-md p-5 cursor-pointer transition-all group"
+      ref={ref}
+      onClick={handleClick}
+      className={cn(
+        "bg-white p-3.5 rounded-xl border shadow-sm hover:shadow-md transition-all group cursor-grab active:cursor-grabbing relative",
+        isDragging ? "opacity-40 border-blue-300 ring-2 ring-blue-200" : "border-gray-100"
+      )}
     >
-      <div className="flex items-start gap-3 mb-3">
-        {icon}
+      <div className="flex items-start gap-2">
+        {card.color && (
+          <div className="w-2 h-8 rounded-full shrink-0 mt-0.5" style={{ backgroundColor: card.color }} />
+        )}
+        {card.imageUrl && (
+          <img src={card.imageUrl} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0 border border-gray-100" />
+        )}
         <div className="flex-1 min-w-0">
-          <h3 className="text-[15px] font-bold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
-            {title || (ko ? "제목 없음" : "Untitled")}
-          </h3>
-          {description && (
-            <p className="text-xs text-gray-500 line-clamp-2 mt-1">{description}</p>
+          <h4 className="text-sm font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+            {card.title || (ko ? "제목 없음" : "Untitled")}
+          </h4>
+          {card.description && (
+            <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">{card.description}</p>
           )}
         </div>
         <div ref={menuRef} className="relative shrink-0">
           <button
             onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
-            className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-300 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-all"
+            className="opacity-0 group-hover:opacity-100 p-1 text-gray-300 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-all"
           >
             <MoreVertical size={14} />
           </button>
           {menuOpen && (
-            <div className="absolute right-0 top-8 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-28 animate-in fade-in slide-in-from-top-1 duration-150">
+            <div className="absolute right-0 top-7 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-24">
+              {(card.type === "project" || card.type === "brand") && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setMenuOpen(false); handleClick(); }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-1.5"
+                >
+                  <Edit3 size={10} /> {ko ? "수정" : "Edit"}
+                </button>
+              )}
               <button
-                onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onEdit(); }}
-                className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete(card.id); }}
+                className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-1.5"
               >
-                <Edit3 size={12} /> {ko ? "수정" : "Edit"}
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete(); }}
-                className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2"
-              >
-                <Trash2 size={12} /> {ko ? "삭제" : "Delete"}
+                <Trash2 size={10} /> {ko ? "삭제" : "Delete"}
               </button>
             </div>
           )}
         </div>
       </div>
 
-      <div className="flex items-center gap-2 flex-wrap">
-        {statusLabel && (
-          <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full", statusColor, statusBg)}>
-            {statusLabel}
+      <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+        {typeBadge && (
+          <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded-full", typeBadge.cls)}>
+            {typeBadge.label}
           </span>
         )}
-        {meta && (
-          <span className="text-[10px] text-gray-400 flex items-center gap-1">
-            <Calendar size={10} />
-            {meta}
+        {card.createdAt && (
+          <span className="text-[10px] text-gray-400 flex items-center gap-0.5 ml-auto">
+            <Calendar size={9} />
+            {new Date(card.createdAt).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}
           </span>
-        )}
-        {avatars && avatars.length > 0 && (
-          <div className="flex -space-x-1.5 ml-auto">
-            {avatars.slice(0, 3).map((m) => (
-              <div key={m.id} className="w-5 h-5 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-[8px] font-bold text-gray-600 overflow-hidden">
-                {m.avatar ? <img src={m.avatar} className="w-full h-full object-cover" /> : m.name[0]}
-              </div>
-            ))}
-            {avatars.length > 3 && (
-              <div className="w-5 h-5 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-[8px] font-bold text-gray-400">
-                +{avatars.length - 3}
-              </div>
-            )}
-          </div>
         )}
       </div>
     </div>
   );
 }
 
-// ─── Project Card (uses ManagementCard) ──────────────────────────
-function ProjectCard({
-  project, ko, members, onClick, onDelete,
+// ─── Kanban Column Component ────────────────────────────────────
+function KanbanColumnComponent({
+  column, cards, index, ko,
+  onAddCard, onDeleteCard, onMoveCard,
+  onRenameColumn, onDeleteColumn, onMoveColumn,
 }: {
-  project: Project; ko: boolean;
-  members: { id: string; name: string; avatar?: string }[];
-  onClick: () => void; onDelete: () => void;
+  column: KanbanColumn; cards: KanbanCard[]; index: number; ko: boolean;
+  onAddCard: (columnId: string, title: string) => void;
+  onDeleteCard: (id: string) => void;
+  onMoveCard: (dragId: string, targetColId: string, targetIndex: number) => void;
+  onRenameColumn: (id: string, name: string) => void;
+  onDeleteColumn: (id: string) => void;
+  onMoveColumn: (fromIndex: number, toIndex: number) => void;
 }) {
-  const navigate = useNavigate();
-  const status = PROJECT_STATUS_CONFIG[project.status];
-  const assignees = project.memberIds.map(id => members.find(m => m.id === id)).filter(Boolean) as { id: string; name: string; avatar?: string }[];
-
-  return (
-    <ManagementCard
-      title={project.name}
-      description={project.description}
-      icon={
-        project.logoUrl ? (
-          <img src={project.logoUrl} alt="" className="w-9 h-9 rounded-xl object-cover shrink-0 border border-gray-100" />
-        ) : (
-          <div className="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center" style={{ backgroundColor: project.color + "20" }}>
-            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: project.color }} />
-          </div>
-        )
-      }
-      statusLabel={ko ? status.label : status.labelEn}
-      statusColor={status.color}
-      statusBg={status.bg}
-      meta={project.startDate ? `${project.startDate}${project.endDate ? ` ~ ${project.endDate}` : ""}` : undefined}
-      avatars={assignees}
-      onClick={onClick}
-      onEdit={() => navigate(`/management/projects/${project.id}`)}
-      onDelete={onDelete}
-      ko={ko}
-    />
-  );
-}
-
-// ─── Team Board Tab ──────────────────────────────────────────────
-function TeamBoardTab({ ko }: { ko: boolean }) {
-  const navigate = useNavigate();
-  const { currentUser } = usePermission();
-  const { org } = useInvite();
-  const orgId = org?.id || "";
-
-  const [items, setItems] = useState<BoardItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [newTitle, setNewTitle] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editTitle, setEditTitle] = useState("");
-  const [editContent, setEditContent] = useState("");
-  const [menuId, setMenuId] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(column.name);
   const inputRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const colRef = useRef<HTMLDivElement>(null);
 
-  const userRole = currentUser.role as string;
-  const isManager = userRole === "owner" || userRole === "admin";
+  useEffect(() => { if (isAdding && inputRef.current) inputRef.current.focus(); }, [isAdding]);
+  useEffect(() => { if (isEditing && nameRef.current) nameRef.current.focus(); }, [isEditing]);
 
-  useEffect(() => {
-    if (isAdding && inputRef.current) inputRef.current.focus();
-  }, [isAdding]);
-
-  useEffect(() => {
-    if (!orgId) return;
-    api.getTeamBoardItems(orgId).then(data => {
-      setItems(data || []);
-      setLoading(false);
-    }).catch(() => setLoading(false));
-  }, [orgId]);
-
-  const handleAdd = useCallback(async () => {
-    if (!newTitle.trim()) return;
-    const item = {
-      type: "memo",
-      title: newTitle.trim(),
-      content: "",
-      createdBy: currentUser.id,
-      createdByName: currentUser.name,
-    };
-    try {
-      const created = await api.createTeamBoardItem(orgId, item);
-      setItems(prev => [created, ...prev]);
-      setNewTitle("");
-    } catch {}
-  }, [newTitle, orgId, currentUser]);
-
-  const handleAddKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") { e.preventDefault(); handleAdd(); }
-    else if (e.key === "Escape") { setNewTitle(""); setIsAdding(false); }
+  const handleAdd = () => {
+    if (newTitle.trim()) { onAddCard(column.id, newTitle.trim()); setNewTitle(""); }
+    setIsAdding(false);
   };
 
-  const handleUpdate = useCallback(async (id: string) => {
-    if (!editTitle.trim()) return;
-    try {
-      const updated = await api.updateTeamBoardItem(orgId, id, { title: editTitle.trim(), content: editContent.trim() });
-      setItems(prev => prev.map(i => i.id === id ? updated : i));
-      setEditingId(null);
-    } catch {}
-  }, [orgId, editTitle, editContent]);
-
-  const handleDelete = useCallback(async (item: BoardItem) => {
-    if (item.createdBy !== currentUser.id && isManager) {
-      if (!window.confirm(ko ? `${item.createdByName}님이 작성한 항목을 삭제하시겠습니까?` : `Delete ${item.createdByName}'s item?`)) return;
-    }
-    try {
-      await api.deleteTeamBoardItem(orgId, item.id);
-      setItems(prev => prev.filter(i => i.id !== item.id));
-    } catch {}
-  }, [orgId, currentUser.id, isManager, ko]);
-
-  const startEdit = (item: BoardItem) => {
-    setEditingId(item.id);
-    setEditTitle(item.title);
-    setEditContent(item.content);
-    setMenuId(null);
+  const handleRename = () => {
+    if (editName.trim()) onRenameColumn(column.id, editName.trim());
+    setIsEditing(false);
   };
 
-  if (loading) {
-    return <div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-400" /></div>;
-  }
+  // Column drag
+  const [{ isDragging: colDragging }, colDrag] = useDrag<ColDragItem, void, { isDragging: boolean }>({
+    type: COL_DRAG,
+    item: { id: column.id, index },
+    collect: (m) => ({ isDragging: m.isDragging() }),
+  });
+
+  const [, colDrop] = useDrop<ColDragItem>({
+    accept: COL_DRAG,
+    hover(item) {
+      if (item.id === column.id) return;
+      onMoveColumn(item.index, index);
+      item.index = index;
+    },
+  });
+
+  // Drop zone for cards (empty area)
+  const [{ isOver }, cardDrop] = useDrop<CardDragItem, void, { isOver: boolean }>({
+    accept: CARD_DRAG,
+    drop(item) {
+      if (item.columnId !== column.id || item.index !== cards.length) {
+        onMoveCard(item.id, column.id, cards.length);
+      }
+    },
+    collect: (m) => ({ isOver: m.isOver() }),
+  });
+
+  colDrag(colDrop(colRef));
 
   return (
-    <div>
-      {/* Inline add */}
-      {isAdding && (
-        <div className="bg-white rounded-xl border border-blue-200 shadow-sm ring-2 ring-blue-100 overflow-hidden mb-3">
-          <input ref={inputRef} value={newTitle} onChange={e => setNewTitle(e.target.value)}
-            onKeyDown={handleAddKeyDown}
-            onBlur={() => { if (newTitle.trim()) handleAdd(); else { setNewTitle(""); setIsAdding(false); } }}
-            placeholder={ko ? "제목을 입력하세요..." : "Enter title..."}
-            className="w-full px-4 py-3 text-sm outline-none bg-transparent placeholder-gray-400 text-gray-900" />
-          <div className="flex items-center px-3 py-2 bg-gray-50/80 border-t border-gray-100">
-            <span className="text-[10px] text-gray-400">{ko ? "Enter로 추가 · Esc로 취소" : "Enter to add · Esc to cancel"}</span>
-          </div>
-        </div>
+    <div
+      ref={colRef}
+      className={cn(
+        "flex flex-col w-72 shrink-0 rounded-2xl border p-3 transition-all h-fit max-h-[calc(100vh-200px)]",
+        colDragging ? "opacity-40 ring-2 ring-blue-200" : "bg-gray-50/50 border-gray-100"
       )}
-
-      {items.length === 0 && !isAdding ? (
-        <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-          <StickyNote size={48} className="mb-3 text-gray-300" />
-          <p className="text-sm font-medium">{ko ? "팀 보드가 비어있습니다" : "No board items yet"}</p>
-          <button onClick={() => setIsAdding(true)} className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-semibold">
-            + {ko ? "첫 항목 추가하기" : "Add your first item"}
+    >
+      {/* Column Header */}
+      <div className="flex items-center justify-between mb-3 px-1">
+        {isEditing ? (
+          <div className="flex items-center gap-1 flex-1">
+            <input
+              ref={nameRef}
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleRename(); if (e.key === "Escape") setIsEditing(false); }}
+              onBlur={handleRename}
+              className="text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg px-2 py-1 outline-none focus:ring-1 focus:ring-blue-200 flex-1"
+            />
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <GripVertical size={14} className="text-gray-300 cursor-grab shrink-0" />
+            <h3
+              onClick={() => { setEditName(column.name); setIsEditing(true); }}
+              className="font-semibold text-gray-700 text-sm truncate cursor-pointer hover:text-blue-600 transition-colors"
+            >
+              {column.name}
+            </h3>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-500">
+              {cards.length}
+            </span>
+          </div>
+        )}
+        <div className="flex items-center gap-0.5 shrink-0">
+          <button
+            onClick={() => setIsAdding(true)}
+            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+          >
+            <Plus size={14} />
+          </button>
+          <button
+            onClick={() => {
+              if (cards.length > 0) {
+                if (!confirm(ko ? "이 칼럼의 카드도 함께 삭제됩니다. 계속하시겠습니까?" : "Cards in this column will also be deleted. Continue?")) return;
+              }
+              onDeleteColumn(column.id);
+            }}
+            className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+          >
+            <X size={14} />
           </button>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {items.map(item => {
-            const canEditItem = item.createdBy === currentUser.id;
-            const canDeleteItem = canEditItem || isManager;
-            const isEditing = editingId === item.id;
+      </div>
 
-            return isEditing ? (
-              <div key={item.id} className="bg-white rounded-xl border border-blue-200 shadow-sm ring-2 ring-blue-100 p-3 space-y-2">
-                <input value={editTitle} onChange={e => setEditTitle(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleUpdate(item.id); } else if (e.key === "Escape") setEditingId(null); }}
-                  className="w-full text-sm font-medium bg-gray-50 rounded-lg px-3 py-2 border border-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-300" autoFocus />
-                <textarea value={editContent} onChange={e => setEditContent(e.target.value)} rows={3}
-                  onKeyDown={e => { if (e.key === "Escape") setEditingId(null); }}
-                  placeholder={ko ? "내용 (선택사항)" : "Content (optional)"}
-                  className="w-full text-xs bg-gray-50 rounded-lg px-3 py-2 border border-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-300 resize-none" />
-                <div className="flex gap-2">
-                  <button onClick={() => handleUpdate(item.id)} className="flex-1 text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors">
-                    {ko ? "저장" : "Save"}
-                  </button>
-                  <button onClick={() => setEditingId(null)} className="text-xs px-3 py-1.5 rounded-lg text-gray-500 hover:bg-gray-100">
-                    {ko ? "취소" : "Cancel"}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div key={item.id} onClick={() => navigate(`/board/${item.id}`)}
-                className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-gray-300 transition-all group relative cursor-pointer">
-                <div className="flex items-start gap-2 mb-1">
-                  <h4 className="font-medium text-sm text-gray-900 leading-snug flex-1 min-w-0">{item.title}</h4>
-                  {(canEditItem || canDeleteItem) && (
-                    <div className="relative shrink-0">
-                      <button onClick={e => { e.stopPropagation(); setMenuId(menuId === item.id ? null : item.id); }}
-                        className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity p-0.5">
-                        <MoreVertical size={14} />
-                      </button>
-                      {menuId === item.id && (
-                        <div className="absolute right-0 top-6 z-10 bg-white border border-gray-200 rounded-lg shadow-lg py-1 w-24">
-                          {canEditItem && (
-                            <button onClick={e => { e.stopPropagation(); startEdit(item); }} className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-1.5">
-                              <Edit3 size={10} /> {ko ? "수정" : "Edit"}
-                            </button>
-                          )}
-                          {canDeleteItem && (
-                            <button onClick={e => { e.stopPropagation(); setMenuId(null); handleDelete(item); }} className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-1.5">
-                              <Trash2 size={10} /> {ko ? "삭제" : "Delete"}
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                {item.content && (
-                  <p className="text-xs text-gray-500 line-clamp-2 mb-3">{item.content}</p>
-                )}
-                <div className="flex items-center justify-between border-t border-gray-50 pt-3 mt-2">
-                  <div className="flex items-center gap-1.5 text-xs text-gray-400">
-                    <User size={11} />
-                    <span>{item.createdByName}</span>
-                  </div>
-                  {item.createdAt && (
-                    <span className="text-xs text-gray-400">
-                      {new Date(item.createdAt).toLocaleDateString(ko ? "ko-KR" : "en-US", { month: "short", day: "numeric" })}
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+      {/* Cards */}
+      <div
+        ref={cardDrop}
+        className={cn(
+          "flex-1 overflow-y-auto space-y-2.5 pb-2 min-h-[60px] custom-scrollbar",
+          isOver && "bg-blue-50/50 rounded-xl"
+        )}
+      >
+        {/* Inline add */}
+        {isAdding && (
+          <div className="bg-white rounded-xl border border-blue-200 shadow-sm ring-2 ring-blue-100 overflow-hidden">
+            <input
+              ref={inputRef}
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); handleAdd(); }
+                if (e.key === "Escape") { setNewTitle(""); setIsAdding(false); }
+              }}
+              onBlur={handleAdd}
+              placeholder={ko ? "제목을 입력하세요..." : "Enter title..."}
+              className="w-full px-3 py-2.5 text-sm outline-none bg-transparent placeholder-gray-400"
+            />
+            <div className="px-3 py-1.5 bg-gray-50 border-t border-gray-100 text-[10px] text-gray-400">
+              {ko ? "Enter 추가 · Esc 취소" : "Enter to add · Esc to cancel"}
+            </div>
+          </div>
+        )}
 
-          {/* Bottom add button */}
-          {!isAdding && items.length > 0 && (
-            <button onClick={() => setIsAdding(true)}
-              className="flex items-center justify-center gap-2 py-8 rounded-xl text-gray-400 text-sm hover:text-blue-600 hover:bg-gray-50 border-2 border-dashed border-gray-200 hover:border-blue-300 transition-all">
-              <Plus size={16} /> <span>{ko ? "항목 추가" : "Add Item"}</span>
-            </button>
-          )}
-        </div>
+        {cards.map((card, i) => (
+          <KanbanCardItem
+            key={card.id}
+            card={card}
+            index={i}
+            columnId={column.id}
+            ko={ko}
+            onDelete={onDeleteCard}
+            onMove={onMoveCard}
+          />
+        ))}
+
+        {cards.length === 0 && !isAdding && (
+          <button
+            onClick={() => setIsAdding(true)}
+            className="w-full py-6 rounded-xl text-gray-300 text-xs hover:text-blue-500 hover:bg-blue-50/50 border border-dashed border-gray-200 hover:border-blue-300 transition-all flex flex-col items-center gap-1"
+          >
+            <Plus size={16} />
+            <span>{ko ? "카드 추가" : "Add card"}</span>
+          </button>
+        )}
+      </div>
+
+      {/* Bottom add (when cards exist) */}
+      {cards.length > 0 && !isAdding && (
+        <button
+          onClick={() => setIsAdding(true)}
+          className="mt-1 w-full py-2 rounded-lg text-gray-400 text-xs hover:text-blue-600 hover:bg-gray-100 transition-all flex items-center justify-center gap-1"
+        >
+          <Plus size={12} /> {ko ? "추가" : "Add"}
+        </button>
       )}
     </div>
   );
@@ -435,213 +455,162 @@ function TeamBoardTab({ ko }: { ko: boolean }) {
 export function ManagementPage() {
   const { language } = useLanguage();
   const ko = language === "ko";
-  const { members } = useTeam();
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState<"projects" | "branding" | "board">(() => {
-    const tab = searchParams.get("tab");
-    if (tab === "branding" || tab === "board") return tab;
-    return "projects";
-  });
-  const [projects, setProjects] = useState<Project[]>(loadProjects);
-  const [brandAssets, setBrandAssets] = useState<BrandAsset[]>(loadBrandAssets);
+  const [columns, setColumns] = useState<KanbanColumn[]>(loadColumns);
+  const [cards, setCards] = useState<KanbanCard[]>(loadCards);
+  const [addingColumn, setAddingColumn] = useState(false);
+  const [newColName, setNewColName] = useState("");
+  const newColRef = useRef<HTMLInputElement>(null);
 
-  // Re-read from localStorage when navigating back from detail pages
-  useEffect(() => {
-    setProjects(loadProjects());
-    setBrandAssets(loadBrandAssets());
-  }, []);
+  useEffect(() => { if (addingColumn && newColRef.current) newColRef.current.focus(); }, [addingColumn]);
 
-  const handleDeleteProject = (id: string) => {
-    if (!confirm(ko ? "이 프로젝트를 삭제하시겠습니까?" : "Delete this project?")) return;
-    setProjects(prev => {
-      const next = prev.filter(p => p.id !== id);
-      saveProjects(next);
-      return next;
-    });
+  // Persist
+  const persistColumns = useCallback((cols: KanbanColumn[]) => { setColumns(cols); saveColumns(cols); }, []);
+  const persistCards = useCallback((crds: KanbanCard[]) => { setCards(crds); saveCards(crds); }, []);
+
+  // Column operations
+  const handleAddColumn = () => {
+    if (!newColName.trim()) { setAddingColumn(false); return; }
+    const newCol: KanbanColumn = {
+      id: `col-${Date.now()}`,
+      name: newColName.trim(),
+      order: columns.length,
+    };
+    persistColumns([...columns, newCol]);
+    setNewColName("");
+    setAddingColumn(false);
   };
 
-  const handleDeleteBrand = (id: string) => {
-    if (!confirm(ko ? "삭제하시겠습니까?" : "Delete?")) return;
-    setBrandAssets(prev => {
-      const next = prev.filter(a => a.id !== id);
-      saveBrandAssets(next);
-      return next;
-    });
+  const handleRenameColumn = (id: string, name: string) => {
+    persistColumns(columns.map(c => c.id === id ? { ...c, name } : c));
   };
 
-  const handleAddClick = () => {
-    if (activeTab === "projects") navigate("/management/projects/new");
-    else if (activeTab === "branding") navigate("/management/branding/new");
-    else navigate("/board/new");
+  const handleDeleteColumn = (id: string) => {
+    persistColumns(columns.filter(c => c.id !== id));
+    persistCards(cards.filter(c => c.columnId !== id));
   };
+
+  const handleMoveColumn = (fromIndex: number, toIndex: number) => {
+    const next = [...columns];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    next.forEach((c, i) => c.order = i);
+    persistColumns(next);
+  };
+
+  // Card operations
+  const handleAddCard = (columnId: string, title: string) => {
+    const colCards = cards.filter(c => c.columnId === columnId);
+    const newCard: KanbanCard = {
+      id: `card-${Date.now()}`,
+      columnId,
+      title,
+      type: "general",
+      order: colCards.length,
+      createdAt: new Date().toISOString(),
+    };
+    persistCards([...cards, newCard]);
+  };
+
+  const handleDeleteCard = (id: string) => {
+    if (!confirm(ko ? "삭제하시겠습니까?" : "Delete this card?")) return;
+    persistCards(cards.filter(c => c.id !== id));
+  };
+
+  const handleMoveCard = (dragId: string, targetColId: string, targetIndex: number) => {
+    const next = [...cards];
+    const cardIndex = next.findIndex(c => c.id === dragId);
+    if (cardIndex === -1) return;
+    const [moved] = next.splice(cardIndex, 1);
+    moved.columnId = targetColId;
+
+    // Insert at target position within the column
+    const colCards = next.filter(c => c.columnId === targetColId);
+    const otherCards = next.filter(c => c.columnId !== targetColId);
+    colCards.splice(Math.min(targetIndex, colCards.length), 0, moved);
+    colCards.forEach((c, i) => c.order = i);
+
+    persistCards([...otherCards, ...colCards]);
+  };
+
+  const sortedColumns = [...columns].sort((a, b) => a.order - b.order);
 
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
       <header className="mb-4 shrink-0">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
             <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">
               <Building2 className="inline-block mr-2 -mt-0.5" size={22} />
               {ko ? "관리" : "Management"}
             </h1>
             <p className="text-gray-500 text-xs sm:text-sm">
-              {ko ? "프로젝트, 브랜딩, 팀 보드를 관리합니다" : "Manage projects, branding, and team board"}
+              {ko ? "카테고리별로 프로젝트와 자산을 관리합니다" : "Manage projects and assets by category"}
             </p>
           </div>
-          <button
-            onClick={handleAddClick}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-sm transition-all"
-          >
-            <Plus size={16} />
-            {activeTab === "projects"
-              ? (ko ? "프로젝트 추가" : "Add Project")
-              : activeTab === "branding"
-              ? (ko ? "브랜드 자산 추가" : "Add Brand Asset")
-              : (ko ? "보드 항목 추가" : "Add Board Item")}
-          </button>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setActiveTab("projects")}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border",
-              activeTab === "projects"
-                ? "bg-gray-900 text-white border-gray-900 shadow-sm"
-                : "bg-white text-gray-500 border-gray-100 hover:border-gray-300"
-            )}
-          >
-            <FolderKanban size={15} />
-            {ko ? "프로젝트" : "Projects"}
-            <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-bold", activeTab === "projects" ? "bg-gray-700 text-gray-200" : "bg-gray-100 text-gray-500")}>
-              {projects.length}
-            </span>
-          </button>
-          <button
-            onClick={() => setActiveTab("branding")}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border",
-              activeTab === "branding"
-                ? "bg-gray-900 text-white border-gray-900 shadow-sm"
-                : "bg-white text-gray-500 border-gray-100 hover:border-gray-300"
-            )}
-          >
-            <Palette size={15} />
-            {ko ? "브랜딩" : "Branding"}
-            <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-bold", activeTab === "branding" ? "bg-gray-700 text-gray-200" : "bg-gray-100 text-gray-500")}>
-              {brandAssets.length}
-            </span>
-          </button>
-          <button
-            onClick={() => setActiveTab("board")}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border",
-              activeTab === "board"
-                ? "bg-gray-900 text-white border-gray-900 shadow-sm"
-                : "bg-white text-gray-500 border-gray-100 hover:border-gray-300"
-            )}
-          >
-            <StickyNote size={15} />
-            {ko ? "팀 보드" : "Team Board"}
-          </button>
         </div>
       </header>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto pb-4">
-        {activeTab === "projects" ? (
-          projects.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-              <FolderKanban size={48} className="mb-3 text-gray-300" />
-              <p className="text-sm font-medium">{ko ? "프로젝트가 없습니다" : "No projects yet"}</p>
-              <button
-                onClick={() => navigate("/management/projects/new")}
-                className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-semibold"
-              >
-                + {ko ? "첫 프로젝트 만들기" : "Create your first project"}
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {projects.map(p => (
-                <ProjectCard
-                  key={p.id}
-                  project={p}
-                  ko={ko}
-                  members={members}
-                  onClick={() => navigate(`/management/projects/${p.id}`)}
-                  onDelete={() => handleDeleteProject(p.id)}
-                />
-              ))}
-            </div>
-          )
-        ) : activeTab === "branding" ? (
-          brandAssets.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-              <Palette size={48} className="mb-3 text-gray-300" />
-              <p className="text-sm font-medium">{ko ? "브랜드 자산이 없습니다" : "No brand assets yet"}</p>
-              <button
-                onClick={() => navigate("/management/branding/new")}
-                className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-semibold"
-              >
-                + {ko ? "첫 자산 등록하기" : "Add your first asset"}
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {/* Group by type */}
-              {(Object.keys(BRAND_TYPE_CONFIG) as BrandAsset["type"][]).map(type => {
-                const items = brandAssets.filter(a => a.type === type);
-                if (items.length === 0) return null;
-                const cfg = BRAND_TYPE_CONFIG[type];
-                return (
-                  <div key={type}>
-                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">
-                      {cfg.icon} {ko ? cfg.label : cfg.labelEn} ({items.length})
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-                      {items.map(asset => (
-                        <ManagementCard
-                          key={asset.id}
-                          title={asset.name}
-                          description={asset.value}
-                          icon={
-                            asset.imageUrl ? (
-                              <img src={asset.imageUrl} alt="" className="w-9 h-9 rounded-xl object-cover shrink-0 border border-gray-100" />
-                            ) : type === "color" ? (
-                              <div className="w-9 h-9 rounded-xl border border-gray-200 shrink-0" style={{ backgroundColor: asset.value }} />
-                            ) : type === "logo" && asset.value.startsWith("http") ? (
-                              <img src={asset.value} alt="" className="w-9 h-9 rounded-xl object-contain bg-gray-50 shrink-0" />
-                            ) : (
-                              <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center text-gray-400 shrink-0">
-                                {cfg.icon}
-                              </div>
-                            )
-                          }
-                          statusLabel={ko ? cfg.label : cfg.labelEn}
-                          statusColor="text-gray-600"
-                          statusBg="bg-gray-100"
-                          onClick={() => navigate(`/management/branding/${asset.id}`)}
-                          onEdit={() => navigate(`/management/branding/${asset.id}`)}
-                          onDelete={() => handleDeleteBrand(asset.id)}
-                          ko={ko}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )
-        ) : (
-          <TeamBoardTab ko={ko} />
-        )}
-      </div>
+      {/* Kanban Board */}
+      <div className="flex-1 overflow-x-auto pb-4">
+        <div className="flex gap-4 h-full items-start">
+          {sortedColumns.map((col, i) => {
+            const colCards = cards
+              .filter(c => c.columnId === col.id)
+              .sort((a, b) => a.order - b.order);
+            return (
+              <KanbanColumnComponent
+                key={col.id}
+                column={col}
+                cards={colCards}
+                index={i}
+                ko={ko}
+                onAddCard={handleAddCard}
+                onDeleteCard={handleDeleteCard}
+                onMoveCard={handleMoveCard}
+                onRenameColumn={handleRenameColumn}
+                onDeleteColumn={handleDeleteColumn}
+                onMoveColumn={handleMoveColumn}
+              />
+            );
+          })}
 
+          {/* Add Column Button */}
+          {addingColumn ? (
+            <div className="w-72 shrink-0 bg-gray-50 rounded-2xl border border-gray-200 p-3">
+              <input
+                ref={newColRef}
+                value={newColName}
+                onChange={(e) => setNewColName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAddColumn();
+                  if (e.key === "Escape") { setNewColName(""); setAddingColumn(false); }
+                }}
+                onBlur={handleAddColumn}
+                placeholder={ko ? "카테고리 이름..." : "Category name..."}
+                className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-100"
+              />
+              <div className="flex gap-2 mt-2">
+                <button onClick={handleAddColumn} className="flex-1 text-xs font-medium px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-1">
+                  <Check size={12} /> {ko ? "추가" : "Add"}
+                </button>
+                <button onClick={() => { setNewColName(""); setAddingColumn(false); }} className="text-xs px-3 py-1.5 text-gray-500 hover:bg-gray-100 rounded-lg">
+                  {ko ? "취소" : "Cancel"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setAddingColumn(true)}
+              className="w-72 shrink-0 py-8 rounded-2xl border-2 border-dashed border-gray-200 hover:border-blue-300 text-gray-400 hover:text-blue-500 text-sm font-medium transition-all flex items-center justify-center gap-2"
+            >
+              <Plus size={16} />
+              {ko ? "카테고리 추가" : "Add Category"}
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
