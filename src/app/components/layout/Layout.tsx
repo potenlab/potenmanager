@@ -20,6 +20,12 @@ export function Layout() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [showYearPicker, setShowYearPicker] = useState(false);
   const yearPickerRef = useRef<HTMLDivElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+
+  // Scroll main to top on route change
+  useEffect(() => {
+    if (mainRef.current) mainRef.current.scrollTo(0, 0);
+  }, [location.pathname]);
 
   // *** Use GoalContext (server-synced) instead of static import ***
   const { goals } = useGoalContext();
@@ -57,7 +63,7 @@ export function Layout() {
         )}
         style={isMobile ? undefined : { marginLeft: width }}
       >
-        <main className="flex-1 p-4 md:p-8 overflow-y-auto bg-white shadow-xl md:rounded-l-[32px] border-l border-gray-100 min-h-screen">
+        <main ref={mainRef} className="flex-1 p-4 md:p-8 overflow-y-auto bg-white shadow-xl md:rounded-l-[32px] border-l border-gray-100 min-h-screen">
           {location.pathname === "/mypage" ? null : (
           <header className={cn(
             "flex flex-col md:flex-row justify-between md:items-center mb-6 md:mb-8 pb-4 border-b border-gray-100 gap-3 md:gap-4",

@@ -4,7 +4,7 @@ import { useDrag, useDrop } from "react-dnd";
 import {
   Plus, Search, BookMarked, Globe, FileText, Link as LinkIcon,
   Trash2, X, ExternalLink, Check, Archive, Lock, Pencil, MoreHorizontal,
-  LayoutGrid, List, Grid3X3, FolderOpen, ChevronRight,
+  LayoutGrid, List, Grid3X3, FolderOpen, ChevronRight, Columns3, Columns4,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
@@ -47,11 +47,13 @@ function KanbanCard({
   onClick,
   isOwner,
   onContextMenu,
+  compact,
 }: {
   item: LibraryItem;
   onClick: () => void;
   isOwner?: boolean;
   onContextMenu?: (e: React.MouseEvent, id: string) => void;
+  compact?: boolean;
 }) {
   const { language } = useLanguage();
   const ko = language === "ko";
@@ -84,16 +86,19 @@ function KanbanCard({
       )}
     >
       {/* OG image thumbnail */}
-      {hasOgImage && (
+      {hasOgImage && !compact && (
         <div className="h-28 bg-gray-100 overflow-hidden">
           <img src={item.ogMetadata!.ogImage} alt="" className="w-full h-full object-cover" />
         </div>
       )}
-      <div className="p-3">
-        <p className="text-[13px] font-semibold text-gray-900 leading-snug line-clamp-2 group-hover:text-blue-600 transition-colors">
+      <div className={compact ? "p-2" : "p-3"}>
+        <p className={cn(
+          "font-semibold text-gray-900 leading-snug group-hover:text-blue-600 transition-colors",
+          compact ? "text-[11px] line-clamp-1" : "text-[13px] line-clamp-2"
+        )}>
           {item.title || (ko ? "제목 없음" : "Untitled")}
         </p>
-        {ogDesc && (
+        {ogDesc && !compact && (
           <p className="text-[11px] text-gray-500 line-clamp-2 mt-1 leading-relaxed">{ogDesc}</p>
         )}
         <div className="flex items-center gap-2 mt-2 flex-wrap">
@@ -140,6 +145,7 @@ function KanbanColumn({
   onContextMenu,
   onRemoveColumn,
   isCustom,
+  compact,
   onDrop,
 }: {
   title: string;
@@ -151,6 +157,7 @@ function KanbanColumn({
   onContextMenu: (e: React.MouseEvent, id: string) => void;
   onRemoveColumn?: () => void;
   isCustom?: boolean;
+  compact?: boolean;
   onDrop: (itemId: string, targetCategory: string) => void;
 }) {
   const [{ isOver, canDrop }, dropRef] = useDrop<LibraryDragItem, void, { isOver: boolean; canDrop: boolean }>({
@@ -164,7 +171,8 @@ function KanbanColumn({
     <div
       ref={dropRef}
       className={cn(
-        "flex flex-col w-[280px] shrink-0 rounded-2xl border transition-all duration-200",
+        "flex flex-col shrink-0 rounded-2xl border transition-all duration-200",
+        compact ? "w-[200px]" : "w-[280px]",
         isOver && canDrop
           ? "bg-blue-50/80 border-blue-300 ring-2 ring-blue-200/50 shadow-lg"
           : canDrop
@@ -209,6 +217,7 @@ function KanbanColumn({
             onClick={() => onCardClick(item.id)}
             isOwner={isOwnerFn(item)}
             onContextMenu={onContextMenu}
+            compact={compact}
           />
         ))}
         {items.length === 0 && (
@@ -244,6 +253,7 @@ export function LibraryPage() {
   const [activeTab, setActiveTab] = useState<"all" | "private" | "team">("all");
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<"kanban" | "compact" | "grid">("kanban");
+  const [boardSize, setBoardSize] = useState<"normal" | "compact">("normal");
   const [searchQuery, setSearchQuery] = useState("");
   const [addingCategory, setAddingCategory] = useState(false);
   const [newCatName, setNewCatName] = useState("");
@@ -472,6 +482,30 @@ export function LibraryPage() {
               <List size={14} />
             </button>
           </div>
+          {viewMode === "kanban" && (
+            <div className="flex items-center gap-1 shrink-0 border border-gray-200 rounded-lg p-0.5">
+              <button
+                onClick={() => setBoardSize("normal")}
+                className={cn(
+                  "p-1.5 rounded-md transition-all text-[10px] font-bold",
+                  boardSize === "normal" ? "bg-gray-900 text-white" : "text-gray-400 hover:text-gray-600"
+                )}
+                title={ko ? "기본 크기" : "Normal"}
+              >
+                <Columns3 size={14} />
+              </button>
+              <button
+                onClick={() => setBoardSize("compact")}
+                className={cn(
+                  "p-1.5 rounded-md transition-all text-[10px] font-bold",
+                  boardSize === "compact" ? "bg-gray-900 text-white" : "text-gray-400 hover:text-gray-600"
+                )}
+                title={ko ? "작은 보드" : "Compact boards"}
+              >
+                <Columns4 size={14} />
+              </button>
+            </div>
+          )}
           <div className="flex-1" />
           <div className="sm:max-w-xs w-full sm:w-auto">
             <div className="flex items-center w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-400 transition-all shadow-sm">
@@ -597,6 +631,7 @@ export function LibraryPage() {
                 isOwnerFn={isOwnerFn}
                 onContextMenu={handleCardContextMenu}
                 isCustom={col.isCustom}
+                compact={boardSize === "compact"}
                 onRemoveColumn={col.isCustom ? () => removeCategory(col.key) : undefined}
                 onDrop={(itemId, targetCategory) => {
                   const newCat = targetCategory === "__uncategorized__" ? undefined : targetCategory;

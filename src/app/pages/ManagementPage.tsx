@@ -96,7 +96,7 @@ interface KanbanColumn {
   order: number;
 }
 
-interface KanbanCard {
+export interface KanbanCard {
   id: string;
   columnId: string;
   title: string;
@@ -108,13 +108,13 @@ interface KanbanCard {
   createdAt: string;
 }
 
-type BoardType = "projects" | "branding";
+export type BoardType = "projects" | "branding";
 
 function storageKey(board: BoardType, suffix: string) {
   return `poten_mgmt_${board}_${suffix}`;
 }
 
-function loadColumns(board: BoardType): KanbanColumn[] {
+export function loadColumns(board: BoardType): KanbanColumn[] {
   try {
     const s = localStorage.getItem(storageKey(board, "columns"));
     if (s) return JSON.parse(s);
@@ -136,7 +136,7 @@ function saveColumns(board: BoardType, cols: KanbanColumn[]) {
   localStorage.setItem(storageKey(board, "columns"), JSON.stringify(cols));
 }
 
-function loadCards(board: BoardType): KanbanCard[] {
+export function loadCards(board: BoardType): KanbanCard[] {
   try {
     const s = localStorage.getItem(storageKey(board, "cards"));
     if (s) return JSON.parse(s);

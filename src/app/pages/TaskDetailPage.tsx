@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  ArrowLeft,
   CheckCircle2,
   Circle,
   Clock,
@@ -31,9 +30,11 @@ import {
   Upload,
   File as FileIcon,
   LayoutGrid,
+  FolderKanban,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Task, TaskCategory, Attachment } from "../../lib/mockData";
+import { loadCards as loadMgmtCards, BoardType } from "./ManagementPage";
 import { api } from "../../lib/api";
 import { TASK_CATEGORY_CONFIG } from "../../lib/jobRoles";
 import { useLanguage } from "../context/LanguageContext";
@@ -392,6 +393,8 @@ export function TaskDetailPage() {
   const [category, setCategory] = useState<TaskCategory | undefined>(
     task?.category && TASK_CATEGORY_CONFIG[task.category] ? task.category : undefined
   );
+  const [linkedBoard, setLinkedBoard] = useState<BoardType | undefined>(task?.linkedBoard);
+  const [linkedCardId, setLinkedCardId] = useState<string | undefined>(task?.linkedCardId);
   const [propsExpanded, setPropsExpanded] = useState(true);
   const [attachments, setAttachments] = useState<Attachment[]>(task?.attachments || []);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -439,9 +442,10 @@ export function TaskDetailPage() {
         title, titleKo: title, description, status, priority, assigneeIds,
         startDate: dateStart ?? undefined, endDate: dateEnd ?? undefined,
         estimatedTime: estTime, category, attachments,
+        linkedBoard, linkedCardId,
       });
     }
-  }, [title, description, status, priority, assigneeIds, dateStart, dateEnd, estTime, category, attachments]);
+  }, [title, description, status, priority, assigneeIds, dateStart, dateEnd, estTime, category, attachments, linkedBoard, linkedCardId]);
 
   const handleDelete = () => {
     if (confirm(language === "ko" ? "정말 삭제하시겠습니까?" : "Are you sure you want to delete?")) {
@@ -477,12 +481,17 @@ export function TaskDetailPage() {
     <div className="h-full overflow-y-auto bg-white scrollbar-hide">
       <div className="max-w-6xl mx-auto py-4 sm:py-7 px-4 sm:px-8 pb-64">
         
-        {/* Navigation & Header */}
+        {/* Breadcrumb Navigation */}
         <div className="flex items-center justify-between mb-6">
-          <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-gray-400 hover:text-gray-900 transition-colors text-sm group">
-            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-            {language === "ko" ? "돌아가기" : "Back"}
-          </button>
+          <nav className="flex items-center gap-1.5 text-sm text-gray-400">
+            <button onClick={() => navigate("/tasks")} className="hover:text-gray-900 transition-colors">
+              {language === "ko" ? "내 업무" : "My Tasks"}
+            </button>
+            <span>/</span>
+            <span className="text-gray-700 font-medium truncate max-w-[300px]">
+              {title || (language === "ko" ? "새 업무" : "New Task")}
+            </span>
+          </nav>
           <div className="flex items-center gap-2">
             {canDelete && (
               <button onClick={handleDelete} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
@@ -582,6 +591,16 @@ export function TaskDetailPage() {
                     const cfg = TASK_CATEGORY_CONFIG[o as TaskCategory];
                     return <span className={cn("flex items-center gap-2", cfg.color)}>{cfg.icon} {language === "ko" ? cfg.labelKo : cfg.label}</span>;
                   }}
+                />
+              </PropertyItem>
+
+              <PropertyItem icon={<FolderKanban size={14} />} label={language === "ko" ? "업무 유형" : "Linked Board"}>
+                <LinkedBoardPicker
+                  linkedBoard={linkedBoard}
+                  linkedCardId={linkedCardId}
+                  onChange={(board, cardId) => { setLinkedBoard(board); setLinkedCardId(cardId); }}
+                  language={language}
+                  disabled={!canEdit}
                 />
               </PropertyItem>
 
@@ -692,6 +711,123 @@ export function TaskDetailPage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Linked Board Picker ────────────────────────────────────────────
+function LinkedBoardPicker({
+  linkedBoard, linkedCardId, onChange, language, disabled,
+}: {
+  linkedBoard?: BoardType;
+  linkedCardId?: string;
+  onChange: (board?: BoardType, cardId?: string) => void;
+  language: string;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const ko = language === 'ko';
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const projectCards = useMemo(() => loadMgmtCards('projects'), [open]);
+  const brandingCards = useMemo(() => loadMgmtCards('branding'), [open]);
+
+  const selectedCard = linkedBoard && linkedCardId
+    ? (linkedBoard === 'projects' ? projectCards : brandingCards).find(c => c.id === linkedCardId)
+    : null;
+
+  const boardLabel = (b: BoardType) => b === 'projects' ? (ko ? '프로젝트' : 'Project') : (ko ? '브랜딩' : 'Branding');
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => !disabled && setOpen(!open)}
+        className={cn(
+          "text-sm transition-colors flex items-center gap-1.5",
+          disabled ? "cursor-default" : "hover:text-blue-600 cursor-pointer",
+          selectedCard ? "text-gray-800 font-medium" : "text-gray-400"
+        )}
+      >
+        {selectedCard ? (
+          <>
+            <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-bold",
+              linkedBoard === 'projects' ? 'bg-blue-100 text-blue-600' : 'bg-pink-100 text-pink-600'
+            )}>
+              {boardLabel(linkedBoard!)}
+            </span>
+            {selectedCard.title}
+          </>
+        ) : (
+          <span>{ko ? '미설정' : 'Not set'}</span>
+        )}
+        {!disabled && <ChevronDown size={12} className="text-gray-400" />}
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 min-w-[240px] max-h-[320px] overflow-y-auto py-1">
+          {/* Clear option */}
+          <button
+            onClick={() => { onChange(undefined, undefined); setOpen(false); }}
+            className="w-full px-3 py-2 text-xs text-gray-400 hover:bg-gray-50 text-left"
+          >
+            {ko ? '없음' : 'None'}
+          </button>
+          <div className="mx-2 my-1 border-t border-gray-100" />
+
+          {/* Projects section */}
+          <div className="px-3 py-1">
+            <span className="text-[10px] font-bold text-blue-500 uppercase tracking-wider">
+              {ko ? '프로젝트' : 'Projects'}
+            </span>
+          </div>
+          {projectCards.length === 0 ? (
+            <div className="px-3 py-2 text-[11px] text-gray-300">{ko ? '카드 없음' : 'No cards'}</div>
+          ) : projectCards.map(card => (
+            <button key={card.id}
+              onClick={() => { onChange('projects', card.id); setOpen(false); }}
+              className={cn("w-full px-3 py-2 text-xs text-left hover:bg-blue-50 flex items-center gap-2 transition-colors",
+                linkedBoard === 'projects' && linkedCardId === card.id && "bg-blue-50 text-blue-700"
+              )}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
+              <span className="truncate">{card.title}</span>
+              {linkedBoard === 'projects' && linkedCardId === card.id && <Check size={12} className="ml-auto text-blue-600 shrink-0" />}
+            </button>
+          ))}
+
+          <div className="mx-2 my-1 border-t border-gray-100" />
+
+          {/* Branding section */}
+          <div className="px-3 py-1">
+            <span className="text-[10px] font-bold text-pink-500 uppercase tracking-wider">
+              {ko ? '브랜딩' : 'Branding'}
+            </span>
+          </div>
+          {brandingCards.length === 0 ? (
+            <div className="px-3 py-2 text-[11px] text-gray-300">{ko ? '카드 없음' : 'No cards'}</div>
+          ) : brandingCards.map(card => (
+            <button key={card.id}
+              onClick={() => { onChange('branding', card.id); setOpen(false); }}
+              className={cn("w-full px-3 py-2 text-xs text-left hover:bg-pink-50 flex items-center gap-2 transition-colors",
+                linkedBoard === 'branding' && linkedCardId === card.id && "bg-pink-50 text-pink-700"
+              )}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-pink-400 shrink-0" />
+              <span className="truncate">{card.title}</span>
+              {linkedBoard === 'branding' && linkedCardId === card.id && <Check size={12} className="ml-auto text-pink-600 shrink-0" />}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

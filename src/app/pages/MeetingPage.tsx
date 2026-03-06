@@ -142,6 +142,7 @@ function MeetingColumn({
   title, count, meetings, icon, columnKey, onDrop,
   isAdding, onStartAdd, onCancelAdd, onAddMeeting,
   isSelecting, selectedIds, onToggleSelect, onCardContextMenu,
+  completedMonthFilter, completedMonthOptions, onCompletedMonthChange,
 }: {
   title: string; count: number; meetings: Meeting[]; icon: React.ReactNode;
   columnKey: ColumnKey; onDrop: (meetingId: string, targetColumn: ColumnKey) => void;
@@ -149,13 +150,24 @@ function MeetingColumn({
   onAddMeeting: (title: string, column: ColumnKey) => void;
   isSelecting: boolean; selectedIds: Set<string>; onToggleSelect: (id: string) => void;
   onCardContextMenu?: (e: React.MouseEvent, id: string) => void;
+  completedMonthFilter?: string;
+  completedMonthOptions?: string[];
+  onCompletedMonthChange?: (month: string) => void;
 }) {
   const { language } = useLanguage();
   const ko = language === 'ko';
   const [newTitle, setNewTitle] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const [showMonthDrop, setShowMonthDrop] = useState(false);
+  const monthDropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { if (isAdding && inputRef.current) inputRef.current.focus(); }, [isAdding]);
+  useEffect(() => {
+    if (!showMonthDrop) return;
+    const h = (e: MouseEvent) => { if (monthDropRef.current && !monthDropRef.current.contains(e.target as Node)) setShowMonthDrop(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [showMonthDrop]);
 
   const handleSubmit = () => { if (newTitle.trim()) { onAddMeeting(newTitle.trim(), columnKey); setNewTitle(''); } };
   const handleCancel = () => { setNewTitle(''); onCancelAdd?.(); };
@@ -171,6 +183,11 @@ function MeetingColumn({
     collect: (monitor) => ({ isOver: monitor.isOver(), canDrop: monitor.canDrop() }),
   });
 
+  const monthLabel = (m: string) => {
+    const [y, mo] = m.split('-').map(Number);
+    return ko ? `${y}년 ${mo}월` : new Date(y, mo - 1).toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+  };
+
   return (
     <div ref={dropRef} className={cn(
       "flex-1 flex flex-col rounded-2xl border p-4 transition-all duration-200 h-full",
@@ -183,6 +200,48 @@ function MeetingColumn({
           <h3 className="font-semibold text-gray-700 text-sm">{title}</h3>
           <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full transition-colors",
             isOver && canDrop ? "bg-blue-200 text-blue-700" : "bg-gray-200 text-gray-600")}>{count}</span>
+          {/* Month filter for completed column */}
+          {completedMonthOptions && onCompletedMonthChange && (
+            <div className="relative" ref={monthDropRef}>
+              <button
+                onClick={() => setShowMonthDrop(!showMonthDrop)}
+                className={cn(
+                  "flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium transition-all border",
+                  completedMonthFilter && completedMonthFilter !== 'all'
+                    ? "border-blue-200 bg-blue-50 text-blue-600"
+                    : "border-gray-200 text-gray-400 hover:text-gray-600"
+                )}
+              >
+                <CalendarIcon size={10} />
+                {completedMonthFilter && completedMonthFilter !== 'all'
+                  ? monthLabel(completedMonthFilter)
+                  : (ko ? '전체' : 'All')}
+                <ChevronDown size={9} />
+              </button>
+              {showMonthDrop && (
+                <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 min-w-[140px] py-1 max-h-[240px] overflow-y-auto animate-in fade-in duration-100">
+                  <button
+                    onClick={() => { onCompletedMonthChange('all'); setShowMonthDrop(false); }}
+                    className={cn("w-full flex items-center gap-2 px-3 py-1.5 text-[11px] hover:bg-gray-50 transition-colors",
+                      (!completedMonthFilter || completedMonthFilter === 'all') && "bg-blue-50/50")}
+                  >
+                    <span className="text-gray-500">{ko ? '전체' : 'All'}</span>
+                    {(!completedMonthFilter || completedMonthFilter === 'all') && <Check size={10} className="ml-auto text-blue-600" />}
+                  </button>
+                  {completedMonthOptions.map(m => (
+                    <button key={m}
+                      onClick={() => { onCompletedMonthChange(m); setShowMonthDrop(false); }}
+                      className={cn("w-full flex items-center gap-2 px-3 py-1.5 text-[11px] hover:bg-gray-50 transition-colors",
+                        completedMonthFilter === m && "bg-blue-50/50")}
+                    >
+                      <span className="text-gray-600">{monthLabel(m)}</span>
+                      {completedMonthFilter === m && <Check size={10} className="ml-auto text-blue-600" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <button onClick={onStartAdd} className="text-gray-400 hover:text-blue-600 p-1 rounded hover:bg-blue-50 transition-colors">
           <Plus size={16} />
@@ -257,6 +316,7 @@ function BoardView({
   addingInColumn, onStartAdd, onCancelAdd,
   isSelecting, selectedIds, onToggleSelect,
   onBulkSelect, onCardContextMenu,
+  completedMonthFilter, completedMonthOptions, onCompletedMonthChange,
 }: {
   todayMeetings: Meeting[]; upcomingMeetings: Meeting[]; completedMeetings: Meeting[];
   onDrop: (meetingId: string, targetColumn: ColumnKey) => void;
@@ -266,6 +326,9 @@ function BoardView({
   isSelecting: boolean; selectedIds: Set<string>; onToggleSelect: (id: string) => void;
   onBulkSelect: (ids: Set<string>) => void;
   onCardContextMenu?: (e: React.MouseEvent, id: string) => void;
+  completedMonthFilter: string;
+  completedMonthOptions: string[];
+  onCompletedMonthChange: (month: string) => void;
 }) {
   const ko = language === 'ko';
   const boardRef = useRef<HTMLDivElement>(null);
@@ -357,7 +420,8 @@ function BoardView({
         <MeetingColumn title={ko ? "완료" : "Completed"} count={completedMeetings.length} meetings={completedMeetings}
           icon={<CheckCircle2 size={16} className="text-emerald-500" />} columnKey="completed" onDrop={onDrop} onAddMeeting={onAddMeeting}
           isAdding={addingInColumn === 'completed'} onStartAdd={() => onStartAdd('completed')} onCancelAdd={onCancelAdd}
-          isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu} />
+          isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
+          completedMonthFilter={completedMonthFilter} completedMonthOptions={completedMonthOptions} onCompletedMonthChange={onCompletedMonthChange} />
       </div>
       <div
         ref={rubberBandElRef}
@@ -383,6 +447,7 @@ export function MeetingPage() {
   const [filterMonth, setFilterMonth] = useState<string>('all');
   const [showMonthFilter, setShowMonthFilter] = useState(false);
   const monthFilterRef = useRef<HTMLDivElement>(null);
+  const [completedMonthFilter, setCompletedMonthFilter] = useState<string>('all');
 
   const isSelecting = selectedIds.size > 0;
   const toggleSelect = useCallback((id: string) => {
@@ -447,9 +512,27 @@ export function MeetingPage() {
   const upcomingMeetings = useMemo(() =>
     filteredMeetings.filter(m => m.status !== 'completed' && !isToday(new Date(m.date)) && new Date(m.date) >= new Date())
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()), [filteredMeetings]);
-  const completedMeetings = useMemo(() =>
+  const allCompletedMeetings = useMemo(() =>
     filteredMeetings.filter(m => m.status === 'completed')
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()), [filteredMeetings]);
+
+  const completedMonthOptions = useMemo(() => {
+    const s = new Set<string>();
+    allCompletedMeetings.forEach(m => {
+      const d = new Date(m.date);
+      s.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    });
+    return Array.from(s).sort().reverse();
+  }, [allCompletedMeetings]);
+
+  const completedMeetings = useMemo(() => {
+    if (completedMonthFilter === 'all') return allCompletedMeetings;
+    const [y, mo] = completedMonthFilter.split('-').map(Number);
+    return allCompletedMeetings.filter(m => {
+      const d = new Date(m.date);
+      return d.getFullYear() === y && d.getMonth() + 1 === mo;
+    });
+  }, [allCompletedMeetings, completedMonthFilter]);
 
   const todayCount = meetings.filter(m => m.status !== 'completed' && isToday(new Date(m.date))).length;
   const upcomingCount = meetings.filter(m => m.status !== 'completed' && !isToday(new Date(m.date)) && new Date(m.date) >= new Date()).length;
@@ -606,6 +689,7 @@ export function MeetingPage() {
             addingInColumn={addingInColumn} onStartAdd={setAddingInColumn} onCancelAdd={() => setAddingInColumn(null)}
             isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={toggleSelect}
             onBulkSelect={setSelectedIds} onCardContextMenu={handleCardContextMenu}
+            completedMonthFilter={completedMonthFilter} completedMonthOptions={completedMonthOptions} onCompletedMonthChange={setCompletedMonthFilter}
           />
         ) : (
           <MeetingListView meetings={filteredMeetings} />

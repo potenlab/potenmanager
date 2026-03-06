@@ -154,6 +154,10 @@ export interface Task extends GoalItem {
   colorOverride?: string | null;
   category?: TaskCategory;
   attachments?: Attachment[];
+  /** Linked management board type */
+  linkedBoard?: 'projects' | 'branding';
+  /** Linked management card ID */
+  linkedCardId?: string;
 }
 
 // Helper: get the "main" assignee id for calendar color purposes.
