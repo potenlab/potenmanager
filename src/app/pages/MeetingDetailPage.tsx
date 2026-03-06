@@ -313,7 +313,7 @@ export function MeetingDetailPage() {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const ko = language === 'ko';
-  const { getMeeting, addMeeting, updateMeeting, removeMeeting } = useMeetingContext();
+  const { getMeeting, addMeeting, updateMeeting, removeMeeting, isLoading } = useMeetingContext();
   const { members, currentUser } = useTeam();
   const { addTask } = useTaskContext();
   const { moveToTrash } = useTrash();
@@ -364,6 +364,13 @@ export function MeetingDetailPage() {
   }
 
   if (!meeting) {
+    if (isLoading) {
+      return (
+        <div className="h-full flex items-center justify-center">
+          <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      );
+    }
     return (
       <div className="h-full flex flex-col items-center justify-center gap-4 text-gray-400">
         <Video size={40} className="text-gray-300" />
