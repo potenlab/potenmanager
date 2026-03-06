@@ -19,7 +19,15 @@ const defaultValue: LanguageContextType = {
 const LanguageContext = createContext<LanguageContextType>(defaultValue);
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<Language>("ko");
+  const [language, setLanguageState] = useState<Language>(() => {
+    const saved = localStorage.getItem("poten_language");
+    return saved === "en" ? "en" : "ko";
+  });
+
+  const setLanguage = (lang: Language) => {
+    setLanguageState(lang);
+    localStorage.setItem("poten_language", lang);
+  };
 
   const value = useMemo<LanguageContextType>(() => ({
     language,
