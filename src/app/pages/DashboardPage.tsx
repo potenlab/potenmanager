@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -324,6 +324,25 @@ export function DashboardPage() {
   const navigate = useNavigate();
   const currentYear = new Date().getFullYear();
 
+  // Swipe gesture for tab switching
+  const touchRef = useRef<{ startX: number; startY: number } | null>(null);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY };
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!touchRef.current) return;
+    const dx = e.changedTouches[0].clientX - touchRef.current.startX;
+    const dy = e.changedTouches[0].clientY - touchRef.current.startY;
+    touchRef.current = null;
+    if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx)) return; // too short or vertical scroll
+    const tabIds: DashboardTab[] = ["performance", "team", "goals", "strategy", "revenue", "users"];
+    const curIdx = tabIds.indexOf(activeTab);
+    if (dx < 0 && curIdx < tabIds.length - 1) setActiveTab(tabIds[curIdx + 1]);
+    if (dx > 0 && curIdx > 0) setActiveTab(tabIds[curIdx - 1]);
+  }, [activeTab]);
+
   const tabs: { id: DashboardTab; label: string; icon: React.ElementType; color: string }[] = [
     { id: "performance", label: ko ? "성과" : "Performance", icon: BarChart3, color: "emerald" },
     { id: "team", label: ko ? "팀" : "Team", icon: Users, color: "blue" },
@@ -385,7 +404,8 @@ export function DashboardPage() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto bg-[#FAFAFA] p-6 md:p-8">
+      <div className="flex-1 overflow-y-auto bg-[#FAFAFA] p-6 md:p-8"
+        onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
