@@ -83,6 +83,71 @@ const MONTH_LABELS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug",
 
 const uid = () => `goal_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
+// ─── Goal Card Row (unified with management cards) ──────────────
+function GoalCardRow({
+  goal, badge, badgeColor, ko, canEdit, onDelete,
+}: {
+  goal: GoalItem; badge: string; badgeColor: string;
+  ko: boolean; canEdit: boolean; onDelete: () => void;
+}) {
+  const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
+
+  const title = ko ? (goal.titleKo || goal.title) : goal.title;
+
+  return (
+    <div
+      onClick={() => navigate(`/organization/${goal.id}`)}
+      className="flex items-center gap-3 px-3 py-3 rounded-xl bg-gray-50 hover:bg-blue-50 transition-colors group cursor-pointer"
+    >
+      <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider shrink-0", badgeColor)}>
+        {badge}
+      </span>
+      <p className="text-sm text-gray-700 truncate flex-1 group-hover:text-blue-600 transition-colors">
+        {title}
+      </p>
+      <span className="text-xs font-bold text-gray-400">{goal.progress}%</span>
+      {canEdit && (
+        <div ref={menuRef} className="relative shrink-0">
+          <button
+            onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
+            className="p-1 text-gray-300 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-all opacity-0 group-hover:opacity-100"
+          >
+            <MoreVertical size={14} />
+          </button>
+          {menuOpen && (
+            <div className="absolute right-0 top-7 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-28 animate-in fade-in slide-in-from-top-1 duration-150">
+              <button
+                onClick={(e) => { e.stopPropagation(); setMenuOpen(false); navigate(`/organization/${goal.id}`); }}
+                className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+              >
+                <Edit3 size={12} /> {ko ? "수정" : "Edit"}
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete(); }}
+                className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2"
+              >
+                <Trash2 size={12} /> {ko ? "삭제" : "Delete"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+      <ArrowRight size={12} className="text-gray-300 group-hover:text-blue-400 shrink-0 opacity-0 group-hover:opacity-100 transition-all" />
+    </div>
+  );
+}
+
 export function GoalPage() {
   const { language } = useLanguage();
   const ko = language === "ko";
@@ -814,23 +879,15 @@ export function GoalPage() {
 
                     {quarterGoals.length > 0 ? (
                       quarterGoals.map((g) => (
-                        <Link
+                        <GoalCardRow
                           key={g.id}
-                          to={`/organization/${g.id}`}
-                          className="flex items-center gap-3 px-3 py-3 rounded-xl bg-gray-50 hover:bg-blue-50 transition-colors group"
-                        >
-                          <span className={cn(
-                            "text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider",
-                            "bg-blue-50 text-blue-700 border-blue-200"
-                          )}>
-                            {getQuarterLabel(g)}
-                          </span>
-                          <p className="text-sm text-gray-700 truncate flex-1 group-hover:text-blue-600 transition-colors">
-                            {ko ? (g.titleKo || g.title) : g.title}
-                          </p>
-                          <span className="text-xs font-bold text-gray-400">{g.progress}%</span>
-                          <ArrowRight size={12} className="text-gray-300 group-hover:text-blue-400 shrink-0 opacity-0 group-hover:opacity-100 transition-all" />
-                        </Link>
+                          goal={g}
+                          badge={getQuarterLabel(g)}
+                          badgeColor="bg-blue-50 text-blue-700 border-blue-200"
+                          ko={ko}
+                          canEdit={canEdit}
+                          onDelete={() => removeGoal(g.id)}
+                        />
                       ))
                     ) : (
                       <p className="text-sm text-gray-300 text-center py-3">
@@ -907,23 +964,15 @@ export function GoalPage() {
                   <div className="px-6 py-4 space-y-2">
                     {monthGoals.length > 0 ? (
                       monthGoals.map((g) => (
-                        <Link
+                        <GoalCardRow
                           key={g.id}
-                          to={`/organization/${g.id}`}
-                          className="flex items-center gap-3 px-3 py-3 rounded-xl bg-gray-50 hover:bg-emerald-50 transition-colors group"
-                        >
-                          <span className={cn(
-                            "text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider",
-                            "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          )}>
-                            {getMonthLabel(g)}
-                          </span>
-                          <p className="text-sm text-gray-700 truncate flex-1 group-hover:text-emerald-600 transition-colors">
-                            {ko ? (g.titleKo || g.title) : g.title}
-                          </p>
-                          <span className="text-xs font-bold text-gray-400">{g.progress}%</span>
-                          <ArrowRight size={12} className="text-gray-300 group-hover:text-emerald-400 shrink-0 opacity-0 group-hover:opacity-100 transition-all" />
-                        </Link>
+                          goal={g}
+                          badge={getMonthLabel(g)}
+                          badgeColor="bg-emerald-50 text-emerald-700 border-emerald-200"
+                          ko={ko}
+                          canEdit={canEdit}
+                          onDelete={() => removeGoal(g.id)}
+                        />
                       ))
                     ) : (
                       <p className="text-sm text-gray-300 text-center py-3">

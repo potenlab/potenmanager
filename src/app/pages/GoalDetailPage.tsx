@@ -2,8 +2,8 @@ import { useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router";
 import {
-  ArrowLeft,
   CheckCircle2,
+  ChevronRight as ChevronRightIcon,
   Circle,
   CircleDot,
   Clock,
@@ -303,12 +303,17 @@ export function GoalDetailPage() {
     <div className="h-full overflow-y-auto bg-white scrollbar-hide">
       <div className="max-w-6xl mx-auto py-4 sm:py-7 px-4 sm:px-8 pb-64">
 
-        {/* Navigation & Header */}
+        {/* Breadcrumb Navigation & Header */}
         <div className="flex items-center justify-between mb-6">
-          <button onClick={() => navigate("/organization")} className="flex items-center gap-2 text-gray-400 hover:text-gray-900 transition-colors text-sm group">
-            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-            {ko ? "조직으로" : "Organization"}
-          </button>
+          <nav className="flex items-center gap-1 text-sm">
+            <button onClick={() => navigate("/organization")} className="text-gray-400 hover:text-blue-600 transition-colors font-medium">
+              {ko ? "전략 목표" : "Goals"}
+            </button>
+            <ChevronRightIcon size={14} className="text-gray-300 shrink-0" />
+            <span className="text-gray-700 font-semibold truncate max-w-[200px]">
+              {title || (ko ? "목표" : "Goal")}
+            </span>
+          </nav>
           <div className="flex items-center gap-2">
             {canEdit && (
               <button

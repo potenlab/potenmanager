@@ -105,16 +105,30 @@ export function saveBrandAssets(assets: BrandAsset[]) {
   localStorage.setItem(STORAGE_KEY_BRAND, JSON.stringify(assets));
 }
 
-// ─── Project Card ────────────────────────────────────────────────
-function ProjectCard({
-  project, ko, members, onClick, onDelete,
+// ─── Unified Management Card ─────────────────────────────────────
+function ManagementCard({
+  title, description, icon, statusLabel, statusColor, statusBg,
+  meta, avatars, onClick, onEdit, onDelete, ko,
 }: {
-  project: Project; ko: boolean;
-  members: { id: string; name: string; avatar?: string }[];
-  onClick: () => void; onDelete: () => void;
+  title: string; description?: string;
+  icon: React.ReactNode;
+  statusLabel?: string; statusColor?: string; statusBg?: string;
+  meta?: string;
+  avatars?: { id: string; name: string; avatar?: string }[];
+  onClick: () => void; onEdit: () => void; onDelete: () => void;
+  ko: boolean;
 }) {
-  const status = PROJECT_STATUS_CONFIG[project.status];
-  const assignees = project.memberIds.map(id => members.find(m => m.id === id)).filter(Boolean);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
 
   return (
     <div
@@ -122,58 +136,107 @@ function ProjectCard({
       className="bg-white rounded-2xl border border-gray-100 hover:border-gray-300 hover:shadow-md p-5 cursor-pointer transition-all group"
     >
       <div className="flex items-start gap-3 mb-3">
-        {project.logoUrl ? (
-          <img src={project.logoUrl} alt="" className="w-9 h-9 rounded-xl object-cover shrink-0 border border-gray-100" />
-        ) : (
-          <div
-            className="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center"
-            style={{ backgroundColor: project.color + "20" }}
-          >
-            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: project.color }} />
-          </div>
-        )}
+        {icon}
         <div className="flex-1 min-w-0">
           <h3 className="text-[15px] font-bold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
-            {project.name}
+            {title || (ko ? "제목 없음" : "Untitled")}
           </h3>
-          {project.description && (
-            <p className="text-xs text-gray-500 line-clamp-2 mt-1">{project.description}</p>
+          {description && (
+            <p className="text-xs text-gray-500 line-clamp-2 mt-1">{description}</p>
           )}
         </div>
-        <button
-          onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          className="opacity-0 group-hover:opacity-100 p-1 text-gray-300 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all"
-        >
-          <Trash2 size={14} />
-        </button>
+        <div ref={menuRef} className="relative shrink-0">
+          <button
+            onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
+            className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-300 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-all"
+          >
+            <MoreVertical size={14} />
+          </button>
+          {menuOpen && (
+            <div className="absolute right-0 top-8 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-28 animate-in fade-in slide-in-from-top-1 duration-150">
+              <button
+                onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onEdit(); }}
+                className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+              >
+                <Edit3 size={12} /> {ko ? "수정" : "Edit"}
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete(); }}
+                className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2"
+              >
+                <Trash2 size={12} /> {ko ? "삭제" : "Delete"}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
-        <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full", status.color, status.bg)}>
-          {ko ? status.label : status.labelEn}
-        </span>
-        {project.startDate && (
-          <span className="text-[10px] text-gray-400 flex items-center gap-1">
-            <Calendar size={10} />
-            {project.startDate}{project.endDate ? ` ~ ${project.endDate}` : ""}
+        {statusLabel && (
+          <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full", statusColor, statusBg)}>
+            {statusLabel}
           </span>
         )}
-        {assignees.length > 0 && (
+        {meta && (
+          <span className="text-[10px] text-gray-400 flex items-center gap-1">
+            <Calendar size={10} />
+            {meta}
+          </span>
+        )}
+        {avatars && avatars.length > 0 && (
           <div className="flex -space-x-1.5 ml-auto">
-            {assignees.slice(0, 3).map((m) => (
-              <div key={m!.id} className="w-5 h-5 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-[8px] font-bold text-gray-600 overflow-hidden">
-                {m!.avatar ? <img src={m!.avatar} className="w-full h-full object-cover" /> : m!.name[0]}
+            {avatars.slice(0, 3).map((m) => (
+              <div key={m.id} className="w-5 h-5 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-[8px] font-bold text-gray-600 overflow-hidden">
+                {m.avatar ? <img src={m.avatar} className="w-full h-full object-cover" /> : m.name[0]}
               </div>
             ))}
-            {assignees.length > 3 && (
+            {avatars.length > 3 && (
               <div className="w-5 h-5 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-[8px] font-bold text-gray-400">
-                +{assignees.length - 3}
+                +{avatars.length - 3}
               </div>
             )}
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+// ─── Project Card (uses ManagementCard) ──────────────────────────
+function ProjectCard({
+  project, ko, members, onClick, onDelete,
+}: {
+  project: Project; ko: boolean;
+  members: { id: string; name: string; avatar?: string }[];
+  onClick: () => void; onDelete: () => void;
+}) {
+  const navigate = useNavigate();
+  const status = PROJECT_STATUS_CONFIG[project.status];
+  const assignees = project.memberIds.map(id => members.find(m => m.id === id)).filter(Boolean) as { id: string; name: string; avatar?: string }[];
+
+  return (
+    <ManagementCard
+      title={project.name}
+      description={project.description}
+      icon={
+        project.logoUrl ? (
+          <img src={project.logoUrl} alt="" className="w-9 h-9 rounded-xl object-cover shrink-0 border border-gray-100" />
+        ) : (
+          <div className="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center" style={{ backgroundColor: project.color + "20" }}>
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: project.color }} />
+          </div>
+        )
+      }
+      statusLabel={ko ? status.label : status.labelEn}
+      statusColor={status.color}
+      statusBg={status.bg}
+      meta={project.startDate ? `${project.startDate}${project.endDate ? ` ~ ${project.endDate}` : ""}` : undefined}
+      avatars={assignees}
+      onClick={onClick}
+      onEdit={() => navigate(`/management/projects/${project.id}`)}
+      onDelete={onDelete}
+      ko={ko}
+    />
   );
 }
 
@@ -540,35 +603,33 @@ export function ManagementPage() {
                     <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">
                       {cfg.icon} {ko ? cfg.label : cfg.labelEn} ({items.length})
                     </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
                       {items.map(asset => (
-                        <div
+                        <ManagementCard
                           key={asset.id}
+                          title={asset.name}
+                          description={asset.value}
+                          icon={
+                            asset.imageUrl ? (
+                              <img src={asset.imageUrl} alt="" className="w-9 h-9 rounded-xl object-cover shrink-0 border border-gray-100" />
+                            ) : type === "color" ? (
+                              <div className="w-9 h-9 rounded-xl border border-gray-200 shrink-0" style={{ backgroundColor: asset.value }} />
+                            ) : type === "logo" && asset.value.startsWith("http") ? (
+                              <img src={asset.value} alt="" className="w-9 h-9 rounded-xl object-contain bg-gray-50 shrink-0" />
+                            ) : (
+                              <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center text-gray-400 shrink-0">
+                                {cfg.icon}
+                              </div>
+                            )
+                          }
+                          statusLabel={ko ? cfg.label : cfg.labelEn}
+                          statusColor="text-gray-600"
+                          statusBg="bg-gray-100"
                           onClick={() => navigate(`/management/branding/${asset.id}`)}
-                          className="flex items-center gap-3 px-4 py-3 bg-white rounded-xl border border-gray-100 hover:border-gray-300 hover:shadow-sm cursor-pointer transition-all group"
-                        >
-                          {asset.imageUrl ? (
-                            <img src={asset.imageUrl} alt="" className="w-9 h-9 rounded-xl object-cover shrink-0 border border-gray-100" />
-                          ) : type === "color" ? (
-                            <div className="w-9 h-9 rounded-xl border border-gray-200 shrink-0" style={{ backgroundColor: asset.value }} />
-                          ) : type === "logo" && asset.value.startsWith("http") ? (
-                            <img src={asset.value} alt="" className="w-9 h-9 rounded-xl object-contain bg-gray-50 shrink-0" />
-                          ) : (
-                            <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center text-gray-400 shrink-0">
-                              {cfg.icon}
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-gray-900 truncate">{asset.name}</p>
-                            <p className="text-[11px] text-gray-400 truncate font-mono">{asset.value}</p>
-                          </div>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleDeleteBrand(asset.id); }}
-                            className="opacity-0 group-hover:opacity-100 p-1 text-gray-300 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
+                          onEdit={() => navigate(`/management/branding/${asset.id}`)}
+                          onDelete={() => handleDeleteBrand(asset.id)}
+                          ko={ko}
+                        />
                       ))}
                     </div>
                   </div>

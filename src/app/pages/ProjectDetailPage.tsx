@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  ArrowLeft, Trash2, ChevronDown, LayoutGrid,
+  Trash2, ChevronDown, LayoutGrid, ChevronRight,
   Calendar, Users, Circle, Palette, Camera,
   Building2, DollarSign, FolderKanban, Link2, Plus, X,
 } from "lucide-react";
@@ -114,15 +114,20 @@ export function ProjectDetailPage() {
       <div className="max-w-6xl mx-auto py-4 sm:py-7 px-4 sm:px-8 pb-64">
         <div className="max-w-3xl">
           <div className="space-y-6">
-            {/* Navigation */}
+            {/* Breadcrumb Navigation */}
             <div className="flex items-center justify-between">
-              <button
-                onClick={() => navigate("/management")}
-                className="flex items-center gap-2 text-gray-400 hover:text-gray-900 transition-colors text-sm group"
-              >
-                <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-                {ko ? "관리" : "Management"}
-              </button>
+              <nav className="flex items-center gap-1 text-sm">
+                <button
+                  onClick={() => navigate("/management")}
+                  className="text-gray-400 hover:text-blue-600 transition-colors font-medium"
+                >
+                  {ko ? "프로젝트" : "Projects"}
+                </button>
+                <ChevronRight size={14} className="text-gray-300 shrink-0" />
+                <span className="text-gray-700 font-semibold truncate max-w-[200px]">
+                  {project.name || (ko ? "새 프로젝트" : "New Project")}
+                </span>
+              </nav>
               <button
                 onClick={handleDelete}
                 className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
