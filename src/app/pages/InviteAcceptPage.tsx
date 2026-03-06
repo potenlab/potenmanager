@@ -134,6 +134,11 @@ export function InviteAcceptPage() {
           if (onboardingDone) {
             navigate('/dashboard', { replace: true });
           } else {
+            // Tell onboarding the user already joined an org via invite
+            localStorage.setItem('poten_invite_joined', JSON.stringify({
+              orgName: invite?.orgName || '',
+              role: invite?.role || 'member',
+            }));
             navigate('/onboarding', { replace: true });
           }
         }, 1500);

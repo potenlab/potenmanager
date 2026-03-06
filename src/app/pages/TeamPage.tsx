@@ -36,7 +36,7 @@ export function TeamPage() {
   const navigate = useNavigate();
   const { members, currentUser } = usePermission();
   const { tasks } = useTaskContext();
-  const { org, joinRequests, pendingCount, approveRequest, rejectRequest } = useInvite();
+  const { org, isLoading: orgLoading, joinRequests, pendingCount, approveRequest, rejectRequest } = useInvite();
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
@@ -168,7 +168,7 @@ export function TeamPage() {
         ))}
         
         {/* Invite / Create Org Card */}
-        {!org ? (
+        {!org && !orgLoading ? (
           <div
             onClick={() => navigate("/organization")}
             className="flex flex-col items-center justify-center p-8 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer group h-full min-h-[280px]"
@@ -183,7 +183,7 @@ export function TeamPage() {
               {ko ? "내 조직 페이지에서 조직을 생성하세요." : "Go to My Organization page to create one."}
             </p>
           </div>
-        ) : (
+        ) : org ? (
           <button
             onClick={() => setIsInviteDialogOpen(true)}
             className="flex flex-col items-center justify-center p-8 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl hover:border-blue-400 hover:bg-blue-50 transition-all group h-full min-h-[280px]"
@@ -198,10 +198,10 @@ export function TeamPage() {
               {ko ? "초대 코드를 생성해 팀원을 초대하세요." : "Generate an invite code to add team members."}
             </p>
           </button>
-        )}
+        ) : null}
       </div>
 
-      <InviteMemberDialog 
+      <InviteMemberDialog
         open={isInviteDialogOpen} 
         onOpenChange={setIsInviteDialogOpen}
       />

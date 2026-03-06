@@ -129,8 +129,29 @@ export function OnboardingPage() {
   const { createOrg, joinViaCode } = useInvite();
   const ko = language === 'ko';
 
+  // Check if user arrived via invite link (already joined an org)
+  const [inviteJoined] = useState<{ orgName: string; role: string } | null>(() => {
+    try {
+      const raw = localStorage.getItem('poten_invite_joined');
+      if (raw) return JSON.parse(raw);
+    } catch { /* ignore */ }
+    return null;
+  });
+
+  // For invite users: skip profile role + workspace step → only show profile (name), context, project
+  const steps = inviteJoined
+    ? [
+        { id: 'profile', label: ko ? '프로필' : 'Profile' },
+        { id: 'context', label: ko ? '업무 맥락' : 'Context' },
+        { id: 'project', label: ko ? '첫 프로젝트' : 'First Project' },
+      ]
+    : STEPS;
+
   const [step, setStep] = useState(0);
-  const [data, setData] = useState<OnboardingData>(INITIAL_DATA);
+  const [data, setData] = useState<OnboardingData>(() => ({
+    ...INITIAL_DATA,
+    ...(inviteJoined ? { role: 'member' as const, workspaceType: 'join-org' as const, orgName: inviteJoined.orgName } : {}),
+  }));
   const [direction, setDirection] = useState(1);
   const [showWelcome, setShowWelcome] = useState(false);
   const [templateApplied, setTemplateApplied] = useState(false);
@@ -149,20 +170,21 @@ export function OnboardingPage() {
   const update = (partial: Partial<OnboardingData>) => setData(d => ({ ...d, ...partial }));
 
   const canProceed = (): boolean => {
-    switch (step) {
-      case 0: return data.displayName.trim().length > 0;
-      case 1:
+    const stepId = steps[step]?.id;
+    switch (stepId) {
+      case 'profile': return data.displayName.trim().length > 0;
+      case 'workspace':
         if (data.workspaceType === 'create-org') return data.orgName.trim().length > 0;
         if (data.workspaceType === 'join-org') return data.inviteCode.trim().length > 0;
         return true;
-      case 2: return data.workFields.length > 0;
-      case 3: return true;
+      case 'context': return data.workFields.length > 0;
+      case 'project': return true;
       default: return true;
     }
   };
 
   const next = () => {
-    if (step < STEPS.length - 1) {
+    if (step < steps.length - 1) {
       setDirection(1);
       setStep(s => s + 1);
     } else {
@@ -188,8 +210,10 @@ export function OnboardingPage() {
       .then(() => console.log('[Onboarding] Data persisted to KV Store'))
       .catch(err => console.error('[Onboarding] KV Store persistence failed (localStorage still saved):', err));
 
-    // Handle org creation or invite join
-    if (data.workspaceType === 'create-org' && data.orgName.trim()) {
+    // Handle org creation or invite join (skip if already joined via invite link)
+    if (inviteJoined) {
+      localStorage.removeItem('poten_invite_joined');
+    } else if (data.workspaceType === 'create-org' && data.orgName.trim()) {
       createOrg(data.orgName.trim()).then(org => {
         if (org) console.log(`[Onboarding] Created org: ${org.name} (${org.id})`);
       }).catch(err => console.error('[Onboarding] Org creation failed:', err));
@@ -347,7 +371,7 @@ export function OnboardingPage() {
 
         {/* Step indicators */}
         <div className="relative z-10 space-y-3">
-          {STEPS.map((s, i) => (
+          {steps.map((s, i) => (
             <div key={s.id} className="flex items-center gap-3">
               <div className={cn(
                 "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300",
@@ -383,7 +407,7 @@ export function OnboardingPage() {
           </div>
           {/* Mobile progress bar */}
           <div className="flex gap-2">
-            {STEPS.map((s, i) => (
+            {steps.map((s, i) => (
               <div key={s.id} className="flex-1 h-1.5 rounded-full overflow-hidden bg-gray-200">
                 <div
                   className="h-full bg-[#0079FF] rounded-full transition-all duration-500"
@@ -393,7 +417,7 @@ export function OnboardingPage() {
             ))}
           </div>
           <p className="text-xs text-gray-400 mt-2">
-            {step + 1} / {STEPS.length} — {STEPS[step].label}
+            {step + 1} / {steps.length} — {steps[step].label}
           </p>
         </div>
 
@@ -410,10 +434,10 @@ export function OnboardingPage() {
                 exit="exit"
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
               >
-                {step === 0 && <StepProfile data={data} update={update} ko={ko} user={user} />}
-                {step === 1 && <StepWorkspace data={data} update={update} ko={ko} />}
-                {step === 2 && <StepContext data={data} update={update} ko={ko} />}
-                {step === 3 && <StepProject data={data} update={update} ko={ko} />}
+                {steps[step]?.id === 'profile' && <StepProfile data={data} update={update} ko={ko} user={user} hideRole={!!inviteJoined} inviteOrgName={inviteJoined?.orgName} />}
+                {steps[step]?.id === 'workspace' && <StepWorkspace data={data} update={update} ko={ko} />}
+                {steps[step]?.id === 'context' && <StepContext data={data} update={update} ko={ko} />}
+                {steps[step]?.id === 'project' && <StepProject data={data} update={update} ko={ko} />}
               </motion.div>
             </AnimatePresence>
           </div>
@@ -437,7 +461,7 @@ export function OnboardingPage() {
             </button>
 
             <div className="flex items-center gap-2">
-              {step === STEPS.length - 1 && data.projectChoice === 'skip' && (
+              {step === steps.length - 1 && data.projectChoice === 'skip' && (
                 <button
                   onClick={completeOnboarding}
                   className="px-4 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-100 transition-all"
@@ -455,7 +479,7 @@ export function OnboardingPage() {
                     : "bg-gray-200 text-gray-400 cursor-not-allowed"
                 )}
               >
-                {step === STEPS.length - 1 ? (ko ? '완료' : 'Finish') : (ko ? '다음' : 'Next')}
+                {step === steps.length - 1 ? (ko ? '완료' : 'Finish') : (ko ? '다음' : 'Next')}
                 <ChevronRight size={16} />
               </button>
             </div>
@@ -475,10 +499,12 @@ interface StepProps {
   update: (partial: Partial<OnboardingData>) => void;
   ko: boolean;
   user?: any;
+  hideRole?: boolean;
+  inviteOrgName?: string;
 }
 
 // ── Step 1: Profile ─────────────────────────────────────
-function StepProfile({ data, update, ko, user }: StepProps) {
+function StepProfile({ data, update, ko, user, hideRole, inviteOrgName }: StepProps) {
   const avatarUrl = user?.user_metadata?.avatar_url || user?.user_metadata?.picture;
 
   return (
@@ -538,34 +564,53 @@ function StepProfile({ data, update, ko, user }: StepProps) {
         />
       </div>
 
-      {/* Role */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          {ko ? '역할' : 'Role'} <span className="text-red-400">*</span>
-        </label>
-        <div className="grid grid-cols-3 gap-2">
-          {ROLES.map(role => (
-            <button
-              key={role.id}
-              onClick={() => update({ role: role.id })}
-              className={cn(
-                "flex flex-col items-center gap-1 p-3 rounded-xl border-2 text-center transition-all",
-                data.role === role.id
-                  ? "border-[#0079FF] bg-blue-50"
-                  : "border-gray-200 bg-white hover:border-gray-300"
-              )}
-            >
-              <span className={cn(
-                "text-sm font-semibold",
-                data.role === role.id ? "text-[#0079FF]" : "text-gray-700"
-              )}>
-                {ko ? role.label : role.labelEn}
-              </span>
-              <span className="text-[11px] text-gray-400">{ko ? role.desc : role.descEn}</span>
-            </button>
-          ))}
+      {/* Invite banner */}
+      {inviteOrgName && (
+        <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-2xl border border-blue-100">
+          <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
+            <UserPlus size={18} className="text-blue-600" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-blue-900">
+              {ko ? `${inviteOrgName}에 합류했습니다` : `Joined ${inviteOrgName}`}
+            </p>
+            <p className="text-xs text-blue-600/70">
+              {ko ? '팀원으로 초대되어 가입했어요' : 'You joined as an invited team member'}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Role */}
+      {!hideRole && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            {ko ? '역할' : 'Role'} <span className="text-red-400">*</span>
+          </label>
+          <div className="grid grid-cols-3 gap-2">
+            {ROLES.map(role => (
+              <button
+                key={role.id}
+                onClick={() => update({ role: role.id })}
+                className={cn(
+                  "flex flex-col items-center gap-1 p-3 rounded-xl border-2 text-center transition-all",
+                  data.role === role.id
+                    ? "border-[#0079FF] bg-blue-50"
+                    : "border-gray-200 bg-white hover:border-gray-300"
+                )}
+              >
+                <span className={cn(
+                  "text-sm font-semibold",
+                  data.role === role.id ? "text-[#0079FF]" : "text-gray-700"
+                )}>
+                  {ko ? role.label : role.labelEn}
+                </span>
+                <span className="text-[11px] text-gray-400">{ko ? role.desc : role.descEn}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
