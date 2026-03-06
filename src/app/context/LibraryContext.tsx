@@ -140,18 +140,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    const success = await attempt(2);
-    if (!success) {
-      try {
-        const serverItems = await api.getLibraryItems();
-        if (serverItems) {
-          setItems(serverItems as LibraryItem[]);
-          console.warn("[LibraryContext] Restored state from server after sync failure.");
-        }
-      } catch {
-        console.error("[LibraryContext] Failed to restore state from server.");
-      }
-    }
+    await attempt(2);
   }, []);
 
   const addItem = useCallback((item: LibraryItem) => {
