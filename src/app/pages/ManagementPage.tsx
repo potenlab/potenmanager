@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import {
   Building2, FolderKanban, Palette, Plus, Trash2,
   Calendar, Users, StickyNote, MoreVertical, Edit3, User, Loader2,
@@ -374,8 +374,13 @@ export function ManagementPage() {
   const ko = language === "ko";
   const { members } = useTeam();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState<"projects" | "branding" | "board">("projects");
+  const [activeTab, setActiveTab] = useState<"projects" | "branding" | "board">(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "branding" || tab === "board") return tab;
+    return "projects";
+  });
   const [projects, setProjects] = useState<Project[]>(loadProjects);
   const [brandAssets, setBrandAssets] = useState<BrandAsset[]>(loadBrandAssets);
 

@@ -100,7 +100,7 @@ export function BrandDetailPage() {
     if (!confirm(ko ? "삭제하시겠습니까?" : "Delete this asset?")) return;
     const next = assets.filter((a) => a.id !== asset.id);
     saveBrandAssets(next);
-    navigate("/management");
+    navigate("/management?tab=branding");
   };
 
   if (!asset) {
@@ -121,7 +121,7 @@ export function BrandDetailPage() {
             {/* Navigation */}
             <div className="flex items-center justify-between">
               <button
-                onClick={() => navigate("/management")}
+                onClick={() => navigate("/management?tab=branding")}
                 className="flex items-center gap-2 text-gray-400 hover:text-gray-900 transition-colors text-sm group"
               >
                 <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
