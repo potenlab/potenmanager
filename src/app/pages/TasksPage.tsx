@@ -20,8 +20,6 @@ import {
   TrendingUp,
   FileText,
   CalendarClock,
-  Columns3,
-  Columns4,
   DollarSign,
   PenTool,
   Megaphone,
@@ -401,7 +399,6 @@ function SelectionToolbar({
 // ─── Board View ─────────────────────────────────────────────────────
 function BoardView({
   pendingTasks, inProgressTasks, urgentTasks, overdueTasks, completedTasks,
-  columns,
   onStatusChange, onAddTask, language,
   addingInColumn, onStartAdd, onCancelAdd,
   isSelecting, selectedIds, onToggleSelect,
@@ -412,7 +409,6 @@ function BoardView({
   urgentTasks: Task[];
   overdueTasks: Task[];
   completedTasks: Task[];
-  columns: 3 | 4 | 5;
   onStatusChange: (taskIds: string[], newStatus: Task['status'], clone?: boolean) => void;
   onAddTask: (title: string, status: Task['status']) => void;
   language: string;
@@ -506,20 +502,6 @@ function BoardView({
     <div ref={boardRef} className="h-full flex flex-col" onMouseDown={handleBoardMouseDown}>
       <div className="flex flex-col md:flex-row gap-4 md:gap-3 h-full">
         <TaskColumn
-          title={language === 'ko' ? "할 일" : "To Do"} count={pendingTasks.length} tasks={pendingTasks}
-          icon={<Circle size={16} className="text-gray-500" />}
-          onAddTask={onAddTask} status="pending" onDrop={onStatusChange}
-          isAdding={addingInColumn === 'pending'} onStartAdd={() => onStartAdd('pending')} onCancelAdd={onCancelAdd}
-          isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
-        />
-        <TaskColumn
-          title={language === 'ko' ? "진행 중" : "In Progress"} count={inProgressTasks.length} tasks={inProgressTasks}
-          icon={<Clock size={16} className="text-blue-600" />}
-          onAddTask={onAddTask} status="in-progress" onDrop={onStatusChange}
-          isAdding={addingInColumn === 'in-progress'} onStartAdd={() => onStartAdd('in-progress')} onCancelAdd={onCancelAdd}
-          isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
-        />
-        <TaskColumn
           title={language === 'ko' ? "긴급" : "Urgent"} count={urgentTasks.length} tasks={urgentTasks}
           icon={<Zap size={16} className="text-red-500" />}
           onAddTask={onAddTask} status="pending" onDrop={onStatusChange}
@@ -530,24 +512,232 @@ function BoardView({
           hideAdd={!isAdminOrOwner}
           isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
         />
-        {columns >= 4 && (
-          <TaskColumn
-            title={language === 'ko' ? "지연" : "Overdue"} count={overdueTasks.length} tasks={overdueTasks}
-            icon={<AlertTriangle size={16} className="text-amber-500" />}
-            onAddTask={onAddTask} status="pending" onDrop={onStatusChange}
-            isAdding={false} onStartAdd={() => {}} onCancelAdd={onCancelAdd}
-            isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
-          />
+        <TaskColumn
+          title={language === 'ko' ? "지연" : "Overdue"} count={overdueTasks.length} tasks={overdueTasks}
+          icon={<AlertTriangle size={16} className="text-amber-500" />}
+          onAddTask={onAddTask} status="pending" onDrop={onStatusChange}
+          isAdding={false} onStartAdd={() => {}} onCancelAdd={onCancelAdd}
+          isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
+        />
+        <TaskColumn
+          title={language === 'ko' ? "진행 중" : "In Progress"} count={inProgressTasks.length} tasks={inProgressTasks}
+          icon={<Clock size={16} className="text-blue-600" />}
+          onAddTask={onAddTask} status="in-progress" onDrop={onStatusChange}
+          isAdding={addingInColumn === 'in-progress'} onStartAdd={() => onStartAdd('in-progress')} onCancelAdd={onCancelAdd}
+          isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
+        />
+        <TaskColumn
+          title={language === 'ko' ? "할 일" : "To Do"} count={pendingTasks.length} tasks={pendingTasks}
+          icon={<Circle size={16} className="text-gray-500" />}
+          onAddTask={onAddTask} status="pending" onDrop={onStatusChange}
+          isAdding={addingInColumn === 'pending'} onStartAdd={() => onStartAdd('pending')} onCancelAdd={onCancelAdd}
+          isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
+        />
+        <TaskColumn
+          title={language === 'ko' ? "완료" : "Done"} count={completedTasks.length} tasks={completedTasks}
+          icon={<CheckCircle2 size={16} className="text-emerald-600" />}
+          onAddTask={onAddTask} status="completed" onDrop={onStatusChange}
+          isAdding={addingInColumn === 'completed'} onStartAdd={() => onStartAdd('completed')} onCancelAdd={onCancelAdd}
+          isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
+        />
+      </div>
+      <div
+        ref={rubberBandElRef}
+        className="fixed border-2 border-blue-400/50 bg-blue-400/10 rounded-lg pointer-events-none z-50"
+        style={{ display: 'none' }}
+      />
+    </div>
+  );
+}
+
+// ─── Time Board View ─────────────────────────────────────────────────
+type TimeBucket = 'today' | 'tomorrow' | 'week' | 'month';
+
+function TimeColumn({
+  title, count, tasks, icon, timeBucket, onDrop,
+  isSelecting, selectedIds, onToggleSelect, onCardContextMenu,
+}: {
+  title: string;
+  count: number;
+  tasks: Task[];
+  icon: React.ReactNode;
+  timeBucket: TimeBucket;
+  onDrop: (taskIds: string[], bucket: TimeBucket, clone?: boolean) => void;
+  isSelecting: boolean;
+  selectedIds: Set<string>;
+  onToggleSelect: (id: string) => void;
+  onCardContextMenu?: (e: React.MouseEvent, id: string) => void;
+}) {
+  const { language } = useLanguage();
+  const [{ isOver }, dropRef] = useDrop<DragItem, void, { isOver: boolean }>({
+    accept: DRAG_TYPE,
+    drop: (item) => onDrop(item.ids, timeBucket, altKeyRef.current),
+    collect: (monitor) => ({ isOver: monitor.isOver() }),
+  });
+
+  return (
+    <div
+      ref={dropRef}
+      className={cn(
+        "flex-1 flex flex-col rounded-2xl border p-4 transition-all duration-200 h-full",
+        isOver
+          ? "bg-blue-50/80 border-blue-300 ring-2 ring-blue-200/50 shadow-lg"
+          : "bg-gray-50/50 border-gray-100"
+      )}
+    >
+      <div className="flex items-center justify-between mb-4 px-1">
+        <div className="flex items-center gap-2">
+          {icon}
+          <h3 className="font-semibold text-gray-700 text-sm">{title}</h3>
+          <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full transition-colors",
+            isOver ? "bg-blue-200 text-blue-700" : "bg-gray-200 text-gray-600"
+          )}>{count}</span>
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto space-y-3 pr-1 pb-3 custom-scrollbar min-h-[60px]">
+        {tasks.length === 0 && isOver && (
+          <div className="border-2 border-dashed border-blue-300 rounded-xl p-6 text-center text-blue-500 text-xs font-medium animate-pulse">
+            {language === 'ko' ? '여기에 놓으세요' : 'Drop here'}
+          </div>
         )}
-        {columns >= 5 && (
-          <TaskColumn
-            title={language === 'ko' ? "완료" : "Done"} count={completedTasks.length} tasks={completedTasks}
-            icon={<CheckCircle2 size={16} className="text-emerald-600" />}
-            onAddTask={onAddTask} status="completed" onDrop={onStatusChange}
-            isAdding={addingInColumn === 'completed'} onStartAdd={() => onStartAdd('completed')} onCancelAdd={onCancelAdd}
-            isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
-          />
+        {tasks.length === 0 && !isOver && (
+          <div className="flex flex-col items-center justify-center py-8 text-gray-300">
+            <p className="text-xs font-medium">{language === 'ko' ? '업무 없음' : 'No tasks'}</p>
+          </div>
         )}
+        {tasks.map(task => (
+          <TaskCard
+            key={task.id} task={task}
+            isSelecting={isSelecting} isSelected={selectedIds.has(task.id)}
+            onToggleSelect={onToggleSelect} selectedIds={selectedIds}
+            onContextMenu={onCardContextMenu}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TimeBoardView({
+  todayTasks, tomorrowTasks, thisWeekTasks, thisMonthTasks,
+  onTimeDrop, language,
+  isSelecting, selectedIds, onToggleSelect, onBulkSelect, onCardContextMenu,
+}: {
+  todayTasks: Task[];
+  tomorrowTasks: Task[];
+  thisWeekTasks: Task[];
+  thisMonthTasks: Task[];
+  onTimeDrop: (taskIds: string[], bucket: TimeBucket, clone?: boolean) => void;
+  language: string;
+  isSelecting: boolean;
+  selectedIds: Set<string>;
+  onToggleSelect: (id: string) => void;
+  onBulkSelect: (ids: Set<string>) => void;
+  onCardContextMenu?: (e: React.MouseEvent, id: string) => void;
+}) {
+  const boardRef = useRef<HTMLDivElement>(null);
+  const rubberBandElRef = useRef<HTMLDivElement>(null);
+  const startRef = useRef<{ x: number; y: number } | null>(null);
+  const didDragRef = useRef(false);
+  const currentSelRef = useRef<Set<string>>(new Set());
+  const onBulkSelectRef = useRef(onBulkSelect);
+  onBulkSelectRef.current = onBulkSelect;
+
+  const handleBoardMouseDown = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-task-card]') || target.closest('button') || target.closest('input') || target.closest('a')) return;
+    if (e.button !== 0) return;
+    e.preventDefault();
+    startRef.current = { x: e.clientX, y: e.clientY };
+    didDragRef.current = false;
+  }, []);
+
+  useEffect(() => {
+    function setsEqual(a: Set<string>, b: Set<string>) {
+      if (a.size !== b.size) return false;
+      for (const x of a) if (!b.has(x)) return false;
+      return true;
+    }
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!startRef.current) return;
+      const dx = e.clientX - startRef.current.x;
+      const dy = e.clientY - startRef.current.y;
+      if (!didDragRef.current && Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+      didDragRef.current = true;
+      if (boardRef.current) boardRef.current.classList.add('select-none');
+      const x1 = startRef.current.x, y1 = startRef.current.y;
+      const x2 = e.clientX, y2 = e.clientY;
+      const left = Math.min(x1, x2), top = Math.min(y1, y2);
+      const right = Math.max(x1, x2), bottom = Math.max(y1, y2);
+      if (rubberBandElRef.current) {
+        const el = rubberBandElRef.current;
+        el.style.display = 'block';
+        el.style.left = `${left}px`;
+        el.style.top = `${top}px`;
+        el.style.width = `${right - left}px`;
+        el.style.height = `${bottom - top}px`;
+      }
+      if (!boardRef.current) return;
+      const cards = boardRef.current.querySelectorAll('[data-task-card]');
+      const ids = new Set<string>();
+      cards.forEach(card => {
+        const r = card.getBoundingClientRect();
+        if (r.left < right && r.right > left && r.top < bottom && r.bottom > top) {
+          const id = card.getAttribute('data-task-id');
+          if (id) ids.add(id);
+        }
+      });
+      if (!setsEqual(currentSelRef.current, ids)) {
+        currentSelRef.current = ids;
+        onBulkSelectRef.current(ids);
+      }
+    };
+    const handleMouseUp = () => {
+      if (startRef.current && !didDragRef.current) {
+        onBulkSelectRef.current(new Set());
+        currentSelRef.current = new Set();
+      }
+      startRef.current = null;
+      didDragRef.current = false;
+      if (rubberBandElRef.current) rubberBandElRef.current.style.display = 'none';
+      if (boardRef.current) boardRef.current.classList.remove('select-none');
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  const ko = language === 'ko';
+  return (
+    <div ref={boardRef} className="h-full flex flex-col" onMouseDown={handleBoardMouseDown}>
+      <div className="flex flex-col md:flex-row gap-4 md:gap-3 h-full">
+        <TimeColumn
+          title={ko ? "오늘" : "Today"} count={todayTasks.length} tasks={todayTasks}
+          icon={<Clock size={16} className="text-orange-500" />}
+          timeBucket="today" onDrop={onTimeDrop}
+          isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
+        />
+        <TimeColumn
+          title={ko ? "내일" : "Tomorrow"} count={tomorrowTasks.length} tasks={tomorrowTasks}
+          icon={<CalendarIcon size={16} className="text-blue-500" />}
+          timeBucket="tomorrow" onDrop={onTimeDrop}
+          isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
+        />
+        <TimeColumn
+          title={ko ? "이번 주" : "This Week"} count={thisWeekTasks.length} tasks={thisWeekTasks}
+          icon={<CalendarClock size={16} className="text-indigo-500" />}
+          timeBucket="week" onDrop={onTimeDrop}
+          isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
+        />
+        <TimeColumn
+          title={ko ? "이번 달" : "This Month"} count={thisMonthTasks.length} tasks={thisMonthTasks}
+          icon={<CalendarIcon size={16} className="text-purple-500" />}
+          timeBucket="month" onDrop={onTimeDrop}
+          isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
+        />
       </div>
       <div
         ref={rubberBandElRef}
@@ -566,7 +756,7 @@ export function TasksPage() {
   const { moveToTrash } = useTrash();
   const { currentUser } = usePermission();
   const [viewMode, setViewMode] = useState<'board' | 'list' | 'calendar'>('board');
-  const [columns, setColumns] = useState<3 | 4 | 5>(5);
+  const [boardMode, setBoardMode] = useState<'status' | 'time'>('status');
   const [searchQuery, setSearchQuery] = useState('');
   const [addingInColumn, setAddingInColumn] = useState<Task['status'] | 'urgent' | null>(null);
   const [showMemo, setShowMemo] = useState(false);
@@ -695,29 +885,62 @@ export function TasksPage() {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
 
-  const showSeparateColumns = columns >= 4;
-
-  // 긴급: priority가 high이고 완료가 아닌 태스크 (항상 분리)
+  // ── Status board columns ──
   const urgentTasks = filteredTasks.filter(task => task.status !== 'completed' && task.priority === 'high');
   const urgentIds = new Set(urgentTasks.map(t => t.id));
 
-  // 지연: 마감일이 지났고 완료가 아닌 태스크 (긴급에 이미 포함된 건 제외, 4단 이상)
-  const overdueTasks = showSeparateColumns
-    ? filteredTasks.filter(task => {
-        if (task.status === 'completed') return false;
-        if (urgentIds.has(task.id)) return false;
-        if (!task.dueDate) return false;
-        const due = new Date(task.dueDate);
-        due.setHours(0, 0, 0, 0);
-        return due < now;
-      })
-    : [];
+  const overdueTasks = filteredTasks.filter(task => {
+    if (task.status === 'completed') return false;
+    if (urgentIds.has(task.id)) return false;
+    if (!task.dueDate) return false;
+    const due = new Date(task.dueDate);
+    due.setHours(0, 0, 0, 0);
+    return due < now;
+  });
   const overdueIds = new Set(overdueTasks.map(t => t.id));
 
-  // 할 일 / 진행 중: 긴급·지연 제외
   const pendingTasks = filteredTasks.filter(task => task.status === 'pending' && !urgentIds.has(task.id) && !overdueIds.has(task.id));
   const inProgressTasks = filteredTasks.filter(task => task.status === 'in-progress' && !urgentIds.has(task.id) && !overdueIds.has(task.id));
   const completedTasks = filteredTasks.filter(task => task.status === 'completed');
+
+  // ── Time board columns ──
+  const timeBuckets = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const weekEnd = new Date(today);
+    weekEnd.setDate(weekEnd.getDate() + (7 - weekEnd.getDay()));
+    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+    const todayTasks: Task[] = [];
+    const tomorrowTasks: Task[] = [];
+    const thisWeekTasks: Task[] = [];
+    const thisMonthTasks: Task[] = [];
+
+    filteredTasks.forEach(task => {
+      if (!task.dueDate) {
+        thisMonthTasks.push(task);
+        return;
+      }
+      const due = new Date(task.dueDate);
+      due.setHours(0, 0, 0, 0);
+
+      if (due < today || due.getTime() === today.getTime()) {
+        todayTasks.push(task);
+      } else if (due.getTime() === tomorrow.getTime()) {
+        tomorrowTasks.push(task);
+      } else if (due <= weekEnd) {
+        thisWeekTasks.push(task);
+      } else if (due <= monthEnd) {
+        thisMonthTasks.push(task);
+      } else {
+        thisMonthTasks.push(task);
+      }
+    });
+
+    return { todayTasks, tomorrowTasks, thisWeekTasks, thisMonthTasks };
+  }, [filteredTasks]);
 
   const handleAddTask = useCallback((title: string, status: Task['status']) => {
     const isUrgent = addingInColumn === 'urgent';
@@ -729,6 +952,30 @@ export function TasksPage() {
     };
     addTaskToContext(newTask);
   }, [currentUser.id, addTaskToContext, addingInColumn]);
+
+  const handleTimeDrop = useCallback((taskIds: string[], bucket: TimeBucket, clone?: boolean) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    let targetDate: Date;
+    switch (bucket) {
+      case 'today': targetDate = new Date(today); break;
+      case 'tomorrow': targetDate = new Date(today); targetDate.setDate(targetDate.getDate() + 1); break;
+      case 'week': targetDate = new Date(today); targetDate.setDate(targetDate.getDate() + (5 - targetDate.getDay())); break;
+      case 'month': targetDate = new Date(today.getFullYear(), today.getMonth() + 1, 0); break;
+      default: targetDate = new Date(today);
+    }
+    if (clone) {
+      taskIds.forEach(id => {
+        const original = getTask(id);
+        if (!original) return;
+        const newId = `t${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
+        addTaskToContext({ ...original, id: newId, dueDate: targetDate, createdAt: new Date(), updatedAt: new Date() });
+      });
+    } else {
+      taskIds.forEach(id => updateTask(id, { dueDate: targetDate }));
+    }
+    clearSelection();
+  }, [clearSelection, updateTask, getTask, addTaskToContext]);
 
   const handleStatusChange = useCallback((taskIds: string[], newStatus: Task['status'], clone?: boolean) => {
     const progress = newStatus === 'completed' ? 100 : newStatus === 'in-progress' ? 50 : 0;
@@ -763,9 +1010,13 @@ export function TasksPage() {
           <div>
             <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">{t("my_tasks")}</h1>
             <p className="text-gray-500 text-xs sm:text-sm">
-              {language === 'ko'
-                ? `할 일 ${pendingTasks.length} · 진행 중 ${inProgressTasks.length} · 긴급 ${urgentTasks.length} · 지연 ${overdueTasks.length} · 완료 ${completedTasks.length}`
-                : `${pendingTasks.length} to do · ${inProgressTasks.length} in progress · ${urgentTasks.length} urgent · ${overdueTasks.length} overdue · ${completedTasks.length} done`}
+              {viewMode === 'board' && boardMode === 'time'
+                ? (language === 'ko'
+                  ? `오늘 ${timeBuckets.todayTasks.length} · 내일 ${timeBuckets.tomorrowTasks.length} · 이번 주 ${timeBuckets.thisWeekTasks.length} · 이번 달 ${timeBuckets.thisMonthTasks.length}`
+                  : `${timeBuckets.todayTasks.length} today · ${timeBuckets.tomorrowTasks.length} tomorrow · ${timeBuckets.thisWeekTasks.length} this week · ${timeBuckets.thisMonthTasks.length} this month`)
+                : (language === 'ko'
+                  ? `할 일 ${pendingTasks.length} · 진행 중 ${inProgressTasks.length} · 긴급 ${urgentTasks.length} · 지연 ${overdueTasks.length} · 완료 ${completedTasks.length}`
+                  : `${pendingTasks.length} to do · ${inProgressTasks.length} in progress · ${urgentTasks.length} urgent · ${overdueTasks.length} overdue · ${completedTasks.length} done`)}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -866,23 +1117,15 @@ export function TasksPage() {
             </div>
             {viewMode === 'board' && (
               <div className="flex bg-gray-100 p-1 rounded-xl">
-                <button onClick={() => setColumns(3)}
-                  title={language === 'ko' ? '3단 (할 일·진행 중·긴급)' : '3 columns (Todo·Progress·Urgent)'}
-                  className={cn("flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
-                    columns === 3 ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
-                  <Columns3 size={14} /> 3
+                <button onClick={() => setBoardMode('status')}
+                  className={cn("px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
+                    boardMode === 'status' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
+                  {language === 'ko' ? '상태별' : 'By Status'}
                 </button>
-                <button onClick={() => setColumns(4)}
-                  title={language === 'ko' ? '4단 (긴급·지연 포함)' : '4 columns'}
-                  className={cn("flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
-                    columns === 4 ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
-                  <Columns4 size={14} /> 4
-                </button>
-                <button onClick={() => setColumns(5)}
-                  title={language === 'ko' ? '5단 (완료 포함)' : '5 columns (with done)'}
-                  className={cn("flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
-                    columns === 5 ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
-                  <Columns4 size={14} /> 5
+                <button onClick={() => setBoardMode('time')}
+                  className={cn("px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
+                    boardMode === 'time' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
+                  {language === 'ko' ? '시간별' : 'By Time'}
                 </button>
               </div>
             )}
@@ -890,24 +1133,35 @@ export function TasksPage() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-x-auto pb-4">
-        {viewMode === 'board' ? (
-          <BoardView
-            pendingTasks={pendingTasks} inProgressTasks={inProgressTasks} urgentTasks={urgentTasks} overdueTasks={overdueTasks} completedTasks={completedTasks}
-            columns={columns}
-            onStatusChange={handleStatusChange} onAddTask={handleAddTask} language={language}
-            addingInColumn={addingInColumn} onStartAdd={setAddingInColumn} onCancelAdd={() => setAddingInColumn(null)}
-            isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={toggleSelect}
-            onBulkSelect={setSelectedIds} onCardContextMenu={handleCardContextMenu}
-          />
-        ) : viewMode === 'calendar' ? (
+      {viewMode === 'board' ? (
+        <div className="flex-1 overflow-x-auto pb-4">
+          {boardMode === 'status' ? (
+            <BoardView
+              pendingTasks={pendingTasks} inProgressTasks={inProgressTasks} urgentTasks={urgentTasks} overdueTasks={overdueTasks} completedTasks={completedTasks}
+              onStatusChange={handleStatusChange} onAddTask={handleAddTask} language={language}
+              addingInColumn={addingInColumn} onStartAdd={setAddingInColumn} onCancelAdd={() => setAddingInColumn(null)}
+              isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={toggleSelect}
+              onBulkSelect={setSelectedIds} onCardContextMenu={handleCardContextMenu}
+            />
+          ) : (
+            <TimeBoardView
+              todayTasks={timeBuckets.todayTasks} tomorrowTasks={timeBuckets.tomorrowTasks}
+              thisWeekTasks={timeBuckets.thisWeekTasks} thisMonthTasks={timeBuckets.thisMonthTasks}
+              onTimeDrop={handleTimeDrop} language={language}
+              isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={toggleSelect}
+              onBulkSelect={setSelectedIds} onCardContextMenu={handleCardContextMenu}
+            />
+          )}
+        </div>
+      ) : viewMode === 'calendar' ? (
+        <div className="flex-1 min-h-0 bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden">
           <CalendarView taskFilter={myTaskFilter} />
-        ) : (
-          <div className="h-full">
-            <TaskListView tasks={filteredTasks} onStatusChange={(id, status) => handleStatusChange([id], status)} />
-          </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="flex-1 overflow-x-auto pb-4">
+          <TaskListView tasks={filteredTasks} onStatusChange={(id, status) => handleStatusChange([id], status)} />
+        </div>
+      )}
 
       {/* Selection Toolbar */}
       <SelectionToolbar

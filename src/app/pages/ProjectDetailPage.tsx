@@ -49,7 +49,7 @@ export function ProjectDetailPage() {
         return next;
       });
       setLocalId(id);
-      navigate(`/management/projects/${id}`, { replace: true });
+      navigate(`/projects/${id}`, { replace: true });
     }
   }, [isNew, localId]);
 
@@ -96,7 +96,7 @@ export function ProjectDetailPage() {
     if (!confirm(ko ? "이 프로젝트를 삭제하시겠습니까?" : "Delete this project?")) return;
     const next = projects.filter((p) => p.id !== project.id);
     saveProjects(next);
-    navigate("/management/projects");
+    navigate("/projects");
   };
 
   if (!project) {
@@ -118,7 +118,7 @@ export function ProjectDetailPage() {
             <div className="flex items-center justify-between">
               <nav className="flex items-center gap-1 text-sm">
                 <button
-                  onClick={() => navigate("/management/projects")}
+                  onClick={() => navigate("/projects")}
                   className="text-gray-400 hover:text-blue-600 transition-colors font-medium"
                 >
                   {ko ? "프로젝트" : "Projects"}

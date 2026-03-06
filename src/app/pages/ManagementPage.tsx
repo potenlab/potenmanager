@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import { useDrag, useDrop } from "react-dnd";
 import {
   FolderKanban, Palette, Plus, Trash2,
@@ -187,8 +187,8 @@ function MgmtCard({
   drag(drop(ref));
 
   const detailPath = board === "projects"
-    ? `/management/projects/${card.id}`
-    : `/management/branding/${card.id}`;
+    ? `/projects/${card.id}`
+    : `/branding/${card.id}`;
 
   return (
     <div
@@ -454,8 +454,8 @@ function MgmtColumn({
 export function ManagementPage() {
   const { language } = useLanguage();
   const ko = language === "ko";
-  const { boardType } = useParams<{ boardType: string }>();
-  const board: BoardType = boardType === "branding" ? "branding" : "projects";
+  const location = useLocation();
+  const board: BoardType = location.pathname.startsWith("/branding") ? "branding" : "projects";
 
   const [columns, setColumns] = useState<KanbanColumn[]>(() => loadColumns(board));
   const [cards, setCards] = useState<KanbanCard[]>(() => loadCards(board));

@@ -41,7 +41,7 @@ interface NavGroup {
 
 const DEFAULT_GROUPS: NavGroup[] = [
   { id: "work", labelKo: "업무", labelEn: "Work", itemIds: ["tasks", "calendar", "library"] },
-  { id: "org", labelKo: "조직", labelEn: "Organization", itemIds: ["projects", "branding"] },
+  { id: "org", labelKo: "관리", labelEn: "Management", itemIds: ["projects", "branding"] },
   { id: "tools", labelKo: "도구", labelEn: "Tools", itemIds: ["meetings", "radar"] },
 ];
 
@@ -183,8 +183,8 @@ export function Sidebar() {
     tasks: { to: "/tasks", icon: <CheckSquare size={18} />, label: t("my_tasks") },
     calendar: { to: "/calendar", icon: <Calendar size={18} />, label: t("calendar") },
     library: { to: "/library", icon: <BookMarked size={18} />, label: ko ? "아카이빙" : "Archive" },
-    projects: { to: "/management/projects", icon: <FolderKanban size={18} />, label: ko ? "프로젝트" : "Projects" },
-    branding: { to: "/management/branding", icon: <Palette size={18} />, label: ko ? "브랜딩" : "Branding" },
+    projects: { to: "/projects", icon: <FolderKanban size={18} />, label: ko ? "프로젝트" : "Projects" },
+    branding: { to: "/branding", icon: <Palette size={18} />, label: ko ? "브랜딩" : "Branding" },
     meetings: { to: "/meetings", icon: <Video size={18} />, label: ko ? "회의/미팅" : "Meetings" },
     radar: { to: "/radar", icon: <Radar size={18} />, label: ko ? "비즈 레이더" : "Biz Radar" },
   };
