@@ -1475,16 +1475,41 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
     setSelectedIds(new Set());
   }, []);
 
-  // Escape key to deselect all
+  // Escape key to deselect all, Delete key to bulk delete
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape" && selectedIds.size > 0) {
         setSelectedIds(new Set());
       }
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedIds.size > 0) {
+        // Don't trigger when typing in an input
+        const tag = (e.target as HTMLElement)?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) return;
+
+        const selectedTasks = calTasks.filter(t => selectedIds.has(t.id));
+        const hasHighPriority = selectedTasks.some(t => t.priority === "high");
+        const count = selectedIds.size;
+        const ko = language === "ko";
+
+        if (hasHighPriority) {
+          const msg = ko
+            ? `선택된 ${count}개 업무 중 중요도 높음 업무가 포함되어 있습니다. 정말 삭제하시겠습니까?`
+            : `${count} selected task(s) include high priority items. Are you sure you want to delete?`;
+          if (!confirm(msg)) return;
+        } else {
+          const msg = ko
+            ? `선택된 ${count}개 업무를 삭제하시겠습니까?`
+            : `Delete ${count} selected task(s)?`;
+          if (!confirm(msg)) return;
+        }
+
+        selectedIds.forEach(id => removeTask(id));
+        setSelectedIds(new Set());
+      }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [selectedIds]);
+  }, [selectedIds, calTasks, language, removeTask]);
 
   // ─── Lasso (rubber-band) selection ─────────────────────────────
   const [lasso, setLasso] = useState<{ startX: number; startY: number; curX: number; curY: number } | null>(null);

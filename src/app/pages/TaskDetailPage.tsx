@@ -444,6 +444,7 @@ export function TaskDetailPage() {
       updateTask(taskId, {
         title, titleKo: title, description, status, priority, assigneeIds,
         startDate: dateStart ?? undefined, endDate: dateEnd ?? undefined,
+        dueDate: dateEnd ?? dateStart ?? undefined,
         estimatedTime: estTime, category, attachments,
         linkedBoard, linkedCardId,
       });
