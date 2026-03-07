@@ -55,6 +55,7 @@ import {
   Eye as EyeIcon,
   Video,
   Clock,
+  Settings,
 } from "lucide-react";
 
 type FilterTab = "all" | "in-progress" | "pending" | "completed";
@@ -332,8 +333,18 @@ export function TeamMemberPage() {
                 </div>
               </div>
 
-              {/* 3-dot menu */}
-              <div className="relative shrink-0" ref={menuRef}>
+              {/* Settings (own profile) + 3-dot menu */}
+              <div className="flex items-center gap-1 shrink-0">
+              {isMe && (
+                <button
+                  onClick={() => navigate("/mypage")}
+                  className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                  title={language === "ko" ? "설정" : "Settings"}
+                >
+                  <Settings size={18} />
+                </button>
+              )}
+              <div className="relative" ref={menuRef}>
                 <button
                   onClick={() => setShowMenu((v) => !v)}
                   className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
@@ -374,6 +385,7 @@ export function TeamMemberPage() {
                     />,
                     document.body
                   )}
+              </div>
               </div>
             </div>
 

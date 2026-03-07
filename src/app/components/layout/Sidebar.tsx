@@ -298,7 +298,7 @@ export function Sidebar() {
         <div className="pt-3 border-t border-gray-200 space-y-1">
           {/* User Profile */}
           <div
-            onClick={() => { navigate("/mypage"); closeSidebar(); }}
+            onClick={() => { navigate(`/team/${currentUser.id}`); closeSidebar(); }}
             className="flex items-center gap-3 p-2 rounded-xl hover:bg-white cursor-pointer transition-colors border border-transparent hover:border-gray-100 hover:shadow-sm overflow-hidden"
           >
             <img src={currentUser.avatar} alt={currentUser.name} className="w-9 h-9 rounded-full object-cover border border-gray-200 shrink-0" />
