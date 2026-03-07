@@ -149,7 +149,7 @@ function TaskCard({
       onClick={handleClick}
       onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, task.id); }}
       className={cn(
-        "bg-white rounded-xl border shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group relative",
+        "bg-white rounded-xl border shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group relative overflow-hidden",
         compact ? "px-3 py-2.5" : "p-4",
         isDragging
           ? "opacity-40 border-blue-300 shadow-lg scale-[0.97] ring-2 ring-blue-200"
@@ -222,7 +222,11 @@ function TaskCard({
             "font-medium text-sm mb-1 leading-snug",
             task.status === 'completed' ? "text-gray-400 line-through" : "text-gray-900"
           )}>{title}</h4>
-          <p className="text-xs text-gray-500 line-clamp-2 mb-3">{task.description}</p>
+          {task.description && (
+            <p className="text-xs text-gray-500 line-clamp-2 mb-3 break-all overflow-hidden">
+              {task.description.replace(/\[img:[^\]]*\]/g, '').trim() || undefined}
+            </p>
+          )}
 
           <div className="flex items-center justify-between border-t border-gray-50 pt-3 mt-2">
             <div className="flex items-center gap-2 text-xs text-gray-400">
