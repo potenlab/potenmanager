@@ -115,7 +115,7 @@ export function ChatPage() {
     const online = isOnline(otherUserId);
 
     return (
-      <div className="h-full flex flex-col bg-white">
+      <div className="h-full flex flex-col bg-white max-w-2xl mx-auto w-full">
         {/* Header */}
         <div className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-gray-100">
           <button
@@ -241,7 +241,7 @@ export function ChatPage() {
 
   // ─── Room List View ─────────────────────────────────────
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col max-w-2xl mx-auto w-full">
       <header className="mb-4 shrink-0">
         <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1 flex items-center gap-2">
           <MessageCircle size={22} className="text-blue-500" />
