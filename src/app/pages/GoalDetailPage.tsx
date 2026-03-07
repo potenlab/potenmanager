@@ -18,6 +18,7 @@ import {
   TrendingUp,
   Trash2,
   Sparkles,
+  ArrowLeft,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { GoalLevel } from "../../lib/mockData";
@@ -303,7 +304,14 @@ export function GoalDetailPage() {
     <div className="h-full overflow-y-auto bg-white scrollbar-hide">
       <div className="max-w-6xl mx-auto py-4 sm:py-7 px-4 sm:px-8 pb-64">
 
-        {/* Breadcrumb Navigation & Header */}
+        {/* Back + Breadcrumb Navigation & Header */}
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors mb-2 -ml-0.5"
+        >
+          <ArrowLeft size={14} />
+          <span>{ko ? "뒤로가기" : "Back"}</span>
+        </button>
         <div className="flex items-center justify-between mb-6">
           <nav className="flex items-center gap-1 text-sm">
             <button onClick={() => navigate("/organization")} className="text-gray-400 hover:text-blue-600 transition-colors font-medium">

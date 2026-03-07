@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Trash2, ChevronDown, LayoutGrid, ChevronRight,
   Image as ImageIcon, Palette, Globe, FolderKanban,
-  Camera, FileText, Plus, X, Upload,
+  Camera, FileText, Plus, X, Upload, ArrowLeft,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
@@ -118,7 +118,14 @@ export function BrandDetailPage() {
       <div className="max-w-6xl mx-auto py-4 sm:py-7 px-4 sm:px-8 pb-64">
         <div className="max-w-3xl">
           <div className="space-y-6">
-            {/* Breadcrumb Navigation */}
+            {/* Back + Breadcrumb Navigation */}
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors mb-2 -ml-0.5"
+            >
+              <ArrowLeft size={14} />
+              <span>{ko ? "뒤로가기" : "Back"}</span>
+            </button>
             <div className="flex items-center justify-between">
               <nav className="flex items-center gap-1 text-sm">
                 <button

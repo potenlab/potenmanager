@@ -32,6 +32,7 @@ import {
   File as FileIcon,
   LayoutGrid,
   FolderKanban,
+  ArrowLeft,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Task, TaskCategory, Attachment } from "../../lib/mockData";
@@ -483,7 +484,14 @@ export function TaskDetailPage() {
     <div className="h-full overflow-y-auto bg-white scrollbar-hide">
       <div className="max-w-6xl mx-auto py-4 sm:py-7 px-4 sm:px-8 pb-64">
         
-        {/* Breadcrumb Navigation */}
+        {/* Back + Breadcrumb Navigation */}
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors mb-2 -ml-0.5"
+        >
+          <ArrowLeft size={14} />
+          <span>{language === "ko" ? "뒤로가기" : "Back"}</span>
+        </button>
         <div className="flex items-center justify-between mb-6">
           <nav className="flex items-center gap-1.5 text-sm text-gray-400">
             <button onClick={() => navigate("/tasks")} className="hover:text-gray-900 transition-colors">
