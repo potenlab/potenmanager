@@ -1,6 +1,6 @@
 import { Outlet, useNavigate, useLocation } from "react-router";
 import { Sidebar } from "./Sidebar";
-import { Bell, ChevronDown, Flag } from "lucide-react";
+import { Bell, ChevronDown, Flag, Settings } from "lucide-react";
 import { BottomNav } from "./BottomNav";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSidebar } from "../../context/SidebarContext";
@@ -111,7 +111,14 @@ export function Layout() {
                   </div>
                 )}
               </div>
-              <button 
+              <button
+                onClick={() => navigate("/organization")}
+                className="p-2.5 rounded-xl hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+                title={language === "ko" ? "조직 설정" : "Organization Settings"}
+              >
+                <Settings size={18} />
+              </button>
+              <button
                 onClick={() => navigate("/notifications")}
                 className="relative p-2.5 rounded-xl hover:bg-gray-100 text-gray-500 hover:text-blue-600 transition-colors"
               >

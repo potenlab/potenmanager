@@ -1,5 +1,4 @@
 import { useState, useRef, useCallback } from "react";
-import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import {
   BarChart3,
@@ -11,8 +10,6 @@ import {
   Zap,
   Link2,
   Sparkles,
-  Flag,
-  Settings,
   Target,
   Lightbulb,
 } from "lucide-react";
@@ -321,8 +318,6 @@ export function DashboardPage() {
   const [activeTab, setActiveTab] = useState<DashboardTab>("performance");
   const { language } = useLanguage();
   const ko = language === "ko";
-  const navigate = useNavigate();
-  const currentYear = new Date().getFullYear();
 
   // Swipe gesture for tab switching
   const touchRef = useRef<{ startX: number; startY: number } | null>(null);
@@ -353,28 +348,9 @@ export function DashboardPage() {
   ];
 
   return (
-    <div className="min-h-[calc(100%+3rem)] md:min-h-[calc(100%+4rem)] flex flex-col -m-6 md:-m-8 bg-[#FAFAFA]">
-      {/* Header: Flag + Year + Settings */}
-      <div className="shrink-0 bg-white px-6 md:px-8 pt-5 pb-0">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-sm">
-              <Flag size={18} />
-            </div>
-            <h1 className="text-xl font-bold text-gray-900">{currentYear}</h1>
-          </div>
-          <button
-            onClick={() => navigate("/organization")}
-            className="p-2.5 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-            title={ko ? "조직 설정" : "Organization Settings"}
-          >
-            <Settings size={18} />
-          </button>
-        </div>
-      </div>
-
+    <div className="min-h-[calc(100%+3rem)] md:min-h-[calc(100%+4rem)] flex flex-col -m-6 md:-m-8">
       {/* Tab Bar */}
-      <div className="shrink-0 bg-white border-b border-gray-200 px-6 md:px-8">
+      <div className="shrink-0 border-b border-gray-200 px-6 md:px-8">
         <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
           {tabs.map((tab) => {
             const active = activeTab === tab.id;

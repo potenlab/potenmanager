@@ -3,8 +3,8 @@ import { useParams, useNavigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Trash2, ChevronDown, LayoutGrid, ChevronRight,
-  Image as ImageIcon, Palette, Globe, FolderKanban,
-  Camera, FileText, Plus, X, Upload, ArrowLeft,
+  Image as ImageIcon, Camera, ArrowLeft,
+  Link2, Tag,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
@@ -13,17 +13,21 @@ import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
 import { InlineText } from "../components/detail/InlineText";
 import { PropertyItem } from "../components/detail/PropertyItem";
 import {
-  BrandAsset, BRAND_TYPE_CONFIG,
-  loadBrandAssets, saveBrandAssets, loadCards,
+  BrandAsset,
+  loadBrandAssets, saveBrandAssets, loadCards, saveCards, loadColumns,
 } from "./ManagementPage";
 
-const BRAND_TYPE_ICONS: Record<BrandAsset["type"], React.ReactNode> = {
-  logo: <ImageIcon size={14} />,
-  color: <Palette size={14} />,
-  font: <span className="text-xs font-bold">Aa</span>,
-  guideline: <Globe size={14} />,
-  template: <FolderKanban size={14} />,
-};
+// Categories come from branding kanban columns
+function loadBrandCategories(): string[] {
+  try {
+    const s = localStorage.getItem("poten_mgmt_branding_columns");
+    if (s) {
+      const cols = JSON.parse(s) as { name: string; order: number }[];
+      return cols.sort((a, b) => a.order - b.order).map(c => c.name);
+    }
+  } catch {}
+  return [];
+}
 
 export function BrandDetailPage() {
   const { brandId } = useParams();
@@ -35,15 +39,12 @@ export function BrandDetailPage() {
 
   const [assets, setAssets] = useState<BrandAsset[]>(() => {
     const existing = loadBrandAssets();
-    // If navigating to a kanban card that doesn't exist in legacy storage, auto-create
     if (!isNew && brandId && !existing.find(a => a.id === brandId)) {
       const kanbanCard = loadCards("branding").find(c => c.id === brandId);
       if (kanbanCard) {
         const newAsset: BrandAsset = {
           id: kanbanCard.id,
-          type: "color",
           name: kanbanCard.title || "",
-          value: kanbanCard.color || "#3B82F6",
           description: kanbanCard.description || "",
           createdAt: kanbanCard.createdAt || new Date().toISOString(),
         };
@@ -56,15 +57,15 @@ export function BrandDetailPage() {
   });
   const [localId, setLocalId] = useState<string | null>(null);
 
-  // Create new asset on mount if "new"
+  // User-registered categories
+  const [categories] = useState<string[]>(loadBrandCategories);
+
   useEffect(() => {
     if (isNew && !localId) {
       const id = `brand-${Date.now()}`;
       const newAsset: BrandAsset = {
         id,
-        type: "color",
         name: "",
-        value: "#3B82F6",
         description: "",
         createdAt: new Date().toISOString(),
       };
@@ -115,6 +116,24 @@ export function BrandDetailPage() {
     [currentId]
   );
 
+  const handleCategoryChange = useCallback((catName: string) => {
+    if (!currentId) return;
+    const newCat = asset?.category === catName ? "" : catName;
+    handleUpdate({ category: newCat });
+    // Sync kanban card to matching column
+    const cols = loadColumns("branding");
+    const targetCol = cols.find(c => c.name === newCat);
+    if (targetCol) {
+      const allCards = loadCards("branding");
+      const card = allCards.find(c => c.id === currentId);
+      if (card && card.columnId !== targetCol.id) {
+        card.columnId = targetCol.id;
+        card.order = allCards.filter(c => c.columnId === targetCol.id && c.id !== card.id).length;
+        saveCards("branding", allCards);
+      }
+    }
+  }, [currentId, asset?.category, handleUpdate]);
+
   const handleDelete = () => {
     if (!asset) return;
     if (!confirm(ko ? "삭제하시겠습니까?" : "Delete this asset?")) return;
@@ -123,6 +142,7 @@ export function BrandDetailPage() {
     navigate("/branding");
   };
 
+
   if (!asset) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -130,8 +150,6 @@ export function BrandDetailPage() {
       </div>
     );
   }
-
-  const typeCfg = BRAND_TYPE_CONFIG[asset.type];
 
   return (
     <div className="h-full overflow-y-auto bg-white scrollbar-hide">
@@ -156,7 +174,7 @@ export function BrandDetailPage() {
                 </button>
                 <ChevronRight size={14} className="text-gray-300 shrink-0" />
                 <span className="text-gray-700 font-semibold truncate max-w-[200px]">
-                  {asset.name || (ko ? "새 자산" : "New Asset")}
+                  {asset.name || (ko ? "새 채널" : "New Channel")}
                 </span>
               </nav>
               <button
@@ -189,7 +207,7 @@ export function BrandDetailPage() {
                 <InlineText
                   value={asset.name}
                   onChange={(v) => handleUpdate({ name: v })}
-                  placeholder={ko ? "브랜드 자산 이름을 입력하세요" : "Enter brand asset name"}
+                  placeholder={ko ? "채널명을 입력하세요" : "Enter channel name"}
                   className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight tracking-tight focus:ring-0 focus:bg-transparent hover:bg-transparent border-b-2 border-transparent focus:border-gray-200 rounded-none pb-0.5"
                   as="h1"
                 />
@@ -206,14 +224,7 @@ export function BrandDetailPage() {
                   <LayoutGrid size={12} />
                   {ko ? "속성" : "Properties"}
                 </span>
-                <div className="flex items-center gap-2">
-                  {!propsExpanded && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">
-                      {ko ? typeCfg.label : typeCfg.labelEn}
-                    </span>
-                  )}
-                  <ChevronDown size={14} className={cn("text-gray-400 transition-transform duration-200", propsExpanded && "rotate-180")} />
-                </div>
+                <ChevronDown size={14} className={cn("text-gray-400 transition-transform duration-200", propsExpanded && "rotate-180")} />
               </button>
 
               <AnimatePresence initial={false}>
@@ -226,118 +237,50 @@ export function BrandDetailPage() {
                     className="overflow-hidden"
                   >
                     <div className="divide-y divide-gray-100 border-t border-gray-100">
-                      {/* Type */}
-                      <PropertyItem icon={<FolderKanban size={14} />} label={ko ? "유형" : "Type"}>
+                      {/* Category (카테고리) — select only, creation happens in list page */}
+                      <PropertyItem icon={<Tag size={14} />} label={ko ? "카테고리" : "Category"}>
                         <div className="flex flex-wrap gap-1.5">
-                          {(Object.keys(BRAND_TYPE_CONFIG) as BrandAsset["type"][]).map((k) => {
-                            const cfg = BRAND_TYPE_CONFIG[k];
-                            return (
-                              <button
-                                key={k}
-                                onClick={() => handleUpdate({ type: k })}
-                                className={cn(
-                                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border",
-                                  asset.type === k
-                                    ? "bg-blue-50 text-blue-700 border-blue-200"
-                                    : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
-                                )}
-                              >
-                                {BRAND_TYPE_ICONS[k]} {ko ? cfg.label : cfg.labelEn}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </PropertyItem>
-
-                      {/* Value */}
-                      <PropertyItem
-                        icon={BRAND_TYPE_ICONS[asset.type]}
-                        label={
-                          asset.type === "color"
-                            ? (ko ? "컬러 코드" : "Color Code")
-                            : asset.type === "font"
-                            ? (ko ? "폰트 이름" : "Font Name")
-                            : (ko ? "URL / 값" : "URL / Value")
-                        }
-                      >
-                        <div className="flex items-center gap-2">
-                          {asset.type === "color" && (
-                            <input
-                              type="color"
-                              value={asset.value}
-                              onChange={(e) => handleUpdate({ value: e.target.value })}
-                              className="w-8 h-8 rounded-lg border border-gray-200 cursor-pointer"
-                            />
+                          {categories.length === 0 && (
+                            <span className="text-xs text-gray-400">
+                              {ko ? "카테고리가 없습니다. 목록 페이지에서 추가하세요." : "No categories. Add from the list page."}
+                            </span>
                           )}
-                          <input
-                            value={asset.value}
-                            onChange={(e) => handleUpdate({ value: e.target.value })}
-                            className="flex-1 text-sm px-2 py-1 rounded-md border border-transparent hover:border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700 font-mono"
-                            placeholder={
-                              asset.type === "color"
-                                ? "#000000"
-                                : asset.type === "font"
-                                ? "Pretendard"
-                                : "https://..."
-                            }
-                          />
+                          {categories.map((cat) => (
+                            <button
+                              key={cat}
+                              onClick={() => handleCategoryChange(cat)}
+                              className={cn(
+                                "px-2.5 py-1 rounded-lg text-xs font-medium transition-all border",
+                                asset.category === cat
+                                  ? "bg-blue-50 text-blue-700 border-blue-200"
+                                  : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
+                              )}
+                            >
+                              {cat}
+                            </button>
+                          ))}
                         </div>
                       </PropertyItem>
 
-                      {/* Guidelines */}
-                      <PropertyItem icon={<FileText size={14} />} label={ko ? "사용 가이드라인" : "Usage Guidelines"}>
-                        <textarea
-                          value={asset.guidelines || ""}
-                          onChange={(e) => handleUpdate({ guidelines: e.target.value })}
-                          className="w-full text-sm px-2 py-1 rounded-md border border-transparent hover:border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700 resize-none min-h-[60px]"
-                          placeholder={ko ? "사용처, 금지사항 등..." : "Usage rules, restrictions..."}
-                          rows={2}
-                        />
-                      </PropertyItem>
-
-                      {/* Attachments */}
-                      <PropertyItem icon={<Upload size={14} />} label={ko ? "첨부 파일" : "Attachments"}>
-                        <div className="space-y-2">
-                          {(asset.attachments || []).map((att, i) => (
-                            <div key={i} className="flex items-center gap-2">
-                              <input
-                                value={att.name}
-                                onChange={(e) => {
-                                  const attachments = [...(asset.attachments || [])];
-                                  attachments[i] = { ...attachments[i], name: e.target.value };
-                                  handleUpdate({ attachments });
-                                }}
-                                className="text-xs px-2 py-1 rounded-md border border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700 w-28"
-                                placeholder={ko ? "파일명" : "File name"}
-                              />
-                              <input
-                                value={att.url}
-                                onChange={(e) => {
-                                  const attachments = [...(asset.attachments || [])];
-                                  attachments[i] = { ...attachments[i], url: e.target.value };
-                                  handleUpdate({ attachments });
-                                }}
-                                className="flex-1 text-xs px-2 py-1 rounded-md border border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700 font-mono"
-                                placeholder="https://..."
-                              />
-                              <button
-                                onClick={() => {
-                                  const attachments = (asset.attachments || []).filter((_, j) => j !== i);
-                                  handleUpdate({ attachments });
-                                }}
-                                className="p-1 text-gray-300 hover:text-red-400 transition-colors"
-                              >
-                                <X size={12} />
-                              </button>
-                            </div>
-                          ))}
-                          <button
-                            onClick={() => handleUpdate({ attachments: [...(asset.attachments || []), { name: "", url: "" }] })}
-                            className="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-500 transition-colors"
-                          >
-                            <Plus size={12} />
-                            {ko ? "파일 추가" : "Add file"}
-                          </button>
+                      {/* URL */}
+                      <PropertyItem icon={<Link2 size={14} />} label="URL">
+                        <div className="flex items-center gap-2 flex-1">
+                          <input
+                            value={asset.url || ""}
+                            onChange={(e) => handleUpdate({ url: e.target.value })}
+                            className="flex-1 text-sm px-2 py-1 rounded-md border border-transparent hover:border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700 font-mono"
+                            placeholder="https://..."
+                          />
+                          {asset.url && (
+                            <a
+                              href={asset.url.startsWith("http") ? asset.url : `https://${asset.url}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="shrink-0 text-xs text-blue-500 hover:text-blue-700 font-medium"
+                            >
+                              {ko ? "열기" : "Open"}
+                            </a>
+                          )}
                         </div>
                       </PropertyItem>
                     </div>
@@ -346,39 +289,12 @@ export function BrandDetailPage() {
               </AnimatePresence>
             </div>
 
-            {/* Preview for color type */}
-            {asset.type === "color" && asset.value && (
-              <div className="flex items-center gap-4 px-4 py-3 bg-gray-50 rounded-xl border border-gray-100">
-                <div
-                  className="w-16 h-16 rounded-xl border border-gray-200 shadow-sm"
-                  style={{ backgroundColor: asset.value }}
-                />
-                <div>
-                  <p className="text-sm font-mono font-semibold text-gray-800">{asset.value}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{ko ? "브랜드 컬러 미리보기" : "Brand color preview"}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Preview for logo type */}
-            {asset.type === "logo" && asset.value && asset.value.startsWith("http") && (
-              <div className="flex items-center gap-4 px-4 py-3 bg-gray-50 rounded-xl border border-gray-100">
-                <img src={asset.value} alt="" className="w-16 h-16 rounded-xl object-contain bg-white border border-gray-200" />
-                <div>
-                  <p className="text-sm font-medium text-gray-800">{asset.name || (ko ? "로고" : "Logo")}</p>
-                  <a href={asset.value} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline truncate block max-w-[300px]">
-                    {asset.value}
-                  </a>
-                </div>
-              </div>
-            )}
-
             {/* Content — NotionBlockEditor */}
             <div className="min-h-[200px] border-t border-gray-100 pt-5">
               <NotionBlockEditor
                 initialContent={notes}
                 onChange={(v) => handleUpdate({ description: v || "" })}
-                placeholder={ko ? "브랜드 자산에 대한 메모를 작성하세요..." : "Write notes about this brand asset..."}
+                placeholder={ko ? "채널에 대한 메모를 작성하세요..." : "Write notes about this channel..."}
                 parentType="brand"
                 parentId={currentId}
               />

@@ -223,6 +223,7 @@ function ResizableTaskBar({
   return (
     <div
       ref={ref}
+      data-task-id={task.id}
       onClick={handleClick}
       onContextMenu={handleRightClick}
       className={cn(
@@ -1485,6 +1486,98 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
     return () => document.removeEventListener("keydown", handler);
   }, [selectedIds]);
 
+  // ─── Lasso (rubber-band) selection ─────────────────────────────
+  const [lasso, setLasso] = useState<{ startX: number; startY: number; curX: number; curY: number } | null>(null);
+  const lassoRef = useRef(lasso);
+  lassoRef.current = lasso;
+
+  const handleGridMouseDown = useCallback((e: React.MouseEvent) => {
+    // Only start lasso on left button, on empty space (not on task bars or buttons)
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    // Don't start lasso on task bars, buttons, resize handles
+    if (target.closest("[data-task-id]") || target.closest("button") || target.closest("[class*='cursor-col-resize']")) return;
+
+    const grid = calendarGridRef.current;
+    if (!grid) return;
+
+    const gridRect = grid.getBoundingClientRect();
+    const startX = e.clientX - gridRect.left + grid.scrollLeft;
+    const startY = e.clientY - gridRect.top + grid.scrollTop;
+
+    setLasso({ startX, startY, curX: startX, curY: startY });
+    // Clear previous selection unless Ctrl/Cmd held
+    if (!e.ctrlKey && !e.metaKey) {
+      setSelectedIds(new Set());
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!lasso) return;
+
+    const grid = calendarGridRef.current;
+    if (!grid) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const gridRect = grid.getBoundingClientRect();
+      const curX = e.clientX - gridRect.left + grid.scrollLeft;
+      const curY = e.clientY - gridRect.top + grid.scrollTop;
+      setLasso(prev => prev ? { ...prev, curX, curY } : null);
+    };
+
+    const handleMouseUp = () => {
+      const cur = lassoRef.current;
+      if (!cur) return;
+
+      // Calculate lasso rectangle in grid-relative coords
+      const lx = Math.min(cur.startX, cur.curX);
+      const ly = Math.min(cur.startY, cur.curY);
+      const lw = Math.abs(cur.curX - cur.startX);
+      const lh = Math.abs(cur.curY - cur.startY);
+
+      // Only select if dragged more than 5px (avoid accidental clicks)
+      if (lw > 5 || lh > 5) {
+        const gridRect = grid.getBoundingClientRect();
+        const taskEls = grid.querySelectorAll("[data-task-id]");
+        const newIds = new Set<string>(selectedIds);
+
+        taskEls.forEach((el) => {
+          const elRect = (el as HTMLElement).getBoundingClientRect();
+          // Convert element rect to grid-relative coords
+          const ex = elRect.left - gridRect.left + grid.scrollLeft;
+          const ey = elRect.top - gridRect.top + grid.scrollTop;
+          const ew = elRect.width;
+          const eh = elRect.height;
+
+          // Check intersection
+          if (ex < lx + lw && ex + ew > lx && ey < ly + lh && ey + eh > ly) {
+            const tid = (el as HTMLElement).getAttribute("data-task-id");
+            if (tid) newIds.add(tid);
+          }
+        });
+
+        setSelectedIds(newIds);
+      }
+
+      setLasso(null);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [lasso, selectedIds]);
+
+  // Compute lasso rect for rendering
+  const lassoRect = lasso ? {
+    left: Math.min(lasso.startX, lasso.curX),
+    top: Math.min(lasso.startY, lasso.curY),
+    width: Math.abs(lasso.curX - lasso.startX),
+    height: Math.abs(lasso.curY - lasso.startY),
+  } : null;
+
   return (
     <>
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full">
@@ -1618,11 +1711,25 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
         {/* Grid Content */}
         <div
           ref={calendarGridRef}
+          onMouseDown={handleGridMouseDown}
           className={cn(
-            "grid grid-cols-7 flex-1 overflow-y-auto overflow-x-hidden min-h-0 relative no-scrollbar",
+            "grid grid-cols-7 flex-1 overflow-y-auto overflow-x-hidden min-h-0 relative no-scrollbar select-none",
             "auto-rows-fr"
           )}
         >
+          {/* Lasso selection rectangle */}
+          {lassoRect && lassoRect.width > 5 && lassoRect.height > 5 && (
+            <div
+              className="absolute border-2 border-blue-400 bg-blue-100/30 rounded-sm z-30 pointer-events-none"
+              style={{
+                left: lassoRect.left,
+                top: lassoRect.top,
+                width: lassoRect.width,
+                height: lassoRect.height,
+              }}
+            />
+          )}
+
           {/* Auto-scroll edge indicators */}
           {autoScrollDirection === "left" && (
             <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-blue-100/60 to-transparent z-20 pointer-events-none flex items-center justify-start pl-2">

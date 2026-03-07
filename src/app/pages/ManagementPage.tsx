@@ -34,9 +34,12 @@ export interface Project {
 
 export interface BrandAsset {
   id: string;
-  type: "logo" | "color" | "font" | "guideline" | "template";
+  type?: "logo" | "color" | "font" | "guideline" | "template"; // legacy
   name: string;
-  value: string;
+  value?: string; // legacy
+  slogan?: string;
+  category?: string;
+  url?: string;
   description?: string;
   createdAt: string;
   imageUrl?: string;
@@ -148,7 +151,7 @@ export function loadCards(board: BoardType): KanbanCard[] {
   return [];
 }
 
-function saveCards(board: BoardType, cards: KanbanCard[]) {
+export function saveCards(board: BoardType, cards: KanbanCard[]) {
   localStorage.setItem(storageKey(board, "cards"), JSON.stringify(cards));
 }
 
@@ -540,6 +543,19 @@ export function ManagementPage() {
     colCards.splice(Math.min(targetIndex, colCards.length), 0, moved);
     colCards.forEach((c, i) => c.order = i);
     persistCards([...otherCards, ...colCards]);
+
+    // Sync brand asset category when moving cards between branding columns
+    if (board === "branding") {
+      const targetCol = columns.find(c => c.id === targetColId);
+      if (targetCol) {
+        const assets = loadBrandAssets();
+        const asset = assets.find(a => a.id === dragId);
+        if (asset) {
+          asset.category = targetCol.name;
+          saveBrandAssets(assets);
+        }
+      }
+    }
   };
 
   const sortedColumns = useMemo(() => [...columns].sort((a, b) => a.order - b.order), [columns]);
