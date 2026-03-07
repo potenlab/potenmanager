@@ -153,7 +153,7 @@ export function Sidebar() {
   const { signOut } = useAuth();
   const { org, allOrgs, activeOrgId, switchOrg } = useInvite();
   const { isOnline } = usePresence();
-  const { totalUnread } = useChat();
+  const { totalUnread, startDM, openRoom } = useChat();
   const navigate = useNavigate();
   const ko = language === "ko";
   const [orgSwitcherOpen, setOrgSwitcherOpen] = useState(false);
@@ -330,16 +330,15 @@ export function Sidebar() {
           {!isCompact && (
             <div className="space-y-0.5 pl-2">
               {members.filter(m => m.id !== currentUser.id).map((member) => (
-                <NavLink
+                <button
                   key={member.id}
-                  to={`/team/${member.id}`}
-                  onClick={closeSidebar}
-                  className={({ isActive }) =>
-                    cn(
-                      "flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm transition-all duration-150 group/member",
-                      isActive ? "bg-blue-50/80 text-blue-600 font-medium" : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-                    )
-                  }
+                  onClick={async () => {
+                    closeSidebar();
+                    const roomId = await startDM(member.id);
+                    openRoom(roomId);
+                    navigate("/chat");
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm transition-all duration-150 group/member text-gray-500 hover:bg-gray-100 hover:text-gray-700"
                 >
                   <div className="relative shrink-0">
                     <img src={member.avatar} alt={member.name} className="w-5 h-5 rounded-full object-cover border border-gray-200 group-hover/member:border-blue-200 transition-colors" />
@@ -350,7 +349,7 @@ export function Sidebar() {
                     const mColor = getUserColor(member.id);
                     return mColor ? <span className="w-2 h-2 rounded-full shrink-0 ml-auto" style={{ backgroundColor: mColor }} /> : null;
                   })()}
-                </NavLink>
+                </button>
               ))}
             </div>
           )}
