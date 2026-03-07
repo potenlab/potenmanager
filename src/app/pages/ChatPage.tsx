@@ -115,7 +115,7 @@ export function ChatPage() {
     const online = isOnline(otherUserId);
 
     return (
-      <div className="h-full flex flex-col bg-white max-w-2xl mx-auto w-full">
+      <div className="h-full min-h-[400px] flex flex-col bg-white max-w-2xl mx-auto w-full">
         {/* Header */}
         <div className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-gray-100">
           <button
@@ -146,7 +146,7 @@ export function ChatPage() {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1 scrollbar-hide">
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-1 scrollbar-hide">
           {isLoadingMessages ? (
             <div className="flex items-center justify-center py-20">
               <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
