@@ -19,6 +19,7 @@ import {
   FolderKanban,
   Palette,
   MessageCircle,
+  Users,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { getUserColor } from "../../../lib/mockData";
@@ -44,7 +45,7 @@ interface NavGroup {
 
 const DEFAULT_GROUPS: NavGroup[] = [
   { id: "work", labelKo: "업무", labelEn: "Work", itemIds: ["tasks", "calendar", "library"] },
-  { id: "org", labelKo: "관리", labelEn: "Management", itemIds: ["projects", "branding"] },
+  { id: "org", labelKo: "관리", labelEn: "Management", itemIds: ["projects", "branding", "team"] },
   { id: "tools", labelKo: "도구", labelEn: "Tools", itemIds: ["chat", "meetings", "radar"] },
 ];
 
@@ -193,6 +194,7 @@ export function Sidebar() {
     meetings: { to: "/meetings", icon: <Video size={18} />, label: ko ? "회의/미팅" : "Meetings" },
     radar: { to: "/radar", icon: <Radar size={18} />, label: ko ? "비즈 레이더" : "Biz Radar" },
     chat: { to: "/chat", icon: <MessageCircle size={18} />, label: ko ? "채팅" : "Chat" },
+    team: { to: "/team", icon: <Users size={18} />, label: ko ? "팀" : "Team" },
   };
 
   const closeSidebar = () => {
