@@ -93,7 +93,7 @@ function LinkedBoardBadge({ board, cardId, language }: { board: 'projects' | 'br
 
 // ─── Draggable Task Card (with selection) ───────────────────────────
 function TaskCard({
-  task, isSelecting, isSelected, onToggleSelect, selectedIds, onContextMenu,
+  task, isSelecting, isSelected, onToggleSelect, selectedIds, onContextMenu, compact,
 }: {
   task: Task;
   isSelecting: boolean;
@@ -101,6 +101,7 @@ function TaskCard({
   onToggleSelect: (id: string) => void;
   selectedIds: Set<string>;
   onContextMenu?: (e: React.MouseEvent, id: string) => void;
+  compact?: boolean;
 }) {
   const { language } = useLanguage();
   const navigate = useNavigate();
@@ -129,6 +130,17 @@ function TaskCard({
     }
   };
 
+  const priorityBadge = (
+    <span className={cn(
+      "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
+      task.priority === 'high' ? "bg-red-50 text-red-600 border border-red-100" :
+      task.priority === 'medium' ? "bg-amber-50 text-amber-600 border border-amber-100" :
+      "bg-blue-50 text-blue-600 border border-blue-100"
+    )}>
+      {task.priority || 'low'}
+    </span>
+  );
+
   return (
     <div
       ref={dragRef}
@@ -137,7 +149,8 @@ function TaskCard({
       onClick={handleClick}
       onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, task.id); }}
       className={cn(
-        "bg-white p-4 rounded-xl border shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group relative",
+        "bg-white rounded-xl border shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group relative",
+        compact ? "px-3 py-2.5" : "p-4",
         isDragging
           ? "opacity-40 border-blue-300 shadow-lg scale-[0.97] ring-2 ring-blue-200"
           : isSelected
@@ -154,7 +167,7 @@ function TaskCard({
 
       {/* Selection checkbox */}
       <div className={cn(
-        "absolute top-3 left-3 z-10 transition-all",
+        "absolute top-2 left-2 z-10 transition-all",
         isSelecting || isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
       )}>
         <button
@@ -168,65 +181,72 @@ function TaskCard({
         </button>
       </div>
 
-      <div className="flex items-start gap-2 mb-2">
-        <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
-          <span className={cn(
-            "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
-            task.priority === 'high' ? "bg-red-50 text-red-600 border border-red-100" :
-            task.priority === 'medium' ? "bg-amber-50 text-amber-600 border border-amber-100" :
-            "bg-blue-50 text-blue-600 border border-blue-100"
-          )}>
-            {task.priority || 'low'}
-          </span>
-          {task.category && TASK_CATEGORY_CONFIG[task.category] && (() => {
-            const catCfg = TASK_CATEGORY_CONFIG[task.category];
-            return (
-              <span className={cn(
-                "text-[9px] font-bold px-1.5 py-0.5 rounded-full border flex items-center gap-0.5",
-                catCfg.bg, catCfg.color, catCfg.border
-              )}>
-                {catCfg.icon}
-                {language === 'ko' ? catCfg.labelKo : catCfg.label}
-              </span>
-            );
-          })()}
-          {task.linkedBoard && task.linkedCardId && <LinkedBoardBadge board={task.linkedBoard} cardId={task.linkedCardId} language={language} />}
+      {compact ? (
+        /* ── Compact card: priority + title only ── */
+        <div className="flex items-center gap-2 min-w-0">
+          {priorityBadge}
+          <h4 className={cn(
+            "font-medium text-sm leading-snug truncate flex-1",
+            task.status === 'completed' ? "text-gray-400 line-through" : "text-gray-900"
+          )}>{title}</h4>
         </div>
-        <button
-          onClick={(e) => e.stopPropagation()}
-          className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-        >
-          <MoreHorizontal size={16} />
-        </button>
-      </div>
-
-      <h4 className={cn(
-        "font-medium text-sm mb-1 leading-snug",
-        task.status === 'completed' ? "text-gray-400 line-through" : "text-gray-900"
-      )}>{title}</h4>
-      <p className="text-xs text-gray-500 line-clamp-2 mb-3">{task.description}</p>
-
-      <div className="flex items-center justify-between border-t border-gray-50 pt-3 mt-2">
-        <div className="flex items-center gap-2 text-xs text-gray-400">
-          {task.dueDate && (
-            <div className={cn(
-              "flex items-center gap-1",
-              task.dueDate < new Date() && task.status !== 'completed' ? "text-red-500" : "text-gray-400"
-            )}>
-              <CalendarIcon size={12} />
-              <span>{format(new Date(task.dueDate), "MMM d")}</span>
+      ) : (
+        /* ── Detailed card: full info ── */
+        <>
+          <div className="flex items-start gap-2 mb-2">
+            <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
+              {priorityBadge}
+              {task.category && TASK_CATEGORY_CONFIG[task.category] && (() => {
+                const catCfg = TASK_CATEGORY_CONFIG[task.category];
+                return (
+                  <span className={cn(
+                    "text-[9px] font-bold px-1.5 py-0.5 rounded-full border flex items-center gap-0.5",
+                    catCfg.bg, catCfg.color, catCfg.border
+                  )}>
+                    {catCfg.icon}
+                    {language === 'ko' ? catCfg.labelKo : catCfg.label}
+                  </span>
+                );
+              })()}
+              {task.linkedBoard && task.linkedCardId && <LinkedBoardBadge board={task.linkedBoard} cardId={task.linkedCardId} language={language} />}
             </div>
-          )}
-        </div>
-        {assignee && (
-          <img
-            src={assignee.avatar}
-            alt={assignee.name}
-            title={assignee.name}
-            className="w-6 h-6 rounded-full border border-white shadow-sm object-cover"
-          />
-        )}
-      </div>
+            <button
+              onClick={(e) => e.stopPropagation()}
+              className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+            >
+              <MoreHorizontal size={16} />
+            </button>
+          </div>
+
+          <h4 className={cn(
+            "font-medium text-sm mb-1 leading-snug",
+            task.status === 'completed' ? "text-gray-400 line-through" : "text-gray-900"
+          )}>{title}</h4>
+          <p className="text-xs text-gray-500 line-clamp-2 mb-3">{task.description}</p>
+
+          <div className="flex items-center justify-between border-t border-gray-50 pt-3 mt-2">
+            <div className="flex items-center gap-2 text-xs text-gray-400">
+              {task.dueDate && (
+                <div className={cn(
+                  "flex items-center gap-1",
+                  task.dueDate < new Date() && task.status !== 'completed' ? "text-red-500" : "text-gray-400"
+                )}>
+                  <CalendarIcon size={12} />
+                  <span>{format(new Date(task.dueDate), "MMM d")}</span>
+                </div>
+              )}
+            </div>
+            {assignee && (
+              <img
+                src={assignee.avatar}
+                alt={assignee.name}
+                title={assignee.name}
+                className="w-6 h-6 rounded-full border border-white shadow-sm object-cover"
+              />
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -235,6 +255,7 @@ function TaskCard({
 function TaskColumn({
   title, count, tasks, icon, onAddTask, status, onDrop,
   isAdding, onStartAdd, onCancelAdd, urgentNote, hideAdd,
+  disableDrop, compact,
   isSelecting, selectedIds, onToggleSelect, onCardContextMenu,
 }: {
   title: string;
@@ -249,6 +270,8 @@ function TaskColumn({
   onCancelAdd?: () => void;
   urgentNote?: boolean;
   hideAdd?: boolean;
+  disableDrop?: boolean;
+  compact?: boolean;
   isSelecting: boolean;
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
@@ -274,10 +297,11 @@ function TaskColumn({
   const [{ isOver }, dropRef] = useDrop<DragItem, void, { isOver: boolean }>(
     () => ({
       accept: DRAG_TYPE,
+      canDrop: () => !disableDrop,
       drop: (item) => onDrop(item.ids, status, altKeyRef.current),
-      collect: (monitor) => ({ isOver: monitor.isOver() }),
+      collect: (monitor) => ({ isOver: monitor.isOver() && monitor.canDrop() }),
     }),
-    [status, onDrop]
+    [status, onDrop, disableDrop]
   );
 
   return (
@@ -344,6 +368,7 @@ function TaskColumn({
           <TaskCard
             key={task.id}
             task={task}
+            compact={compact}
             isSelecting={isSelecting}
             isSelected={selectedIds.has(task.id)}
             onToggleSelect={onToggleSelect}
@@ -403,16 +428,17 @@ function SelectionToolbar({
 
 // ─── Board View ─────────────────────────────────────────────────────
 function BoardView({
-  pendingTasks, inProgressTasks, urgentTasks, overdueTasks, completedTasks,
+  pendingTasks, inProgressTasks, urgentTasks, delayedTasks, completedTasks,
   onStatusChange, onAddTask, language,
   addingInColumn, onStartAdd, onCancelAdd,
+  cardStyle,
   isSelecting, selectedIds, onToggleSelect,
   onBulkSelect, onCardContextMenu,
 }: {
   pendingTasks: Task[];
   inProgressTasks: Task[];
   urgentTasks: Task[];
-  overdueTasks: Task[];
+  delayedTasks: Task[];
   completedTasks: Task[];
   onStatusChange: (taskIds: string[], newStatus: Task['status'], clone?: boolean) => void;
   onAddTask: (title: string, status: Task['status']) => void;
@@ -420,6 +446,7 @@ function BoardView({
   addingInColumn: Task['status'] | 'urgent' | null;
   onStartAdd: (status: Task['status'] | 'urgent') => void;
   onCancelAdd: () => void;
+  cardStyle?: 'detailed' | 'compact';
   isSelecting: boolean;
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
@@ -515,13 +542,7 @@ function BoardView({
           onCancelAdd={onCancelAdd}
           urgentNote={addingInColumn === 'urgent'}
           hideAdd={!isAdminOrOwner}
-          isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
-        />
-        <TaskColumn
-          title={language === 'ko' ? "지연" : "Overdue"} count={overdueTasks.length} tasks={overdueTasks}
-          icon={<AlertTriangle size={16} className="text-amber-500" />}
-          onAddTask={onAddTask} status="pending" onDrop={onStatusChange}
-          isAdding={false} onStartAdd={() => {}} onCancelAdd={onCancelAdd}
+          compact={cardStyle === 'compact'}
           isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
         />
         <TaskColumn
@@ -529,6 +550,7 @@ function BoardView({
           icon={<Clock size={16} className="text-blue-600" />}
           onAddTask={onAddTask} status="in-progress" onDrop={onStatusChange}
           isAdding={addingInColumn === 'in-progress'} onStartAdd={() => onStartAdd('in-progress')} onCancelAdd={onCancelAdd}
+          compact={cardStyle === 'compact'}
           isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
         />
         <TaskColumn
@@ -536,6 +558,15 @@ function BoardView({
           icon={<Circle size={16} className="text-gray-500" />}
           onAddTask={onAddTask} status="pending" onDrop={onStatusChange}
           isAdding={addingInColumn === 'pending'} onStartAdd={() => onStartAdd('pending')} onCancelAdd={onCancelAdd}
+          compact={cardStyle === 'compact'}
+          isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
+        />
+        <TaskColumn
+          title={language === 'ko' ? "지연" : "Delayed"} count={delayedTasks.length} tasks={delayedTasks}
+          icon={<AlertTriangle size={16} className="text-amber-500" />}
+          onAddTask={onAddTask} status="delayed" onDrop={onStatusChange}
+          isAdding={addingInColumn === 'delayed'} onStartAdd={() => onStartAdd('delayed')} onCancelAdd={onCancelAdd}
+          compact={cardStyle === 'compact'}
           isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
         />
         <TaskColumn
@@ -543,6 +574,7 @@ function BoardView({
           icon={<CheckCircle2 size={16} className="text-emerald-600" />}
           onAddTask={onAddTask} status="completed" onDrop={onStatusChange}
           isAdding={addingInColumn === 'completed'} onStartAdd={() => onStartAdd('completed')} onCancelAdd={onCancelAdd}
+          compact={cardStyle === 'compact'}
           isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
         />
       </div>
@@ -765,6 +797,21 @@ export function TasksPage() {
   const { currentUser } = usePermission();
   const [viewMode, setViewMode] = useState<'board' | 'list' | 'calendar'>('board');
   const [boardMode, setBoardMode] = useState<'status' | 'time'>('status');
+  const [cardStyle, setCardStyle] = useState<'detailed' | 'compact'>(() => {
+    return (localStorage.getItem('poten_card_style') as 'detailed' | 'compact') || 'detailed';
+  });
+  const [showStyleMenu, setShowStyleMenu] = useState(false);
+  const styleMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showStyleMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (styleMenuRef.current && !styleMenuRef.current.contains(e.target as Node)) setShowStyleMenu(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showStyleMenu]);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [addingInColumn, setAddingInColumn] = useState<Task['status'] | 'urgent' | null>(null);
   const [showMemo, setShowMemo] = useState(false);
@@ -894,21 +941,12 @@ export function TasksPage() {
   now.setHours(0, 0, 0, 0);
 
   // ── Status board columns ──
-  const urgentTasks = filteredTasks.filter(task => task.status !== 'completed' && task.priority === 'high');
+  const urgentTasks = filteredTasks.filter(task => task.status !== 'completed' && task.status !== 'delayed' && task.priority === 'high');
   const urgentIds = new Set(urgentTasks.map(t => t.id));
 
-  const overdueTasks = filteredTasks.filter(task => {
-    if (task.status === 'completed') return false;
-    if (urgentIds.has(task.id)) return false;
-    if (!task.dueDate) return false;
-    const due = new Date(task.dueDate);
-    due.setHours(0, 0, 0, 0);
-    return due < now;
-  });
-  const overdueIds = new Set(overdueTasks.map(t => t.id));
-
-  const pendingTasks = filteredTasks.filter(task => task.status === 'pending' && !urgentIds.has(task.id) && !overdueIds.has(task.id));
-  const inProgressTasks = filteredTasks.filter(task => task.status === 'in-progress' && !urgentIds.has(task.id) && !overdueIds.has(task.id));
+  const pendingTasks = filteredTasks.filter(task => task.status === 'pending' && !urgentIds.has(task.id));
+  const inProgressTasks = filteredTasks.filter(task => task.status === 'in-progress' && !urgentIds.has(task.id));
+  const delayedTasks = filteredTasks.filter(task => task.status === 'delayed');
   const completedTasks = filteredTasks.filter(task => task.status === 'completed');
 
   // ── Time board columns ──
@@ -1036,8 +1074,8 @@ export function TasksPage() {
                   ? `오늘 ${timeBuckets.todayTasks.length} · 내일 ${timeBuckets.tomorrowTasks.length} · 이번 주 ${timeBuckets.thisWeekTasks.length} · 이번 달 ${timeBuckets.thisMonthTasks.length}`
                   : `${timeBuckets.todayTasks.length} today · ${timeBuckets.tomorrowTasks.length} tomorrow · ${timeBuckets.thisWeekTasks.length} this week · ${timeBuckets.thisMonthTasks.length} this month`)
                 : (language === 'ko'
-                  ? `할 일 ${pendingTasks.length} · 진행 중 ${inProgressTasks.length} · 긴급 ${urgentTasks.length} · 지연 ${overdueTasks.length} · 완료 ${completedTasks.length}`
-                  : `${pendingTasks.length} to do · ${inProgressTasks.length} in progress · ${urgentTasks.length} urgent · ${overdueTasks.length} overdue · ${completedTasks.length} done`)}
+                  ? `할 일 ${pendingTasks.length} · 진행 중 ${inProgressTasks.length} · 긴급 ${urgentTasks.length} · 지연 ${delayedTasks.length} · 완료 ${completedTasks.length}`
+                  : `${pendingTasks.length} to do · ${inProgressTasks.length} in progress · ${urgentTasks.length} urgent · ${delayedTasks.length} delayed · ${completedTasks.length} done`)}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -1150,6 +1188,45 @@ export function TasksPage() {
                 </button>
               </div>
             )}
+            {viewMode === 'board' && (
+              <div className="relative" ref={styleMenuRef}>
+                <button
+                  onClick={() => setShowStyleMenu(!showStyleMenu)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border",
+                    showStyleMenu ? "bg-blue-50 text-blue-600 border-blue-200" : "bg-white text-gray-500 border-gray-200 hover:text-gray-700"
+                  )}
+                >
+                  <Palette size={13} />
+                  {language === 'ko' ? '꾸미기' : 'Style'}
+                </button>
+                {showStyleMenu && (
+                  <div className="absolute top-full mt-1 right-0 bg-white border border-gray-200 rounded-xl shadow-lg z-50 min-w-[180px] py-2 px-2">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-2 mb-1.5">
+                      {language === 'ko' ? '카드 스타일' : 'Card Style'}
+                    </p>
+                    <button
+                      onClick={() => { setCardStyle('detailed'); localStorage.setItem('poten_card_style', 'detailed'); setShowStyleMenu(false); }}
+                      className={cn("w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs transition-colors",
+                        cardStyle === 'detailed' ? "bg-blue-50 text-blue-700 font-semibold" : "text-gray-600 hover:bg-gray-50")}
+                    >
+                      <LayoutGrid size={13} />
+                      {language === 'ko' ? '상세 카드' : 'Detailed'}
+                      {cardStyle === 'detailed' && <Check size={12} className="ml-auto text-blue-600" />}
+                    </button>
+                    <button
+                      onClick={() => { setCardStyle('compact'); localStorage.setItem('poten_card_style', 'compact'); setShowStyleMenu(false); }}
+                      className={cn("w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs transition-colors",
+                        cardStyle === 'compact' ? "bg-blue-50 text-blue-700 font-semibold" : "text-gray-600 hover:bg-gray-50")}
+                    >
+                      <ListIcon size={13} />
+                      {language === 'ko' ? '간결 카드' : 'Compact'}
+                      {cardStyle === 'compact' && <Check size={12} className="ml-auto text-blue-600" />}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -1158,9 +1235,10 @@ export function TasksPage() {
         <div className="flex-1 overflow-x-auto pb-4">
           {boardMode === 'status' ? (
             <BoardView
-              pendingTasks={pendingTasks} inProgressTasks={inProgressTasks} urgentTasks={urgentTasks} overdueTasks={overdueTasks} completedTasks={completedTasks}
+              pendingTasks={pendingTasks} inProgressTasks={inProgressTasks} urgentTasks={urgentTasks} delayedTasks={delayedTasks} completedTasks={completedTasks}
               onStatusChange={handleStatusChange} onAddTask={handleAddTask} language={language}
               addingInColumn={addingInColumn} onStartAdd={setAddingInColumn} onCancelAdd={() => setAddingInColumn(null)}
+              cardStyle={cardStyle}
               isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={toggleSelect}
               onBulkSelect={setSelectedIds} onCardContextMenu={handleCardContextMenu}
             />

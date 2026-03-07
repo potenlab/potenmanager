@@ -50,12 +50,13 @@ import { usePortalPosition } from "../hooks/usePortalPosition";
 import { AttachmentSection, getAttachmentIcon } from "../components/detail/AttachmentSection";
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
 
-type TaskStatus = "pending" | "in-progress" | "completed";
+type TaskStatus = "pending" | "in-progress" | "completed" | "delayed";
 type TaskPriority = "low" | "medium" | "high";
 
 const STATUS_CONFIG: Record<TaskStatus, { label: string; labelKo: string; icon: React.ReactNode; color: string; bg: string }> = {
   pending: { label: "To Do", labelKo: "할 일", icon: <Circle size={14} />, color: "text-gray-500", bg: "bg-gray-100" },
   "in-progress": { label: "In Progress", labelKo: "진행 중", icon: <CircleDot size={14} />, color: "text-blue-600", bg: "bg-blue-50" },
+  delayed: { label: "Delayed", labelKo: "지연", icon: <Clock size={14} />, color: "text-amber-600", bg: "bg-amber-50" },
   completed: { label: "Done", labelKo: "완료", icon: <CheckCircle2 size={14} />, color: "text-emerald-600", bg: "bg-emerald-50" },
 };
 

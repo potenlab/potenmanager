@@ -103,7 +103,7 @@ export interface GoalItem {
   titleKo?: string;
   level: GoalLevel;
   progress: number; // 0-100
-  status: 'pending' | 'in-progress' | 'completed';
+  status: 'pending' | 'in-progress' | 'completed' | 'delayed';
   children?: string[];
   parentId?: string;
   dueDate?: Date;

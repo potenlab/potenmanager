@@ -86,6 +86,14 @@ const STATUS_CONFIG: Record<
     bg: "bg-blue-50",
     border: "border-blue-200",
   },
+  delayed: {
+    label: "Delayed",
+    labelKo: "지연",
+    icon: <Clock size={14} />,
+    color: "text-amber-600",
+    bg: "bg-amber-50",
+    border: "border-amber-200",
+  },
   completed: {
     label: "Done",
     labelKo: "완료",

@@ -29,9 +29,10 @@ const PRIORITY_CONFIG = {
   low: { label: "낮음", color: "text-gray-500", bg: "bg-gray-50", border: "border-gray-200" },
 };
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
   "pending": { label: "시작 전", color: "text-gray-500", dot: "bg-gray-400" },
   "in-progress": { label: "진행 중", color: "text-blue-600", dot: "bg-blue-500" },
+  "delayed": { label: "지연", color: "text-amber-600", dot: "bg-amber-500" },
   "completed": { label: "완료", color: "text-emerald-600", dot: "bg-emerald-500" },
 };
 

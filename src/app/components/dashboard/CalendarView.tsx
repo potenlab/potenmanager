@@ -61,6 +61,7 @@ const ITEM_TYPE = "CALENDAR_TASK";
 const STATUS_CONFIG: Record<string, { label: string; labelKo: string; icon: React.ReactNode; color: string; bg: string }> = {
   pending: { label: "To Do", labelKo: "할 일", icon: <Circle size={12} />, color: "text-gray-500", bg: "bg-gray-100" },
   "in-progress": { label: "In Progress", labelKo: "진행 중", icon: <CircleDot size={12} />, color: "text-blue-600", bg: "bg-blue-50" },
+  delayed: { label: "Delayed", labelKo: "지연", icon: <Clock size={12} />, color: "text-amber-600", bg: "bg-amber-50" },
   completed: { label: "Done", labelKo: "완료", icon: <CheckCircle2 size={12} />, color: "text-emerald-600", bg: "bg-emerald-50" },
 };
 

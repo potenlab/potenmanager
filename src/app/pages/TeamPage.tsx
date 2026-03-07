@@ -309,9 +309,16 @@ function TeamMemberCard({
         />
       </div>
 
-      <h3 className="text-lg font-bold text-gray-900 mb-1">
+      <h3 className="text-lg font-bold text-gray-900 mb-1 flex items-center justify-center gap-2">
         {member.name}
-        {isMe && <span className="ml-1.5 text-sm font-medium text-gray-400">({language === 'ko' ? '나' : 'Me'})</span>}
+        {isMe && <span className="text-sm font-medium text-gray-400">({language === 'ko' ? '나' : 'Me'})</span>}
+        {memberColor && (
+          <span
+            className="w-3 h-3 rounded-full shrink-0 border border-white shadow-sm"
+            style={{ backgroundColor: memberColor }}
+            title={language === 'ko' ? '캘린더 색상' : 'Calendar color'}
+          />
+        )}
       </h3>
       <div className="flex items-center gap-1.5 mb-4">
         {(() => {

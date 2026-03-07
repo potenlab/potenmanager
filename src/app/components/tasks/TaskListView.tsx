@@ -29,6 +29,7 @@ export function TaskListView({ tasks, onStatusChange }: TaskListViewProps) {
     switch (status) {
       case 'completed': return <CheckCircle2 size={18} className="text-emerald-500" />;
       case 'in-progress': return <Clock size={18} className="text-blue-500" />;
+      case 'delayed': return <Clock size={18} className="text-amber-500" />;
       default: return <Circle size={18} className="text-gray-300 hover:text-gray-400 transition-colors" />;
     }
   };
@@ -125,6 +126,7 @@ export function TaskListView({ tasks, onStatusChange }: TaskListViewProps) {
                         "text-[11px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide border",
                         task.status === 'completed' ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
                         task.status === 'in-progress' ? "bg-blue-50 text-blue-600 border-blue-100" :
+                        task.status === 'delayed' ? "bg-amber-50 text-amber-600 border-amber-100" :
                         "bg-gray-100 text-gray-600 border-gray-200"
                       )}>
                         {task.status}
