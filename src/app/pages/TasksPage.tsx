@@ -111,11 +111,14 @@ function TaskCard({
   // When dragging a selected task, drag all selected tasks together
   const dragIds = isSelected ? Array.from(selectedIds) : [task.id];
 
-  const [{ isDragging }, dragRef] = useDrag<DragItem, void, { isDragging: boolean }>({
-    type: DRAG_TYPE,
-    item: { id: task.id, ids: dragIds, status: task.status },
-    collect: (monitor) => ({ isDragging: monitor.isDragging() }),
-  });
+  const [{ isDragging }, dragRef] = useDrag<DragItem, void, { isDragging: boolean }>(
+    () => ({
+      type: DRAG_TYPE,
+      item: { id: task.id, ids: dragIds, status: task.status },
+      collect: (monitor) => ({ isDragging: monitor.isDragging() }),
+    }),
+    [task.id, task.status, dragIds]
+  );
 
   const handleClick = () => {
     if (isDragging) return;
@@ -268,11 +271,14 @@ function TaskColumn({
     else if (e.key === 'Escape') handleCancel();
   };
 
-  const [{ isOver }, dropRef] = useDrop<DragItem, void, { isOver: boolean }>({
-    accept: DRAG_TYPE,
-    drop: (item) => onDrop(item.ids, status, altKeyRef.current),
-    collect: (monitor) => ({ isOver: monitor.isOver() }),
-  });
+  const [{ isOver }, dropRef] = useDrop<DragItem, void, { isOver: boolean }>(
+    () => ({
+      accept: DRAG_TYPE,
+      drop: (item) => onDrop(item.ids, status, altKeyRef.current),
+      collect: (monitor) => ({ isOver: monitor.isOver() }),
+    }),
+    [status, onDrop]
+  );
 
   return (
     <div
@@ -568,11 +574,14 @@ function TimeColumn({
   onCardContextMenu?: (e: React.MouseEvent, id: string) => void;
 }) {
   const { language } = useLanguage();
-  const [{ isOver }, dropRef] = useDrop<DragItem, void, { isOver: boolean }>({
-    accept: DRAG_TYPE,
-    drop: (item) => onDrop(item.ids, timeBucket, altKeyRef.current),
-    collect: (monitor) => ({ isOver: monitor.isOver() }),
-  });
+  const [{ isOver }, dropRef] = useDrop<DragItem, void, { isOver: boolean }>(
+    () => ({
+      accept: DRAG_TYPE,
+      drop: (item) => onDrop(item.ids, timeBucket, altKeyRef.current),
+      collect: (monitor) => ({ isOver: monitor.isOver() }),
+    }),
+    [timeBucket, onDrop]
+  );
 
   return (
     <div
