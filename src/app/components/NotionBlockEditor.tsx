@@ -1349,6 +1349,40 @@ export function NotionBlockEditor({
                     } else if (slashMenu) {
                       closeSlashMenu();
                     }
+                    // Markdown shortcuts: auto-convert on typing
+                    if (block.type === "text") {
+                      let converted: { type: BlockType; trim: number } | null = null;
+                      if (text === "- " || text === "- ") converted = { type: "bullet", trim: 2 };
+                      else if (/^\d+\.\s$/.test(text)) converted = { type: "numbered", trim: text.length };
+                      else if (text === "# ") converted = { type: "h1", trim: 2 };
+                      else if (text === "## ") converted = { type: "h2", trim: 3 };
+                      else if (text === "### ") converted = { type: "h3", trim: 4 };
+                      else if (text === "---") converted = { type: "divider", trim: 3 };
+
+                      if (converted) {
+                        pushUndo();
+                        const newContent = converted.type === "divider" ? "" : text.slice(converted.trim);
+                        el.textContent = newContent;
+                        setBlocks((prev) =>
+                          prev.map((b) => b.id === block.id ? { ...b, type: converted!.type, content: newContent } : b)
+                        );
+                        // Place cursor at start of now-empty content
+                        requestAnimationFrame(() => {
+                          const blockEl = blockRefs.current.get(block.id);
+                          if (blockEl && converted!.type !== "divider") {
+                            blockEl.focus();
+                            const range = document.createRange();
+                            const sel = window.getSelection();
+                            range.setStart(blockEl, 0);
+                            range.collapse(true);
+                            sel?.removeAllRanges();
+                            sel?.addRange(range);
+                          }
+                        });
+                        return;
+                      }
+                    }
+
                     if (text.includes("\n")) {
                       const lines = text.split("\n");
                       setBlocks((prev) => {
