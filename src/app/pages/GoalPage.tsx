@@ -1213,12 +1213,6 @@ export function GoalPage() {
       {activeTab === "strategy" && <StrategyTabContent />}
     </div>
 
-    {/* Right Sidebar: Team Board */}
-    {org && (
-      <div className="hidden lg:block w-80 shrink-0">
-        <TeamBoardSidebar orgId={org.id} />
-      </div>
-    )}
     </div>
   );
 }
@@ -1234,7 +1228,7 @@ interface BoardItem {
   createdAt?: string;
 }
 
-function TeamBoardSidebar({ orgId }: { orgId: string }) {
+export function TeamBoardSidebar({ orgId }: { orgId: string }) {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const ko = language === 'ko';

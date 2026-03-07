@@ -1,13 +1,17 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { useDrag, useDrop } from "react-dnd";
+import { AnimatePresence, motion } from "motion/react";
 import {
   FolderKanban, Palette, Plus, Trash2,
   Calendar as CalendarIcon, MoreHorizontal, X, Check,
   Image as ImageIcon, Globe, GripVertical, Search, Edit3,
+  StickyNote,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
+import { useInvite } from "../context/InviteContext";
+import { TeamBoardSidebar } from "./GoalPage";
 import { format } from "date-fns";
 
 // ─── Types (exported for detail pages) ───────────────────────────
@@ -456,6 +460,8 @@ export function ManagementPage() {
   const ko = language === "ko";
   const location = useLocation();
   const board: BoardType = location.pathname.startsWith("/branding") ? "branding" : "projects";
+  const { org } = useInvite();
+  const [showTeamBoard, setShowTeamBoard] = useState(false);
 
   const [columns, setColumns] = useState<KanbanColumn[]>(() => loadColumns(board));
   const [cards, setCards] = useState<KanbanCard[]>(() => loadCards(board));
@@ -563,6 +569,20 @@ export function ManagementPage() {
                 : (ko ? "칼럼을 자유롭게 커스텀하고 브랜드 자산을 관리합니다" : "Customize columns and manage brand assets")}
             </p>
           </div>
+          {org && (
+            <button
+              onClick={() => setShowTeamBoard(v => !v)}
+              className={cn(
+                "flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-all border shadow-sm",
+                showTeamBoard
+                  ? "bg-blue-50 text-blue-600 border-blue-200"
+                  : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
+              )}
+            >
+              <StickyNote size={16} />
+              {ko ? "팀 보드" : "Team Board"}
+            </button>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center">
@@ -637,6 +657,41 @@ export function ManagementPage() {
           )}
         </div>
       </div>
+
+      {/* Team Board Overlay Panel */}
+      <AnimatePresence>
+        {showTeamBoard && org && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowTeamBoard(false)}
+              className="fixed inset-0 bg-black/10 z-[100]"
+            />
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", stiffness: 350, damping: 30 }}
+              className="fixed top-0 right-0 h-full w-80 z-[101] shadow-2xl bg-white border-l border-gray-200"
+            >
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <div className="flex items-center gap-2">
+                  <StickyNote size={16} className="text-blue-600" />
+                  <span className="font-semibold text-gray-800 text-sm">{ko ? "팀 보드" : "Team Board"}</span>
+                </div>
+                <button onClick={() => setShowTeamBoard(false)} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="h-[calc(100%-57px)] overflow-y-auto p-1">
+                <TeamBoardSidebar orgId={org.id} />
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
