@@ -2238,7 +2238,7 @@ app.post("/make-server-f580d5ca/demo/setup", async (c) => {
     const userId = demoUser.id;
 
     // 2. Check if already seeded (demo: prefix for v2 isolation)
-    const DEMO_DATA_VERSION = 4;
+    const DEMO_DATA_VERSION = 5;
     const seeded = await kv.get(`demo:seeded:${userId}`) as any;
     if (seeded && seeded.version >= DEMO_DATA_VERSION) {
       return c.json({ success: true, message: "Demo already set up", userId });
@@ -2305,6 +2305,19 @@ app.post("/make-server-f580d5ca/demo/setup", async (c) => {
     for (const goal of goals) await kv.set(`demo:goal:${goal.id}`, { ...goal, updatedAt: now.toISOString() });
     for (const member of members) await kv.set(`demo:member:${member.id}`, member);
     for (const r of radarItems) await kv.set(`demo:radar:${r.id}`, { ...r, updatedAt: now.toISOString() });
+
+    // Update org name if exists
+    const userOrgData = await kv.get(`user-org:${userId}`) as any;
+    if (userOrgData) {
+      const activeOrgId = userOrgData.activeOrgId || userOrgData.orgId;
+      if (activeOrgId) {
+        const orgData = await kv.get(`org:${activeOrgId}`) as any;
+        if (orgData) {
+          orgData.name = "블루밍 스튜디오";
+          await kv.set(`org:${activeOrgId}`, orgData);
+        }
+      }
+    }
 
     // Mark onboarding as complete for demo user
     await kv.set(`onboarding:${userId}`, {
