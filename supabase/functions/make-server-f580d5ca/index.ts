@@ -2238,7 +2238,7 @@ app.post("/make-server-f580d5ca/demo/setup", async (c) => {
     const userId = demoUser.id;
 
     // 2. Check if already seeded (demo: prefix for v2 isolation)
-    const DEMO_DATA_VERSION = 3;
+    const DEMO_DATA_VERSION = 4;
     const seeded = await kv.get(`demo:seeded:${userId}`) as any;
     if (seeded && seeded.version >= DEMO_DATA_VERSION) {
       return c.json({ success: true, message: "Demo already set up", userId });
@@ -2310,7 +2310,7 @@ app.post("/make-server-f580d5ca/demo/setup", async (c) => {
     await kv.set(`onboarding:${userId}`, {
       userId,
       completedAt: now.toISOString(),
-      companyName: "Poten Lab",
+      companyName: "블루밍 스튜디오",
       industry: "SaaS",
       teamSize: "2-5",
     });
