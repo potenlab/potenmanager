@@ -268,11 +268,10 @@ function TaskColumn({
     else if (e.key === 'Escape') handleCancel();
   };
 
-  const [{ isOver, canDrop }, dropRef] = useDrop<DragItem, void, { isOver: boolean; canDrop: boolean }>({
+  const [{ isOver }, dropRef] = useDrop<DragItem, void, { isOver: boolean }>({
     accept: DRAG_TYPE,
-    canDrop: (item) => item.status !== status,
     drop: (item) => onDrop(item.ids, status, altKeyRef.current),
-    collect: (monitor) => ({ isOver: monitor.isOver(), canDrop: monitor.canDrop() }),
+    collect: (monitor) => ({ isOver: monitor.isOver() }),
   });
 
   return (
@@ -280,9 +279,9 @@ function TaskColumn({
       ref={dropRef}
       className={cn(
         "flex-1 flex flex-col rounded-2xl border p-4 transition-all duration-200 h-full",
-        isOver && canDrop
+        isOver
           ? "bg-blue-50/80 border-blue-300 ring-2 ring-blue-200/50 shadow-lg"
-          : canDrop ? "bg-gray-50/50 border-gray-200 border-dashed" : "bg-gray-50/50 border-gray-100"
+          : "bg-gray-50/50 border-gray-200 border-dashed"
       )}
     >
       <div className="flex items-center justify-between mb-4 px-1">
@@ -290,7 +289,7 @@ function TaskColumn({
           {icon}
           <h3 className="font-semibold text-gray-700 text-sm">{title}</h3>
           <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full transition-colors",
-            isOver && canDrop ? "bg-blue-200 text-blue-700" : "bg-gray-200 text-gray-600"
+            isOver ? "bg-blue-200 text-blue-700" : "bg-gray-200 text-gray-600"
           )}>{count}</span>
         </div>
         {!hideAdd && (
@@ -322,7 +321,7 @@ function TaskColumn({
           </div>
         )}
 
-        {tasks.length === 0 && isOver && canDrop && (
+        {tasks.length === 0 && isOver && (
           <div className="border-2 border-dashed border-blue-300 rounded-xl p-6 text-center text-blue-500 text-xs font-medium animate-pulse">
             {language === 'ko' ? '여기에 놓으세요' : 'Drop here'}
           </div>
