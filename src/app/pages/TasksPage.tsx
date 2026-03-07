@@ -986,6 +986,19 @@ export function TasksPage() {
   }, [clearSelection, updateTask, getTask, addTaskToContext]);
 
   const handleStatusChange = useCallback((taskIds: string[], newStatus: Task['status'], clone?: boolean) => {
+    // Reset alt key ref to prevent stuck clone state
+    altKeyRef.current = false;
+
+    // Skip if all tasks already have the target status (same-column drop)
+    const allSameStatus = taskIds.every(id => {
+      const t = getTask(id);
+      return t && t.status === newStatus;
+    });
+    if (allSameStatus && !clone) {
+      clearSelection();
+      return;
+    }
+
     const progress = newStatus === 'completed' ? 100 : newStatus === 'in-progress' ? 50 : 0;
     if (clone) {
       // Alt+drag: duplicate tasks with new status
