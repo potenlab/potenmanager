@@ -2238,8 +2238,9 @@ app.post("/make-server-f580d5ca/demo/setup", async (c) => {
     const userId = demoUser.id;
 
     // 2. Check if already seeded (demo: prefix for v2 isolation)
-    const seeded = await kv.get(`demo:seeded:${userId}`);
-    if (seeded) {
+    const DEMO_DATA_VERSION = 3;
+    const seeded = await kv.get(`demo:seeded:${userId}`) as any;
+    if (seeded && seeded.version >= DEMO_DATA_VERSION) {
       return c.json({ success: true, message: "Demo already set up", userId });
     }
 
@@ -2248,49 +2249,55 @@ app.post("/make-server-f580d5ca/demo/setup", async (c) => {
     const daysFromNow = (d: number) => new Date(now.getTime() + d * 86400000).toISOString();
     const daysAgo = (d: number) => new Date(now.getTime() - d * 86400000).toISOString();
 
-    // Tasks
+    // Tasks — 다양한 날짜 범위와 팀원 배정
     const tasks = [
-      { id: `t-demo-1`, title: "Prepare investor pitch deck", titleKo: "투자자 피치덱 준비", status: "in-progress", priority: "high", dueDate: daysFromNow(3), assigneeId: userId, progress: 60, createdAt: daysAgo(5) },
-      { id: `t-demo-2`, title: "Setup Google Analytics", titleKo: "Google Analytics 설정", status: "completed", priority: "medium", dueDate: daysAgo(1), assigneeId: userId, progress: 100, createdAt: daysAgo(7) },
-      { id: `t-demo-3`, title: "Design landing page mockup", titleKo: "랜딩 페이지 목업 디자인", status: "in-progress", priority: "high", dueDate: daysFromNow(5), assigneeId: userId, progress: 40, createdAt: daysAgo(3) },
-      { id: `t-demo-4`, title: "Write blog post about product launch", titleKo: "제품 출시 블로그 포스트 작성", status: "pending", priority: "medium", dueDate: daysFromNow(7), assigneeId: userId, progress: 0, createdAt: daysAgo(1) },
-      { id: `t-demo-5`, title: "Competitive analysis report", titleKo: "경쟁사 분석 리포트", status: "completed", priority: "high", dueDate: daysAgo(3), assigneeId: userId, progress: 100, createdAt: daysAgo(10) },
-      { id: `t-demo-6`, title: "Customer interview scheduling", titleKo: "고객 인터뷰 일정 잡기", status: "pending", priority: "low", dueDate: daysFromNow(10), assigneeId: userId, progress: 0, createdAt: daysAgo(2) },
-      { id: `t-demo-7`, title: "Update pricing page", titleKo: "가격 페이지 업데이트", status: "in-progress", priority: "medium", dueDate: daysFromNow(2), assigneeId: userId, progress: 75, createdAt: daysAgo(4) },
+      { id: "t-demo-1", title: "Q2 OKR finalize", titleKo: "Q2 OKR 최종 확정", status: "in-progress", priority: "high", startDate: daysAgo(2), dueDate: daysFromNow(1), endDate: daysFromNow(1), assigneeIds: [userId], progress: 80, category: "strategy", createdAt: daysAgo(5) },
+      { id: "t-demo-2", title: "User onboarding flow redesign", titleKo: "유저 온보딩 플로우 리디자인", status: "in-progress", priority: "high", startDate: daysAgo(4), dueDate: daysFromNow(4), endDate: daysFromNow(4), assigneeIds: ["m-demo-2"], progress: 55, category: "design", createdAt: daysAgo(6) },
+      { id: "t-demo-3", title: "Payment API integration", titleKo: "결제 API 연동", status: "in-progress", priority: "high", startDate: daysAgo(1), dueDate: daysFromNow(6), endDate: daysFromNow(6), assigneeIds: ["m-demo-3", userId], progress: 30, category: "development", createdAt: daysAgo(3) },
+      { id: "t-demo-4", title: "Product demo video", titleKo: "제품 데모 영상 제작", status: "pending", priority: "medium", startDate: daysFromNow(2), dueDate: daysFromNow(8), endDate: daysFromNow(8), assigneeIds: ["m-demo-2"], progress: 0, category: "marketing", createdAt: daysAgo(1) },
+      { id: "t-demo-5", title: "Customer interview analysis", titleKo: "고객 인터뷰 분석", status: "completed", priority: "high", startDate: daysAgo(10), dueDate: daysAgo(2), endDate: daysAgo(2), assigneeIds: [userId], progress: 100, category: "research", createdAt: daysAgo(12) },
+      { id: "t-demo-6", title: "Competitor pricing benchmark", titleKo: "경쟁사 가격 벤치마크", status: "completed", priority: "medium", startDate: daysAgo(7), dueDate: daysAgo(3), endDate: daysAgo(3), assigneeIds: [userId, "m-demo-4"], progress: 100, category: "research", createdAt: daysAgo(8) },
+      { id: "t-demo-7", title: "Landing page A/B test", titleKo: "랜딩 페이지 A/B 테스트", status: "pending", priority: "medium", startDate: daysFromNow(3), dueDate: daysFromNow(10), endDate: daysFromNow(10), assigneeIds: ["m-demo-3"], progress: 0, category: "marketing", createdAt: daysAgo(1) },
+      { id: "t-demo-8", title: "Weekly team standup notes", titleKo: "주간 팀 스탠드업 정리", status: "in-progress", priority: "low", dueDate: daysFromNow(0), endDate: daysFromNow(0), assigneeIds: [userId], progress: 50, category: "operations", createdAt: daysAgo(1) },
+      { id: "t-demo-9", title: "Investor update email draft", titleKo: "투자자 업데이트 이메일 작성", status: "pending", priority: "high", startDate: daysFromNow(1), dueDate: daysFromNow(3), endDate: daysFromNow(3), assigneeIds: [userId], progress: 0, category: "strategy", createdAt: daysAgo(0) },
+      { id: "t-demo-10", title: "Mobile responsive QA", titleKo: "모바일 반응형 QA", status: "in-progress", priority: "medium", startDate: daysAgo(1), dueDate: daysFromNow(2), endDate: daysFromNow(2), assigneeIds: ["m-demo-3", "m-demo-2"], progress: 40, category: "development", createdAt: daysAgo(2) },
+      { id: "t-demo-11", title: "SEO keyword research", titleKo: "SEO 키워드 리서치", status: "delayed", priority: "medium", startDate: daysAgo(5), dueDate: daysAgo(1), endDate: daysAgo(1), assigneeIds: ["m-demo-4"], progress: 20, category: "marketing", createdAt: daysAgo(7) },
+      { id: "t-demo-12", title: "Server monitoring setup", titleKo: "서버 모니터링 구축", status: "completed", priority: "high", startDate: daysAgo(8), dueDate: daysAgo(4), endDate: daysAgo(4), assigneeIds: ["m-demo-3"], progress: 100, category: "development", createdAt: daysAgo(9) },
     ];
 
-    // Goals
+    // Goals — 연간 > 분기 > 월 > 긴급
+    const yr = now.getFullYear();
     const goals = [
-      { id: `g-demo-year`, title: "Achieve 100M ARR", titleKo: "연간 매출 1억 달성", level: "Year", progress: 35, status: "in-progress", startDate: `${now.getFullYear()}-01-01`, endDate: `${now.getFullYear()}-12-31`, children: ["g-demo-q1", "g-demo-q2"] },
-      { id: `g-demo-q1`, title: "Launch MVP and get 50 users", titleKo: "MVP 출시 및 유저 50명 확보", level: "Quarter", progress: 70, status: "in-progress", parentId: "g-demo-year", children: ["g-demo-m1", "g-demo-m2", "g-demo-m3"] },
-      { id: `g-demo-q2`, title: "Secure seed funding", titleKo: "시드 투자 유치", level: "Quarter", progress: 10, status: "pending", parentId: "g-demo-year" },
-      { id: `g-demo-m1`, title: "Complete core features", titleKo: "핵심 기능 개발 완료", level: "Month", progress: 90, status: "in-progress", parentId: "g-demo-q1" },
-      { id: `g-demo-m2`, title: "Beta testing with 10 users", titleKo: "10명 베타 테스트", level: "Month", progress: 50, status: "in-progress", parentId: "g-demo-q1" },
-      { id: `g-demo-m3`, title: "Marketing website launch", titleKo: "마케팅 웹사이트 오픈", level: "Month", progress: 30, status: "pending", parentId: "g-demo-q1" },
-      // Urgent goals
-      { id: `g-demo-u1`, title: "Submit grant application", titleKo: "정부 지원사업 신청서 제출", level: "Urgent", isUrgent: true, urgentCategory: "submission", deadline: daysFromNow(5), progress: 60, status: "in-progress" },
-      { id: `g-demo-u2`, title: "Demo Day presentation", titleKo: "데모데이 발표", level: "Urgent", isUrgent: true, urgentCategory: "event", deadline: daysFromNow(14), progress: 20, status: "pending" },
+      { id: "g-demo-year", title: "Build product-market fit & reach 1K users", titleKo: "PMF 달성 및 유저 1,000명 확보", level: "Year", progress: 28, status: "in-progress", startDate: `${yr}-01-01`, endDate: `${yr}-12-31`, children: ["g-demo-q1", "g-demo-q2"] },
+      { id: "g-demo-q1", title: "Launch public beta", titleKo: "퍼블릭 베타 출시", level: "Quarter", progress: 65, status: "in-progress", parentId: "g-demo-year", children: ["g-demo-m1", "g-demo-m2", "g-demo-m3"] },
+      { id: "g-demo-q2", title: "Monetization & seed round", titleKo: "수익화 및 시드 라운드", level: "Quarter", progress: 10, status: "pending", parentId: "g-demo-year" },
+      { id: "g-demo-m1", title: "Core feature complete", titleKo: "핵심 기능 개발 완료", level: "Month", progress: 90, status: "in-progress", parentId: "g-demo-q1" },
+      { id: "g-demo-m2", title: "Onboard 50 beta users", titleKo: "베타 유저 50명 온보딩", level: "Month", progress: 60, status: "in-progress", parentId: "g-demo-q1" },
+      { id: "g-demo-m3", title: "Collect NPS & iterate", titleKo: "NPS 수집 및 개선", level: "Month", progress: 20, status: "pending", parentId: "g-demo-q1" },
+      { id: "g-demo-u1", title: "TIPS application deadline", titleKo: "TIPS 지원사업 마감", level: "Urgent", isUrgent: true, urgentCategory: "submission", deadline: daysFromNow(4), progress: 70, status: "in-progress" },
+      { id: "g-demo-u2", title: "Demo Day pitch", titleKo: "데모데이 피칭", level: "Urgent", isUrgent: true, urgentCategory: "event", deadline: daysFromNow(12), progress: 15, status: "pending" },
+      { id: "g-demo-u3", title: "Term sheet review", titleKo: "텀시트 검토 마감", level: "Urgent", isUrgent: true, urgentCategory: "investment", deadline: daysFromNow(7), progress: 40, status: "in-progress" },
     ];
 
     // Team members
     const members = [
-      { id: userId, name: "Demo User", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=demo", role: "owner", jobTitle: "CEO / Founder", email: DEMO_EMAIL },
-      { id: "m-demo-2", name: "김민지", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=minji", role: "member", jobTitle: "디자이너" },
-      { id: "m-demo-3", name: "이준호", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=junho", role: "member", jobTitle: "프론트엔드 개발자" },
+      { id: userId, name: "Demo User", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=demo2026", role: "owner", jobTitle: "CEO / Co-founder", email: DEMO_EMAIL },
+      { id: "m-demo-2", name: "박소연", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=soyeon", role: "admin", jobTitle: "Product Designer" },
+      { id: "m-demo-3", name: "정우진", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=woojin", role: "member", jobTitle: "Full-stack Developer" },
+      { id: "m-demo-4", name: "한서윤", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=seoyun", role: "member", jobTitle: "Growth Marketer" },
     ];
 
-    // Biz Radar Items - Sales
+    // Biz Radar Items
     const radarItems = [
-      { id: "biz-demo-1", title: "TechCorp 파트너십 제안", category: "sales", type: "partnership", stage: "proposal", value: 50000000, probability: 60, contactName: "박서연", contactCompany: "TechCorp", assigneeId: userId, actionItems: [{ id: "ai-d1", title: "파트너십 제안서 작성", done: false }, { id: "ai-d2", title: "미팅 일정 잡기", done: true }], createdAt: daysAgo(7) },
-      { id: "biz-demo-2", title: "대기업 클라이언트 리드", category: "sales", type: "project", stage: "reviewing", value: 30000000, probability: 40, contactName: "최영수", contactCompany: "삼성전자", assigneeId: userId, actionItems: [], deadline: daysFromNow(14), createdAt: daysAgo(3) },
-      { id: "biz-demo-3", title: "정부 혁신 프로그램 선정", category: "sales", type: "funding", stage: "won", value: 20000000, probability: 100, contactName: "정하은", contactCompany: "중소벤처기업부", assigneeId: userId, actionItems: [{ id: "ai-d3", title: "사업계획서 제출", done: true }], createdAt: daysAgo(14) },
-      { id: "biz-demo-4", title: "시드 투자 미팅", category: "sales", type: "investment", stage: "negotiation", value: 100000000, probability: 30, contactName: "김투자", contactCompany: "ABC벤처스", assigneeId: userId, actionItems: [], deadline: daysFromNow(7), createdAt: daysAgo(5) },
-      { id: "biz-demo-5", title: "마케팅 대행 프로젝트", category: "sales", type: "project", stage: "discovered", value: 15000000, probability: 50, source: "소개", assigneeId: userId, actionItems: [], createdAt: daysAgo(1) },
-      // Biz Radar Items - Connections
-      { id: "biz-demo-c1", title: "그린솔루션 유통 파트너", category: "connection", connectionType: "distributor", type: "other", stage: "proposal", value: 80000000, probability: 50, contactName: "이동현", contactCompany: "그린솔루션", assigneeId: userId, actionItems: [{ id: "ai-c1", title: "유통 계약 조건 검토", done: false }], createdAt: daysAgo(6) },
-      { id: "biz-demo-c2", title: "디자인랩 외주 공급사", category: "connection", connectionType: "supplier", type: "other", stage: "reviewing", value: 20000000, probability: 60, contactName: "한지민", contactCompany: "디자인랩", assigneeId: userId, actionItems: [], createdAt: daysAgo(4) },
-      { id: "biz-demo-c3", title: "스타트업허브 대리점", category: "connection", connectionType: "agent", type: "other", stage: "won", value: 35000000, probability: 100, contactName: "조민수", contactCompany: "스타트업허브", assigneeId: userId, actionItems: [{ id: "ai-c2", title: "대리점 계약 체결", done: true }], createdAt: daysAgo(20) },
-      { id: "biz-demo-c4", title: "메가코프 고객사 연결", category: "connection", connectionType: "client", type: "other", stage: "discovered", contactName: "김수현", contactCompany: "메가코프", assigneeId: userId, actionItems: [], source: "전시회", createdAt: daysAgo(2) },
+      { id: "biz-demo-1", title: "네이버 클라우드 협업 제안", category: "sales", type: "partnership", stage: "proposal", value: 80000000, probability: 55, contactName: "이정호", contactCompany: "네이버 클라우드", assigneeId: userId, actionItems: [{ id: "ai-d1", title: "기술 연동 PoC", done: false }, { id: "ai-d2", title: "제안서 발송", done: true }], createdAt: daysAgo(5) },
+      { id: "biz-demo-2", title: "쿠팡 물류 SaaS 도입", category: "sales", type: "project", stage: "reviewing", value: 45000000, probability: 35, contactName: "김하영", contactCompany: "쿠팡", assigneeId: userId, actionItems: [{ id: "ai-d3", title: "요구사항 문서 분석", done: false }], deadline: daysFromNow(10), createdAt: daysAgo(3) },
+      { id: "biz-demo-3", title: "창업진흥원 예비창업패키지", category: "sales", type: "funding", stage: "won", value: 50000000, probability: 100, contactName: "박은주", contactCompany: "창업진흥원", assigneeId: userId, actionItems: [{ id: "ai-d4", title: "협약서 서명", done: true }], createdAt: daysAgo(20) },
+      { id: "biz-demo-4", title: "시드 라운드 — 스파크랩", category: "sales", type: "investment", stage: "negotiation", value: 300000000, probability: 40, contactName: "안지훈", contactCompany: "SparkLabs", assigneeId: userId, actionItems: [{ id: "ai-d5", title: "IR 자료 업데이트", done: false }, { id: "ai-d6", title: "텀시트 검토", done: false }], deadline: daysFromNow(7), createdAt: daysAgo(8) },
+      { id: "biz-demo-5", title: "스타트업 컨퍼런스 부스", category: "sales", type: "other", stage: "discovered", value: 5000000, probability: 70, source: "이벤트", assigneeId: "m-demo-4", actionItems: [], createdAt: daysAgo(1) },
+      { id: "biz-demo-c1", title: "AWS 스타트업 크레딧", category: "connection", connectionType: "partner", type: "other", stage: "won", value: 30000000, probability: 100, contactName: "Sarah Kim", contactCompany: "AWS Korea", assigneeId: "m-demo-3", actionItems: [{ id: "ai-c1", title: "크레딧 신청 완료", done: true }], createdAt: daysAgo(15) },
+      { id: "biz-demo-c2", title: "프리랜서 백엔드 개발자", category: "connection", connectionType: "supplier", type: "other", stage: "proposal", value: 12000000, probability: 60, contactName: "최민석", contactCompany: "프리랜서", assigneeId: "m-demo-3", actionItems: [{ id: "ai-c2", title: "포트폴리오 검토", done: true }, { id: "ai-c3", title: "테스트 과제 전달", done: false }], createdAt: daysAgo(4) },
+      { id: "biz-demo-c3", title: "법무법인 율촌 자문 계약", category: "connection", connectionType: "agent", type: "other", stage: "reviewing", value: 8000000, probability: 80, contactName: "강현우 변호사", contactCompany: "법무법인 율촌", assigneeId: userId, actionItems: [], createdAt: daysAgo(6) },
+      { id: "biz-demo-c4", title: "코워킹스페이스 패스트파이브", category: "connection", connectionType: "partner", type: "other", stage: "won", value: 15000000, probability: 100, contactName: "임수빈", contactCompany: "패스트파이브", assigneeId: userId, actionItems: [{ id: "ai-c4", title: "입주 계약 완료", done: true }], createdAt: daysAgo(30) },
     ];
 
     // Save all data with demo: prefix to isolate from real data
@@ -2309,7 +2316,7 @@ app.post("/make-server-f580d5ca/demo/setup", async (c) => {
     });
 
     // Mark as seeded
-    await kv.set(`demo:seeded:${userId}`, { seeded: true, timestamp: now.toISOString() });
+    await kv.set(`demo:seeded:${userId}`, { seeded: true, version: DEMO_DATA_VERSION, timestamp: now.toISOString() });
 
     console.log("[Demo] Seeded all sample data for demo user:", userId);
     return c.json({ success: true, userId });
