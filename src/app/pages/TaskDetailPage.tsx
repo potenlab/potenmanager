@@ -390,8 +390,16 @@ export function TaskDetailPage() {
   const [status, setStatus] = useState<TaskStatus>((task?.status as TaskStatus) || "pending");
   const [priority, setPriority] = useState<TaskPriority>((task?.priority as TaskPriority) || "medium");
   const [assigneeIds, setAssigneeIds] = useState(task?.assigneeIds || [currentUser.id]);
-  const [dateStart, setDateStart] = useState<Date | null>(task?.startDate ? new Date(task.startDate) : new Date());
-  const [dateEnd, setDateEnd] = useState<Date | null>(task?.endDate ? new Date(task.endDate) : null);
+  const [dateStart, setDateStart] = useState<Date | null>(
+    task
+      ? (task.startDate ? new Date(task.startDate) : task.dueDate ? new Date(task.dueDate) : null)
+      : new Date()
+  );
+  const [dateEnd, setDateEnd] = useState<Date | null>(
+    task
+      ? (task.endDate ? new Date(task.endDate) : (task.startDate && task.dueDate ? new Date(task.dueDate) : null))
+      : null
+  );
   const [estTime, setEstTime] = useState(task?.estimatedTime || 0);
   const [category, setCategory] = useState<TaskCategory | undefined>(
     task?.category && TASK_CATEGORY_CONFIG[task.category] ? task.category : undefined
