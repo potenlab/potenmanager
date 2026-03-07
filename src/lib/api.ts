@@ -267,4 +267,16 @@ export const api = {
   },
   deleteFile: (key: string) =>
     request<{ success: boolean }>(`/files/${key}`, { method: 'DELETE' }),
+
+  // ── Chat ──
+  getChatRooms: (userId: string) =>
+    request<any[]>(`/chat/rooms?userId=${encodeURIComponent(userId)}`),
+  createChatRoom: (participants: string[]) =>
+    request<any>('/chat/rooms', { method: 'POST', body: JSON.stringify({ participants }) }),
+  getChatMessages: (roomId: string, limit = 50) =>
+    request<any[]>(`/chat/messages?roomId=${encodeURIComponent(roomId)}&limit=${limit}`),
+  sendChatMessage: (roomId: string, senderId: string, text: string) =>
+    request<any>('/chat/messages', { method: 'POST', body: JSON.stringify({ roomId, senderId, text }) }),
+  markChatRead: (roomId: string, userId: string) =>
+    request<any>('/chat/messages/read', { method: 'PATCH', body: JSON.stringify({ roomId, userId }) }),
 };

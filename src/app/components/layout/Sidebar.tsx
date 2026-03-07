@@ -18,6 +18,7 @@ import {
   Trash2,
   FolderKanban,
   Palette,
+  MessageCircle,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { getUserColor } from "../../../lib/mockData";
@@ -26,6 +27,8 @@ import { useSidebar } from "../../context/SidebarContext";
 import { usePermission } from "../../context/PermissionContext";
 import { useAuth } from "../../context/AuthContext";
 import { useInvite } from "../../context/InviteContext";
+import { usePresence } from "../../context/PresenceContext";
+import { useChat } from "../../context/ChatContext";
 
 const APP_VERSION = __APP_VERSION__;
 
@@ -42,7 +45,7 @@ interface NavGroup {
 const DEFAULT_GROUPS: NavGroup[] = [
   { id: "work", labelKo: "업무", labelEn: "Work", itemIds: ["tasks", "calendar", "library"] },
   { id: "org", labelKo: "관리", labelEn: "Management", itemIds: ["projects", "branding"] },
-  { id: "tools", labelKo: "도구", labelEn: "Tools", itemIds: ["meetings", "radar"] },
+  { id: "tools", labelKo: "도구", labelEn: "Tools", itemIds: ["chat", "meetings", "radar"] },
 ];
 
 const GROUP_ORDER_KEY = "poten_group_nav_order";
@@ -149,6 +152,8 @@ export function Sidebar() {
   const { currentUser, members } = usePermission();
   const { signOut } = useAuth();
   const { org, allOrgs, activeOrgId, switchOrg } = useInvite();
+  const { isOnline } = usePresence();
+  const { totalUnread } = useChat();
   const navigate = useNavigate();
   const ko = language === "ko";
   const [orgSwitcherOpen, setOrgSwitcherOpen] = useState(false);
@@ -187,6 +192,7 @@ export function Sidebar() {
     branding: { to: "/branding", icon: <Palette size={18} />, label: ko ? "브랜딩" : "Branding" },
     meetings: { to: "/meetings", icon: <Video size={18} />, label: ko ? "회의/미팅" : "Meetings" },
     radar: { to: "/radar", icon: <Radar size={18} />, label: ko ? "비즈 레이더" : "Biz Radar" },
+    chat: { to: "/chat", icon: <MessageCircle size={18} />, label: ko ? "채팅" : "Chat" },
   };
 
   const closeSidebar = () => {
@@ -197,11 +203,18 @@ export function Sidebar() {
     const item = navItemMap[id];
     if (!item) return null;
 
+    const badge = id === "chat" && totalUnread > 0 ? totalUnread : 0;
+
     return (
       <DraggableNavItem key={id} id={id} groupId={groupId} moveItem={moveItem}>
-        {(
+        <div className="relative">
           <NavItem to={item.to} icon={item.icon} label={item.label} compact={isCompact} onClick={closeSidebar} />
-        )}
+          {badge > 0 && (
+            <div className="absolute top-1.5 left-7 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center pointer-events-none">
+              <span className="text-[9px] font-bold text-white">{badge > 9 ? "9+" : badge}</span>
+            </div>
+          )}
+        </div>
       </DraggableNavItem>
     );
   };
@@ -330,7 +343,7 @@ export function Sidebar() {
                 >
                   <div className="relative shrink-0">
                     <img src={member.avatar} alt={member.name} className="w-5 h-5 rounded-full object-cover border border-gray-200 group-hover/member:border-blue-200 transition-colors" />
-                    <div className="absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 bg-green-500 border border-white rounded-full" />
+                    <div className={cn("absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 border border-white rounded-full", isOnline(member.id) ? "bg-green-500" : "bg-gray-300")} />
                   </div>
                   <span className="truncate text-[12px]">{member.name}</span>
                   {(() => {

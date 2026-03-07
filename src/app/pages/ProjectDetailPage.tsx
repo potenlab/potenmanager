@@ -13,6 +13,7 @@ import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
 import { InlineText } from "../components/detail/InlineText";
 import { PropertyItem } from "../components/detail/PropertyItem";
+import { AIStrategyPanel } from "../components/AIStrategyPanel";
 import {
   Project, PROJECT_STATUS_CONFIG, PROJECT_COLORS, PROJECT_CATEGORY_CONFIG,
   loadProjects, saveProjects, loadCards,
@@ -412,6 +413,21 @@ export function ProjectDetailPage() {
 
               <UrlPreviewSection content={notes} language={language} />
             </div>
+
+            {/* AI Strategy */}
+            <AIStrategyPanel
+              name={project.name}
+              description={project.description}
+              type="project"
+              context={{
+                startDate: project.startDate,
+                endDate: project.endDate,
+                status: project.status,
+                client: project.client,
+                category: project.category,
+                budget: project.budget,
+              }}
+            />
           </div>
         </div>
       </div>

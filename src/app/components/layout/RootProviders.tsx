@@ -12,6 +12,8 @@ import { MeetingProvider } from "../../context/MeetingContext";
 import { NotificationProvider } from "../../context/NotificationContext";
 import { LibraryProvider } from "../../context/LibraryContext";
 import { TrashProvider } from "../../context/TrashContext";
+import { PresenceProvider } from "../../context/PresenceContext";
+import { ChatProvider } from "../../context/ChatContext";
 
 /**
  * RootProviders - Centralized context providers for the application.
@@ -33,7 +35,11 @@ export function RootProviders() {
                   <NotificationProvider>
                     <InviteProvider>
                       <TrashProvider>
-                        <Outlet />
+                        <PresenceProvider>
+                          <ChatProvider>
+                            <Outlet />
+                          </ChatProvider>
+                        </PresenceProvider>
                       </TrashProvider>
                     </InviteProvider>
                   </NotificationProvider>

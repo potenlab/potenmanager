@@ -2422,7 +2422,119 @@ app.delete("/make-server-f580d5ca/files/:key{.+}", async (c) => {
   }
 });
 
+// ─── Chat ────────────────────────────────────────────────────────────
+// Room ID convention for DM: dm:<sorted_user_ids joined by _>
+
+// GET /chat/rooms?userId=xxx — list all chat rooms for a user
+app.get("/make-server-f580d5ca/chat/rooms", async (c) => {
+  const userId = c.req.query("userId");
+  if (!userId) return c.json({ error: "userId required" }, 400);
+  try {
+    const allRooms = await kv.getByPrefix("chat:room:");
+    const userRooms = allRooms
+      .filter((r: any) => r && r.participants && r.participants.includes(userId))
+      .sort((a: any, b: any) => {
+        const aTime = a.lastMessageAt || a.createdAt || "";
+        const bTime = b.lastMessageAt || b.createdAt || "";
+        return bTime.localeCompare(aTime);
+      });
+    return c.json(userRooms);
+  } catch (e) {
+    return c.json({ error: String(e) }, 500);
+  }
+});
+
+// POST /chat/rooms — create or get a DM room
+app.post("/make-server-f580d5ca/chat/rooms", async (c) => {
+  try {
+    const { participants } = await c.req.json();
+    if (!participants || participants.length < 2) return c.json({ error: "Need 2+ participants" }, 400);
+    const sorted = [...participants].sort();
+    const roomId = `dm:${sorted.join("_")}`;
+    const existing = await kv.get(`chat:room:${roomId}`);
+    if (existing) return c.json(existing);
+    const room = {
+      id: roomId,
+      participants: sorted,
+      createdAt: new Date().toISOString(),
+      lastMessage: null,
+      lastMessageAt: null,
+    };
+    await kv.set(`chat:room:${roomId}`, room);
+    return c.json(room);
+  } catch (e) {
+    return c.json({ error: String(e) }, 500);
+  }
+});
+
+// GET /chat/messages?roomId=xxx&limit=50&before=timestamp — get messages
+app.get("/make-server-f580d5ca/chat/messages", async (c) => {
+  const roomId = c.req.query("roomId");
+  if (!roomId) return c.json({ error: "roomId required" }, 400);
+  const limit = parseInt(c.req.query("limit") || "50");
+  try {
+    const data = await kv.get(`chat:msgs:${roomId}`);
+    const msgs = (data || []) as any[];
+    // Return latest N messages
+    return c.json(msgs.slice(-limit));
+  } catch (e) {
+    return c.json({ error: String(e) }, 500);
+  }
+});
+
+// POST /chat/messages — send a message
+app.post("/make-server-f580d5ca/chat/messages", async (c) => {
+  try {
+    const { roomId, senderId, text } = await c.req.json();
+    if (!roomId || !senderId || !text) return c.json({ error: "roomId, senderId, text required" }, 400);
+    const msg = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      roomId,
+      senderId,
+      text,
+      createdAt: new Date().toISOString(),
+      readBy: [senderId],
+    };
+    // Append to messages array
+    const existing = (await kv.get(`chat:msgs:${roomId}`)) || [];
+    existing.push(msg);
+    // Keep last 500 messages per room
+    const trimmed = existing.length > 500 ? existing.slice(-500) : existing;
+    await kv.set(`chat:msgs:${roomId}`, trimmed);
+    // Update room lastMessage
+    const room = await kv.get(`chat:room:${roomId}`);
+    if (room) {
+      room.lastMessage = { text: msg.text, senderId: msg.senderId };
+      room.lastMessageAt = msg.createdAt;
+      await kv.set(`chat:room:${roomId}`, room);
+    }
+    return c.json(msg);
+  } catch (e) {
+    return c.json({ error: String(e) }, 500);
+  }
+});
+
+// PATCH /chat/messages/read — mark messages as read
+app.patch("/make-server-f580d5ca/chat/messages/read", async (c) => {
+  try {
+    const { roomId, userId } = await c.req.json();
+    if (!roomId || !userId) return c.json({ error: "roomId, userId required" }, 400);
+    const msgs = (await kv.get(`chat:msgs:${roomId}`)) || [];
+    let changed = false;
+    for (const m of msgs) {
+      if (!m.readBy.includes(userId)) {
+        m.readBy.push(userId);
+        changed = true;
+      }
+    }
+    if (changed) await kv.set(`chat:msgs:${roomId}`, msgs);
+    return c.json({ success: true });
+  } catch (e) {
+    return c.json({ error: String(e) }, 500);
+  }
+});
+
 // Version check endpoint
-app.get("/make-server-f580d5ca/version", (c) => c.json({ version: "0.3.0", routes: "full" }));
+app.get("/make-server-f580d5ca/version", (c) => c.json({ version: "0.4.0", routes: "full" }));
 
 Deno.serve(app.fetch);

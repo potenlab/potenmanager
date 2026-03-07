@@ -34,6 +34,7 @@ import { ManagementPage } from "./pages/ManagementPage";
 import { ProjectDetailPage } from "./pages/ProjectDetailPage";
 import { BrandDetailPage } from "./pages/BrandDetailPage";
 import { SubPageDetailPage } from "./pages/SubPageDetailPage";
+import { ChatPage } from "./pages/ChatPage";
 
 export const router = createBrowserRouter([
   {
@@ -87,6 +88,7 @@ export const router = createBrowserRouter([
               { path: "notifications", Component: NotificationsPage },
               { path: "mypage", Component: MyPage },
               { path: "pages/:pageId", Component: SubPageDetailPage },
+              { path: "chat", Component: ChatPage },
               { path: "trash", Component: TrashPage },
               { path: "*", Component: DashboardPage },
             ],

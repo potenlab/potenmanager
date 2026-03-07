@@ -12,6 +12,7 @@ import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
 import { InlineText } from "../components/detail/InlineText";
 import { PropertyItem } from "../components/detail/PropertyItem";
+import { AIStrategyPanel } from "../components/AIStrategyPanel";
 import {
   BrandAsset,
   loadBrandAssets, saveBrandAssets, loadCards, saveCards, loadColumns,
@@ -301,6 +302,17 @@ export function BrandDetailPage() {
 
               <UrlPreviewSection content={notes} language={language} />
             </div>
+
+            {/* AI Strategy */}
+            <AIStrategyPanel
+              name={asset.name}
+              description={asset.description}
+              type="brand"
+              context={{
+                category: asset.category,
+                url: asset.url,
+              }}
+            />
           </div>
         </div>
       </div>

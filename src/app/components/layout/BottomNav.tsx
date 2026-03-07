@@ -12,6 +12,7 @@ import {
   BookMarked,
   User,
   Trash2,
+  MessageCircle,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { useLanguage } from "../../context/LanguageContext";
@@ -70,6 +71,7 @@ export function BottomNav() {
   ];
 
   const moreItems: MoreItem[] = [
+    { to: "/chat", icon: <MessageCircle size={20} />, label: ko ? "채팅" : "Chat" },
     { to: "/projects", icon: <Building2 size={20} />, label: ko ? "프로젝트" : "Projects" },
     { to: "/branding", icon: <Building2 size={20} />, label: ko ? "브랜딩" : "Branding" },
     { to: "/meetings", icon: <Video size={20} />, label: ko ? "회의/미팅" : "Meetings" },
