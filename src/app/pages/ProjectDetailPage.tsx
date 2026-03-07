@@ -15,7 +15,7 @@ import { InlineText } from "../components/detail/InlineText";
 import { PropertyItem } from "../components/detail/PropertyItem";
 import {
   Project, PROJECT_STATUS_CONFIG, PROJECT_COLORS, PROJECT_CATEGORY_CONFIG,
-  loadProjects, saveProjects,
+  loadProjects, saveProjects, loadCards,
 } from "./ManagementPage";
 
 export function ProjectDetailPage() {
@@ -27,7 +27,28 @@ export function ProjectDetailPage() {
 
   const isNew = projectId === "new" || !projectId;
 
-  const [projects, setProjects] = useState<Project[]>(loadProjects);
+  const [projects, setProjects] = useState<Project[]>(() => {
+    const existing = loadProjects();
+    // If navigating to a kanban card that doesn't exist in legacy storage, auto-create
+    if (!isNew && projectId && !existing.find(p => p.id === projectId)) {
+      const kanbanCard = loadCards("projects").find(c => c.id === projectId);
+      if (kanbanCard) {
+        const newProj: Project = {
+          id: kanbanCard.id,
+          name: kanbanCard.title || "",
+          description: kanbanCard.description || "",
+          status: "planning",
+          color: kanbanCard.color || PROJECT_COLORS[Math.floor(Math.random() * PROJECT_COLORS.length)],
+          memberIds: [],
+          createdAt: kanbanCard.createdAt || new Date().toISOString(),
+        };
+        const next = [...existing, newProj];
+        saveProjects(next);
+        return next;
+      }
+    }
+    return existing;
+  });
   const [localId, setLocalId] = useState<string | null>(null);
 
   // Create new project on mount if "new"

@@ -14,7 +14,7 @@ import { InlineText } from "../components/detail/InlineText";
 import { PropertyItem } from "../components/detail/PropertyItem";
 import {
   BrandAsset, BRAND_TYPE_CONFIG,
-  loadBrandAssets, saveBrandAssets,
+  loadBrandAssets, saveBrandAssets, loadCards,
 } from "./ManagementPage";
 
 const BRAND_TYPE_ICONS: Record<BrandAsset["type"], React.ReactNode> = {
@@ -33,7 +33,27 @@ export function BrandDetailPage() {
 
   const isNew = brandId === "new" || !brandId;
 
-  const [assets, setAssets] = useState<BrandAsset[]>(loadBrandAssets);
+  const [assets, setAssets] = useState<BrandAsset[]>(() => {
+    const existing = loadBrandAssets();
+    // If navigating to a kanban card that doesn't exist in legacy storage, auto-create
+    if (!isNew && brandId && !existing.find(a => a.id === brandId)) {
+      const kanbanCard = loadCards("branding").find(c => c.id === brandId);
+      if (kanbanCard) {
+        const newAsset: BrandAsset = {
+          id: kanbanCard.id,
+          type: "color",
+          name: kanbanCard.title || "",
+          value: kanbanCard.color || "#3B82F6",
+          description: kanbanCard.description || "",
+          createdAt: kanbanCard.createdAt || new Date().toISOString(),
+        };
+        const next = [...existing, newAsset];
+        saveBrandAssets(next);
+        return next;
+      }
+    }
+    return existing;
+  });
   const [localId, setLocalId] = useState<string | null>(null);
 
   // Create new asset on mount if "new"
