@@ -561,7 +561,10 @@ export function MyPage() {
         {/* My Tasks */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+            <h3
+              onClick={() => navigate("/tasks")}
+              className="text-sm font-bold text-gray-900 flex items-center gap-2 cursor-pointer hover:text-blue-600 transition-colors"
+            >
               <CheckSquare size={16} className="text-gray-400" />
               {ko ? "내 업무" : "My Tasks"}
             </h3>
@@ -615,7 +618,10 @@ export function MyPage() {
         {/* My Meetings */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+            <h3
+              onClick={() => navigate("/meetings")}
+              className="text-sm font-bold text-gray-900 flex items-center gap-2 cursor-pointer hover:text-blue-600 transition-colors"
+            >
               <Video size={16} className="text-gray-400" />
               {ko ? "내 회의" : "My Meetings"}
             </h3>
