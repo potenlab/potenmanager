@@ -435,6 +435,129 @@ export function MyPage() {
           </div>
         </div>
 
+        {/* Calendar Color */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Palette size={16} className="text-gray-400" />
+                <h3 className="text-sm font-bold text-gray-900">
+                  {language === "ko" ? "캘린더 색상" : "Calendar Color"}
+                </h3>
+              </div>
+              {myColor && myColorConfig && (
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                    style={{ backgroundColor: myColorConfig.bg, color: myColorConfig.text }}
+                  >
+                    {language === "ko" ? myColorConfig.labelKo : myColorConfig.label}
+                  </span>
+                  <button
+                    onClick={() => {
+                      setUserColor(currentUser.id, null);
+                      setMyColor(null);
+                      api.updateProfile(currentUser.id, { calendarColor: '' }).catch(() => {});
+                    }}
+                    className="text-[10px] text-gray-400 hover:text-red-500 transition-colors font-medium"
+                  >
+                    {language === "ko" ? "초기화" : "Clear"}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="px-6 py-4">
+            {myColor && (
+              <div
+                className="h-2 rounded-full mb-4 transition-colors"
+                style={{ background: `linear-gradient(90deg, ${myColor}20, ${myColor}70, ${myColor}20)` }}
+              />
+            )}
+            <p className="text-xs text-gray-500 mb-3">
+              {language === "ko"
+                ? "캘린더에서 내 업무가 이 색상으로 표시됩니다."
+                : "Your tasks will appear with this color on the calendar."}
+            </p>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              {MEMBER_COLORS.map((mc) => {
+                const ownerOfColor = getColorOwner(mc.hex);
+                const isTaken = ownerOfColor !== null && ownerOfColor !== currentUser.id;
+                const ownerMember = isTaken ? members.find((m) => m.id === ownerOfColor) : null;
+                const isSelected = myColor === mc.hex;
+                return (
+                  <button
+                    key={mc.id}
+                    onClick={() => handleSelectMyColor(mc.hex)}
+                    disabled={isTaken}
+                    title={
+                      isTaken
+                        ? `${ownerMember?.name ?? ""} ${language === "ko" ? "사용 중" : "in use"}`
+                        : language === "ko" ? mc.labelKo : mc.label
+                    }
+                    className={cn(
+                      "relative w-8 h-8 rounded-full flex items-center justify-center transition-all",
+                      isTaken ? "opacity-25 cursor-not-allowed" : "hover:scale-110 cursor-pointer",
+                      isSelected && "ring-2 ring-offset-2 scale-110"
+                    )}
+                    style={isSelected ? { ringColor: mc.hex } : undefined}
+                  >
+                    <span
+                      className="w-full h-full rounded-full border border-black/5"
+                      style={{ backgroundColor: mc.hex }}
+                    />
+                    {isSelected && (
+                      <span className="absolute inset-0 flex items-center justify-center">
+                        <Check size={14} className="text-white drop-shadow-sm" strokeWidth={3} />
+                      </span>
+                    )}
+                    {isTaken && (
+                      <span className="absolute -bottom-0.5 -right-0.5">
+                        <Lock size={8} className="text-gray-500" />
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            {currentUser.role === "owner" && (
+              <div className="mt-5 pt-4 border-t border-gray-100">
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                  {language === "ko" ? "팀원 색상" : "Team Colors"}
+                </p>
+                <div className="space-y-2">
+                  {members.filter(m => m.id !== currentUser.id).map((member) => {
+                    const mColor = getUserColor(member.id);
+                    const mConfig = mColor ? getMemberColorConfig(mColor) : null;
+                    return (
+                      <div key={member.id} className="flex items-center gap-3">
+                        {member.avatar ? (
+                          <img src={member.avatar} alt={member.name} className="w-6 h-6 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
+                            <UserIcon size={12} className="text-gray-400" />
+                          </div>
+                        )}
+                        <span className="text-sm text-gray-700 flex-1">{member.name}</span>
+                        {mColor && mConfig ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-3.5 h-3.5 rounded-full border border-black/5" style={{ backgroundColor: mColor }} />
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: mConfig.bg, color: mConfig.text }}>
+                              {language === "ko" ? mConfig.labelKo : mConfig.label}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-gray-400">{language === "ko" ? "미설정" : "Not set"}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* My Tasks */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -540,143 +663,6 @@ export function MyPage() {
                   </div>
                 );
               })
-            )}
-          </div>
-        </div>
-
-        {/* Calendar Color */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
-          <div className="px-6 py-4 border-b border-gray-100">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Palette size={16} className="text-gray-400" />
-                <h3 className="text-sm font-bold text-gray-900">
-                  {language === "ko" ? "캘린더 색상" : "Calendar Color"}
-                </h3>
-              </div>
-              {myColor && myColorConfig && (
-                <div className="flex items-center gap-2">
-                  <span
-                    className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                    style={{ backgroundColor: myColorConfig.bg, color: myColorConfig.text }}
-                  >
-                    {language === "ko" ? myColorConfig.labelKo : myColorConfig.label}
-                  </span>
-                  <button
-                    onClick={() => {
-                      setUserColor(currentUser.id, null);
-                      setMyColor(null);
-                      api.updateProfile(currentUser.id, { calendarColor: '' }).catch(() => {});
-                    }}
-                    className="text-[10px] text-gray-400 hover:text-red-500 transition-colors font-medium"
-                  >
-                    {language === "ko" ? "초기화" : "Clear"}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="px-6 py-4">
-            {/* Color preview bar */}
-            {myColor && (
-              <div
-                className="h-2 rounded-full mb-4 transition-colors"
-                style={{ background: `linear-gradient(90deg, ${myColor}20, ${myColor}70, ${myColor}20)` }}
-              />
-            )}
-
-            {/* My color */}
-            <p className="text-xs text-gray-500 mb-3">
-              {language === "ko"
-                ? "캘린더에서 내 업무가 이 색상으로 표시됩니다."
-                : "Your tasks will appear with this color on the calendar."}
-            </p>
-            <div className="flex items-center gap-2.5 flex-wrap">
-              {MEMBER_COLORS.map((mc) => {
-                const ownerOfColor = getColorOwner(mc.hex);
-                const isTaken = ownerOfColor !== null && ownerOfColor !== currentUser.id;
-                const ownerMember = isTaken ? members.find((m) => m.id === ownerOfColor) : null;
-                const isSelected = myColor === mc.hex;
-
-                return (
-                  <button
-                    key={mc.id}
-                    onClick={() => handleSelectMyColor(mc.hex)}
-                    disabled={isTaken}
-                    title={
-                      isTaken
-                        ? `${ownerMember?.name ?? ""} ${language === "ko" ? "사용 중" : "in use"}`
-                        : language === "ko" ? mc.labelKo : mc.label
-                    }
-                    className={cn(
-                      "relative w-8 h-8 rounded-full flex items-center justify-center transition-all",
-                      isTaken ? "opacity-25 cursor-not-allowed" : "hover:scale-110 cursor-pointer",
-                      isSelected && "ring-2 ring-offset-2 scale-110"
-                    )}
-                    style={isSelected ? { ringColor: mc.hex } : undefined}
-                  >
-                    <span
-                      className="w-full h-full rounded-full border border-black/5"
-                      style={{ backgroundColor: mc.hex }}
-                    />
-                    {isSelected && (
-                      <span className="absolute inset-0 flex items-center justify-center">
-                        <Check size={14} className="text-white drop-shadow-sm" strokeWidth={3} />
-                      </span>
-                    )}
-                    {isTaken && (
-                      <span className="absolute -bottom-0.5 -right-0.5">
-                        <Lock size={8} className="text-gray-500" />
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Team member colors overview */}
-            {currentUser.role === "owner" && (
-              <div className="mt-5 pt-4 border-t border-gray-100">
-                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                  {language === "ko" ? "팀원 색상" : "Team Colors"}
-                </p>
-                <div className="space-y-2">
-                  {members.filter(m => m.id !== currentUser.id).map((member) => {
-                    const mColor = getUserColor(member.id);
-                    const mConfig = mColor ? getMemberColorConfig(mColor) : null;
-                    return (
-                      <div key={member.id} className="flex items-center gap-3">
-                        {member.avatar ? (
-                          <img src={member.avatar} alt={member.name} className="w-6 h-6 rounded-full object-cover" />
-                        ) : (
-                          <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
-                            <UserIcon size={12} className="text-gray-400" />
-                          </div>
-                        )}
-                        <span className="text-sm text-gray-700 flex-1">{member.name}</span>
-                        {mColor && mConfig ? (
-                          <div className="flex items-center gap-1.5">
-                            <span
-                              className="w-3.5 h-3.5 rounded-full border border-black/5"
-                              style={{ backgroundColor: mColor }}
-                            />
-                            <span
-                              className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                              style={{ backgroundColor: mConfig.bg, color: mConfig.text }}
-                            >
-                              {language === "ko" ? mConfig.labelKo : mConfig.label}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-[10px] text-gray-400">
-                            {language === "ko" ? "미설정" : "Not set"}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
             )}
           </div>
         </div>

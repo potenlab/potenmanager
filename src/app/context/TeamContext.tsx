@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
-import { User } from "../../lib/mockData";
+import { User, setUserColor } from "../../lib/mockData";
 import { api } from "../../lib/api";
 import { notificationBus } from "../../lib/notificationEvents";
 import { useAuth } from "./AuthContext";
@@ -91,6 +91,16 @@ export function TeamProvider({ children }: { children: ReactNode }) {
         try { await api.createTeamMember(me); } catch {}
       }
       setIsSynced(true);
+
+      // Load all members' calendar colors on init
+      const memberList = serverMembers && serverMembers.length > 0 ? serverMembers : (authUser ? [userFromAuth(authUser)] : []);
+      memberList.forEach((m: any) => {
+        api.getProfile(m.id).then((profile: any) => {
+          if (profile?.calendarColor) {
+            setUserColor(m.id, profile.calendarColor);
+          }
+        }).catch(() => {});
+      });
     } catch (err) {
       console.error("[TeamContext] Failed to fetch members:", err);
     } finally {
