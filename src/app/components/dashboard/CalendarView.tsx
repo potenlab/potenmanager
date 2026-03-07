@@ -351,6 +351,7 @@ function DroppableDayCell({
   onDeselectAll,
   onMeetingClick,
   onContextMenu,
+  onMeetingContextMenu,
   canDragTaskFn,
 }: {
   day: Date;
@@ -371,6 +372,7 @@ function DroppableDayCell({
   onDeselectAll: () => void;
   onMeetingClick: (meetingId: string) => void;
   onContextMenu: (task: Task, x: number, y: number) => void;
+  onMeetingContextMenu?: (meeting: Meeting, x: number, y: number) => void;
   canDragTaskFn?: (task: Task) => boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -468,10 +470,16 @@ function DroppableDayCell({
           <div
             key={meeting.id}
             onClick={(e) => { e.stopPropagation(); onMeetingClick(meeting.id); }}
+            onContextMenu={(e) => {
+              if (!onMeetingContextMenu) return;
+              e.preventDefault();
+              e.stopPropagation();
+              onMeetingContextMenu(meeting, e.clientX, e.clientY);
+            }}
             className="mx-1.5 h-[26px] flex items-center gap-1 px-2 rounded-md cursor-pointer transition-colors text-[11px] font-medium bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200/60"
           >
             <Video size={11} className="shrink-0 text-purple-400" />
-            <span className="truncate">{meeting.title}</span>
+            <span className="truncate">{meeting.title || (language === 'ko' ? '제목없음' : 'Untitled')}</span>
           </div>
         ))}
 
@@ -883,7 +891,7 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
   const navigate = useNavigate();
   const { tasks: allContextTasks, addTask: addTaskToContext, updateTask, removeTask } = useTaskContext();
   const calTasks = useMemo(() => taskFilter ? allContextTasks.filter(taskFilter) : allContextTasks, [allContextTasks, taskFilter]);
-  const { meetings, addMeeting } = useMeetingContext();
+  const { meetings, addMeeting, updateMeeting, removeMeeting } = useMeetingContext();
   const { can, members: teamMembers, currentUser } = usePermission();
 
   // Calendar edit permission: can edit any = full drag, can edit own = own tasks only
@@ -909,23 +917,35 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
   const [quickViewTask, setQuickViewTask] = useState<Task | null>(null);
   const [quickViewRect, setQuickViewRect] = useState<DOMRect | null>(null);
 
-  // Context menu state (right-click)
+  // Context menu state (right-click) — tasks
   const [ctxMenu, setCtxMenu] = useState<{ task: Task; x: number; y: number } | null>(null);
   const ctxMenuRef = useRef<HTMLDivElement>(null);
 
   const handleContextMenu = useCallback((task: Task, x: number, y: number) => {
     setCtxMenu({ task, x, y });
+    setMtgCtxMenu(null);
+    setQuickViewTask(null);
+  }, []);
+
+  // Context menu state (right-click) — meetings
+  const [mtgCtxMenu, setMtgCtxMenu] = useState<{ meeting: Meeting; x: number; y: number } | null>(null);
+  const mtgCtxMenuRef = useRef<HTMLDivElement>(null);
+
+  const handleMeetingContextMenu = useCallback((meeting: Meeting, x: number, y: number) => {
+    setMtgCtxMenu({ meeting, x, y });
+    setCtxMenu(null);
     setQuickViewTask(null);
   }, []);
 
   // Close context menu on outside click or Escape
   useEffect(() => {
-    if (!ctxMenu) return;
+    if (!ctxMenu && !mtgCtxMenu) return;
     const handleClick = (e: MouseEvent) => {
-      if (ctxMenuRef.current && !ctxMenuRef.current.contains(e.target as Node)) setCtxMenu(null);
+      if (ctxMenu && ctxMenuRef.current && !ctxMenuRef.current.contains(e.target as Node)) setCtxMenu(null);
+      if (mtgCtxMenu && mtgCtxMenuRef.current && !mtgCtxMenuRef.current.contains(e.target as Node)) setMtgCtxMenu(null);
     };
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setCtxMenu(null);
+      if (e.key === "Escape") { setCtxMenu(null); setMtgCtxMenu(null); }
     };
     document.addEventListener("mousedown", handleClick);
     document.addEventListener("keydown", handleKey);
@@ -933,7 +953,7 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
       document.removeEventListener("mousedown", handleClick);
       document.removeEventListener("keydown", handleKey);
     };
-  }, [ctxMenu]);
+  }, [ctxMenu, mtgCtxMenu]);
 
   // Resize state
   const [resizeState, setResizeState] = useState<ResizeState | null>(null);
@@ -1662,7 +1682,7 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
                   meetingDate.setHours(10, 0, 0, 0);
                   addMeeting({
                     id,
-                    title: '',
+                    title: language === 'ko' ? '제목없음' : 'Untitled',
                     date: meetingDate.toISOString(),
                     duration: 60,
                     type: 'other',
@@ -1681,6 +1701,7 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
                   navigate(`/meetings/${meetingId}`);
                 }}
                 onContextMenu={handleContextMenu}
+                onMeetingContextMenu={handleMeetingContextMenu}
                 canDragTaskFn={(task: Task) => {
                   if (canEditAnyCalendar) return true;
                   if (canEditOwnCalendar) {
@@ -1802,6 +1823,58 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
             <X size={14} />
             {language === "ko" ? "삭제" : "Delete"}
           </button>
+        </div>,
+        document.body
+      )}
+
+      {/* Meeting right-click context menu */}
+      {mtgCtxMenu && createPortal(
+        <div
+          ref={mtgCtxMenuRef}
+          className="fixed z-[10001] bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[160px] animate-in fade-in zoom-in-95 duration-100"
+          style={{ left: mtgCtxMenu.x, top: mtgCtxMenu.y }}
+        >
+          <button
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            onClick={() => {
+              navigate(`/meetings/${mtgCtxMenu.meeting.id}`);
+              setMtgCtxMenu(null);
+            }}
+          >
+            <Maximize2 size={14} className="text-gray-400" />
+            {language === "ko" ? "상세 보기" : "Open detail"}
+          </button>
+          {mtgCtxMenu.meeting.organizerId === currentUser.id && (
+            <>
+              <button
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                onClick={() => {
+                  const m = mtgCtxMenu.meeting;
+                  const next = m.status === 'completed' ? 'scheduled' : 'completed';
+                  updateMeeting(m.id, { status: next });
+                  setMtgCtxMenu(null);
+                }}
+              >
+                {mtgCtxMenu.meeting.status === "completed"
+                  ? <Circle size={14} className="text-gray-400" />
+                  : <CheckCircle2 size={14} className="text-green-500" />}
+                {language === "ko"
+                  ? mtgCtxMenu.meeting.status === "completed" ? "미완료로 변경" : "완료로 변경"
+                  : mtgCtxMenu.meeting.status === "completed" ? "Mark incomplete" : "Mark complete"}
+              </button>
+              <div className="border-t border-gray-100 my-1" />
+              <button
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                onClick={() => {
+                  removeMeeting(mtgCtxMenu.meeting.id);
+                  setMtgCtxMenu(null);
+                }}
+              >
+                <X size={14} />
+                {language === "ko" ? "삭제" : "Delete"}
+              </button>
+            </>
+          )}
         </div>,
         document.body
       )}

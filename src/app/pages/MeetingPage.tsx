@@ -11,7 +11,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { useMeetingContext, Meeting } from "../context/MeetingContext";
 import { useTeam } from "../context/TeamContext";
 import { MeetingListView } from "../components/meeting/MeetingListView";
-import { isToday, format, addDays } from "date-fns";
+import { isToday, format, addDays, startOfDay } from "date-fns";
 import { useTrash } from "../context/TrashContext";
 
 const DRAG_TYPE = "MEETING_CARD";
@@ -507,10 +507,10 @@ export function MeetingPage() {
   }, [meetings, searchQuery, filterMonth]);
 
   const todayMeetings = useMemo(() =>
-    filteredMeetings.filter(m => m.status !== 'completed' && isToday(new Date(m.date)))
+    filteredMeetings.filter(m => m.status !== 'completed' && new Date(m.date) < addDays(startOfDay(new Date()), 1))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()), [filteredMeetings]);
   const upcomingMeetings = useMemo(() =>
-    filteredMeetings.filter(m => m.status !== 'completed' && !isToday(new Date(m.date)) && new Date(m.date) >= new Date())
+    filteredMeetings.filter(m => m.status !== 'completed' && new Date(m.date) >= addDays(startOfDay(new Date()), 1))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()), [filteredMeetings]);
   const allCompletedMeetings = useMemo(() =>
     filteredMeetings.filter(m => m.status === 'completed')
@@ -534,8 +534,8 @@ export function MeetingPage() {
     });
   }, [allCompletedMeetings, completedMonthFilter]);
 
-  const todayCount = meetings.filter(m => m.status !== 'completed' && isToday(new Date(m.date))).length;
-  const upcomingCount = meetings.filter(m => m.status !== 'completed' && !isToday(new Date(m.date)) && new Date(m.date) >= new Date()).length;
+  const todayCount = meetings.filter(m => m.status !== 'completed' && new Date(m.date) < addDays(startOfDay(new Date()), 1)).length;
+  const upcomingCount = meetings.filter(m => m.status !== 'completed' && new Date(m.date) >= addDays(startOfDay(new Date()), 1)).length;
   const completedCount = meetings.filter(m => m.status === 'completed').length;
 
   const handleDrop = useCallback((meetingId: string, targetColumn: ColumnKey) => {

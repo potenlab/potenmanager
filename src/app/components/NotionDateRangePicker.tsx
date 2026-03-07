@@ -105,24 +105,39 @@ export function NotionDateRangePicker({
     }
   }, [open]);
 
-  // Calculate popup position
+  // Calculate popup position — ensure it stays within the viewport
   useEffect(() => {
-    if (open && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
+    if (!open || !triggerRef.current) return;
+
+    const position = () => {
+      const rect = triggerRef.current!.getBoundingClientRect();
       const popupWidth = 300;
-      const popupHeight = 500;
-      let top = rect.bottom + 4;
       let left = rect.left;
 
       if (left + popupWidth > window.innerWidth - 16) {
         left = window.innerWidth - popupWidth - 16;
       }
+      if (left < 8) left = 8;
+
+      // Try below first
+      let top = rect.bottom + 4;
+
+      // If popup ref is rendered, use its actual height; otherwise estimate
+      const popupHeight = popupRef.current?.offsetHeight || 420;
+
       if (top + popupHeight > window.innerHeight - 16) {
+        // Try above
         top = rect.top - popupHeight - 4;
       }
+      // Clamp: never go above viewport
+      if (top < 8) top = 8;
 
       setPopupPos({ top, left });
-    }
+    };
+
+    // Position once immediately, then again after render so we can measure actual height
+    position();
+    requestAnimationFrame(position);
   }, [open]);
 
   useEffect(() => {
