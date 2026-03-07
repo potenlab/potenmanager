@@ -296,11 +296,12 @@ export function TaskRecommendationPanel({ isOpen, onClose }: Props) {
       progress: 0,
       status: "pending",
       dueDate: rec.suggestedDueDate,
-      assigneeId: rec.suggestedAssigneeId ?? currentUser.id,
-      assigneeIds: [rec.suggestedAssigneeId ?? currentUser.id],
+      startDate: new Date(),
+      endDate: rec.suggestedDueDate,
+      assigneeId: currentUser.id,
+      assigneeIds: [currentUser.id],
       priority: rec.priority,
       description: language === "ko" ? rec.descriptionKo : rec.description,
-      parentId: rec.goalId,
     };
     setTasks((prev) => [newTask, ...prev]);
     setAddedIds((prev) => new Set([...prev, rec.id]));

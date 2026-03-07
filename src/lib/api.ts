@@ -179,7 +179,7 @@ export const api = {
   createMeeting: (meeting: any) =>
     request<any>('/meetings', { method: 'POST', body: JSON.stringify(meeting) }),
   updateMeeting: (id: string, data: any) =>
-    request<any>(`/meetings/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    request<any>(`/meetings/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteMeeting: (id: string) =>
     request<any>(`/meetings/${id}`, { method: 'DELETE' }),
 
