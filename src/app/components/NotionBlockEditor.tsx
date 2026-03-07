@@ -1,17 +1,18 @@
 import React, { useState, useRef, useEffect, useCallback, KeyboardEvent } from "react";
 import { useNavigate } from "react-router";
 import { cn } from "../../lib/utils";
-import { GripVertical, Plus, Trash2, Type, Heading1, Heading2, Heading3, List, ListOrdered, Minus, FileText, ArrowRight, Bold, Italic, Underline } from "lucide-react";
+import { GripVertical, Plus, Trash2, Type, Heading1, Heading2, Heading3, List, ListOrdered, Minus, FileText, ArrowRight, Bold, Italic, Underline, Image as ImageIcon } from "lucide-react";
 import { createPortal } from "react-dom";
 import { createSubPage, getSubPage } from "../../lib/subPages";
 
-type BlockType = "text" | "h1" | "h2" | "h3" | "bullet" | "numbered" | "divider" | "page";
+type BlockType = "text" | "h1" | "h2" | "h3" | "bullet" | "numbered" | "divider" | "page" | "image";
 
 interface Block {
   id: string;
   content: string;
   type: BlockType;
   indent: number; // 0 = root, 1+ = nested
+  imageWidth?: number; // percentage width for image blocks (10-100)
 }
 
 const BLOCK_TYPE_STYLES: Record<BlockType, string> = {
@@ -23,6 +24,7 @@ const BLOCK_TYPE_STYLES: Record<BlockType, string> = {
   numbered: "text-[15px] text-gray-700 leading-relaxed min-h-[28px] py-[3px]",
   divider: "min-h-[1px] py-[3px]",
   page: "min-h-[40px] py-[3px]",
+  image: "min-h-[40px] py-[3px]",
 };
 
 interface SlashMenuItem {
@@ -42,6 +44,7 @@ const SLASH_MENU_ITEMS: SlashMenuItem[] = [
   { type: "bullet", label: "Bullet List", labelKo: "글머리 기호", desc: "Bullet point", descKo: "점 목록", icon: <List size={16} /> },
   { type: "numbered", label: "Numbered List", labelKo: "번호 매기기", desc: "Numbered list", descKo: "순서 목록", icon: <ListOrdered size={16} /> },
   { type: "divider", label: "Divider", labelKo: "구분선", desc: "Horizontal line", descKo: "가로 구분선", icon: <Minus size={16} /> },
+  { type: "image", label: "Image", labelKo: "이미지", desc: "Upload or paste image", descKo: "이미지 업로드", icon: <ImageIcon size={16} /> },
   { type: "page", label: "Sub Page", labelKo: "하위 페이지", desc: "Embedded page", descKo: "내부 페이지", icon: <FileText size={16} /> },
 ];
 
@@ -55,6 +58,7 @@ function serializeBlock(b: Block): string {
     case "numbered": return `${indentPrefix}1. ${b.content}`;
     case "divider": return "---";
     case "page": return `[page:${b.content}]`;
+    case "image": return `[img:${b.imageWidth || 100}:${b.content}]`;
     default: return `${indentPrefix}${b.content}`;
   }
 }
@@ -67,6 +71,8 @@ function parseBlockLine(line: string): { type: BlockType; content: string; inden
 
   const pageMatch = trimmed.match(/^\[page:([^\]]+)\]$/);
   if (pageMatch) return { type: "page", content: pageMatch[1], indent: 0 };
+  const imgMatch = trimmed.match(/^\[img:(\d+):(.+)\]$/);
+  if (imgMatch) return { type: "image" as BlockType, content: imgMatch[2], indent: 0 };
   if (trimmed === "---") return { type: "divider", content: "", indent: 0 };
   if (trimmed.startsWith("### ")) return { type: "h3", content: trimmed.slice(4), indent };
   if (trimmed.startsWith("## ")) return { type: "h2", content: trimmed.slice(3), indent };
@@ -80,7 +86,11 @@ function parseBlocks(value?: string): Block[] {
   if (!value || !value.trim()) return [{ id: genId(), content: "", type: "text", indent: 0 }];
   return value.split("\n").map((line) => {
     const { type, content, indent } = parseBlockLine(line);
-    return { id: genId(), content, type, indent };
+    const block: Block = { id: genId(), content, type, indent };
+    // Parse image width
+    const imgMatch = line.trim().match(/^\[img:(\d+):/);
+    if (imgMatch) block.imageWidth = parseInt(imgMatch[1], 10);
+    return block;
   });
 }
 
@@ -91,6 +101,117 @@ function genId() {
 function readText(el: HTMLElement): string {
   const text = el.innerText ?? el.textContent ?? "";
   return text.endsWith("\n") ? text.slice(0, -1) : text;
+}
+
+// ─── Image Block with Resize ───────────────────────────────────────
+function ImageBlock({ block, readOnly, onResize, onDelete, onSelect }: {
+  block: Block;
+  readOnly: boolean;
+  onResize: (width: number) => void;
+  onDelete: () => void;
+  onSelect: () => void;
+}) {
+  const [isResizing, setIsResizing] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const startX = useRef(0);
+  const startWidth = useRef(0);
+
+  const width = block.imageWidth || 100;
+
+  const handleResizeStart = (e: React.MouseEvent, side: "left" | "right") => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (readOnly) return;
+    setIsResizing(true);
+    startX.current = e.clientX;
+    startWidth.current = width;
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      const containerWidth = containerRef.current?.parentElement?.offsetWidth || 600;
+      const dx = side === "right" ? ev.clientX - startX.current : startX.current - ev.clientX;
+      const deltaPercent = (dx / containerWidth) * 200; // *2 because drag on one side affects total
+      const newWidth = Math.max(15, Math.min(100, startWidth.current + deltaPercent));
+      onResize(Math.round(newWidth));
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  };
+
+  // Scroll to resize
+  const handleWheel = (e: React.WheelEvent) => {
+    if (readOnly || !e.altKey) return;
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -5 : 5;
+    const newWidth = Math.max(15, Math.min(100, width + delta));
+    onResize(newWidth);
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      className="flex-1 flex justify-center py-2 group/img relative"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={onSelect}
+      onWheel={handleWheel}
+    >
+      <div className="relative" style={{ width: `${width}%` }}>
+        <img
+          src={block.content}
+          alt=""
+          className={cn(
+            "w-full rounded-lg border transition-all select-none",
+            hovered ? "border-blue-300 shadow-md" : "border-gray-200"
+          )}
+          draggable={false}
+        />
+
+        {/* Resize handles */}
+        {!readOnly && hovered && (
+          <>
+            <div
+              onMouseDown={(e) => handleResizeStart(e, "left")}
+              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2 h-12 bg-blue-400 rounded-full cursor-col-resize opacity-80 hover:opacity-100 transition-opacity"
+            />
+            <div
+              onMouseDown={(e) => handleResizeStart(e, "right")}
+              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1 w-2 h-12 bg-blue-400 rounded-full cursor-col-resize opacity-80 hover:opacity-100 transition-opacity"
+            />
+          </>
+        )}
+
+        {/* Width indicator + delete */}
+        {!readOnly && hovered && (
+          <div className="absolute top-2 right-2 flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-white bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded-md">
+              {width}%
+            </span>
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              className="p-1 rounded-md bg-black/50 backdrop-blur-sm text-white/80 hover:text-white hover:bg-red-500/80 transition-colors"
+            >
+              <Trash2 size={12} />
+            </button>
+          </div>
+        )}
+
+        {/* Alt+scroll hint */}
+        {!readOnly && hovered && !isResizing && (
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] text-white bg-black/40 backdrop-blur-sm px-2.5 py-1 rounded-md whitespace-nowrap">
+            Alt + 스크롤로 크기 조절 · 핸들 드래그
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ─── Floating Toolbar Component ────────────────────────────────────
@@ -388,6 +509,34 @@ export function NotionBlockEditor({
     if (!slashMenu) return;
     pushUndo();
     const block = blocks[slashMenu.blockIdx];
+    if (item.type === "image") {
+      // Trigger file picker
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
+      input.onchange = () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+          alert(ko ? "5MB 이하 이미지만 가능합니다" : "Max 5MB image allowed");
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === "string") {
+            const el = blockRefs.current.get(block.id);
+            if (el) el.textContent = "";
+            setBlocks((prev) =>
+              prev.map((b) => (b.id === block.id ? { ...b, type: "image", content: reader.result as string, imageWidth: 100 } : b))
+            );
+          }
+        };
+        reader.readAsDataURL(file);
+      };
+      input.click();
+      closeSlashMenu();
+      return;
+    }
     if (item.type === "page") {
       const subPage = createSubPage(parentType || "unknown", parentId || "unknown");
       const el = blockRefs.current.get(block.id);
@@ -473,8 +622,40 @@ export function NotionBlockEditor({
     return result;
   };
 
+  const insertImageBlock = useCallback((dataUrl: string, afterIdx: number) => {
+    pushUndo();
+    const newBlock: Block = { id: genId(), content: dataUrl, type: "image", indent: 0, imageWidth: 100 };
+    setBlocks((prev) => {
+      const next = [...prev];
+      next.splice(afterIdx + 1, 0, newBlock);
+      return next;
+    });
+  }, [pushUndo]);
+
   const handlePaste = useCallback(
     (e: React.ClipboardEvent, idx: number) => {
+      // Check for image files in clipboard
+      const items = e.clipboardData.items;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith("image/")) {
+          e.preventDefault();
+          const file = items[i].getAsFile();
+          if (!file) return;
+          if (file.size > 5 * 1024 * 1024) {
+            alert(ko ? "5MB 이하 이미지만 가능합니다" : "Max 5MB image allowed");
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = () => {
+            if (typeof reader.result === "string") {
+              insertImageBlock(reader.result, idx);
+            }
+          };
+          reader.readAsDataURL(file);
+          return;
+        }
+      }
+
       e.preventDefault();
       const html = e.clipboardData.getData("text/html");
       const text = e.clipboardData.getData("text/plain");
@@ -1099,6 +1280,20 @@ export function NotionBlockEditor({
             >
               <hr className="border-gray-200" />
             </div>
+          ) : block.type === "image" ? (
+            <ImageBlock
+              block={block}
+              readOnly={readOnly}
+              onResize={(width) => {
+                setBlocks((prev) => prev.map((b) => b.id === block.id ? { ...b, imageWidth: width } : b));
+              }}
+              onDelete={() => deleteBlock(idx)}
+              onSelect={() => {
+                setSelectedIds(new Set([block.id]));
+                lastClickedIdx.current = idx;
+                wrapperRef.current?.focus();
+              }}
+            />
           ) : (
             <div
               ref={(el) => {
