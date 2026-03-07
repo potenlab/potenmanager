@@ -86,7 +86,16 @@ export function InviteProvider({ children }: { children: ReactNode }) {
   const { currentUser, refreshMembers } = useTeam();
   const [org, setOrg] = useState<Organization | null>(null);
   const [allOrgs, setAllOrgs] = useState<OrgSummary[]>([]);
-  const [activeOrgId, setActiveOrgId] = useState<string | null>(null);
+  const [activeOrgId, _setActiveOrgId] = useState<string | null>(() => {
+    try { return localStorage.getItem('poten_active_org_id'); } catch { return null; }
+  });
+  const setActiveOrgId = useCallback((id: string | null) => {
+    _setActiveOrgId(id);
+    try {
+      if (id) localStorage.setItem('poten_active_org_id', id);
+      else localStorage.removeItem('poten_active_org_id');
+    } catch {}
+  }, []);
   const [isLoading, setIsLoading] = useState(true);
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);

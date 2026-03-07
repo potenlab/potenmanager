@@ -15,9 +15,17 @@ function isDemo() {
   try { return localStorage.getItem('poten_demo_mode') === 'true'; } catch { return false; }
 }
 
+function getActiveOrgId() {
+  try { return localStorage.getItem('poten_active_org_id') || ''; } catch { return ''; }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const params: string[] = [];
+  if (isDemo()) params.push('scope=demo');
+  const orgId = getActiveOrgId();
+  if (orgId) params.push(`orgId=${orgId}`);
   const sep = path.includes('?') ? '&' : '?';
-  const url = isDemo() ? `${BASE}${path}${sep}scope=demo` : `${BASE}${path}`;
+  const url = params.length ? `${BASE}${path}${sep}${params.join('&')}` : `${BASE}${path}`;
   const res = await fetch(url, {
     ...init,
     headers: { ...AUTH_HEADERS, ...init?.headers },

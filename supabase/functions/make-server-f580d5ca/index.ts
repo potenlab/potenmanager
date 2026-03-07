@@ -40,10 +40,15 @@ const checkPermission = (permission: Permission) => {
   };
 };
 
-// Helper: get key prefix based on demo scope
+// Helper: get key with org + demo scope
+// e.g. pfx(c, "task:t-1") → "org-xxx:task:t-1" or "demo:org-xxx:task:t-1"
 const pfx = (c: any, base: string) => {
   const scope = c.req.query("scope");
-  return scope === "demo" ? `demo:${base}` : base;
+  const orgId = c.req.query("orgId");
+  let key = base;
+  if (orgId) key = `${orgId}:${key}`;
+  if (scope === "demo") key = `demo:${key}`;
+  return key;
 };
 
 // ─── Health ──────────────────────────────────────────────────────────
@@ -78,20 +83,20 @@ app.post("/make-server-f580d5ca/seed", async (c) => {
     // Store tasks
     for (const task of tasks) {
       if (!task.id) continue;
-      await kv.set(`task:${task.id}`, task);
+      await kv.set(pfx(c, `task:${task.id}`), task);
     }
 
     // Store goals
     for (const goal of goals) {
       if (!goal.id) continue;
-      await kv.set(`goal:${goal.id}`, goal);
+      await kv.set(pfx(c, `goal:${goal.id}`), goal);
     }
 
     // Store initial team members (from mockData)
     const { members = [] } = body;
     for (const member of members) {
       if (!member.id) continue;
-      await kv.set(`member:${member.id}`, member);
+      await kv.set(pfx(c, `member:${member.id}`), member);
     }
 
     // Mark as seeded
@@ -121,11 +126,11 @@ app.post("/make-server-f580d5ca/tasks", async (c) => {
     const body = await c.req.json();
     const id = body.id || `t-${Date.now()}`;
     const task = { ...body, id, updatedAt: new Date().toISOString() };
-    await kv.set(`task:${id}`, task);
+    await kv.set(pfx(c, `task:${id}`), task);
 
     // Log activity
     const logId = `log-${Date.now()}`;
-    await kv.set(`activity:task:${id}:${logId}`, {
+    await kv.set(pfx(c, `activity:task:${id}:${logId}`), {
       id: logId,
       entityId: id,
       entityType: 'task',
@@ -149,14 +154,14 @@ app.put("/make-server-f580d5ca/tasks/:id", async (c) => {
     const id = c.req.param("id");
     const body = await c.req.json();
 
-    const existing = await kv.get(`task:${id}`);
+    const existing = await kv.get(pfx(c, `task:${id}`));
     const updated = { ...(existing || {}), ...body, id, updatedAt: new Date().toISOString() };
-    await kv.set(`task:${id}`, updated);
+    await kv.set(pfx(c, `task:${id}`), updated);
 
     // Log status change if applicable
     if (existing && body.status && body.status !== existing.status) {
       const logId = `log-${Date.now()}`;
-      await kv.set(`activity:task:${id}:${logId}`, {
+      await kv.set(pfx(c, `activity:task:${id}:${logId}`), {
         id: logId,
         entityId: id,
         entityType: 'task',
@@ -169,7 +174,7 @@ app.put("/make-server-f580d5ca/tasks/:id", async (c) => {
       });
     } else if (existing) {
       const logId = `log-${Date.now()}`;
-      await kv.set(`activity:task:${id}:${logId}`, {
+      await kv.set(pfx(c, `activity:task:${id}:${logId}`), {
         id: logId,
         entityId: id,
         entityType: 'task',
@@ -192,7 +197,7 @@ app.put("/make-server-f580d5ca/tasks/:id", async (c) => {
 app.delete("/make-server-f580d5ca/tasks/:id", async (c) => {
   try {
     const id = c.req.param("id");
-    await kv.del(`task:${id}`);
+    await kv.del(pfx(c, `task:${id}`));
     return c.json({ success: true });
   } catch (e) {
     console.log("Error deleting task:", e);
@@ -216,11 +221,11 @@ app.post("/make-server-f580d5ca/goals", async (c) => {
     const body = await c.req.json();
     const id = body.id || `g-${Date.now()}`;
     const goal = { ...body, id, updatedAt: new Date().toISOString() };
-    await kv.set(`goal:${id}`, goal);
+    await kv.set(pfx(c, `goal:${id}`), goal);
 
     // Log activity
     const logId = `log-${Date.now()}`;
-    await kv.set(`activity:goal:${id}:${logId}`, {
+    await kv.set(pfx(c, `activity:goal:${id}:${logId}`), {
       id: logId,
       entityId: id,
       entityType: 'goal',
@@ -244,9 +249,9 @@ app.put("/make-server-f580d5ca/goals/:id", async (c) => {
     const id = c.req.param("id");
     const body = await c.req.json();
 
-    const existing = await kv.get(`goal:${id}`);
+    const existing = await kv.get(pfx(c, `goal:${id}`));
     const updated = { ...(existing || {}), ...body, id, updatedAt: new Date().toISOString() };
-    await kv.set(`goal:${id}`, updated);
+    await kv.set(pfx(c, `goal:${id}`), updated);
 
     return c.json(updated);
   } catch (e) {
@@ -258,7 +263,7 @@ app.put("/make-server-f580d5ca/goals/:id", async (c) => {
 app.delete("/make-server-f580d5ca/goals/:id", async (c) => {
   try {
     const id = c.req.param("id");
-    await kv.del(`goal:${id}`);
+    await kv.del(pfx(c, `goal:${id}`));
     return c.json({ success: true });
   } catch (e) {
     console.log("Error deleting goal:", e);
@@ -271,8 +276,8 @@ app.get("/make-server-f580d5ca/logs/:entityId", async (c) => {
   try {
     const entityId = c.req.param("entityId");
     // Try both task and goal activity logs
-    const taskLogs = await kv.getByPrefix(`activity:task:${entityId}:`);
-    const goalLogs = await kv.getByPrefix(`activity:goal:${entityId}:`);
+    const taskLogs = await kv.getByPrefix(pfx(c, `activity:task:${entityId}:`));
+    const goalLogs = await kv.getByPrefix(pfx(c, `activity:goal:${entityId}:`));
     const allLogs = [...(taskLogs || []), ...(goalLogs || [])];
     // Sort by timestamp descending
     allLogs.sort((a: any, b: any) => {
@@ -297,7 +302,7 @@ app.post("/make-server-f580d5ca/logs", async (c) => {
       return c.json({ error: "entityId is required" }, 400);
     }
     const log = { ...body, id: logId, timestamp: body.timestamp || new Date().toISOString() };
-    await kv.set(`activity:${entityType}:${entityId}:${logId}`, log);
+    await kv.set(pfx(c, `activity:${entityType}:${entityId}:${logId}`), log);
     return c.json(log);
   } catch (e) {
     console.log("Error creating log:", e);
@@ -321,7 +326,7 @@ app.post("/make-server-f580d5ca/team/members", async (c) => {
     const body = await c.req.json();
     const id = body.id || `u-${Date.now()}`;
     const member = { ...body, id, joinedAt: new Date().toISOString() };
-    await kv.set(`member:${id}`, member);
+    await kv.set(pfx(c, `member:${id}`), member);
     return c.json(member);
   } catch (e) {
     console.log("Error creating member:", e);
@@ -333,9 +338,9 @@ app.put("/make-server-f580d5ca/team/members/:id", async (c) => {
   try {
     const id = c.req.param("id");
     const body = await c.req.json();
-    const existing = await kv.get(`member:${id}`);
+    const existing = await kv.get(pfx(c, `member:${id}`));
     const updated = { ...(existing || {}), ...body, id };
-    await kv.set(`member:${id}`, updated);
+    await kv.set(pfx(c, `member:${id}`), updated);
     return c.json(updated);
   } catch (e) {
     console.log("Error updating member:", e);
@@ -346,7 +351,7 @@ app.put("/make-server-f580d5ca/team/members/:id", async (c) => {
 app.delete("/make-server-f580d5ca/team/members/:id", async (c) => {
   try {
     const id = c.req.param("id");
-    await kv.del(`member:${id}`);
+    await kv.del(pfx(c, `member:${id}`));
     return c.json({ success: true });
   } catch (e) {
     console.log("Error deleting member:", e);
@@ -735,7 +740,7 @@ app.post("/make-server-f580d5ca/invite/:code/direct-join", async (c) => {
       role: invite.role || 'member',
       joinedAt: new Date().toISOString(),
     };
-    await kv.set(`member:${userId}`, member);
+    await kv.set(`${invite.orgId}:member:${userId}`, member);
 
     // Mark invite as used
     await kv.set(`invite:${code}`, { ...invite, used: true, usedBy: userId, usedAt: new Date().toISOString() });
@@ -810,7 +815,7 @@ app.put("/make-server-f580d5ca/org/:orgId/join-requests/:userId", async (c) => {
         role: jr.requestedRole || 'member',
         joinedAt: new Date().toISOString(),
       };
-      await kv.set(`member:${userId}`, member);
+      await kv.set(`${orgId}:member:${userId}`, member);
 
       // Mark invite as used if present
       if (jr.inviteCode) {
@@ -935,7 +940,7 @@ app.post("/make-server-f580d5ca/radar", async (c) => {
     const body = await c.req.json();
     const id = body.id || `biz-${Date.now()}`;
     const item = { ...body, id, updatedAt: new Date().toISOString() };
-    await kv.set(`radar:${id}`, item);
+    await kv.set(pfx(c, `radar:${id}`), item);
     return c.json(item);
   } catch (e) {
     console.log("Error creating radar item:", e);
@@ -947,9 +952,9 @@ app.put("/make-server-f580d5ca/radar/:id", async (c) => {
   try {
     const id = c.req.param("id");
     const body = await c.req.json();
-    const existing = await kv.get(`radar:${id}`);
+    const existing = await kv.get(pfx(c, `radar:${id}`));
     const updated = { ...(existing || {}), ...body, id, updatedAt: new Date().toISOString() };
-    await kv.set(`radar:${id}`, updated);
+    await kv.set(pfx(c, `radar:${id}`), updated);
     return c.json(updated);
   } catch (e) {
     console.log("Error updating radar item:", e);
@@ -960,7 +965,7 @@ app.put("/make-server-f580d5ca/radar/:id", async (c) => {
 app.delete("/make-server-f580d5ca/radar/:id", async (c) => {
   try {
     const id = c.req.param("id");
-    await kv.del(`radar:${id}`);
+    await kv.del(pfx(c, `radar:${id}`));
     return c.json({ success: true });
   } catch (e) {
     console.log("Error deleting radar item:", e);
@@ -1503,7 +1508,7 @@ app.post("/make-server-f580d5ca/meetings", async (c) => {
     const body = await c.req.json();
     const id = body.id || `mt-${Date.now()}`;
     const meeting = { ...body, id, updatedAt: new Date().toISOString() };
-    await kv.set(`meeting:${id}`, meeting);
+    await kv.set(pfx(c, `meeting:${id}`), meeting);
     return c.json(meeting);
   } catch (e) {
     console.log("Error creating meeting:", e);
@@ -1515,9 +1520,9 @@ app.put("/make-server-f580d5ca/meetings/:id", async (c) => {
   try {
     const id = c.req.param("id");
     const body = await c.req.json();
-    const existing = await kv.get(`meeting:${id}`);
+    const existing = await kv.get(pfx(c, `meeting:${id}`));
     const updated = { ...(existing || {}), ...body, id, updatedAt: new Date().toISOString() };
-    await kv.set(`meeting:${id}`, updated);
+    await kv.set(pfx(c, `meeting:${id}`), updated);
     return c.json(updated);
   } catch (e) {
     console.log("Error updating meeting:", e);
@@ -1528,7 +1533,7 @@ app.put("/make-server-f580d5ca/meetings/:id", async (c) => {
 app.delete("/make-server-f580d5ca/meetings/:id", async (c) => {
   try {
     const id = c.req.param("id");
-    await kv.del(`meeting:${id}`);
+    await kv.del(pfx(c, `meeting:${id}`));
     return c.json({ success: true });
   } catch (e) {
     console.log("Error deleting meeting:", e);
@@ -1831,7 +1836,7 @@ app.post("/make-server-f580d5ca/ai/strategy", async (c) => {
 
     // Persist generated strategy to KV
     const strategyId = `strategy-${Date.now()}`;
-    await kv.set(`strategy:${strategyId}`, {
+    await kv.set(pfx(c, `strategy:${strategyId}`), {
       id: strategyId,
       ...strategy,
       inputs: { goal, timeline, metric, current, obstacle, strength, action },
@@ -2238,7 +2243,7 @@ app.post("/make-server-f580d5ca/demo/setup", async (c) => {
     const userId = demoUser.id;
 
     // 2. Check if already seeded (demo: prefix for v2 isolation)
-    const DEMO_DATA_VERSION = 5;
+    const DEMO_DATA_VERSION = 6;
     const seeded = await kv.get(`demo:seeded:${userId}`) as any;
     if (seeded && seeded.version >= DEMO_DATA_VERSION) {
       return c.json({ success: true, message: "Demo already set up", userId });
@@ -2300,24 +2305,30 @@ app.post("/make-server-f580d5ca/demo/setup", async (c) => {
       { id: "biz-demo-c4", title: "코워킹스페이스 패스트파이브", category: "connection", connectionType: "partner", type: "other", stage: "won", value: 15000000, probability: 100, contactName: "임수빈", contactCompany: "패스트파이브", assigneeId: userId, actionItems: [{ id: "ai-c4", title: "입주 계약 완료", done: true }], createdAt: daysAgo(30) },
     ];
 
-    // Save all data with demo: prefix to isolate from real data
-    for (const task of tasks) await kv.set(`demo:task:${task.id}`, { ...task, updatedAt: now.toISOString() });
-    for (const goal of goals) await kv.set(`demo:goal:${goal.id}`, { ...goal, updatedAt: now.toISOString() });
-    for (const member of members) await kv.set(`demo:member:${member.id}`, member);
-    for (const r of radarItems) await kv.set(`demo:radar:${r.id}`, { ...r, updatedAt: now.toISOString() });
+    // 4. Create or update demo org
+    const DEMO_ORG_ID = "org-demo";
+    const existingOrg = await kv.get(`org:${DEMO_ORG_ID}`) as any;
+    const demoOrg = {
+      ...(existingOrg || {}),
+      id: DEMO_ORG_ID,
+      name: "블루밍 스튜디오",
+      ownerId: userId,
+      ownerName: "Demo User",
+      memberIds: [userId, "m-demo-2", "m-demo-3", "m-demo-4"],
+      createdAt: existingOrg?.createdAt || now.toISOString(),
+    };
+    await kv.set(`org:${DEMO_ORG_ID}`, demoOrg);
+    await kv.set(`user-org:${userId}`, {
+      orgs: [{ orgId: DEMO_ORG_ID, role: 'owner', joinedAt: now.toISOString() }],
+      activeOrgId: DEMO_ORG_ID,
+    });
 
-    // Update org name if exists
-    const userOrgData = await kv.get(`user-org:${userId}`) as any;
-    if (userOrgData) {
-      const activeOrgId = userOrgData.activeOrgId || userOrgData.orgId;
-      if (activeOrgId) {
-        const orgData = await kv.get(`org:${activeOrgId}`) as any;
-        if (orgData) {
-          orgData.name = "블루밍 스튜디오";
-          await kv.set(`org:${activeOrgId}`, orgData);
-        }
-      }
-    }
+    // 5. Save all data with demo + org prefix for isolation
+    const dp = (base: string) => `demo:${DEMO_ORG_ID}:${base}`;
+    for (const task of tasks) await kv.set(dp(`task:${task.id}`), { ...task, updatedAt: now.toISOString() });
+    for (const goal of goals) await kv.set(dp(`goal:${goal.id}`), { ...goal, updatedAt: now.toISOString() });
+    for (const member of members) await kv.set(dp(`member:${member.id}`), member);
+    for (const r of radarItems) await kv.set(dp(`radar:${r.id}`), { ...r, updatedAt: now.toISOString() });
 
     // Mark onboarding as complete for demo user
     await kv.set(`onboarding:${userId}`, {

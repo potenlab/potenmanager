@@ -66,6 +66,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    try {
+      localStorage.removeItem('poten_active_org_id');
+      localStorage.removeItem('poten_demo_mode');
+    } catch {}
   };
 
   return (
