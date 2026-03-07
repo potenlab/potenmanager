@@ -140,6 +140,21 @@ export function NotionDateRangePicker({
     requestAnimationFrame(position);
   }, [open]);
 
+  const handleConfirmRef = useRef<() => void>(() => {});
+  handleConfirmRef.current = () => {
+    let start = tempStart ? new Date(tempStart) : null;
+    let end = tempEnd ? new Date(tempEnd) : null;
+    if (includeTime) {
+      if (start) start.setHours(tempStartHour, tempStartMinute, 0, 0);
+      if (end) end.setHours(tempEndHour, tempEndMinute, 0, 0);
+    } else {
+      if (start) start.setHours(0, 0, 0, 0);
+      if (end) end.setHours(0, 0, 0, 0);
+    }
+    onChange(start, end);
+    setOpen(false);
+  };
+
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       const target = e.target as Node;
@@ -147,7 +162,8 @@ export function NotionDateRangePicker({
         containerRef.current && !containerRef.current.contains(target) &&
         popupRef.current && !popupRef.current.contains(target)
       ) {
-        setOpen(false);
+        // Auto-apply on outside click
+        handleConfirmRef.current();
       }
     };
     document.addEventListener("mousedown", handler);
@@ -192,9 +208,16 @@ export function NotionDateRangePicker({
     const e = dragEnd || dragStart;
 
     if (singleDate) {
-      // Single date mode: always pick just one date, no range
-      setTempStart(s);
-      setTempEnd(null);
+      // Single date mode: immediately apply and close
+      let picked = new Date(s);
+      if (includeTime) {
+        picked.setHours(tempStartHour, tempStartMinute, 0, 0);
+      }
+      onChange(picked, null);
+      setOpen(false);
+      setDragStart(null);
+      setDragEnd(null);
+      return;
     } else if (isSameDay(s, e)) {
       // Single click
       if (tempStart && !isSameDay(s, tempStart)) {
@@ -242,19 +265,7 @@ export function NotionDateRangePicker({
     onChange(null, null);
   };
 
-  const handleConfirm = () => {
-    let start = tempStart ? new Date(tempStart) : null;
-    let end = tempEnd ? new Date(tempEnd) : null;
-    if (includeTime) {
-      if (start) start.setHours(tempStartHour, tempStartMinute, 0, 0);
-      if (end) end.setHours(tempEndHour, tempEndMinute, 0, 0);
-    } else {
-      if (start) start.setHours(0, 0, 0, 0);
-      if (end) end.setHours(0, 0, 0, 0);
-    }
-    onChange(start, end);
-    setOpen(false);
-  };
+  const handleConfirm = () => handleConfirmRef.current();
 
   const handleCancel = () => {
     setOpen(false);
