@@ -922,6 +922,21 @@ export function TasksPage() {
     return allTasks.filter(myTaskFilter);
   }, [allTasks, myTaskFilter]);
 
+  // Auto-delay: mark overdue tasks as "delayed"
+  useEffect(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    myTasks.forEach(task => {
+      if (task.status === 'completed' || task.status === 'delayed') return;
+      if (!task.dueDate) return;
+      const due = new Date(task.dueDate);
+      due.setHours(0, 0, 0, 0);
+      if (due < today) {
+        updateTask(task.id, { status: 'delayed' });
+      }
+    });
+  }, [myTasks, updateTask]);
+
   const filteredTasks = useMemo(() => {
     let result = myTasks;
     if (searchQuery.trim()) {
@@ -1057,7 +1072,17 @@ export function TasksPage() {
         addTaskToContext(cloned);
       });
     } else {
-      taskIds.forEach(id => updateTask(id, { status: newStatus, progress }));
+      taskIds.forEach(id => {
+        const task = getTask(id);
+        const updates: Partial<Task> = { status: newStatus, progress };
+        // Moving from delayed to a non-completed column → reset due date to today
+        if (task && task.status === 'delayed' && newStatus !== 'completed' && newStatus !== 'delayed') {
+          const today = new Date();
+          today.setHours(23, 59, 59, 0);
+          updates.dueDate = today;
+        }
+        updateTask(id, updates);
+      });
     }
     clearSelection();
   }, [clearSelection, updateTask, getTask, addTaskToContext]);

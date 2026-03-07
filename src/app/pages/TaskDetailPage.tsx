@@ -566,7 +566,7 @@ export function TaskDetailPage() {
                     <div className="divide-y divide-gray-100 border-t border-gray-100">
               <PropertyItem icon={<Clock size={14} />} label={language === "ko" ? "상태" : "Status"}>
                 <InlineDropdown 
-                  value={status} options={["pending", "in-progress", "completed"] as TaskStatus[]}
+                  value={status} options={["pending", "in-progress", "delayed", "completed"] as TaskStatus[]}
                   onChange={setStatus} disabled={!canEdit}
                   renderValue={(v) => {
                     const cfg = STATUS_CONFIG[v];
@@ -742,7 +742,10 @@ function LinkedBoardPicker({
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (ref.current?.contains(t)) return;
+      if (popupRef.current?.contains(t)) return;
+      setOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -757,13 +760,18 @@ function LinkedBoardPicker({
 
   const boardLabel = (b: BoardType) => b === 'projects' ? (ko ? '프로젝트' : 'Project') : (ko ? '브랜딩' : 'Branding');
 
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+  const pos = usePortalPosition(open, triggerRef);
+
   return (
-    <div className="relative" ref={ref}>
+    <div ref={ref}>
       <button
+        ref={triggerRef}
         onClick={() => !disabled && setOpen(!open)}
         className={cn(
-          "text-sm transition-colors flex items-center gap-1.5",
-          disabled ? "cursor-default" : "hover:text-blue-600 cursor-pointer",
+          "text-sm transition-colors flex items-center gap-1.5 px-2 py-1 rounded-md",
+          disabled ? "cursor-default" : "hover:bg-gray-100 cursor-pointer",
           selectedCard ? "text-gray-800 font-medium" : "text-gray-400"
         )}
       >
@@ -782,8 +790,9 @@ function LinkedBoardPicker({
         {!disabled && <ChevronDown size={12} className="text-gray-400" />}
       </button>
 
-      {open && (
-        <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 min-w-[240px] max-h-[320px] overflow-y-auto py-1">
+      {open && pos && createPortal(
+        <div ref={popupRef} className="fixed bg-white border border-gray-200 rounded-xl shadow-xl z-[9999] min-w-[240px] max-h-[320px] overflow-y-auto py-1"
+          style={{ top: pos.top, left: pos.left }}>
           {/* Clear option */}
           <button
             onClick={() => { onChange(undefined, undefined); setOpen(false); }}
@@ -836,7 +845,8 @@ function LinkedBoardPicker({
               {linkedBoard === 'branding' && linkedCardId === card.id && <Check size={12} className="ml-auto text-pink-600 shrink-0" />}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
