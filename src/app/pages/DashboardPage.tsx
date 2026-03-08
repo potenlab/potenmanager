@@ -10,8 +10,6 @@ import {
   Zap,
   Link2,
   Sparkles,
-  Target,
-  Lightbulb,
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, LineChart, Line,
@@ -21,10 +19,8 @@ import { cn } from "../../lib/utils";
 import { RevenueOverview } from "../components/dashboard/RevenueOverview";
 import { UserOverview } from "../components/dashboard/UserOverview";
 import { useLanguage } from "../context/LanguageContext";
-import { GoalPage } from "./GoalPage";
-import { StrategyTabContent } from "./GoalsPage";
 
-type DashboardTab = "performance" | "team" | "goals" | "strategy" | "revenue" | "users";
+type DashboardTab = "performance" | "team" | "revenue" | "users";
 
 // ─── Sample Revenue Data ────────────────────────────────────────
 const SAMPLE_REVENUE_DATA = [
@@ -332,7 +328,7 @@ export function DashboardPage() {
     const dy = e.changedTouches[0].clientY - touchRef.current.startY;
     touchRef.current = null;
     if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx)) return; // too short or vertical scroll
-    const tabIds: DashboardTab[] = ["performance", "team", "goals", "strategy", "revenue", "users"];
+    const tabIds: DashboardTab[] = ["performance", "team", "revenue", "users"];
     const curIdx = tabIds.indexOf(activeTab);
     if (dx < 0 && curIdx < tabIds.length - 1) setActiveTab(tabIds[curIdx + 1]);
     if (dx > 0 && curIdx > 0) setActiveTab(tabIds[curIdx - 1]);
@@ -341,8 +337,6 @@ export function DashboardPage() {
   const tabs: { id: DashboardTab; label: string; icon: React.ElementType; color: string }[] = [
     { id: "performance", label: ko ? "성과" : "Performance", icon: BarChart3, color: "emerald" },
     { id: "team", label: ko ? "팀" : "Team", icon: Users, color: "blue" },
-    { id: "goals", label: ko ? "목표" : "Goals", icon: Target, color: "blue" },
-    { id: "strategy", label: ko ? "전략" : "Strategy", icon: Lightbulb, color: "purple" },
     { id: "revenue", label: ko ? "매출" : "Revenue", icon: DollarSign, color: "purple" },
     { id: "users", label: ko ? "유저" : "Users", icon: UserCircle, color: "amber" },
   ];
@@ -392,8 +386,6 @@ export function DashboardPage() {
           >
             {activeTab === "performance" && <RevenueOverview />}
             {activeTab === "team" && <UserOverview />}
-            {activeTab === "goals" && <GoalPage />}
-            {activeTab === "strategy" && <StrategyTabContent />}
             {activeTab === "revenue" && <RevenueDashboard ko={ko} />}
             {activeTab === "users" && <UsersDashboard ko={ko} />}
           </motion.div>

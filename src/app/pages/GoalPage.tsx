@@ -156,6 +156,8 @@ export function GoalPage() {
   const { currentUser, members } = usePermission();
   const { goals, urgentGoals, allGoals, addGoal, updateGoal, removeGoal } = useGoalContext();
   const [activeTab, setActiveTab] = useState<"goals" | "strategy">("goals");
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const settingsMenuRef = useRef<HTMLDivElement>(null);
 
   // Find core goal (Year level, no parent)
   const coreGoal = goals.find((g) => g.level === "Year" && !g.parentId);
@@ -261,6 +263,18 @@ export function GoalPage() {
   useEffect(() => {
     if (showUrgentAdd && urgentTitleRef.current) urgentTitleRef.current.focus();
   }, [showUrgentAdd]);
+
+  // Close settings menu on outside click
+  useEffect(() => {
+    if (!showSettingsMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (settingsMenuRef.current && !settingsMenuRef.current.contains(e.target as Node)) {
+        setShowSettingsMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showSettingsMenu]);
 
   // ── Core progress ──
   const coreProgress = useMemo(() => {
@@ -506,14 +520,47 @@ export function GoalPage() {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="h-24 bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-600 relative">
           <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2240%22%20height%3D%2240%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Cpath%20d%3D%22M0%2020h40M20%200v40%22%20stroke%3D%22rgba(255%2C255%2C255%2C0.05)%22%20fill%3D%22none%22/%3E%3C/svg%3E')] opacity-50" />
-          {canEdit && (
+          <div className="absolute top-3 right-3" ref={settingsMenuRef}>
             <button
-              onClick={() => navigate("/organization")}
-              className="absolute top-3 right-3 p-2 rounded-xl bg-white/20 hover:bg-white/30 text-white transition-colors backdrop-blur-sm"
+              onClick={() => setShowSettingsMenu(v => !v)}
+              className="p-2 rounded-xl bg-white/20 hover:bg-white/30 text-white transition-colors backdrop-blur-sm"
             >
               <Settings size={16} />
             </button>
-          )}
+            {showSettingsMenu && (
+              <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                <button
+                  onClick={() => { navigate("/organization/info"); setShowSettingsMenu(false); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <Building2 size={15} className="text-gray-400" />
+                  {ko ? "조직 정보" : "Organization Info"}
+                </button>
+                <button
+                  onClick={() => { navigate("/organization/vision"); setShowSettingsMenu(false); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <Edit3 size={15} className="text-gray-400" />
+                  {ko ? "비전 편집" : "Edit Vision"}
+                </button>
+                <button
+                  onClick={() => { navigate("/organization/setup"); setShowSettingsMenu(false); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <Target size={15} className="text-gray-400" />
+                  {ko ? "목표 설정 위자드" : "Goal Setup Wizard"}
+                </button>
+                <div className="border-t border-gray-100 my-1" />
+                <button
+                  onClick={() => { navigate("/strategy/new"); setShowSettingsMenu(false); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <Sparkles size={15} className="text-purple-400" />
+                  AI {ko ? "전략 생성" : "Strategy"}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="px-6 -mt-8 relative z-[1]">
