@@ -141,6 +141,7 @@ function KanbanColumn({
   items,
   onCardClick,
   onAddItem,
+  onQuickAdd,
   isOwnerFn,
   onContextMenu,
   onRemoveColumn,
@@ -153,6 +154,7 @@ function KanbanColumn({
   items: LibraryItem[];
   onCardClick: (id: string) => void;
   onAddItem?: (category: string) => void;
+  onQuickAdd?: (url: string, categoryKey: string) => void;
   isOwnerFn: (item: LibraryItem) => boolean;
   onContextMenu: (e: React.MouseEvent, id: string) => void;
   onRemoveColumn?: () => void;
@@ -166,6 +168,22 @@ function KanbanColumn({
     drop: (item) => onDrop(item.id, categoryKey),
     collect: (monitor) => ({ isOver: monitor.isOver(), canDrop: monitor.canDrop() }),
   });
+
+  const [quickUrl, setQuickUrl] = useState("");
+  const [isAdding, setIsAdding] = useState(false);
+  const quickInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { if (isAdding && quickInputRef.current) quickInputRef.current.focus(); }, [isAdding]);
+
+  const handleQuickSubmit = () => {
+    const url = quickUrl.trim();
+    if (!url) { setIsAdding(false); return; }
+    // Auto-prepend https:// if no protocol
+    const finalUrl = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+    onQuickAdd?.(finalUrl, categoryKey);
+    setQuickUrl("");
+    setIsAdding(false);
+  };
 
   return (
     <div
@@ -189,14 +207,6 @@ function KanbanColumn({
           </span>
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
-          {onAddItem && (
-            <button
-              onClick={() => onAddItem(title)}
-              className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-            >
-              <Plus size={14} />
-            </button>
-          )}
           {isCustom && onRemoveColumn && items.length === 0 && (
             <button
               onClick={onRemoveColumn}
@@ -209,7 +219,7 @@ function KanbanColumn({
       </div>
 
       {/* Cards */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-[100px] max-h-[calc(100vh-240px)] scrollbar-hide">
+      <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-[60px] scrollbar-hide">
         {items.map((item) => (
           <KanbanCard
             key={item.id}
@@ -220,10 +230,40 @@ function KanbanColumn({
             compact={compact}
           />
         ))}
-        {items.length === 0 && (
+        {items.length === 0 && !isAdding && (
           <div className="flex items-center justify-center py-8 text-gray-300 text-[11px]">
             비어 있음
           </div>
+        )}
+      </div>
+
+      {/* Quick add URL input at bottom */}
+      <div className="px-2 pb-2 pt-1 border-t border-gray-100/50">
+        {isAdding ? (
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+            <div className="flex items-center gap-1.5 px-2.5 py-2">
+              <LinkIcon size={12} className="text-gray-400 shrink-0" />
+              <input
+                ref={quickInputRef}
+                value={quickUrl}
+                onChange={(e) => setQuickUrl(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); handleQuickSubmit(); }
+                  if (e.key === "Escape") { setQuickUrl(""); setIsAdding(false); }
+                }}
+                onBlur={() => { if (quickUrl.trim()) handleQuickSubmit(); else { setQuickUrl(""); setIsAdding(false); } }}
+                placeholder="URL 붙여넣기..."
+                className="flex-1 text-xs outline-none bg-transparent placeholder-gray-400 text-gray-900 min-w-0"
+              />
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setIsAdding(true)}
+            className="w-full py-2 rounded-lg text-gray-400 text-xs hover:text-blue-600 hover:bg-gray-100/80 transition-all flex items-center gap-1.5 px-2.5"
+          >
+            <Plus size={13} /> URL 추가
+          </button>
         )}
       </div>
     </div>
@@ -244,8 +284,10 @@ export function LibraryPage() {
     updateItem,
     removeItem,
     getItem,
+    addItem,
     addCategory,
     removeCategory,
+    fetchOgMetadata,
   } = useLibrary();
   const { currentUser } = useTeam();
   const { moveToTrash } = useTrash();
@@ -370,6 +412,43 @@ export function LibraryPage() {
     (item: LibraryItem) => item.ownerId === currentUser.id,
     [currentUser.id]
   );
+
+  const handleQuickAdd = useCallback(async (url: string, categoryKey: string) => {
+    const now = new Date().toISOString();
+    const id = `lib-${Date.now()}`;
+    const category = categoryKey === "__uncategorized__" ? undefined : categoryKey;
+
+    // Create item immediately with URL as title
+    let title = url;
+    try { title = new URL(url).hostname.replace("www.", ""); } catch {}
+
+    const item: LibraryItem = {
+      id,
+      title,
+      type: "url",
+      url,
+      visibility: "private",
+      category,
+      ownerId: currentUser.id,
+      ownerName: currentUser.name,
+      createdAt: now,
+      updatedAt: now,
+    };
+    addItem(item);
+
+    // Fetch OG metadata in background and update
+    try {
+      const og = await fetchOgMetadata(url);
+      if (og) {
+        updateItem(id, {
+          title: og.ogTitle || title,
+          description: og.ogDescription || undefined,
+          ogMetadata: og,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    } catch {}
+  }, [currentUser, addItem, fetchOgMetadata, updateItem]);
 
   useEffect(() => {
     if (addingCategory && newCatInputRef.current) {
@@ -628,6 +707,7 @@ export function LibraryPage() {
                 items={columnItems[col.key] || []}
                 onCardClick={(id) => navigate(`/library/${id}`)}
                 onAddItem={() => navigate(`/library/new?category=${col.key === "__uncategorized__" ? "" : col.key}`)}
+                onQuickAdd={handleQuickAdd}
                 isOwnerFn={isOwnerFn}
                 onContextMenu={handleCardContextMenu}
                 isCustom={col.isCustom}

@@ -804,17 +804,6 @@ export function TasksPage() {
   const [cardStyle, setCardStyle] = useState<'detailed' | 'compact'>(() => {
     return (localStorage.getItem('poten_card_style') as 'detailed' | 'compact') || 'detailed';
   });
-  const [showStyleMenu, setShowStyleMenu] = useState(false);
-  const styleMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!showStyleMenu) return;
-    const handler = (e: MouseEvent) => {
-      if (styleMenuRef.current && !styleMenuRef.current.contains(e.target as Node)) setShowStyleMenu(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [showStyleMenu]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [addingInColumn, setAddingInColumn] = useState<Task['status'] | 'urgent' | null>(null);
@@ -1218,42 +1207,27 @@ export function TasksPage() {
               </div>
             )}
             {viewMode === 'board' && (
-              <div className="relative" ref={styleMenuRef}>
+              <div className="flex items-center bg-gray-50 rounded-lg p-0.5 border border-gray-200">
                 <button
-                  onClick={() => setShowStyleMenu(!showStyleMenu)}
+                  onClick={() => { setCardStyle('compact'); localStorage.setItem('poten_card_style', 'compact'); }}
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border",
-                    showStyleMenu ? "bg-blue-50 text-blue-600 border-blue-200" : "bg-white text-gray-500 border-gray-200 hover:text-gray-700"
+                    "p-1.5 rounded-md transition-all",
+                    cardStyle === 'compact' ? "bg-white text-blue-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
                   )}
+                  title={language === 'ko' ? '간결 카드' : 'Compact'}
                 >
-                  <Palette size={13} />
-                  {language === 'ko' ? '꾸미기' : 'Style'}
+                  <ListIcon size={14} />
                 </button>
-                {showStyleMenu && (
-                  <div className="absolute top-full mt-1 right-0 bg-white border border-gray-200 rounded-xl shadow-lg z-50 min-w-[180px] py-2 px-2">
-                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-2 mb-1.5">
-                      {language === 'ko' ? '카드 스타일' : 'Card Style'}
-                    </p>
-                    <button
-                      onClick={() => { setCardStyle('detailed'); localStorage.setItem('poten_card_style', 'detailed'); setShowStyleMenu(false); }}
-                      className={cn("w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs transition-colors",
-                        cardStyle === 'detailed' ? "bg-blue-50 text-blue-700 font-semibold" : "text-gray-600 hover:bg-gray-50")}
-                    >
-                      <LayoutGrid size={13} />
-                      {language === 'ko' ? '상세 카드' : 'Detailed'}
-                      {cardStyle === 'detailed' && <Check size={12} className="ml-auto text-blue-600" />}
-                    </button>
-                    <button
-                      onClick={() => { setCardStyle('compact'); localStorage.setItem('poten_card_style', 'compact'); setShowStyleMenu(false); }}
-                      className={cn("w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs transition-colors",
-                        cardStyle === 'compact' ? "bg-blue-50 text-blue-700 font-semibold" : "text-gray-600 hover:bg-gray-50")}
-                    >
-                      <ListIcon size={13} />
-                      {language === 'ko' ? '간결 카드' : 'Compact'}
-                      {cardStyle === 'compact' && <Check size={12} className="ml-auto text-blue-600" />}
-                    </button>
-                  </div>
-                )}
+                <button
+                  onClick={() => { setCardStyle('detailed'); localStorage.setItem('poten_card_style', 'detailed'); }}
+                  className={cn(
+                    "p-1.5 rounded-md transition-all",
+                    cardStyle === 'detailed' ? "bg-white text-blue-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
+                  )}
+                  title={language === 'ko' ? '상세 카드' : 'Detailed'}
+                >
+                  <LayoutGrid size={14} />
+                </button>
               </div>
             )}
           </div>

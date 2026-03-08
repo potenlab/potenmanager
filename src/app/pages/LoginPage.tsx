@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { motion } from 'motion/react';
-import { Zap, FlaskConical, ChevronDown, ChevronUp, Play } from 'lucide-react';
+import { Zap, FlaskConical, ChevronDown, ChevronUp, Play, Megaphone, Film, Rocket, ShoppingBag, Coffee } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { api } from '../../lib/api';
@@ -32,6 +32,16 @@ export function LoginPage() {
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [demoLoading, setDemoLoading] = useState(false);
+  const [showDemoSelect, setShowDemoSelect] = useState(false);
+  const [selectedIndustry, setSelectedIndustry] = useState<string | null>(null);
+
+  const DEMO_INDUSTRIES = [
+    { id: 'marketing_agency', labelKo: '마케팅 에이전시', labelEn: 'Marketing Agency', icon: Megaphone, color: 'from-pink-500 to-rose-500' },
+    { id: 'video_production', labelKo: '영상 제작사', labelEn: 'Video Production', icon: Film, color: 'from-violet-500 to-purple-500' },
+    { id: 'startup', labelKo: '스타트업 (SaaS)', labelEn: 'Startup (SaaS)', icon: Rocket, color: 'from-blue-500 to-cyan-500' },
+    { id: 'ecommerce', labelKo: '이커머스', labelEn: 'E-Commerce', icon: ShoppingBag, color: 'from-amber-500 to-orange-500' },
+    { id: 'fnb', labelKo: '카페 / F&B', labelEn: 'Café / F&B', icon: Coffee, color: 'from-emerald-500 to-teal-500' },
+  ];
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,13 +66,15 @@ export function LoginPage() {
     setSubmitting(false);
   };
 
-  const handleDemoLogin = async () => {
+  const handleDemoLogin = async (industry?: string) => {
     setError('');
     setMessage('');
     setDemoLoading(true);
+    setSelectedIndustry(industry || null);
     try {
-      await api.setupDemo();
+      await api.setupDemo(industry);
       localStorage.setItem('poten_demo_mode', 'true');
+      if (industry) localStorage.setItem('poten_demo_industry', industry);
       const result = await signInWithEmail('demo@potenmanager.com', 'demo1234');
       if (result.error) {
         localStorage.removeItem('poten_demo_mode');
@@ -72,6 +84,7 @@ export function LoginPage() {
       setError(ko ? '데모 계정 설정에 실패했습니다.' : 'Demo setup failed.');
     }
     setDemoLoading(false);
+    setSelectedIndustry(null);
   };
 
   useEffect(() => {
@@ -279,17 +292,56 @@ export function LoginPage() {
                 {ko ? 'Google로 계속하기' : 'Continue with Google'}
               </button>
 
-              {/* Demo Account */}
-              <button
-                onClick={handleDemoLogin}
-                disabled={demoLoading}
-                className="w-full flex items-center justify-center gap-2 px-5 py-3.5 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-2xl text-sm font-semibold hover:from-purple-600 hover:to-blue-600 transition-all duration-200 shadow-sm disabled:opacity-50"
-              >
-                <Play size={16} fill="currentColor" />
-                {demoLoading
-                  ? (ko ? '데모 준비 중...' : 'Setting up demo...')
-                  : (ko ? '데모 계정으로 체험하기' : 'Try with Demo Account')}
-              </button>
+              {/* Demo Account — Industry Selection */}
+              {!showDemoSelect ? (
+                <button
+                  onClick={() => setShowDemoSelect(true)}
+                  disabled={demoLoading}
+                  className="w-full flex items-center justify-center gap-2 px-5 py-3.5 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-2xl text-sm font-semibold hover:from-purple-600 hover:to-blue-600 transition-all duration-200 shadow-sm disabled:opacity-50"
+                >
+                  <Play size={16} fill="currentColor" />
+                  {ko ? '데모 계정으로 체험하기' : 'Try with Demo Account'}
+                </button>
+              ) : (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="overflow-hidden"
+                >
+                  <p className="text-xs font-semibold text-gray-500 mb-2 text-center">
+                    {ko ? '업종을 선택하세요' : 'Select your industry'}
+                  </p>
+                  <div className="grid grid-cols-1 gap-2">
+                    {DEMO_INDUSTRIES.map((ind) => {
+                      const Icon = ind.icon;
+                      const isLoading = demoLoading && selectedIndustry === ind.id;
+                      return (
+                        <button
+                          key={ind.id}
+                          onClick={() => handleDemoLogin(ind.id)}
+                          disabled={demoLoading}
+                          className={`w-full flex items-center gap-3 px-4 py-3 bg-gradient-to-r ${ind.color} text-white rounded-xl text-sm font-semibold hover:opacity-90 transition-all shadow-sm disabled:opacity-50`}
+                        >
+                          {isLoading ? (
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                          ) : (
+                            <Icon size={16} className="shrink-0" />
+                          )}
+                          {isLoading
+                            ? (ko ? '데모 준비 중...' : 'Setting up...')
+                            : (ko ? ind.labelKo : ind.labelEn)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    onClick={() => setShowDemoSelect(false)}
+                    className="w-full mt-2 text-xs text-gray-400 hover:text-gray-600 transition-colors py-1"
+                  >
+                    {ko ? '닫기' : 'Close'}
+                  </button>
+                </motion.div>
+              )}
             </div>
 
             {/* ── Dev Tools (collapsible) ─────────────────────────── */}

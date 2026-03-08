@@ -253,8 +253,8 @@ export const api = {
     ),
 
   // ── Demo ──
-  setupDemo: () =>
-    request<{ success: boolean; userId: string }>('/demo/setup', { method: 'POST' }),
+  setupDemo: (industry?: string) =>
+    request<{ success: boolean; userId: string }>(`/demo/setup${industry ? `?industry=${industry}` : ''}`, { method: 'POST' }),
 
   // ── Files (Cloudflare R2) ──
   uploadFile: async (file: File): Promise<{ url: string; key: string; fileName: string; fileSize: number }> => {

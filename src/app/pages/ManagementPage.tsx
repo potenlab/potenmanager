@@ -6,7 +6,7 @@ import {
   FolderKanban, Palette, Plus, Trash2,
   Calendar as CalendarIcon, MoreHorizontal, X, Check,
   Image as ImageIcon, Globe, GripVertical, Search, Edit3,
-  StickyNote,
+  StickyNote, LayoutGrid, List, AlignJustify, LayoutList,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
@@ -221,11 +221,12 @@ interface ColDragItem { id: string; index: number; }
 // ─── Card Component (TaskCard style) ────────────────────────────
 function MgmtCard({
   card, index, columnId, ko, board,
-  onDelete, onMove,
+  onDelete, onMove, compact,
 }: {
   card: KanbanCard; index: number; columnId: string; ko: boolean; board: BoardType;
   onDelete: (id: string) => void;
   onMove: (dragId: string, targetColId: string, targetIndex: number) => void;
+  compact?: boolean;
 }) {
   const navigate = useNavigate();
   const ref = useRef<HTMLDivElement>(null);
@@ -258,76 +259,98 @@ function MgmtCard({
       ref={ref}
       onClick={() => navigate(detailPath)}
       className={cn(
-        "bg-white p-4 rounded-xl border shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group relative",
+        "bg-white rounded-xl border shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group relative",
+        compact ? "px-3 py-2.5" : "p-4",
         isDragging
           ? "opacity-40 border-blue-300 shadow-lg scale-[0.97] ring-2 ring-blue-200"
           : "border-gray-100"
       )}
     >
-      <div className="flex items-start gap-2 mb-2">
-        <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
-          {card.priority && (
+      {compact ? (
+        /* ── Compact: priority dot + color + title only ── */
+        <div className="flex items-center gap-2 min-w-0">
+          {card.priority && card.priority !== "low" && (
             <span className={cn(
-              "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
-              card.priority === 'high' ? "bg-red-50 text-red-600 border border-red-100" :
-              card.priority === 'medium' ? "bg-amber-50 text-amber-600 border border-amber-100" :
-              "bg-blue-50 text-blue-600 border border-blue-100"
-            )}>
-              {card.priority}
-            </span>
+              "w-2 h-2 rounded-full shrink-0",
+              card.priority === "high" ? "bg-red-400" : "bg-amber-400"
+            )} />
           )}
           {card.color && (
             <div className="w-3 h-3 rounded-full shrink-0 border border-white shadow-sm" style={{ backgroundColor: card.color }} />
           )}
+          <h4 className="font-medium text-sm text-gray-900 truncate flex-1 leading-snug">
+            {card.title || (ko ? "제목 없음" : "Untitled")}
+          </h4>
         </div>
-        <div className="relative shrink-0">
-          <button
-            onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
-            className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-          >
-            <MoreHorizontal size={16} />
-          </button>
-          {menuOpen && (
-            <div className="absolute right-0 top-7 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-24"
-              onMouseLeave={() => setMenuOpen(false)}>
-              <button
-                onClick={(e) => { e.stopPropagation(); setMenuOpen(false); navigate(detailPath); }}
-                className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-1.5"
-              >
-                <Edit3 size={10} /> {ko ? "수정" : "Edit"}
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete(card.id); }}
-                className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-1.5"
-              >
-                <Trash2 size={10} /> {ko ? "삭제" : "Delete"}
-              </button>
+      ) : (
+        /* ── Detailed: full info ── */
+        <>
+          <div className="flex items-start gap-2 mb-2">
+            <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
+              {card.priority && (
+                <span className={cn(
+                  "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
+                  card.priority === 'high' ? "bg-red-50 text-red-600 border border-red-100" :
+                  card.priority === 'medium' ? "bg-amber-50 text-amber-600 border border-amber-100" :
+                  "bg-blue-50 text-blue-600 border border-blue-100"
+                )}>
+                  {card.priority}
+                </span>
+              )}
+              {card.color && (
+                <div className="w-3 h-3 rounded-full shrink-0 border border-white shadow-sm" style={{ backgroundColor: card.color }} />
+              )}
             </div>
-          )}
-        </div>
-      </div>
+            <div className="relative shrink-0">
+              <button
+                onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
+                className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+              >
+                <MoreHorizontal size={16} />
+              </button>
+              {menuOpen && (
+                <div className="absolute right-0 top-7 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-24"
+                  onMouseLeave={() => setMenuOpen(false)}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); navigate(detailPath); }}
+                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-1.5"
+                  >
+                    <Edit3 size={10} /> {ko ? "수정" : "Edit"}
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete(card.id); }}
+                    className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-1.5"
+                  >
+                    <Trash2 size={10} /> {ko ? "삭제" : "Delete"}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
 
-      <h4 className="font-medium text-sm text-gray-900 mb-1 leading-snug">{card.title || (ko ? "제목 없음" : "Untitled")}</h4>
-      {card.description && (
-        <p className="text-xs text-gray-500 line-clamp-2 mb-3">{card.description}</p>
+          <h4 className="font-medium text-sm text-gray-900 mb-1 leading-snug">{card.title || (ko ? "제목 없음" : "Untitled")}</h4>
+          {card.description && (
+            <p className="text-xs text-gray-500 line-clamp-2 mb-3">{card.description}</p>
+          )}
+
+          <div className="flex items-center justify-between border-t border-gray-50 pt-3 mt-2">
+            <div className="flex items-center gap-2 text-xs text-gray-400">
+              {card.dueDate && (
+                <div className="flex items-center gap-1">
+                  <CalendarIcon size={12} />
+                  <span>{format(new Date(card.dueDate), "MMM d")}</span>
+                </div>
+              )}
+              {!card.dueDate && card.createdAt && (
+                <div className="flex items-center gap-1">
+                  <CalendarIcon size={12} />
+                  <span>{format(new Date(card.createdAt), "MMM d")}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
       )}
-
-      <div className="flex items-center justify-between border-t border-gray-50 pt-3 mt-2">
-        <div className="flex items-center gap-2 text-xs text-gray-400">
-          {card.dueDate && (
-            <div className="flex items-center gap-1">
-              <CalendarIcon size={12} />
-              <span>{format(new Date(card.dueDate), "MMM d")}</span>
-            </div>
-          )}
-          {!card.dueDate && card.createdAt && (
-            <div className="flex items-center gap-1">
-              <CalendarIcon size={12} />
-              <span>{format(new Date(card.createdAt), "MMM d")}</span>
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
@@ -337,11 +360,13 @@ function MgmtColumn({
   column, cards, index, ko, board,
   onAddCard, onDeleteCard, onMoveCard,
   onRenameColumn, onDeleteColumn, onMoveColumn,
+  compact,
 }: {
   column: KanbanColumn; cards: KanbanCard[]; index: number; ko: boolean; board: BoardType;
   onAddCard: (columnId: string, title: string) => void;
   onDeleteCard: (id: string) => void;
   onMoveCard: (dragId: string, targetColId: string, targetIndex: number) => void;
+  compact?: boolean;
   onRenameColumn: (id: string, name: string) => void;
   onDeleteColumn: (id: string) => void;
   onMoveColumn: (fromIndex: number, toIndex: number) => void;
@@ -399,7 +424,7 @@ function MgmtColumn({
     <div
       ref={colRef}
       className={cn(
-        "flex-1 flex flex-col rounded-2xl border p-4 transition-all duration-200 h-full min-w-[280px]",
+        "w-[300px] shrink-0 flex flex-col rounded-2xl border p-4 transition-all duration-200 h-full",
         colDragging ? "opacity-40 ring-2 ring-blue-200" :
         isOver && canDrop
           ? "bg-blue-50/80 border-blue-300 ring-2 ring-blue-200/50 shadow-lg"
@@ -499,6 +524,7 @@ function MgmtColumn({
             board={board}
             onDelete={onDeleteCard}
             onMove={onMoveCard}
+            compact={compact}
           />
         ))}
 
@@ -512,6 +538,81 @@ function MgmtColumn({
     </div>
   );
 }
+
+// ─── List Row Component ──────────────────────────────────────────
+function MgmtListRow({
+  card, columnName, ko, board,
+  onDelete,
+}: {
+  card: KanbanCard; columnName: string; ko: boolean; board: BoardType;
+  onDelete: (id: string) => void;
+}) {
+  const navigate = useNavigate();
+  const detailPath = board === "projects" ? `/projects/${card.id}` : `/branding/${card.id}`;
+
+  return (
+    <div
+      onClick={() => navigate(detailPath)}
+      className="flex items-center gap-3 px-4 py-3 bg-white border border-gray-100 rounded-xl hover:shadow-md hover:border-gray-200 transition-all cursor-pointer group"
+    >
+      {/* Color dot */}
+      {card.color && (
+        <div className="w-3 h-3 rounded-full shrink-0 ring-1 ring-black/5" style={{ backgroundColor: card.color }} />
+      )}
+      {!card.color && <div className="w-3 h-3 rounded-full shrink-0 bg-gray-200" />}
+
+      {/* Title */}
+      <h4 className="font-medium text-sm text-gray-900 truncate min-w-0 flex-1">
+        {card.title || (ko ? "제목 없음" : "Untitled")}
+      </h4>
+
+      {/* Description */}
+      {card.description && (
+        <span className="text-xs text-gray-400 truncate max-w-[200px] hidden md:block">
+          {card.description}
+        </span>
+      )}
+
+      {/* Column badge */}
+      <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-500 shrink-0 hidden sm:block">
+        {columnName}
+      </span>
+
+      {/* Priority */}
+      {card.priority && (
+        <span className={cn(
+          "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase shrink-0",
+          card.priority === "high" ? "bg-red-50 text-red-600" :
+          card.priority === "medium" ? "bg-amber-50 text-amber-600" :
+          "bg-blue-50 text-blue-600"
+        )}>
+          {card.priority}
+        </span>
+      )}
+
+      {/* Date */}
+      {(card.dueDate || card.createdAt) && (
+        <span className="text-[11px] text-gray-400 shrink-0 hidden sm:flex items-center gap-1">
+          <CalendarIcon size={11} />
+          {format(new Date(card.dueDate || card.createdAt), "M/d")}
+        </span>
+      )}
+
+      {/* Delete */}
+      <button
+        onClick={(e) => { e.stopPropagation(); onDelete(card.id); }}
+        className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1 rounded hover:bg-red-50 shrink-0"
+      >
+        <Trash2 size={14} />
+      </button>
+    </div>
+  );
+}
+
+type MgmtViewMode = "kanban" | "list";
+const MGMT_VIEW_KEY = "poten_mgmt_view_mode";
+type MgmtCardStyle = "compact" | "detailed";
+const MGMT_CARD_STYLE_KEY = "poten_mgmt_card_style";
 
 // ─── Main Management Page ────────────────────────────────────────
 export function ManagementPage() {
@@ -527,6 +628,20 @@ export function ManagementPage() {
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColName, setNewColName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState<MgmtViewMode>(() => {
+    try { return (localStorage.getItem(MGMT_VIEW_KEY) as MgmtViewMode) || "kanban"; } catch { return "kanban"; }
+  });
+  const toggleView = (mode: MgmtViewMode) => {
+    setViewMode(mode);
+    try { localStorage.setItem(MGMT_VIEW_KEY, mode); } catch {};
+  };
+  const [cardStyle, setCardStyle] = useState<MgmtCardStyle>(() => {
+    try { return (localStorage.getItem(MGMT_CARD_STYLE_KEY) as MgmtCardStyle) || "detailed"; } catch { return "detailed"; }
+  });
+  const toggleCardStyle = (style: MgmtCardStyle) => {
+    setCardStyle(style);
+    try { localStorage.setItem(MGMT_CARD_STYLE_KEY, style); } catch {};
+  };
   const newColRef = useRef<HTMLInputElement>(null);
 
   // Reload data when board changes
@@ -666,69 +781,149 @@ export function ManagementPage() {
                 className="w-full text-sm outline-none bg-transparent placeholder-gray-400 text-gray-900" />
             </div>
           </div>
+          <div className="flex items-center bg-gray-50 rounded-lg p-0.5 border border-gray-200 shrink-0">
+            <button
+              onClick={() => toggleView("kanban")}
+              className={cn(
+                "p-1.5 rounded-md transition-all",
+                viewMode === "kanban" ? "bg-white text-blue-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
+              )}
+              title={ko ? "칸반 보드" : "Kanban Board"}
+            >
+              <LayoutGrid size={15} />
+            </button>
+            <button
+              onClick={() => toggleView("list")}
+              className={cn(
+                "p-1.5 rounded-md transition-all",
+                viewMode === "list" ? "bg-white text-blue-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
+              )}
+              title={ko ? "리스트" : "List"}
+            >
+              <List size={15} />
+            </button>
+          </div>
+          <div className="flex items-center bg-gray-50 rounded-lg p-0.5 border border-gray-200 shrink-0">
+            <button
+              onClick={() => toggleCardStyle("compact")}
+              className={cn(
+                "p-1.5 rounded-md transition-all",
+                cardStyle === "compact" ? "bg-white text-blue-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
+              )}
+              title={ko ? "간결 카드" : "Compact"}
+            >
+              <AlignJustify size={14} />
+            </button>
+            <button
+              onClick={() => toggleCardStyle("detailed")}
+              className={cn(
+                "p-1.5 rounded-md transition-all",
+                cardStyle === "detailed" ? "bg-white text-blue-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
+              )}
+              title={ko ? "상세 카드" : "Detailed"}
+            >
+              <LayoutList size={14} />
+            </button>
+          </div>
         </div>
       </header>
 
       {/* Kanban Board */}
-      <div className="flex-1 overflow-x-auto pb-4">
-        <div className="flex gap-4 h-full items-stretch">
-          {sortedColumns.map((col, i) => {
+      {viewMode === "kanban" ? (
+        <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4 min-h-0">
+          <div className="inline-flex gap-4 h-full items-stretch min-w-full">
+            {sortedColumns.map((col, i) => {
+              const colCards = filteredCards
+                .filter(c => c.columnId === col.id)
+                .sort((a, b) => a.order - b.order);
+              return (
+                <MgmtColumn
+                  key={col.id}
+                  column={col}
+                  cards={colCards}
+                  index={i}
+                  ko={ko}
+                  board={board}
+                  onAddCard={handleAddCard}
+                  onDeleteCard={handleDeleteCard}
+                  onMoveCard={handleMoveCard}
+                  onRenameColumn={handleRenameColumn}
+                  onDeleteColumn={handleDeleteColumn}
+                  onMoveColumn={handleMoveColumn}
+                  compact={cardStyle === "compact"}
+                />
+              );
+            })}
+
+            {/* Add Column */}
+            {addingColumn ? (
+              <div className="min-w-[280px] shrink-0 bg-gray-50 rounded-2xl border border-gray-200 p-4 h-fit">
+                <input
+                  ref={newColRef}
+                  value={newColName}
+                  onChange={(e) => setNewColName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleAddColumn();
+                    if (e.key === "Escape") { setNewColName(""); setAddingColumn(false); }
+                  }}
+                  onBlur={handleAddColumn}
+                  placeholder={ko ? "칼럼 이름..." : "Column name..."}
+                  className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-100"
+                />
+                <div className="flex gap-2 mt-2">
+                  <button onClick={handleAddColumn} className="flex-1 text-xs font-medium px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-1">
+                    <Check size={12} /> {ko ? "추가" : "Add"}
+                  </button>
+                  <button onClick={() => { setNewColName(""); setAddingColumn(false); }} className="text-xs px-3 py-1.5 text-gray-500 hover:bg-gray-100 rounded-lg">
+                    {ko ? "취소" : "Cancel"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setAddingColumn(true)}
+                className="min-w-[280px] shrink-0 py-8 rounded-2xl border-2 border-dashed border-gray-200 hover:border-blue-300 text-gray-400 hover:text-blue-500 text-sm font-medium transition-all flex items-center justify-center gap-2 h-fit"
+              >
+                <Plus size={16} />
+                {ko ? "칼럼 추가" : "Add Column"}
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        /* List View */
+        <div className="flex-1 overflow-y-auto pb-4 space-y-6">
+          {sortedColumns.map((col) => {
             const colCards = filteredCards
               .filter(c => c.columnId === col.id)
               .sort((a, b) => a.order - b.order);
+            if (colCards.length === 0 && searchQuery.trim()) return null;
             return (
-              <MgmtColumn
-                key={col.id}
-                column={col}
-                cards={colCards}
-                index={i}
-                ko={ko}
-                board={board}
-                onAddCard={handleAddCard}
-                onDeleteCard={handleDeleteCard}
-                onMoveCard={handleMoveCard}
-                onRenameColumn={handleRenameColumn}
-                onDeleteColumn={handleDeleteColumn}
-                onMoveColumn={handleMoveColumn}
-              />
+              <div key={col.id}>
+                <div className="flex items-center gap-2 mb-2 px-1">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{col.name}</h3>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{colCards.length}</span>
+                </div>
+                <div className="space-y-2">
+                  {colCards.map((card) => (
+                    <MgmtListRow
+                      key={card.id}
+                      card={card}
+                      columnName={col.name}
+                      ko={ko}
+                      board={board}
+                      onDelete={handleDeleteCard}
+                    />
+                  ))}
+                  {colCards.length === 0 && (
+                    <p className="text-xs text-gray-300 px-4 py-3">{ko ? "카드 없음" : "No cards"}</p>
+                  )}
+                </div>
+              </div>
             );
           })}
-
-          {/* Add Column */}
-          {addingColumn ? (
-            <div className="min-w-[280px] shrink-0 bg-gray-50 rounded-2xl border border-gray-200 p-4 h-fit">
-              <input
-                ref={newColRef}
-                value={newColName}
-                onChange={(e) => setNewColName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleAddColumn();
-                  if (e.key === "Escape") { setNewColName(""); setAddingColumn(false); }
-                }}
-                onBlur={handleAddColumn}
-                placeholder={ko ? "칼럼 이름..." : "Column name..."}
-                className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-100"
-              />
-              <div className="flex gap-2 mt-2">
-                <button onClick={handleAddColumn} className="flex-1 text-xs font-medium px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-1">
-                  <Check size={12} /> {ko ? "추가" : "Add"}
-                </button>
-                <button onClick={() => { setNewColName(""); setAddingColumn(false); }} className="text-xs px-3 py-1.5 text-gray-500 hover:bg-gray-100 rounded-lg">
-                  {ko ? "취소" : "Cancel"}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => setAddingColumn(true)}
-              className="min-w-[280px] shrink-0 py-8 rounded-2xl border-2 border-dashed border-gray-200 hover:border-blue-300 text-gray-400 hover:text-blue-500 text-sm font-medium transition-all flex items-center justify-center gap-2 h-fit"
-            >
-              <Plus size={16} />
-              {ko ? "칼럼 추가" : "Add Column"}
-            </button>
-          )}
         </div>
-      </div>
+      )}
 
       {/* Team Board Overlay Panel */}
       <AnimatePresence>
