@@ -3,12 +3,14 @@ import { useParams, useNavigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Trash2, ChevronDown, LayoutGrid, ChevronRight,
-  Calendar, Users, Circle, Palette, Camera,
+  Calendar, Users, Circle, Camera,
   Building2, DollarSign, FolderKanban, Link2, Plus, X, ArrowLeft,
 } from "lucide-react";
+import { createPortal } from "react-dom";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
-import { useTeam } from "../context/TeamContext";
+import { usePermission } from "../context/PermissionContext";
+import { usePortalPosition } from "../hooks/usePortalPosition";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
 import { InlineText } from "../components/detail/InlineText";
@@ -16,15 +18,88 @@ import { PropertyItem } from "../components/detail/PropertyItem";
 import { AIStrategyPanel } from "../components/AIStrategyPanel";
 import {
   Project, PROJECT_STATUS_CONFIG, PROJECT_COLORS, PROJECT_CATEGORY_CONFIG,
-  loadProjects, saveProjects, loadCards,
+  loadProjects, saveProjects, loadCards, loadColumns,
 } from "./ManagementPage";
+
+// ─── Member Picker (same style as task detail) ─────────────────────
+function ProjectMemberPicker({
+  selectedIds, onChange, language,
+}: {
+  selectedIds: string[]; onChange: (ids: string[]) => void; language: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+  const pos = usePortalPosition(open, triggerRef);
+  const { members, currentUser } = usePermission();
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (triggerRef.current?.contains(e.target as Node) || popupRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const ko = language === "ko";
+  const selectedMembers = selectedIds.map((id) => members.find((m) => m.id === id)).filter(Boolean) as typeof members;
+  const toggleMember = (id: string) => {
+    onChange(selectedIds.includes(id) ? selectedIds.filter((sid) => sid !== id) : [...selectedIds, id]);
+  };
+  const getDisplayName = (m: typeof members[0]) => m.id === currentUser.id ? `${m.name}(${ko ? "나" : "me"})` : m.name;
+
+  return (
+    <>
+      <button ref={triggerRef} onClick={() => setOpen(!open)}
+        className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-gray-100 transition-colors text-sm">
+        {selectedMembers.length === 0 ? (
+          <span className="text-sm text-gray-400">{ko ? "멤버 추가" : "Add members"}</span>
+        ) : (
+          <div className="flex items-center gap-1.5">
+            <div className="flex -space-x-1.5">
+              {selectedMembers.slice(0, 3).map((m) => (
+                <img key={m.id} src={m.avatar} alt="" className="w-5 h-5 rounded-full ring-2 ring-white object-cover" />
+              ))}
+              {selectedMembers.length > 3 && (
+                <div className="w-5 h-5 rounded-full bg-gray-100 ring-2 ring-white flex items-center justify-center text-[8px] font-bold text-gray-500">
+                  +{selectedMembers.length - 3}
+                </div>
+              )}
+            </div>
+            <span className="font-medium text-gray-700">
+              {selectedMembers.length === 1 ? getDisplayName(selectedMembers[0]) : `${getDisplayName(selectedMembers[0])} +${selectedMembers.length - 1}`}
+            </span>
+          </div>
+        )}
+        <ChevronDown size={12} className="text-gray-400" />
+      </button>
+      {open && pos && createPortal(
+        <div ref={popupRef} className="fixed bg-white border border-gray-200 rounded-xl shadow-lg z-[9999] min-w-[200px] py-1"
+          style={{ top: pos.top, left: pos.left }}>
+          {members.map((m) => {
+            const isSelected = selectedIds.includes(m.id);
+            return (
+              <button key={m.id} onClick={() => toggleMember(m.id)}
+                className={cn("w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-gray-50 transition-colors", isSelected && "bg-blue-50/50")}>
+                <img src={m.avatar} alt="" className="w-6 h-6 rounded-full object-cover" />
+                <span className="font-medium text-gray-700 flex-1 text-left">{getDisplayName(m)}</span>
+                {isSelected && <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5L4.5 7.5L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></div>}
+              </button>
+            );
+          })}
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}
 
 export function ProjectDetailPage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const { language } = useLanguage();
   const ko = language === "ko";
-  const { members } = useTeam();
 
   const isNew = projectId === "new" || !projectId;
 
@@ -129,7 +204,8 @@ export function ProjectDetailPage() {
     );
   }
 
-  const status = PROJECT_STATUS_CONFIG[project.status];
+  const statusCfg = PROJECT_STATUS_CONFIG[project.status];
+  const statusLabel = statusCfg ? (ko ? statusCfg.label : statusCfg.labelEn) : (project.status || "");
 
   return (
     <div className="h-full overflow-y-auto bg-white scrollbar-hide">
@@ -209,8 +285,8 @@ export function ProjectDetailPage() {
                 </span>
                 <div className="flex items-center gap-2">
                   {!propsExpanded && (
-                    <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded", status.bg, status.color)}>
-                      {ko ? status.label : status.labelEn}
+                    <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded", statusCfg ? cn(statusCfg.bg, statusCfg.color) : "bg-gray-100 text-gray-600")}>
+                      {statusLabel}
                     </span>
                   )}
                   <ChevronDown size={14} className={cn("text-gray-400 transition-transform duration-200", propsExpanded && "rotate-180")} />
@@ -227,82 +303,26 @@ export function ProjectDetailPage() {
                     className="overflow-hidden"
                   >
                     <div className="divide-y divide-gray-100 border-t border-gray-100">
-                      {/* Status */}
+                      {/* Status — kanban column names */}
                       <PropertyItem icon={<Circle size={14} />} label={ko ? "상태" : "Status"}>
-                        <select
-                          value={project.status}
-                          onChange={(e) => handleUpdate({ status: e.target.value as Project["status"] })}
-                          className="text-sm px-2 py-1 rounded-md border border-transparent hover:border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700 font-medium"
-                        >
-                          {Object.entries(PROJECT_STATUS_CONFIG).map(([k, v]) => (
-                            <option key={k} value={k}>{ko ? v.label : v.labelEn}</option>
-                          ))}
-                        </select>
-                      </PropertyItem>
-
-                      {/* Color */}
-                      <PropertyItem icon={<Palette size={14} />} label={ko ? "컬러" : "Color"}>
-                        <div className="flex gap-1.5 flex-wrap">
-                          {PROJECT_COLORS.map((c) => (
-                            <button
-                              key={c}
-                              onClick={() => handleUpdate({ color: c })}
-                              className={cn(
-                                "w-6 h-6 rounded-full transition-all",
-                                project.color === c && "ring-2 ring-offset-2 ring-blue-400"
-                              )}
-                              style={{ backgroundColor: c }}
-                            />
-                          ))}
-                        </div>
-                      </PropertyItem>
-
-                      {/* Start Date */}
-                      <PropertyItem icon={<Calendar size={14} />} label={ko ? "시작일" : "Start Date"}>
-                        <input
-                          type="date"
-                          value={project.startDate || ""}
-                          onChange={(e) => handleUpdate({ startDate: e.target.value || undefined })}
-                          className="text-sm px-2 py-1 rounded-md border border-transparent hover:border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700"
-                        />
-                      </PropertyItem>
-
-                      {/* End Date */}
-                      <PropertyItem icon={<Calendar size={14} />} label={ko ? "종료일" : "End Date"}>
-                        <input
-                          type="date"
-                          value={project.endDate || ""}
-                          onChange={(e) => handleUpdate({ endDate: e.target.value || undefined })}
-                          className="text-sm px-2 py-1 rounded-md border border-transparent hover:border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700"
-                        />
-                      </PropertyItem>
-
-                      {/* Members */}
-                      <PropertyItem icon={<Users size={14} />} label={ko ? "멤버" : "Members"}>
                         <div className="flex flex-wrap gap-1.5">
-                          {members.map((m) => {
-                            const sel = project.memberIds.includes(m.id);
-                            return (
+                          {(() => {
+                            const cols = loadColumns("projects");
+                            return cols.map((col) => (
                               <button
-                                key={m.id}
-                                onClick={() =>
-                                  handleUpdate({
-                                    memberIds: sel
-                                      ? project.memberIds.filter((i) => i !== m.id)
-                                      : [...project.memberIds, m.id],
-                                  })
-                                }
+                                key={col.id}
+                                onClick={() => handleUpdate({ status: col.name as any })}
                                 className={cn(
-                                  "px-2.5 py-1 rounded-lg text-xs font-medium transition-all border",
-                                  sel
+                                  "px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border",
+                                  (project.status as any) === col.name
                                     ? "bg-blue-50 text-blue-700 border-blue-200"
                                     : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
                                 )}
                               >
-                                {m.name}
+                                {col.name}
                               </button>
-                            );
-                          })}
+                            ));
+                          })()}
                         </div>
                       </PropertyItem>
 
@@ -328,6 +348,34 @@ export function ProjectDetailPage() {
                             );
                           })}
                         </div>
+                      </PropertyItem>
+
+                      {/* Date Range (start ~ end in one row) */}
+                      <PropertyItem icon={<Calendar size={14} />} label={ko ? "기간" : "Period"}>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="date"
+                            value={project.startDate || ""}
+                            onChange={(e) => handleUpdate({ startDate: e.target.value || undefined })}
+                            className="text-sm px-2 py-1 rounded-md border border-transparent hover:border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700"
+                          />
+                          <span className="text-gray-300 text-xs">~</span>
+                          <input
+                            type="date"
+                            value={project.endDate || ""}
+                            onChange={(e) => handleUpdate({ endDate: e.target.value || undefined })}
+                            className="text-sm px-2 py-1 rounded-md border border-transparent hover:border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700"
+                          />
+                        </div>
+                      </PropertyItem>
+
+                      {/* Members — avatar picker */}
+                      <PropertyItem icon={<Users size={14} />} label={ko ? "멤버" : "Members"}>
+                        <ProjectMemberPicker
+                          selectedIds={project.memberIds}
+                          onChange={(ids) => handleUpdate({ memberIds: ids })}
+                          language={language}
+                        />
                       </PropertyItem>
 
                       {/* Client */}
