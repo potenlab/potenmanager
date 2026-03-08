@@ -284,9 +284,9 @@ function MgmtCard({
             </h4>
           </div>
           {(card.dueDate || card.createdAt) && (
-            <div className="flex items-center gap-1 text-[11px] text-gray-400 mt-1 pl-0.5">
-              <CalendarIcon size={10} className="shrink-0" />
-              <span>{format(new Date(card.dueDate || card.createdAt), "M/d")}</span>
+            <div className="flex items-center gap-1 text-[11px] text-gray-400 mt-1 pl-0.5 leading-none">
+              <CalendarIcon size={10} className="shrink-0 relative top-[0.5px]" />
+              <span className="leading-none">{format(new Date(card.dueDate || card.createdAt), "M/d")}</span>
             </div>
           )}
         </div>
