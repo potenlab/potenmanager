@@ -305,7 +305,7 @@ function MgmtCard({
                   {card.priority}
                 </span>
               )}
-              {card.color && (
+              {board === "branding" && card.color && (
                 <div className="w-3 h-3 rounded-full shrink-0 border border-white shadow-sm" style={{ backgroundColor: card.color }} />
               )}
             </div>
@@ -563,11 +563,11 @@ function MgmtListRow({
       onClick={() => navigate(detailPath)}
       className="flex items-center gap-3 px-4 py-3 bg-white border border-gray-100 rounded-xl hover:shadow-md hover:border-gray-200 transition-all cursor-pointer group"
     >
-      {/* Color dot */}
-      {card.color && (
+      {/* Color dot (branding only) */}
+      {board === "branding" && card.color && (
         <div className="w-3 h-3 rounded-full shrink-0 ring-1 ring-black/5" style={{ backgroundColor: card.color }} />
       )}
-      {!card.color && <div className="w-3 h-3 rounded-full shrink-0 bg-gray-200" />}
+      {board === "branding" && !card.color && <div className="w-3 h-3 rounded-full shrink-0 bg-gray-200" />}
 
       {/* Title */}
       <h4 className="font-medium text-sm text-gray-900 truncate min-w-0 flex-1">
