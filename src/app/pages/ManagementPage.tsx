@@ -125,9 +125,16 @@ const BRAND_PLATFORMS = [
   { id: "tiktok", label: "TikTok", icon: "https://cdn.simpleicons.org/tiktok/000000" },
   { id: "threads", label: "Threads", icon: "https://cdn.simpleicons.org/threads/000000" },
   { id: "x", label: "X", icon: "https://cdn.simpleicons.org/x/000000" },
+  { id: "facebook", label: "Facebook", icon: "https://cdn.simpleicons.org/facebook/1877F2" },
+  { id: "linkedin", label: "LinkedIn", icon: "https://cdn.simpleicons.org/linkedin/0A66C2" },
+  { id: "pinterest", label: "Pinterest", icon: "https://cdn.simpleicons.org/pinterest/BD081C" },
+  { id: "kakao", label: "카카오", icon: "https://cdn.simpleicons.org/kakaotalk/FAE100" },
+  { id: "naver_post", label: "네이버 포스트", icon: "https://cdn.simpleicons.org/naver/03C75A" },
   { id: "tistory", label: "Tistory", icon: "https://cdn.simpleicons.org/tistory/EB531F" },
   { id: "brunch", label: "Brunch", icon: "https://cdn.simpleicons.org/brunch/000000" },
   { id: "medium", label: "Medium", icon: "https://cdn.simpleicons.org/medium/000000" },
+  { id: "substack", label: "Substack", icon: "https://cdn.simpleicons.org/substack/FF6719" },
+  { id: "velog", label: "Velog", icon: "https://cdn.simpleicons.org/velog/20C997" },
   { id: "other", label: "기타", icon: "" },
 ] as const;
 
