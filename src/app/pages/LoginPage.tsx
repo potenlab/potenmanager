@@ -74,6 +74,7 @@ export function LoginPage() {
     try {
       await api.setupDemo(industry);
       localStorage.setItem('poten_demo_mode', 'true');
+      localStorage.setItem('poten_active_org_id', 'org-demo');
       if (industry) localStorage.setItem('poten_demo_industry', industry);
       const result = await signInWithEmail('demo@potenmanager.com', 'demo1234');
       if (result.error) {

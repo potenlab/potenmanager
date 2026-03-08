@@ -20,6 +20,8 @@ import {
   Palette,
   MessageCircle,
   Users,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { getUserColor } from "../../../lib/mockData";
@@ -158,6 +160,9 @@ export function Sidebar() {
   const navigate = useNavigate();
   const ko = language === "ko";
   const [orgSwitcherOpen, setOrgSwitcherOpen] = useState(false);
+  const [teamExpanded, setTeamExpanded] = useState(() => {
+    try { return localStorage.getItem('poten_sidebar_team_expanded') !== 'false'; } catch { return true; }
+  });
 
   // Per-group item ordering (stored in localStorage)
   const [groupOrders, setGroupOrders] = useState<Record<string, string[]>>(() => {
@@ -328,31 +333,47 @@ export function Sidebar() {
             )}
           </div>
 
-          {/* Team members (always visible) */}
-          {!isCompact && (
-            <div className="space-y-0.5 pl-2">
-              {members.filter(m => m.id !== currentUser.id).map((member) => (
-                <button
-                  key={member.id}
-                  onClick={async () => {
-                    closeSidebar();
-                    const roomId = await startDM(member.id);
-                    openRoom(roomId);
-                    navigate("/chat");
-                  }}
-                  className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm transition-all duration-150 group/member text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-                >
-                  <div className="relative shrink-0">
-                    <img src={member.avatar} alt={member.name} className="w-5 h-5 rounded-full object-cover border border-gray-200 group-hover/member:border-blue-200 transition-colors" />
-                    <div className={cn("absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 border border-white rounded-full", isOnline(member.id) ? "bg-green-500" : "bg-gray-300")} />
-                  </div>
-                  <span className="truncate text-[12px]">{member.name}</span>
-                  {(() => {
-                    const mColor = getUserColor(member.id);
-                    return mColor ? <span className="w-2 h-2 rounded-full shrink-0 ml-auto" style={{ backgroundColor: mColor }} /> : null;
-                  })()}
-                </button>
-              ))}
+          {/* Team members (fold/unfold) */}
+          {!isCompact && members.filter(m => m.id !== currentUser.id).length > 0 && (
+            <div>
+              <button
+                onClick={() => {
+                  const next = !teamExpanded;
+                  setTeamExpanded(next);
+                  try { localStorage.setItem('poten_sidebar_team_expanded', String(next)); } catch {}
+                }}
+                className="w-full flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-medium text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                {teamExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                <span>{ko ? "팀 멤버" : "Team"}</span>
+                <span className="text-[10px] text-gray-300 ml-auto">{members.filter(m => m.id !== currentUser.id).length}</span>
+              </button>
+              {teamExpanded && (
+                <div className="space-y-0.5 pl-2">
+                  {members.filter(m => m.id !== currentUser.id).map((member) => (
+                    <button
+                      key={member.id}
+                      onClick={async () => {
+                        closeSidebar();
+                        const roomId = await startDM(member.id);
+                        openRoom(roomId);
+                        navigate("/chat");
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm transition-all duration-150 group/member text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                    >
+                      <div className="relative shrink-0">
+                        <img src={member.avatar} alt={member.name} className="w-5 h-5 rounded-full object-cover border border-gray-200 group-hover/member:border-blue-200 transition-colors" />
+                        <div className={cn("absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 border border-white rounded-full", isOnline(member.id) ? "bg-green-500" : "bg-gray-300")} />
+                      </div>
+                      <span className="truncate text-[12px]">{member.name}</span>
+                      {(() => {
+                        const mColor = getUserColor(member.id);
+                        return mColor ? <span className="w-2 h-2 rounded-full shrink-0 ml-auto" style={{ backgroundColor: mColor }} /> : null;
+                      })()}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
