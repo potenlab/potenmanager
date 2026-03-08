@@ -276,9 +276,6 @@ function MgmtCard({
                 card.priority === "high" ? "bg-red-400" : "bg-amber-400"
               )} />
             )}
-            {board === "branding" && card.color && (
-              <div className="w-3 h-3 rounded-full shrink-0 border border-white shadow-sm" style={{ backgroundColor: card.color }} />
-            )}
             <h4 className="font-medium text-sm text-gray-900 truncate flex-1 leading-snug">
               {card.title || (ko ? "제목 없음" : "Untitled")}
             </h4>
@@ -304,9 +301,6 @@ function MgmtCard({
                 )}>
                   {card.priority}
                 </span>
-              )}
-              {board === "branding" && card.color && (
-                <div className="w-3 h-3 rounded-full shrink-0 border border-white shadow-sm" style={{ backgroundColor: card.color }} />
               )}
             </div>
             <div className="relative shrink-0">
@@ -563,11 +557,7 @@ function MgmtListRow({
       onClick={() => navigate(detailPath)}
       className="flex items-center gap-3 px-4 py-3 bg-white border border-gray-100 rounded-xl hover:shadow-md hover:border-gray-200 transition-all cursor-pointer group"
     >
-      {/* Color dot (branding only) */}
-      {board === "branding" && card.color && (
-        <div className="w-3 h-3 rounded-full shrink-0 ring-1 ring-black/5" style={{ backgroundColor: card.color }} />
-      )}
-      {board === "branding" && !card.color && <div className="w-3 h-3 rounded-full shrink-0 bg-gray-200" />}
+      {/* Priority dot (list view) */}
 
       {/* Title */}
       <h4 className="font-medium text-sm text-gray-900 truncate min-w-0 flex-1">
