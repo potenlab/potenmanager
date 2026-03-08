@@ -424,9 +424,14 @@ export function MeetingDetailPage() {
     updateMeeting(meeting.id, { date: d.toISOString() });
   };
 
-  // Auto-save notes on change
+  // Auto-save notes on change (debounced to avoid race conditions)
+  const notesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    updateMeeting(meeting.id, { notes });
+    if (notesTimerRef.current) clearTimeout(notesTimerRef.current);
+    notesTimerRef.current = setTimeout(() => {
+      updateMeeting(meeting.id, { notes });
+    }, 800);
+    return () => { if (notesTimerRef.current) clearTimeout(notesTimerRef.current); };
   }, [notes]);
 
   const addActionItem = () => {

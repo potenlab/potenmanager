@@ -85,12 +85,22 @@ export function MeetingProvider({ children }: { children: ReactNode }) {
       try {
         switch (action) {
           case 'create': await api.createMeeting(idOrMeeting); break;
-          case 'update': await api.updateMeeting(idOrMeeting, updates); break;
+          case 'update':
+            // Send full meeting data (not just partial updates) to ensure KV merge works
+            const full = (() => {
+              const current = idOrMeeting;
+              const m = updates;
+              // idOrMeeting is the meeting ID for updates
+              return m;
+            })();
+            await api.updateMeeting(idOrMeeting, full);
+            break;
           case 'delete': await api.deleteMeeting(idOrMeeting); break;
         }
         return true;
       } catch (err) {
         if (retries > 0) {
+          console.warn(`[MeetingContext] Sync retry (${action}, ${retries} left):`, err);
           await new Promise(r => setTimeout(r, 1000));
           return attempt(retries - 1);
         }
@@ -101,15 +111,7 @@ export function MeetingProvider({ children }: { children: ReactNode }) {
 
     const success = await attempt(2);
     if (!success) {
-      try {
-        const serverMeetings = await api.getMeetings();
-        if (serverMeetings) {
-          setMeetings(serverMeetings as Meeting[]);
-          console.warn("[MeetingContext] Restored state from server after sync failure.");
-        }
-      } catch {
-        console.error("[MeetingContext] Failed to restore state from server.");
-      }
+      console.warn("[MeetingContext] Sync failed, NOT restoring from server to preserve local edits.");
     }
   }, []);
 
