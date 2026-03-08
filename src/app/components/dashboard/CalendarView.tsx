@@ -57,6 +57,7 @@ import { createPortal } from "react-dom";
 type ViewMode = "month" | "3week";
 
 const ITEM_TYPE = "CALENDAR_TASK";
+const MEETING_DRAG_TYPE = "CALENDAR_MEETING";
 
 const STATUS_CONFIG: Record<string, { label: string; labelKo: string; icon: React.ReactNode; color: string; bg: string }> = {
   pending: { label: "To Do", labelKo: "할 일", icon: <Circle size={12} />, color: "text-gray-500", bg: "bg-gray-100" },
@@ -333,6 +334,42 @@ function ResizableTaskBar({
   );
 }
 
+// ─── Draggable Meeting Bar ──────────────────────────────────────────
+function DraggableMeetingBar({ meeting, language, onClick, onContextMenu }: {
+  meeting: Meeting;
+  language: string;
+  onClick: () => void;
+  onContextMenu?: (x: number, y: number) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [{ isDragging }, drag] = useDrag(() => ({
+    type: MEETING_DRAG_TYPE,
+    item: { meetingId: meeting.id },
+    collect: (monitor) => ({ isDragging: monitor.isDragging() }),
+  }), [meeting.id]);
+  drag(ref);
+
+  return (
+    <div
+      ref={ref}
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      onContextMenu={(e) => {
+        if (!onContextMenu) return;
+        e.preventDefault();
+        e.stopPropagation();
+        onContextMenu(e.clientX, e.clientY);
+      }}
+      className={cn(
+        "mx-1.5 h-[26px] flex items-center gap-1 px-2 rounded-md cursor-grab active:cursor-grabbing transition-colors text-[11px] font-medium bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200/60",
+        isDragging && "opacity-40"
+      )}
+    >
+      <Video size={11} className="shrink-0 text-purple-400" />
+      <span className="truncate">{meeting.title || (language === 'ko' ? '제목없음' : 'Untitled')}</span>
+    </div>
+  );
+}
+
 // ─── Droppable Day Cell ─────────────────────────────────────────────
 function DroppableDayCell({
   day,
@@ -344,6 +381,7 @@ function DroppableDayCell({
   language,
   selectedIds,
   onDropTask,
+  onDropMeeting,
   onTaskClick,
   onSelectTask,
   resizeState,
@@ -365,6 +403,7 @@ function DroppableDayCell({
   language: string;
   selectedIds: Set<string>;
   onDropTask: (taskIds: string[], newDate: Date) => void;
+  onDropMeeting: (meetingId: string, newDate: Date) => void;
   onTaskClick: (task: Task, rect: DOMRect) => void;
   onSelectTask: (taskId: string, multi: boolean) => void;
   resizeState: ResizeState | null;
@@ -381,17 +420,22 @@ function DroppableDayCell({
 
   const [{ isOver, canDrop }, drop] = useDrop(
     () => ({
-      accept: ITEM_TYPE,
-      drop: (item: { taskId: string; taskIds?: string[] }) => {
-        const ids = item.taskIds && item.taskIds.length > 0 ? item.taskIds : [item.taskId];
-        onDropTask(ids, day);
+      accept: [ITEM_TYPE, MEETING_DRAG_TYPE],
+      drop: (item: { taskId?: string; taskIds?: string[]; meetingId?: string }, monitor) => {
+        const type = monitor.getItemType();
+        if (type === MEETING_DRAG_TYPE && item.meetingId) {
+          onDropMeeting(item.meetingId, day);
+        } else {
+          const ids = item.taskIds && item.taskIds.length > 0 ? item.taskIds : item.taskId ? [item.taskId] : [];
+          if (ids.length > 0) onDropTask(ids, day);
+        }
       },
       collect: (monitor) => ({
         isOver: monitor.isOver(),
         canDrop: monitor.canDrop(),
       }),
     }),
-    [day, onDropTask]
+    [day, onDropTask, onDropMeeting]
   );
 
   drop(ref);
@@ -469,20 +513,13 @@ function DroppableDayCell({
 
         {/* Meetings (after tasks so multi-day bars stay at top) */}
         {dayMeetings.map((meeting) => (
-          <div
+          <DraggableMeetingBar
             key={meeting.id}
-            onClick={(e) => { e.stopPropagation(); onMeetingClick(meeting.id); }}
-            onContextMenu={(e) => {
-              if (!onMeetingContextMenu) return;
-              e.preventDefault();
-              e.stopPropagation();
-              onMeetingContextMenu(meeting, e.clientX, e.clientY);
-            }}
-            className="mx-1.5 h-[26px] flex items-center gap-1 px-2 rounded-md cursor-pointer transition-colors text-[11px] font-medium bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200/60"
-          >
-            <Video size={11} className="shrink-0 text-purple-400" />
-            <span className="truncate">{meeting.title || (language === 'ko' ? '제목없음' : 'Untitled')}</span>
-          </div>
+            meeting={meeting}
+            language={language}
+            onClick={() => onMeetingClick(meeting.id)}
+            onContextMenu={onMeetingContextMenu ? (x, y) => onMeetingContextMenu(meeting, x, y) : undefined}
+          />
         ))}
 
         {/* Hover add buttons */}
@@ -1171,6 +1208,20 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
     [calTasks, updateTask]
   );
 
+  // Handle drop: update meeting date
+  const handleDropMeeting = useCallback(
+    (meetingId: string, newDate: Date) => {
+      const meeting = meetings.find((m) => m.id === meetingId);
+      if (!meeting) return;
+      const oldDate = new Date(meeting.date);
+      // Preserve time, change only the date
+      newDate.setHours(oldDate.getHours(), oldDate.getMinutes(), oldDate.getSeconds(), 0);
+      if (oldDate.getTime() === newDate.getTime()) return;
+      updateMeeting(meetingId, { date: newDate.toISOString() });
+    },
+    [meetings, updateMeeting]
+  );
+
   const handleTaskClick = useCallback((task: Task, rect: DOMRect) => {
     setQuickViewTask(task);
     setQuickViewRect(rect);
@@ -1789,6 +1840,7 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
                 language={language}
                 selectedIds={selectedIds}
                 onDropTask={handleDropTask}
+                onDropMeeting={handleDropMeeting}
                 onTaskClick={handleTaskClick}
                 onSelectTask={onSelectTask}
                 resizeState={resizeState}

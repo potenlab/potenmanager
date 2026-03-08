@@ -121,6 +121,62 @@ function storageKey(board: BoardType, suffix: string) {
   return `poten_mgmt_${board}_${suffix}`;
 }
 
+function isDemo() {
+  try { return localStorage.getItem("poten_demo_mode") === "true"; } catch { return false; }
+}
+
+// ─── Demo Seed Data ─────────────────────────────────────────────
+const DEMO_SEED_KEY = "poten_mgmt_demo_seeded";
+
+const DEMO_PROJECT_COLUMNS: KanbanColumn[] = [
+  { id: "col-planning", name: "기획", order: 0 },
+  { id: "col-progress", name: "진행 중", order: 1 },
+  { id: "col-done", name: "완료", order: 2 },
+];
+
+const DEMO_PROJECT_CARDS: KanbanCard[] = [
+  { id: "demo-p1", columnId: "col-planning", title: "신규 랜딩페이지 리디자인", description: "2분기 마케팅 캠페인용 랜딩페이지", color: "#3B82F6", priority: "high", order: 0, createdAt: "2026-02-10T00:00:00Z" },
+  { id: "demo-p2", columnId: "col-planning", title: "사용자 온보딩 플로우 개선", description: "신규 가입자 이탈률 줄이기", color: "#8B5CF6", priority: "medium", order: 1, createdAt: "2026-02-15T00:00:00Z" },
+  { id: "demo-p3", columnId: "col-progress", title: "모바일 앱 v2.0 개발", description: "React Native → Flutter 마이그레이션", color: "#10B981", priority: "high", dueDate: "2026-04-30", order: 0, createdAt: "2026-01-05T00:00:00Z" },
+  { id: "demo-p4", columnId: "col-progress", title: "결제 시스템 리팩토링", description: "PG사 연동 안정화 및 에러 핸들링", color: "#F59E0B", priority: "medium", dueDate: "2026-03-20", order: 1, createdAt: "2026-01-20T00:00:00Z" },
+  { id: "demo-p5", columnId: "col-done", title: "디자인 시스템 구축", description: "Figma → 코드 컴포넌트 라이브러리", color: "#EC4899", priority: "low", order: 0, createdAt: "2025-11-01T00:00:00Z" },
+  { id: "demo-p6", columnId: "col-done", title: "SEO 최적화 1차", description: "메타태그, 사이트맵, 구조화 데이터 적용", color: "#06B6D4", priority: "medium", order: 1, createdAt: "2025-12-10T00:00:00Z" },
+];
+
+const DEMO_BRAND_COLUMNS: KanbanColumn[] = [
+  { id: "col-instagram", name: "인스타그램", order: 0 },
+  { id: "col-blog", name: "네이버 블로그", order: 1 },
+  { id: "col-youtube", name: "유튜브", order: 2 },
+];
+
+const DEMO_BRAND_CARDS: KanbanCard[] = [
+  { id: "demo-b1", columnId: "col-instagram", title: "@ourteam_official", description: "메인 인스타그램 계정", color: "#E11D48", priority: "high", order: 0, createdAt: "2026-01-01T00:00:00Z" },
+  { id: "demo-b2", columnId: "col-instagram", title: "@ourteam_daily", description: "일상/비하인드 콘텐츠", color: "#F97316", priority: "medium", order: 1, createdAt: "2026-01-15T00:00:00Z" },
+  { id: "demo-b3", columnId: "col-blog", title: "팀 공식 블로그", description: "제품 업데이트 및 기술 블로그", color: "#22C55E", priority: "high", order: 0, createdAt: "2026-01-05T00:00:00Z" },
+  { id: "demo-b4", columnId: "col-blog", title: "마케팅 블로그", description: "SEO 키워드 콘텐츠 발행", color: "#3B82F6", priority: "medium", order: 1, createdAt: "2026-02-01T00:00:00Z" },
+  { id: "demo-b5", columnId: "col-youtube", title: "제품 소개 채널", description: "튜토리얼 및 기능 소개 영상", color: "#EF4444", priority: "high", order: 0, createdAt: "2026-01-10T00:00:00Z" },
+];
+
+function seedDemoData() {
+  if (!isDemo()) return;
+  try { if (localStorage.getItem(DEMO_SEED_KEY)) return; } catch {}
+
+  // Projects
+  localStorage.setItem(storageKey("projects", "columns"), JSON.stringify(DEMO_PROJECT_COLUMNS));
+  localStorage.setItem(storageKey("projects", "cards"), JSON.stringify(DEMO_PROJECT_CARDS));
+
+  // Branding
+  localStorage.setItem(storageKey("branding", "columns"), JSON.stringify(DEMO_BRAND_COLUMNS));
+  localStorage.setItem(storageKey("branding", "cards"), JSON.stringify(DEMO_BRAND_CARDS));
+
+  localStorage.setItem(DEMO_SEED_KEY, "true");
+}
+
+// Seed on module load (only runs once per demo session)
+seedDemoData();
+
+// ─────────────────────────────────────────────────────────────────
+
 export function loadColumns(board: BoardType): KanbanColumn[] {
   try {
     const s = localStorage.getItem(storageKey(board, "columns"));
