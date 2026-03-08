@@ -83,16 +83,36 @@ function MeetingCard({ meeting, column, isSelecting, isSelected, onToggleSelect,
         <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border flex items-center gap-0.5", tc.bg, tc.text, tc.border)}>
           {tc.icon} {ko ? tc.labelKo : tc.label}
         </span>
-        <button onClick={(e) => e.stopPropagation()} className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">
-          <MoreHorizontal size={16} />
-        </button>
+        <div className="flex items-center gap-1.5">
+          {/* Participant avatars (top-right) */}
+          <div className="flex -space-x-1.5">
+            {meeting.attendeeIds.slice(0, 3).map(id => {
+              const avatar = getMemberAvatar(id);
+              return avatar ? (
+                <img key={id} src={avatar} alt="" className="w-5 h-5 rounded-full border-[1.5px] border-white" />
+              ) : (
+                <div key={id} className="w-5 h-5 rounded-full bg-gray-200 border-[1.5px] border-white flex items-center justify-center">
+                  <Users size={8} className="text-gray-400" />
+                </div>
+              );
+            })}
+            {meeting.attendeeIds.length > 3 && (
+              <div className="w-5 h-5 rounded-full bg-gray-100 border-[1.5px] border-white flex items-center justify-center text-[8px] font-semibold text-gray-500">
+                +{meeting.attendeeIds.length - 3}
+              </div>
+            )}
+          </div>
+          <button onClick={(e) => e.stopPropagation()} className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">
+            <MoreHorizontal size={16} />
+          </button>
+        </div>
       </div>
 
       <h4 className={cn("font-medium text-sm mb-1 leading-snug",
         meeting.status === 'completed' ? "text-gray-400 line-through" : "text-gray-900"
       )}>{meeting.title || (ko ? '제목 없음' : 'Untitled')}</h4>
 
-      <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400 mb-3">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400">
         <span className="flex items-center gap-1"><CalendarIcon size={11} />
           {meetingDate.toLocaleDateString(ko ? 'ko-KR' : 'en-US', { month: 'short', day: 'numeric', weekday: 'short' })}
         </span>
@@ -101,34 +121,14 @@ function MeetingCard({ meeting, column, isSelecting, isSelected, onToggleSelect,
         </span>
         <span className="text-gray-300">·</span>
         <span>{meeting.duration}min</span>
-      </div>
-
-      {meeting.location && (
-        <div className="flex items-center gap-1 text-xs text-gray-400 mb-3">
-          <MapPin size={11} /> {meeting.location}
-        </div>
-      )}
-
-      <div className="flex items-center justify-between border-t border-gray-50 pt-3 mt-1">
-        <div className="flex -space-x-1.5">
-          {meeting.attendeeIds.slice(0, 4).map(id => {
-            const avatar = getMemberAvatar(id);
-            return avatar ? (
-              <img key={id} src={avatar} alt="" className="w-6 h-6 rounded-full border-2 border-white" />
-            ) : (
-              <div key={id} className="w-6 h-6 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center">
-                <Users size={10} className="text-gray-400" />
-              </div>
-            );
-          })}
-          {meeting.attendeeIds.length > 4 && (
-            <div className="w-6 h-6 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-[9px] font-semibold text-gray-500">
-              +{meeting.attendeeIds.length - 4}
-            </div>
-          )}
-        </div>
+        {meeting.location && (
+          <>
+            <span className="text-gray-300">·</span>
+            <span className="flex items-center gap-0.5"><MapPin size={10} /> {meeting.location}</span>
+          </>
+        )}
         {meeting.actionItems.length > 0 && (
-          <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-lg">
+          <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-lg ml-auto">
             {meeting.actionItems.filter(a => a.done).length}/{meeting.actionItems.length}
           </span>
         )}

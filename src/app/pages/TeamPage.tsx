@@ -1,10 +1,10 @@
-import { 
-  Users, 
-  Mail, 
-  MoreHorizontal, 
-  Plus, 
-  Search, 
-  Briefcase, 
+import {
+  Users,
+  Mail,
+  MoreHorizontal,
+  Plus,
+  Search,
+  Briefcase,
   Shield,
   ArrowRight,
   Palette,
@@ -16,9 +16,11 @@ import {
   UserPlus,
   Clock,
   Loader2,
+  LayoutGrid,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { User, getUserColor, setUserColor, getColorOwner, getMemberColorConfig, MEMBER_COLORS, getAllAssigneeIds } from "../../lib/mockData";
+import { User, Task, getUserColor, setUserColor, getColorOwner, getMemberColorConfig, MEMBER_COLORS, getAllAssigneeIds } from "../../lib/mockData";
 import { useLanguage } from "../context/LanguageContext";
 import { useNavigate } from "react-router";
 import { getRoleInfo, type Role } from "../../lib/permissions";
@@ -27,18 +29,28 @@ import { PermissionGate } from "../components/layout/PermissionGate";
 import { useTaskContext } from "../context/TaskContext";
 import { InviteMemberDialog } from "../components/team/InviteMemberDialog";
 import { useInvite } from "../context/InviteContext";
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { useDrag, useDrop } from "react-dnd";
+import { format, isToday, isTomorrow, startOfWeek, endOfWeek, isWithinInterval } from "date-fns";
+
+const TEAM_TASK_DRAG = "TEAM_TASK_CARD";
+
+interface TeamTaskDragItem {
+  id: string;
+  fromColumnId: string;
+}
 
 export function TeamPage() {
   const { t, language } = useLanguage();
   const ko = language === 'ko';
   const navigate = useNavigate();
   const { members, currentUser } = usePermission();
-  const { tasks } = useTaskContext();
+  const { tasks, updateTask } = useTaskContext();
   const { org, isLoading: orgLoading, joinRequests, pendingCount, approveRequest, rejectRequest } = useInvite();
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"members" | "tasks">("members");
 
   const pendingRequests = joinRequests.filter(r => r.status === 'pending');
 
@@ -100,8 +112,36 @@ export function TeamPage() {
         </div>
       </header>
 
+      {/* ── Tab Bar ─────────────────────────────────────────────── */}
+      <div className="flex items-center gap-1 -mt-2 mb-4 bg-gray-100 rounded-xl p-1 w-fit shrink-0">
+        <button
+          onClick={() => setActiveTab("members")}
+          className={cn(
+            "px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2",
+            activeTab === "members"
+              ? "bg-white text-gray-900 shadow-sm"
+              : "text-gray-500 hover:text-gray-700"
+          )}
+        >
+          <Users size={15} />
+          {ko ? "멤버" : "Members"}
+        </button>
+        <button
+          onClick={() => setActiveTab("tasks")}
+          className={cn(
+            "px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2",
+            activeTab === "tasks"
+              ? "bg-white text-gray-900 shadow-sm"
+              : "text-gray-500 hover:text-gray-700"
+          )}
+        >
+          <LayoutGrid size={15} />
+          {ko ? "업무 현황" : "Task Board"}
+        </button>
+      </div>
+
       {/* ── Pending Join Requests ────────────────────────────────── */}
-      {pendingRequests.length > 0 && (
+      {activeTab === "members" && pendingRequests.length > 0 && (
         <div className="mb-6 bg-amber-50 border border-amber-200 rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-7 h-7 bg-amber-100 rounded-lg flex items-center justify-center">
@@ -156,55 +196,384 @@ export function TeamPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {[...members].sort((a, b) => a.id === currentUser.id ? -1 : b.id === currentUser.id ? 1 : 0).map((member) => (
-          <TeamMemberCard
-            key={member.id}
-            member={member}
-            stats={memberStats[member.id]}
-            onViewTasks={() => navigate(`/team/${member.id}`)}
-            currentUser={currentUser}
-          />
-        ))}
-        
-        {/* Invite / Create Org Card */}
-        {!org && !orgLoading ? (
-          <div
-            onClick={() => navigate("/organization")}
-            className="flex flex-col items-center justify-center p-8 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer group h-full min-h-[280px]"
-          >
-            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <Users size={32} className="text-blue-500" />
-            </div>
-            <h3 className="font-medium text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
-              {ko ? "조직을 먼저 생성하세요" : "Create an Organization First"}
-            </h3>
-            <p className="text-sm text-gray-500 text-center px-4">
-              {ko ? "내 조직 페이지에서 조직을 생성하세요." : "Go to My Organization page to create one."}
-            </p>
+      {activeTab === "members" ? (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {[...members].sort((a, b) => a.id === currentUser.id ? -1 : b.id === currentUser.id ? 1 : 0).map((member) => (
+              <TeamMemberCard
+                key={member.id}
+                member={member}
+                stats={memberStats[member.id]}
+                onViewTasks={() => navigate(`/team/${member.id}`)}
+                currentUser={currentUser}
+              />
+            ))}
+
+            {/* Invite / Create Org Card */}
+            {!org && !orgLoading ? (
+              <div
+                onClick={() => navigate("/organization")}
+                className="flex flex-col items-center justify-center p-8 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer group h-full min-h-[280px]"
+              >
+                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <Users size={32} className="text-blue-500" />
+                </div>
+                <h3 className="font-medium text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
+                  {ko ? "조직을 먼저 생성하세요" : "Create an Organization First"}
+                </h3>
+                <p className="text-sm text-gray-500 text-center px-4">
+                  {ko ? "내 조직 페이지에서 조직을 생성하세요." : "Go to My Organization page to create one."}
+                </p>
+              </div>
+            ) : org ? (
+              <button
+                onClick={() => setIsInviteDialogOpen(true)}
+                className="flex flex-col items-center justify-center p-8 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl hover:border-blue-400 hover:bg-blue-50 transition-all group h-full min-h-[280px]"
+              >
+                <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
+                  <Plus size={32} className="text-gray-400 group-hover:text-blue-500 transition-colors" />
+                </div>
+                <h3 className="font-medium text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
+                  {ko ? "새 멤버 초대하기" : "Invite New Member"}
+                </h3>
+                <p className="text-sm text-gray-500 text-center px-4">
+                  {ko ? "초대 코드를 생성해 팀원을 초대하세요." : "Generate an invite code to add team members."}
+                </p>
+              </button>
+            ) : null}
           </div>
-        ) : org ? (
-          <button
-            onClick={() => setIsInviteDialogOpen(true)}
-            className="flex flex-col items-center justify-center p-8 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl hover:border-blue-400 hover:bg-blue-50 transition-all group h-full min-h-[280px]"
-          >
-            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
-              <Plus size={32} className="text-gray-400 group-hover:text-blue-500 transition-colors" />
-            </div>
-            <h3 className="font-medium text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
-              {ko ? "새 멤버 초대하기" : "Invite New Member"}
-            </h3>
-            <p className="text-sm text-gray-500 text-center px-4">
-              {ko ? "초대 코드를 생성해 팀원을 초대하세요." : "Generate an invite code to add team members."}
-            </p>
-          </button>
-        ) : null}
-      </div>
+        </>
+      ) : (
+        <TeamTaskBoard
+          members={members}
+          currentUser={currentUser}
+          tasks={tasks}
+          updateTask={updateTask}
+          ko={ko}
+          navigate={navigate}
+        />
+      )}
 
       <InviteMemberDialog
-        open={isInviteDialogOpen} 
+        open={isInviteDialogOpen}
         onOpenChange={setIsInviteDialogOpen}
       />
+    </div>
+  );
+}
+
+// ─── Team Task Kanban Board ──────────────────────────────────────────
+function TeamTaskBoard({
+  members,
+  currentUser,
+  tasks,
+  updateTask,
+  ko,
+  navigate,
+}: {
+  members: User[];
+  currentUser: User;
+  tasks: Task[];
+  updateTask: (taskId: string, updates: Partial<Task>) => void;
+  ko: boolean;
+  navigate: (path: string) => void;
+}) {
+  const [dateFilter, setDateFilter] = useState<"all" | "today" | "tomorrow" | "week">("all");
+
+  const roleOrder: Record<string, number> = { owner: 0, admin: 1, member: 2, viewer: 3 };
+  const sortedMembers = useMemo(
+    () => [...members].sort((a, b) => {
+      if (a.id === currentUser.id) return -1;
+      if (b.id === currentUser.id) return 1;
+      return (roleOrder[a.role] ?? 9) - (roleOrder[b.role] ?? 9);
+    }),
+    [members, currentUser.id]
+  );
+
+  // Filter tasks by date
+  const filteredTasks = useMemo(() => {
+    if (dateFilter === "all") return tasks;
+    return tasks.filter((t) => {
+      if (!t.dueDate) return false;
+      const due = new Date(t.dueDate);
+      if (dateFilter === "today") return isToday(due);
+      if (dateFilter === "tomorrow") return isTomorrow(due);
+      if (dateFilter === "week") {
+        const now = new Date();
+        return isWithinInterval(due, { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) });
+      }
+      return true;
+    });
+  }, [tasks, dateFilter]);
+
+  // Group tasks by member
+  const columns = useMemo(() => {
+    const unassigned: Task[] = [];
+    const byMember: Record<string, Task[]> = {};
+    for (const m of sortedMembers) byMember[m.id] = [];
+
+    for (const task of filteredTasks) {
+      const ids = getAllAssigneeIds(task);
+      if (ids.length === 0) {
+        unassigned.push(task);
+      } else {
+        for (const id of ids) {
+          if (byMember[id]) byMember[id].push(task);
+        }
+      }
+    }
+    return { byMember, unassigned };
+  }, [filteredTasks, sortedMembers]);
+
+  const handleDrop = useCallback(
+    (taskId: string, targetMemberId: string | null) => {
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task) return;
+
+      if (targetMemberId === null) {
+        // Move to unassigned
+        updateTask(taskId, { assigneeIds: [], assigneeId: undefined });
+      } else {
+        // Assign to target member
+        const currentIds = getAllAssigneeIds(task);
+        // Remove from all current, add to target
+        const newIds = [targetMemberId];
+        updateTask(taskId, { assigneeIds: newIds, assigneeId: targetMemberId });
+      }
+    },
+    [tasks, updateTask]
+  );
+
+  const dateFilterOptions: { key: typeof dateFilter; label: string; labelKo: string }[] = [
+    { key: "all", label: "All", labelKo: "전체" },
+    { key: "today", label: "Today", labelKo: "오늘" },
+    { key: "tomorrow", label: "Tomorrow", labelKo: "내일" },
+    { key: "week", label: "This Week", labelKo: "이번 주" },
+  ];
+
+  return (
+    <div className="flex-1 min-h-0 w-0 min-w-full">
+      {/* Date filter chips */}
+      <div className="flex items-center gap-1.5 mb-3 px-1">
+        {dateFilterOptions.map((opt) => (
+          <button
+            key={opt.key}
+            onClick={() => setDateFilter(opt.key)}
+            className={cn(
+              "px-3 py-1.5 text-xs font-medium rounded-lg transition-all",
+              dateFilter === opt.key
+                ? "bg-gray-900 text-white shadow-sm"
+                : "bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+            )}
+          >
+            {ko ? opt.labelKo : opt.label}
+          </button>
+        ))}
+        {dateFilter !== "all" && (
+          <span className="text-[11px] text-gray-400 ml-2">
+            {filteredTasks.length} {ko ? "개" : "tasks"}
+          </span>
+        )}
+      </div>
+      <div className="overflow-x-auto h-full pb-4">
+        <div className="inline-flex gap-4 h-full items-start px-1">
+          {/* Unassigned column */}
+          <TaskColumn
+            columnId="__unassigned__"
+            title={ko ? "미배정" : "Unassigned"}
+            avatar={null}
+            memberColor={null}
+            tasks={columns.unassigned}
+            onDrop={(taskId) => handleDrop(taskId, null)}
+            ko={ko}
+            navigate={navigate}
+          />
+
+          {/* Member columns */}
+          {sortedMembers.map((member) => (
+            <TaskColumn
+              key={member.id}
+              columnId={member.id}
+              title={member.name}
+              avatar={member.avatar}
+              memberColor={getUserColor(member.id)}
+              tasks={columns.byMember[member.id] || []}
+              onDrop={(taskId) => handleDrop(taskId, member.id)}
+              ko={ko}
+              navigate={navigate}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Task Column ─────────────────────────────────────────────────────
+function TaskColumn({
+  columnId,
+  title,
+  avatar,
+  memberColor,
+  tasks: columnTasks,
+  onDrop,
+  ko,
+  navigate,
+}: {
+  columnId: string;
+  title: string;
+  avatar: string | null;
+  memberColor: string | null;
+  tasks: Task[];
+  onDrop: (taskId: string) => void;
+  ko: boolean;
+  navigate: (path: string) => void;
+}) {
+  const [{ isOver }, dropRef] = useDrop({
+    accept: TEAM_TASK_DRAG,
+    drop: (item: TeamTaskDragItem) => {
+      if (item.fromColumnId !== columnId) onDrop(item.id);
+    },
+    collect: (monitor) => ({ isOver: monitor.isOver() }),
+  });
+
+  const statusGroups = useMemo(() => {
+    const pending = columnTasks.filter((t) => t.status === "pending");
+    const inProgress = columnTasks.filter((t) => t.status === "in-progress");
+    const completed = columnTasks.filter((t) => t.status === "completed");
+    return { pending, inProgress, completed };
+  }, [columnTasks]);
+
+  return (
+    <div
+      ref={dropRef as any}
+      className={cn(
+        "w-[280px] shrink-0 bg-gray-50 rounded-2xl border transition-colors flex flex-col max-h-[calc(100vh-240px)]",
+        isOver ? "border-blue-400 bg-blue-50/50" : "border-gray-200"
+      )}
+    >
+      {/* Column header */}
+      <div className="p-4 pb-3 shrink-0">
+        <div className="flex items-center gap-2.5">
+          {avatar ? (
+            <img src={avatar} alt={title} className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm" />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+              <Users size={14} className="text-gray-400" />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-bold text-gray-900 truncate">{title}</h3>
+            <p className="text-[11px] text-gray-400">{columnTasks.length} {ko ? "개 업무" : "tasks"}</p>
+          </div>
+          {memberColor && (
+            <span className="w-3 h-3 rounded-full shrink-0 border border-white shadow-sm" style={{ backgroundColor: memberColor }} />
+          )}
+        </div>
+        {/* Mini stats bar */}
+        {columnTasks.length > 0 && (
+          <div className="flex gap-2 mt-2.5 text-[10px] font-medium">
+            <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+              {statusGroups.pending.length} {ko ? "할일" : "todo"}
+            </span>
+            <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+              {statusGroups.inProgress.length} {ko ? "진행" : "active"}
+            </span>
+            <span className="text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+              {statusGroups.completed.length} {ko ? "완료" : "done"}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Task cards */}
+      <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-2">
+        {columnTasks.length === 0 ? (
+          <div className="text-center py-8 text-gray-400">
+            <Briefcase size={24} className="mx-auto mb-2 opacity-40" />
+            <p className="text-xs">{ko ? "업무 없음" : "No tasks"}</p>
+          </div>
+        ) : (
+          columnTasks.map((task) => (
+            <TaskKanbanCard
+              key={task.id}
+              task={task}
+              columnId={columnId}
+              ko={ko}
+              navigate={navigate}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Task Kanban Card ────────────────────────────────────────────────
+function TaskKanbanCard({
+  task,
+  columnId,
+  ko,
+  navigate,
+}: {
+  task: Task;
+  columnId: string;
+  ko: boolean;
+  navigate: (path: string) => void;
+}) {
+  const [{ isDragging }, dragRef] = useDrag({
+    type: TEAM_TASK_DRAG,
+    item: { id: task.id, fromColumnId: columnId } as TeamTaskDragItem,
+    collect: (monitor) => ({ isDragging: monitor.isDragging() }),
+  });
+
+  const statusColor: Record<string, string> = {
+    pending: "bg-amber-400",
+    "in-progress": "bg-blue-500",
+    completed: "bg-emerald-500",
+    delayed: "bg-red-500",
+  };
+
+  const priorityLabel: Record<string, { text: string; color: string }> = {
+    high: { text: ko ? "높음" : "High", color: "text-red-600 bg-red-50" },
+    medium: { text: ko ? "보통" : "Med", color: "text-amber-600 bg-amber-50" },
+    low: { text: ko ? "낮음" : "Low", color: "text-gray-500 bg-gray-100" },
+  };
+
+  return (
+    <div
+      ref={dragRef as any}
+      onClick={() => navigate(`/tasks/${task.id}`)}
+      className={cn(
+        "bg-white rounded-xl border border-gray-100 p-3 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-blue-200 transition-all group",
+        isDragging && "opacity-40 shadow-lg"
+      )}
+    >
+      {/* Status dot + title */}
+      <div className="flex items-start gap-2">
+        <span className={cn("w-2 h-2 rounded-full mt-1.5 shrink-0", statusColor[task.status] || "bg-gray-300")} />
+        <p className="text-sm font-medium text-gray-900 line-clamp-2 flex-1">{task.titleKo || task.title}</p>
+      </div>
+
+      {/* Meta row */}
+      <div className="flex items-center gap-2 mt-2 flex-wrap">
+        {task.priority && priorityLabel[task.priority] && (
+          <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded", priorityLabel[task.priority].color)}>
+            {priorityLabel[task.priority].text}
+          </span>
+        )}
+        {task.dueDate && (
+          <span className="text-[10px] text-gray-400 flex items-center gap-0.5">
+            <CalendarIcon size={9} />
+            {format(new Date(task.dueDate), "M/d")}
+          </span>
+        )}
+        {task.category && (
+          <span className="text-[10px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded truncate max-w-[80px]">
+            {task.category}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

@@ -81,6 +81,12 @@ const QUARTER_LABELS_EN = ["Q1", "Q2", "Q3", "Q4"];
 const MONTH_LABELS_KO = ["1\uC6D4", "2\uC6D4", "3\uC6D4", "4\uC6D4", "5\uC6D4", "6\uC6D4", "7\uC6D4", "8\uC6D4", "9\uC6D4", "10\uC6D4", "11\uC6D4", "12\uC6D4"];
 const MONTH_LABELS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+function getWeekOfYear(d: Date) {
+  const start = new Date(d.getFullYear(), 0, 1);
+  const diff = d.getTime() - start.getTime() + (start.getTimezoneOffset() - d.getTimezoneOffset()) * 60000;
+  return Math.ceil((diff / 86400000 + start.getDay() + 1) / 7);
+}
+
 const uid = () => `goal_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
 // ─── Goal Card Row (unified with management cards) ──────────────
@@ -254,6 +260,11 @@ export function GoalPage() {
     [goals, currentYear]
   );
 
+  const weekGoals = useMemo(
+    () => goals.filter((g) => g.level === "Week" && g.startDate && new Date(g.startDate).getFullYear() === currentYear),
+    [goals, currentYear]
+  );
+
   const usedQuarters = useMemo(() =>
     quarterGoals.map((g) => g.startDate ? Math.floor(new Date(g.startDate).getMonth() / 3) : -1).filter((q) => q >= 0),
     [quarterGoals]
@@ -275,8 +286,19 @@ export function GoalPage() {
     return -1;
   }, [usedMonths]);
 
+  const usedWeeks = useMemo(() =>
+    weekGoals.map((g) => g.startDate ? getWeekOfYear(new Date(g.startDate)) : -1).filter((w) => w >= 0),
+    [weekGoals]
+  );
+
+  const nextWeek = useMemo(() => {
+    const cw = getWeekOfYear(now);
+    for (let i = 0; i < 53; i++) { const w = cw + i; if (w <= 53 && !usedWeeks.includes(w)) return w; }
+    return -1;
+  }, [usedWeeks]);
+
   // ── Add goal state ──
-  const [addGoalLevel, setAddGoalLevel] = useState<"Quarter" | "Month" | null>(null);
+  const [addGoalLevel, setAddGoalLevel] = useState<"Quarter" | "Month" | "Week" | null>(null);
   const [newGoalTitle, setNewGoalTitle] = useState("");
   const addGoalRef = useRef<HTMLInputElement>(null);
 
@@ -287,6 +309,7 @@ export function GoalPage() {
   // ── Collapse state ──
   const [quarterExpanded, setQuarterExpanded] = useState(true);
   const [monthExpanded, setMonthExpanded] = useState(true);
+  const [weekExpanded, setWeekExpanded] = useState(true);
   const [urgentExpanded, setUrgentExpanded] = useState(true);
 
   // ── Urgent mission add state ──
@@ -391,7 +414,7 @@ export function GoalPage() {
     removeGoal(goalId);
   };
 
-  const handleAddGoal = (level: "Quarter" | "Month") => {
+  const handleAddGoal = (level: "Quarter" | "Month" | "Week") => {
     if (!newGoalTitle.trim()) return;
     let startDate: Date;
     let endDate: Date;
@@ -400,10 +423,18 @@ export function GoalPage() {
       const qMonth = nextQuarter * 3;
       startDate = new Date(currentYear, qMonth, 1);
       endDate = new Date(currentYear, qMonth + 3, 0);
-    } else {
+    } else if (level === "Month") {
       if (nextMonth < 0) return;
       startDate = new Date(currentYear, nextMonth, 1);
       endDate = new Date(currentYear, nextMonth + 1, 0);
+    } else {
+      if (nextWeek < 0) return;
+      // Calculate start of the target week (Monday)
+      const jan1 = new Date(currentYear, 0, 1);
+      const dayOffset = (nextWeek - 1) * 7 - jan1.getDay() + 1;
+      startDate = new Date(currentYear, 0, 1 + dayOffset);
+      endDate = new Date(startDate);
+      endDate.setDate(startDate.getDate() + 6);
     }
     const newGoal: GoalItem = {
       id: uid(),
@@ -430,6 +461,12 @@ export function GoalPage() {
     if (!goal.startDate) return "";
     const m = new Date(goal.startDate).getMonth();
     return ko ? MONTH_LABELS_KO[m] : MONTH_LABELS_EN[m];
+  };
+
+  const getWeekLabel = (goal: GoalItem) => {
+    if (!goal.startDate) return "";
+    const w = getWeekOfYear(new Date(goal.startDate));
+    return ko ? `${w}주차` : `W${w}`;
   };
 
   // ── Urgent mission handlers ──
@@ -552,93 +589,64 @@ export function GoalPage() {
   return (
     <div className="pb-12 flex gap-6">
     <div className="flex-1 min-w-0 max-w-4xl space-y-6">
-      {/* Organization Info Card */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="h-24 bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-600 relative">
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2240%22%20height%3D%2240%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Cpath%20d%3D%22M0%2020h40M20%200v40%22%20stroke%3D%22rgba(255%2C255%2C255%2C0.05)%22%20fill%3D%22none%22/%3E%3C/svg%3E')] opacity-50" />
-          <div className="absolute top-3 right-3" ref={settingsMenuRef}>
-            <button
-              onClick={() => setShowSettingsMenu(v => !v)}
-              className="p-2 rounded-xl bg-white/20 hover:bg-white/30 text-white transition-colors backdrop-blur-sm"
-            >
-              <Settings size={16} />
-            </button>
-            {showSettingsMenu && (
-              <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
-                <button
-                  onClick={() => { navigate("/organization/info"); setShowSettingsMenu(false); }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  <Building2 size={15} className="text-gray-400" />
-                  {ko ? "조직 정보" : "Organization Info"}
-                </button>
-                <button
-                  onClick={() => { navigate("/organization/vision"); setShowSettingsMenu(false); }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  <Edit3 size={15} className="text-gray-400" />
-                  {ko ? "비전 편집" : "Edit Vision"}
-                </button>
-                <button
-                  onClick={() => { navigate("/organization/setup"); setShowSettingsMenu(false); }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  <Target size={15} className="text-gray-400" />
-                  {ko ? "목표 설정 위자드" : "Goal Setup Wizard"}
-                </button>
-                <div className="border-t border-gray-100 my-1" />
-                <button
-                  onClick={() => { navigate("/strategy/new"); setShowSettingsMenu(false); }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  <Sparkles size={15} className="text-purple-400" />
-                  AI {ko ? "전략 생성" : "Strategy"}
-                </button>
-              </div>
-            )}
-          </div>
+      {/* Organization Info Bar */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4 flex items-center gap-4">
+        <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-gray-100">
+          {org.logoUrl ? (
+            <img src={org.logoUrl} alt="logo" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
+              <Building2 size={18} className="text-blue-600" />
+            </div>
+          )}
         </div>
-
-        <div className="px-6 -mt-8 relative z-[1]">
-          <div className="w-16 h-16 rounded-2xl border-4 border-white shadow-lg overflow-hidden">
-            {org.logoUrl ? (
-              <img src={org.logoUrl} alt="logo" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
-                <Building2 size={28} className="text-blue-600" />
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="px-6 pt-3 pb-6">
-          <div className="flex items-center justify-between mb-1">
-            <h1 className="text-xl font-bold text-gray-900">{org.name}</h1>
-            <PermissionGate permission="strategy.create">
-              <button
-                onClick={() => navigate("/strategy/new")}
-                className="flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl text-xs font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-md shadow-blue-200"
-              >
-                <Sparkles size={14} />
-                AI {ko ? '\uC804\uB7B5 \uC0DD\uC131' : 'Strategy'}
-              </button>
-            </PermissionGate>
-          </div>
-
-          <div className="flex items-center gap-4 text-sm text-gray-500">
-            <span className="flex items-center gap-1.5">
-              <Users size={14} />
-              {ko
-                ? `\uBA64\uBC84 ${members.length}\uBA85`
-                : `${members.length} member${members.length !== 1 ? "s" : ""}`}
+        <div className="flex-1 min-w-0">
+          <h1 className="text-base font-bold text-gray-900 truncate">{org.name}</h1>
+          <div className="flex items-center gap-3 text-xs text-gray-400">
+            <span className="flex items-center gap-1">
+              <Users size={12} />
+              {ko ? `${members.length}명` : `${members.length}`}
             </span>
             {createdDate && (
-              <span className="flex items-center gap-1.5">
-                <Calendar size={14} />
+              <span className="flex items-center gap-1">
+                <Calendar size={12} />
                 {createdDate}
               </span>
             )}
           </div>
+        </div>
+        <div className="relative shrink-0" ref={settingsMenuRef}>
+          <button
+            onClick={() => setShowSettingsMenu(v => !v)}
+            className="p-2 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          >
+            <Settings size={16} />
+          </button>
+          {showSettingsMenu && (
+            <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+              <button
+                onClick={() => { navigate("/organization/info"); setShowSettingsMenu(false); }}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <Building2 size={15} className="text-gray-400" />
+                {ko ? "조직 정보" : "Organization Info"}
+              </button>
+              <button
+                onClick={() => { navigate("/organization/vision"); setShowSettingsMenu(false); }}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <Edit3 size={15} className="text-gray-400" />
+                {ko ? "비전 편집" : "Edit Vision"}
+              </button>
+              <button
+                onClick={() => { navigate("/organization/setup"); setShowSettingsMenu(false); }}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <Target size={15} className="text-gray-400" />
+                {ko ? "목표 설정 위자드" : "Goal Setup Wizard"}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -741,12 +749,21 @@ export function GoalPage() {
                   {/* Category goals with checkboxes */}
                   {categoryGoals.length > 0 && (
                     <div className="mt-5 pt-5 border-t border-gray-100">
-                      <p className="text-xs text-gray-400 font-medium mb-3">
-                        {ko ? "\uC138\uBD80 \uD56D\uBAA9" : "Categories"}{" "}
-                        <span className="text-gray-300">
-                          ({categoryGoals.filter((g) => g.status === "completed").length}/{categoryGoals.length})
-                        </span>
-                      </p>
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-xs text-gray-400 font-medium">
+                          {ko ? "핵심 목표" : "Key Objectives"}{" "}
+                          <span className="text-gray-300">
+                            ({categoryGoals.filter((g) => g.status === "completed").length}/{categoryGoals.length})
+                          </span>
+                        </p>
+                        <button
+                          onClick={() => navigate("/organization/setup")}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg text-[11px] font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-sm"
+                        >
+                          <Sparkles size={12} />
+                          {ko ? '목표설정 도우미' : 'Goal Setup'}
+                        </button>
+                      </div>
                       <div className="space-y-1">
                         {categoryGoals.map((g) => {
                           const title = ko ? (g.titleKo || g.title) : g.title;
@@ -816,7 +833,7 @@ export function GoalPage() {
                         <div className="border border-gray-200 rounded-xl p-3 space-y-2">
                           <div className="flex items-center justify-between mb-1">
                             <p className="text-xs font-semibold text-gray-500">
-                              {ko ? "\uD56D\uBAA9 \uCD94\uAC00" : "Add Category"}
+                              {ko ? "핵심 목표 추가" : "Add Objective"}
                             </p>
                             <button
                               onClick={() => { setShowCategoryAdd(false); setAddingCatKey(null); setAddCatValue(""); setCustomLabel(""); }}
@@ -940,7 +957,7 @@ export function GoalPage() {
                           className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 hover:border-blue-300 hover:text-blue-500 hover:bg-blue-50/30 transition-all text-xs font-medium"
                         >
                           <Plus size={14} />
-                          {ko ? "\uD56D\uBAA9 \uCD94\uAC00" : "Add Category"}
+                          {ko ? "핵심 목표 추가" : "Add Objective"}
                         </button>
                       )}
                     </div>
@@ -1127,6 +1144,91 @@ export function GoalPage() {
                         >
                           <Plus size={14} />
                           {ko ? `${MONTH_LABELS_KO[nextMonth]} \uBAA9\uD45C \uCD94\uAC00` : `Add ${MONTH_LABELS_EN[nextMonth]} Goal`}
+                        </button>
+                      )
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* ═══ Week Goals ═══ */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <button
+                  onClick={() => setWeekExpanded(!weekExpanded)}
+                  className="w-full px-6 py-4 border-b border-gray-100 flex items-center justify-between hover:bg-gray-50/50 transition-colors"
+                >
+                  <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                    <Calendar size={16} className="text-sky-500" />
+                    {ko ? "주간 목표" : "Weekly Goals"}
+                    <span className="text-xs font-normal text-gray-400">({weekGoals.length})</span>
+                  </h3>
+                  {weekExpanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+                </button>
+
+                {weekExpanded && (
+                  <div className="px-6 py-4 space-y-2">
+                    {weekGoals.length > 0 ? (
+                      weekGoals.map((g) => (
+                        <GoalCardRow
+                          key={g.id}
+                          goal={g}
+                          badge={getWeekLabel(g)}
+                          badgeColor="bg-sky-50 text-sky-700 border-sky-200"
+                          ko={ko}
+                          canEdit={canEdit}
+                          onDelete={() => removeGoal(g.id)}
+                        />
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-300 text-center py-3">
+                        {ko ? "주간 목표를 추가해보세요" : "Add a weekly goal"}
+                      </p>
+                    )}
+
+                    {/* Add week goal */}
+                    {canEdit && nextWeek >= 0 && (
+                      addGoalLevel === "Week" ? (
+                        <div className="bg-white rounded-xl border-2 border-sky-200 p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200">
+                              {ko ? `${nextWeek}주차` : `W${nextWeek}`}
+                            </span>
+                          </div>
+                          <input
+                            ref={addGoalRef}
+                            value={newGoalTitle}
+                            onChange={(e) => setNewGoalTitle(e.target.value)}
+                            placeholder={ko ? "목표를 입력하세요..." : "Type a goal..."}
+                            className="w-full text-sm font-medium text-gray-900 placeholder-gray-300 outline-none bg-transparent mb-2"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && newGoalTitle.trim()) handleAddGoal("Week");
+                              if (e.key === "Escape") { setNewGoalTitle(""); setAddGoalLevel(null); }
+                            }}
+                          />
+                          <div className="flex justify-end gap-1.5">
+                            <button onClick={() => { setNewGoalTitle(""); setAddGoalLevel(null); }} className="px-2.5 py-1.5 text-[11px] font-medium text-gray-500 hover:bg-gray-100 rounded-lg">
+                              {ko ? "취소" : "Cancel"}
+                            </button>
+                            <button
+                              onClick={() => handleAddGoal("Week")}
+                              disabled={!newGoalTitle.trim()}
+                              className={cn(
+                                "flex items-center gap-1 px-3 py-1.5 text-[11px] font-semibold rounded-lg",
+                                newGoalTitle.trim() ? "bg-sky-500 text-white hover:bg-sky-600" : "bg-gray-100 text-gray-300 cursor-not-allowed"
+                              )}
+                            >
+                              <Check size={12} />
+                              {ko ? "추가" : "Add"}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => { setAddGoalLevel("Week"); setNewGoalTitle(""); }}
+                          className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 hover:border-sky-300 hover:text-sky-500 hover:bg-sky-50/30 transition-all text-xs font-medium"
+                        >
+                          <Plus size={14} />
+                          {ko ? `${nextWeek}주차 목표 추가` : `Add W${nextWeek} Goal`}
                         </button>
                       )
                     )}

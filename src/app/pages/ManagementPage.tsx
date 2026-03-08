@@ -111,6 +111,7 @@ export interface KanbanCard {
   color?: string;
   platform?: string;
   thumbnailUrl?: string;
+  logoUrl?: string;
   priority?: "high" | "medium" | "low";
   dueDate?: string;
   order: number;
@@ -118,9 +119,9 @@ export interface KanbanCard {
 }
 
 // ─── Platform Presets for Branding ─────────────────────────────
-const BRAND_PLATFORMS = [
+export const BRAND_PLATFORMS = [
   { id: "instagram", label: "Instagram", icon: "https://cdn.simpleicons.org/instagram/E4405F" },
-  { id: "naver_blog", label: "네이버 블로그", icon: "https://cdn.simpleicons.org/naver/03C75A" },
+  { id: "naver_blog", label: "네이버 블로그", icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M52 30 C25 30 8 50 8 78 L8 350 C8 378 25 398 52 398 L210 398 256 470 302 398 460 398 C487 398 504 378 504 350 L504 78 C504 50 487 30 460 30Z' fill='%2303C75A'/%3E%3Ctext x='256' y='280' text-anchor='middle' font-family='Arial,Helvetica,sans-serif' font-size='210' font-weight='bold' fill='white'%3Eblog%3C/text%3E%3C/svg%3E" },
   { id: "youtube", label: "YouTube", icon: "https://cdn.simpleicons.org/youtube/FF0000" },
   { id: "tiktok", label: "TikTok", icon: "https://cdn.simpleicons.org/tiktok/000000" },
   { id: "threads", label: "Threads", icon: "https://cdn.simpleicons.org/threads/000000" },
@@ -131,14 +132,14 @@ const BRAND_PLATFORMS = [
   { id: "kakao", label: "카카오", icon: "https://cdn.simpleicons.org/kakaotalk/FAE100" },
   { id: "naver_post", label: "네이버 포스트", icon: "https://cdn.simpleicons.org/naver/03C75A" },
   { id: "tistory", label: "Tistory", icon: "https://cdn.simpleicons.org/tistory/EB531F" },
-  { id: "brunch", label: "Brunch", icon: "https://cdn.simpleicons.org/brunch/000000" },
+  { id: "brunch", label: "브런치스토리", icon: "https://t1.kakaocdn.net/brunch/static/img/icon/logo_bi_brunch.svg" },
   { id: "medium", label: "Medium", icon: "https://cdn.simpleicons.org/medium/000000" },
   { id: "substack", label: "Substack", icon: "https://cdn.simpleicons.org/substack/FF6719" },
   { id: "velog", label: "Velog", icon: "https://cdn.simpleicons.org/velog/20C997" },
   { id: "other", label: "기타", icon: "" },
 ] as const;
 
-function getPlatformInfo(id?: string) {
+export function getPlatformInfo(id?: string) {
   if (!id) return null;
   return BRAND_PLATFORMS.find(p => p.id === id) || null;
 }
@@ -243,28 +244,34 @@ export function saveCards(board: BoardType, cards: KanbanCard[]) {
 const CARD_DRAG = "MGMT_CARD";
 const COL_DRAG = "MGMT_COL";
 
-interface CardDragItem { id: string; columnId: string; index: number; }
+interface CardDragItem { id: string; ids: string[]; columnId: string; index: number; }
 interface ColDragItem { id: string; index: number; }
 
 // ─── Card Component (TaskCard style) ────────────────────────────
 function MgmtCard({
   card, index, columnId, ko, board,
   onDelete, onMove, compact,
+  isSelected, selectedIds, onContextMenu,
 }: {
   card: KanbanCard; index: number; columnId: string; ko: boolean; board: BoardType;
   onDelete: (id: string) => void;
   onMove: (dragId: string, targetColId: string, targetIndex: number) => void;
   compact?: boolean;
+  isSelected?: boolean;
+  selectedIds?: Set<string>;
+  onContextMenu?: (e: React.MouseEvent, id: string) => void;
 }) {
   const navigate = useNavigate();
   const ref = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
+  const dragIds = isSelected && selectedIds ? Array.from(selectedIds) : [card.id];
+
   const [{ isDragging }, drag] = useDrag<CardDragItem, void, { isDragging: boolean }>({
     type: CARD_DRAG,
-    item: { id: card.id, columnId, index },
+    item: { id: card.id, ids: dragIds, columnId, index },
     collect: (monitor) => ({ isDragging: monitor.isDragging() }),
-  });
+  }, [card.id, columnId, index, dragIds]);
 
   const [, drop] = useDrop<CardDragItem>({
     accept: CARD_DRAG,
@@ -285,31 +292,39 @@ function MgmtCard({
   return (
     <div
       ref={ref}
+      data-mgmt-card
+      data-card-id={card.id}
       onClick={() => navigate(detailPath)}
+      onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, card.id); }}
       className={cn(
         "bg-white rounded-xl border shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group relative",
         compact ? "px-3 py-2.5" : "p-4",
         isDragging
           ? "opacity-40 border-blue-300 shadow-lg scale-[0.97] ring-2 ring-blue-200"
-          : "border-gray-100"
+          : isSelected
+            ? "border-blue-400 ring-2 ring-blue-200 bg-blue-50/30"
+            : "border-gray-100"
       )}
     >
+      {/* Multi-drag badge */}
+      {isDragging && dragIds.length > 1 && (
+        <div className="absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center shadow-lg ring-2 ring-white">
+          {dragIds.length}
+        </div>
+      )}
       {compact ? (
-        /* ── Compact: platform icon + title + date ── */
+        /* ── Compact: logo/platform icon + title + date ── */
         <div className="min-w-0">
           <div className="flex items-center gap-2 min-w-0">
+            {board === "projects" && card.logoUrl && (
+              <img src={card.logoUrl} alt="" className="w-4 h-4 rounded shrink-0 object-cover" />
+            )}
             {board === "branding" && (() => {
               const pf = getPlatformInfo(card.platform);
               if (pf?.icon) return <img src={pf.icon} alt={pf.label} className="w-4 h-4 rounded shrink-0 object-contain" />;
               if (card.thumbnailUrl) return <img src={card.thumbnailUrl} alt="" className="w-4 h-4 rounded shrink-0 object-cover" />;
               return null;
             })()}
-            {card.priority && card.priority !== "low" && (
-              <span className={cn(
-                "w-2 h-2 rounded-full shrink-0",
-                card.priority === "high" ? "bg-red-400" : "bg-amber-400"
-              )} />
-            )}
             <h4 className="font-medium text-sm text-gray-900 truncate flex-1 leading-snug">
               {card.title || (ko ? "제목 없음" : "Untitled")}
             </h4>
@@ -325,18 +340,7 @@ function MgmtCard({
         /* ── Detailed: full info ── */
         <>
           <div className="flex items-start gap-2 mb-2">
-            <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
-              {card.priority && (
-                <span className={cn(
-                  "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
-                  card.priority === 'high' ? "bg-red-50 text-red-600 border border-red-100" :
-                  card.priority === 'medium' ? "bg-amber-50 text-amber-600 border border-amber-100" :
-                  "bg-blue-50 text-blue-600 border border-blue-100"
-                )}>
-                  {card.priority}
-                </span>
-              )}
-            </div>
+            <div className="flex-1 min-w-0" />
             <div className="relative shrink-0">
               <button
                 onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
@@ -365,6 +369,9 @@ function MgmtCard({
           </div>
 
           <div className="flex items-center gap-2 mb-1">
+            {board === "projects" && card.logoUrl && (
+              <img src={card.logoUrl} alt="" className="w-5 h-5 rounded shrink-0 object-cover" />
+            )}
             {board === "branding" && (() => {
               const pf = getPlatformInfo(card.platform);
               if (pf?.icon) return <img src={pf.icon} alt={pf.label} className="w-5 h-5 rounded shrink-0 object-contain" />;
@@ -404,13 +411,15 @@ function MgmtColumn({
   column, cards, index, ko, board,
   onAddCard, onDeleteCard, onMoveCard,
   onRenameColumn, onDeleteColumn, onMoveColumn,
-  compact,
+  compact, selectedIds, onContextMenu,
 }: {
   column: KanbanColumn; cards: KanbanCard[]; index: number; ko: boolean; board: BoardType;
   onAddCard: (columnId: string, title: string, platform?: string, thumbnailUrl?: string) => void;
   onDeleteCard: (id: string) => void;
   onMoveCard: (dragId: string, targetColId: string, targetIndex: number) => void;
   compact?: boolean;
+  selectedIds?: Set<string>;
+  onContextMenu?: (e: React.MouseEvent, id: string) => void;
   onRenameColumn: (id: string, name: string) => void;
   onDeleteColumn: (id: string) => void;
   onMoveColumn: (fromIndex: number, toIndex: number) => void;
@@ -469,12 +478,17 @@ function MgmtColumn({
     },
   });
 
-  // Drop zone for cards
+  // Drop zone for cards (handles multi-drag)
   const [{ isOver, canDrop }, cardDrop] = useDrop<CardDragItem, void, { isOver: boolean; canDrop: boolean }>({
     accept: CARD_DRAG,
     canDrop: (item) => item.columnId !== column.id || item.index !== cards.length,
     drop(item) {
-      onMoveCard(item.id, column.id, cards.length);
+      // Move all selected cards if multi-drag
+      if (item.ids && item.ids.length > 1) {
+        item.ids.forEach((id, i) => onMoveCard(id, column.id, cards.length + i));
+      } else {
+        onMoveCard(item.id, column.id, cards.length);
+      }
     },
     collect: (m) => ({ isOver: m.isOver(), canDrop: m.canDrop() }),
   });
@@ -544,53 +558,6 @@ function MgmtColumn({
       >
         {isAdding && (
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            {/* Platform selector (branding only) */}
-            {board === "branding" && (
-              <div className="px-3 pt-3 pb-2">
-                <p className="text-[10px] font-semibold text-gray-400 mb-2">{ko ? "플랫폼" : "Platform"}</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {BRAND_PLATFORMS.map(p => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => {
-                        setSelectedPlatform(selectedPlatform === p.id ? null : p.id);
-                        if (p.id !== "other") setCustomThumb(null);
-                      }}
-                      className={cn(
-                        "flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium border transition-all",
-                        selectedPlatform === p.id
-                          ? "border-blue-300 bg-blue-50 text-blue-700"
-                          : "border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300"
-                      )}
-                    >
-                      {p.icon ? (
-                        <img src={p.icon} alt={p.label} className="w-3.5 h-3.5 object-contain" />
-                      ) : (
-                        <ImageIcon size={12} className="text-gray-400" />
-                      )}
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-                {selectedPlatform === "other" && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <input ref={thumbInputRef} type="file" accept="image/*" className="hidden" onChange={handleCustomThumbUpload} />
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => thumbInputRef.current?.click()}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] text-gray-500 border border-dashed border-gray-300 rounded-lg hover:border-blue-300 hover:text-blue-600 transition-colors"
-                    >
-                      <ImageIcon size={12} />
-                      {customThumb ? (ko ? "이미지 변경" : "Change") : (ko ? "아이콘 업로드" : "Upload icon")}
-                    </button>
-                    {customThumb && <img src={customThumb} alt="" className="w-6 h-6 rounded object-cover border border-gray-200" />}
-                  </div>
-                )}
-              </div>
-            )}
             <input
               ref={inputRef}
               value={newTitle}
@@ -633,6 +600,9 @@ function MgmtColumn({
             onDelete={onDeleteCard}
             onMove={onMoveCard}
             compact={compact}
+            isSelected={selectedIds?.has(card.id)}
+            selectedIds={selectedIds}
+            onContextMenu={onContextMenu}
           />
         ))}
 
@@ -650,18 +620,26 @@ function MgmtColumn({
 // ─── List Row Component ──────────────────────────────────────────
 function MgmtListRow({
   card, columnName, ko, board,
-  onDelete,
+  onDelete, isSelected, onContextMenu,
 }: {
   card: KanbanCard; columnName: string; ko: boolean; board: BoardType;
   onDelete: (id: string) => void;
+  isSelected?: boolean;
+  onContextMenu?: (e: React.MouseEvent, id: string) => void;
 }) {
   const navigate = useNavigate();
   const detailPath = board === "projects" ? `/projects/${card.id}` : `/branding/${card.id}`;
 
   return (
     <div
+      data-mgmt-card
+      data-card-id={card.id}
       onClick={() => navigate(detailPath)}
-      className="flex items-center gap-3 px-4 py-3 bg-white border border-gray-100 rounded-xl hover:shadow-md hover:border-gray-200 transition-all cursor-pointer group"
+      onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, card.id); }}
+      className={cn(
+        "flex items-center gap-3 px-4 py-3 bg-white border rounded-xl hover:shadow-md hover:border-gray-200 transition-all cursor-pointer group",
+        isSelected ? "border-blue-400 ring-2 ring-blue-200 bg-blue-50/30" : "border-gray-100"
+      )}
     >
       {/* Priority dot (list view) */}
 
@@ -681,18 +659,6 @@ function MgmtListRow({
       <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-500 shrink-0 hidden sm:block">
         {columnName}
       </span>
-
-      {/* Priority */}
-      {card.priority && (
-        <span className={cn(
-          "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase shrink-0",
-          card.priority === "high" ? "bg-red-50 text-red-600" :
-          card.priority === "medium" ? "bg-amber-50 text-amber-600" :
-          "bg-blue-50 text-blue-600"
-        )}>
-          {card.priority}
-        </span>
-      )}
 
       {/* Date */}
       {(card.dueDate || card.createdAt) && (
@@ -747,6 +713,92 @@ export function ManagementPage() {
     try { localStorage.setItem(MGMT_CARD_STYLE_KEY, style); } catch {};
   };
   const newColRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
+
+  // ── Multi-select & rubber band ──
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const boardRef = useRef<HTMLDivElement>(null);
+  const rubberBandRef = useRef<HTMLDivElement>(null);
+  const startRef = useRef<{ x: number; y: number } | null>(null);
+  const didDragRef = useRef(false);
+  const currentSelRef = useRef<Set<string>>(new Set());
+  const onBulkSelectRef = useRef(setSelectedIds);
+  onBulkSelectRef.current = setSelectedIds;
+
+  const handleBoardMouseDown = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-mgmt-card]') || target.closest('button') || target.closest('input') || target.closest('a')) return;
+    if (e.button !== 0) return;
+    e.preventDefault();
+    startRef.current = { x: e.clientX, y: e.clientY };
+    didDragRef.current = false;
+  }, []);
+
+  useEffect(() => {
+    function setsEqual(a: Set<string>, b: Set<string>) {
+      if (a.size !== b.size) return false;
+      for (const x of a) if (!b.has(x)) return false;
+      return true;
+    }
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!startRef.current) return;
+      const dx = e.clientX - startRef.current.x;
+      const dy = e.clientY - startRef.current.y;
+      if (!didDragRef.current && Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+      didDragRef.current = true;
+      if (boardRef.current) boardRef.current.classList.add('select-none');
+      const x1 = startRef.current.x, y1 = startRef.current.y;
+      const x2 = e.clientX, y2 = e.clientY;
+      const left = Math.min(x1, x2), top = Math.min(y1, y2);
+      const right = Math.max(x1, x2), bottom = Math.max(y1, y2);
+      if (rubberBandRef.current) {
+        const el = rubberBandRef.current;
+        el.style.display = 'block';
+        el.style.left = `${left}px`;
+        el.style.top = `${top}px`;
+        el.style.width = `${right - left}px`;
+        el.style.height = `${bottom - top}px`;
+      }
+      if (!boardRef.current) return;
+      const cardEls = boardRef.current.querySelectorAll('[data-mgmt-card]');
+      const ids = new Set<string>();
+      cardEls.forEach(card => {
+        const r = card.getBoundingClientRect();
+        if (r.left < right && r.right > left && r.top < bottom && r.bottom > top) {
+          const id = card.getAttribute('data-card-id');
+          if (id) ids.add(id);
+        }
+      });
+      if (!setsEqual(currentSelRef.current, ids)) {
+        currentSelRef.current = ids;
+        onBulkSelectRef.current(ids);
+      }
+    };
+    const handleMouseUp = () => {
+      if (startRef.current && !didDragRef.current) {
+        onBulkSelectRef.current(new Set());
+        currentSelRef.current = new Set();
+      }
+      startRef.current = null;
+      didDragRef.current = false;
+      if (rubberBandRef.current) rubberBandRef.current.style.display = 'none';
+      if (boardRef.current) boardRef.current.classList.remove('select-none');
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  // ── Context menu ──
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; id: string } | null>(null);
+  const handleCardContextMenu = useCallback((e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    setCtxMenu({ x: e.clientX, y: e.clientY, id });
+  }, []);
+  const closeCtxMenu = useCallback(() => setCtxMenu(null), []);
 
   // Reload data when board changes
   useEffect(() => {
@@ -754,6 +806,27 @@ export function ManagementPage() {
     setCards(loadCards(board));
     setSearchQuery("");
     setAddingColumn(false);
+    setSelectedIds(new Set());
+    setCtxMenu(null);
+  }, [board]);
+
+  // Sync project logoUrls from Project data to kanban cards
+  useEffect(() => {
+    if (board !== "projects") return;
+    const projects = loadProjects();
+    const currentCards = loadCards("projects");
+    let changed = false;
+    currentCards.forEach(card => {
+      const proj = projects.find(p => p.id === card.id);
+      if (proj && proj.logoUrl !== card.logoUrl) {
+        card.logoUrl = proj.logoUrl || undefined;
+        changed = true;
+      }
+    });
+    if (changed) {
+      saveCards("projects", currentCards);
+      setCards([...currentCards]);
+    }
   }, [board]);
 
   useEffect(() => { if (addingColumn && newColRef.current) newColRef.current.focus(); }, [addingColumn]);
@@ -844,7 +917,7 @@ export function ManagementPage() {
   }, [cards, searchQuery]);
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col min-w-0 overflow-hidden">
       {/* Header */}
       <header className="mb-4 shrink-0 space-y-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
@@ -934,10 +1007,55 @@ export function ManagementPage() {
         </div>
       </header>
 
+      {/* Rubber band */}
+      <div
+        ref={rubberBandRef}
+        className="fixed border-2 border-blue-400/50 bg-blue-400/10 rounded-lg pointer-events-none z-50"
+        style={{ display: 'none' }}
+      />
+
+      {/* Context menu */}
+      {ctxMenu && (
+        <>
+          <div className="fixed inset-0 z-[70]" onClick={closeCtxMenu} onContextMenu={(e) => { e.preventDefault(); closeCtxMenu(); }} />
+          <div
+            className="fixed z-[71] bg-white border border-gray-200 rounded-xl shadow-xl py-1 min-w-[140px] animate-in fade-in zoom-in-95 duration-100"
+            style={{ left: ctxMenu.x, top: ctxMenu.y }}
+          >
+            <button
+              onClick={() => {
+                const detailPath = board === "projects" ? `/projects/${ctxMenu.id}` : `/branding/${ctxMenu.id}`;
+                navigate(detailPath);
+                closeCtxMenu();
+              }}
+              className="w-full px-3 py-2 text-xs text-left text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+            >
+              <Edit3 size={13} /> {ko ? "수정" : "Edit"}
+            </button>
+            <div className="mx-2 my-0.5 border-t border-gray-100" />
+            <button
+              onClick={() => {
+                if (selectedIds.has(ctxMenu.id) && selectedIds.size > 1) {
+                  if (!confirm(ko ? `${selectedIds.size}개 카드를 삭제하시겠습니까?` : `Delete ${selectedIds.size} cards?`)) { closeCtxMenu(); return; }
+                  persistCards(cards.filter(c => !selectedIds.has(c.id)));
+                  setSelectedIds(new Set());
+                } else {
+                  handleDeleteCard(ctxMenu.id);
+                }
+                closeCtxMenu();
+              }}
+              className="w-full px-3 py-2 text-xs text-left text-red-500 hover:bg-red-50 flex items-center gap-2 transition-colors"
+            >
+              <Trash2 size={13} /> {ko ? (selectedIds.has(ctxMenu.id) && selectedIds.size > 1 ? `${selectedIds.size}개 삭제` : "삭제") : (selectedIds.has(ctxMenu.id) && selectedIds.size > 1 ? `Delete ${selectedIds.size}` : "Delete")}
+            </button>
+          </div>
+        </>
+      )}
+
       {/* Kanban Board */}
       {viewMode === "kanban" ? (
-        <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4 min-h-0">
-          <div className="inline-flex gap-4 h-full items-stretch min-w-full">
+        <div ref={boardRef} onMouseDown={handleBoardMouseDown} className="flex-1 overflow-x-auto overflow-y-hidden pb-4 min-h-0 w-0 min-w-full">
+          <div className="inline-flex gap-4 h-full items-stretch">
             {sortedColumns.map((col, i) => {
               const colCards = filteredCards
                 .filter(c => c.columnId === col.id)
@@ -957,6 +1075,8 @@ export function ManagementPage() {
                   onDeleteColumn={handleDeleteColumn}
                   onMoveColumn={handleMoveColumn}
                   compact={cardStyle === "compact"}
+                  selectedIds={selectedIds}
+                  onContextMenu={handleCardContextMenu}
                 />
               );
             })}
@@ -1019,6 +1139,8 @@ export function ManagementPage() {
                       ko={ko}
                       board={board}
                       onDelete={handleDeleteCard}
+                      isSelected={selectedIds.has(card.id)}
+                      onContextMenu={handleCardContextMenu}
                     />
                   ))}
                   {colCards.length === 0 && (

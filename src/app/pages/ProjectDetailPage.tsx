@@ -18,7 +18,7 @@ import { PropertyItem } from "../components/detail/PropertyItem";
 import { AIStrategyPanel } from "../components/AIStrategyPanel";
 import {
   Project, PROJECT_STATUS_CONFIG, PROJECT_COLORS, PROJECT_CATEGORY_CONFIG,
-  loadProjects, saveProjects, loadCards, loadColumns,
+  loadProjects, saveProjects, loadCards, saveCards, loadColumns,
 } from "./ManagementPage";
 
 // ─── Member Picker (same style as task detail) ─────────────────────
@@ -184,6 +184,15 @@ export function ProjectDetailPage() {
         saveProjects(next);
         return next;
       });
+      // Sync logoUrl to kanban card
+      if (updates.logoUrl !== undefined) {
+        const allCards = loadCards("projects");
+        const card = allCards.find(c => c.id === currentId);
+        if (card) {
+          card.logoUrl = updates.logoUrl || undefined;
+          saveCards("projects", allCards);
+        }
+      }
     },
     [currentId]
   );

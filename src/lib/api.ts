@@ -184,10 +184,14 @@ export const api = {
     const data = await request<any[]>('/meetings');
     return data.map(parseItemDates);
   },
+  getMeetingById: async (id: string) => {
+    const data = await request<any>(`/meetings/${id}`);
+    return data ? parseItemDates(data) : null;
+  },
   createMeeting: (meeting: any) =>
     request<any>('/meetings', { method: 'POST', body: JSON.stringify(meeting) }),
   updateMeeting: (id: string, data: any) =>
-    request<any>(`/meetings/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    request<any>(`/meetings/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteMeeting: (id: string) =>
     request<any>(`/meetings/${id}`, { method: 'DELETE' }),
 

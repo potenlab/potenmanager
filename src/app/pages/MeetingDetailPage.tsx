@@ -313,12 +313,26 @@ export function MeetingDetailPage() {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const ko = language === 'ko';
-  const { getMeeting, addMeeting, updateMeeting, removeMeeting, isLoading } = useMeetingContext();
+  const { getMeeting, addMeeting, updateMeeting, removeMeeting, fetchMeetingById, isLoading } = useMeetingContext();
   const { members, currentUser } = useTeam();
   const { addTask } = useTaskContext();
   const { moveToTrash } = useTrash();
   const { can } = usePermission();
   const createdRef = useRef(false);
+  const [fetchingFromServer, setFetchingFromServer] = useState(false);
+  const fetchAttemptedRef = useRef(false);
+
+  // Fallback: fetch meeting from server if not found locally after context loaded
+  useEffect(() => {
+    if (isLoading || !meetingId || meetingId === 'new') return;
+    if (fetchAttemptedRef.current) return;
+    const local = getMeeting(meetingId);
+    if (local) return;
+
+    fetchAttemptedRef.current = true;
+    setFetchingFromServer(true);
+    fetchMeetingById(meetingId).finally(() => setFetchingFromServer(false));
+  }, [isLoading, meetingId, getMeeting, fetchMeetingById]);
 
   // Handle /meetings/new — create a meeting and redirect
   useEffect(() => {
@@ -364,7 +378,7 @@ export function MeetingDetailPage() {
   }
 
   if (!meeting) {
-    if (isLoading) {
+    if (isLoading || fetchingFromServer) {
       return (
         <div className="h-full flex items-center justify-center">
           <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />

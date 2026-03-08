@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Trash2, ChevronDown, LayoutGrid, ChevronRight,
   Image as ImageIcon, Camera, ArrowLeft,
-  Link2, Tag,
+  Link2, Tag, Monitor,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
@@ -16,6 +16,7 @@ import { AIStrategyPanel } from "../components/AIStrategyPanel";
 import {
   BrandAsset,
   loadBrandAssets, saveBrandAssets, loadCards, saveCards, loadColumns,
+  BRAND_PLATFORMS,
 } from "./ManagementPage";
 
 // Categories come from branding kanban columns
@@ -86,6 +87,34 @@ export function BrandDetailPage() {
   const [propsExpanded, setPropsExpanded] = useState(true);
   const [notes, setNotes] = useState(asset?.description || "");
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const [platformDropdownOpen, setPlatformDropdownOpen] = useState(false);
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const platformBtnRef = useRef<HTMLButtonElement>(null);
+  const categoryBtnRef = useRef<HTMLButtonElement>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ left: number; top: number }>({ left: 0, top: 0 });
+
+  // Load platform from kanban card
+  const [cardPlatform, setCardPlatform] = useState<string>(() => {
+    if (!currentId) return "";
+    const kanbanCards = loadCards("branding");
+    const card = kanbanCards.find(c => c.id === currentId);
+    return card?.platform || "";
+  });
+
+  const handlePlatformChange = useCallback((platformId: string) => {
+    if (!currentId) return;
+    const newPlatform = cardPlatform === platformId ? "" : platformId;
+    setCardPlatform(newPlatform);
+    setPlatformDropdownOpen(false);
+    // Sync to kanban card
+    const allCards = loadCards("branding");
+    const card = allCards.find(c => c.id === currentId);
+    if (card) {
+      card.platform = newPlatform || undefined;
+      card.thumbnailUrl = undefined;
+      saveCards("branding", allCards);
+    }
+  }, [currentId, cardPlatform]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -119,7 +148,7 @@ export function BrandDetailPage() {
 
   const handleCategoryChange = useCallback((catName: string) => {
     if (!currentId) return;
-    const newCat = asset?.category === catName ? "" : catName;
+    const newCat = catName;
     handleUpdate({ category: newCat });
     // Sync kanban card to matching column
     const cols = loadColumns("branding");
@@ -238,28 +267,123 @@ export function BrandDetailPage() {
                     className="overflow-hidden"
                   >
                     <div className="divide-y divide-gray-100 border-t border-gray-100">
-                      {/* Category (카테고리) — select only, creation happens in list page */}
-                      <PropertyItem icon={<Tag size={14} />} label={ko ? "카테고리" : "Category"}>
-                        <div className="flex flex-wrap gap-1.5">
-                          {categories.length === 0 && (
-                            <span className="text-xs text-gray-400">
-                              {ko ? "카테고리가 없습니다. 목록 페이지에서 추가하세요." : "No categories. Add from the list page."}
-                            </span>
+                      {/* Platform (플랫폼) — dropdown */}
+                      <PropertyItem icon={<Monitor size={14} />} label={ko ? "플랫폼" : "Platform"}>
+                        <div>
+                          <button
+                            ref={platformBtnRef}
+                            onClick={() => {
+                              setCategoryDropdownOpen(false);
+                              if (!platformDropdownOpen && platformBtnRef.current) {
+                                const r = platformBtnRef.current.getBoundingClientRect();
+                                setDropdownPos({ left: r.left, top: r.bottom + 4 });
+                              }
+                              setPlatformDropdownOpen(!platformDropdownOpen);
+                            }}
+                            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-gray-200 hover:border-gray-400 bg-white transition-all min-w-[120px]"
+                          >
+                            {cardPlatform ? (() => {
+                              const pf = BRAND_PLATFORMS.find(p => p.id === cardPlatform);
+                              return pf ? (
+                                <>
+                                  {pf.icon && <img src={pf.icon} alt={pf.label} className="w-4 h-4 object-contain" />}
+                                  <span className="text-gray-700">{pf.label}</span>
+                                </>
+                              ) : <span className="text-gray-400">{ko ? "선택" : "Select"}</span>;
+                            })() : (
+                              <span className="text-gray-400">{ko ? "플랫폼 선택" : "Select platform"}</span>
+                            )}
+                            <ChevronDown size={12} className={cn("ml-auto text-gray-400 transition-transform", platformDropdownOpen && "rotate-180")} />
+                          </button>
+                          {platformDropdownOpen && (
+                            <>
+                              <div className="fixed inset-0 z-[60]" onClick={() => setPlatformDropdownOpen(false)} />
+                              <div
+                                className="fixed z-[61] bg-white border border-gray-200 rounded-xl shadow-xl py-1 w-52 max-h-64 overflow-y-auto"
+                                style={{ left: dropdownPos.left, top: dropdownPos.top }}
+                              >
+                                {cardPlatform && (
+                                  <button
+                                    onClick={() => handlePlatformChange("")}
+                                    className="w-full px-3 py-2 text-xs text-left text-gray-400 hover:bg-gray-50 transition-colors"
+                                  >
+                                    {ko ? "선택 해제" : "Clear"}
+                                  </button>
+                                )}
+                                {BRAND_PLATFORMS.filter(p => p.id !== "other").map(p => (
+                                  <button
+                                    key={p.id}
+                                    onClick={() => handlePlatformChange(p.id)}
+                                    className={cn(
+                                      "w-full px-3 py-2 text-xs text-left flex items-center gap-2 transition-colors",
+                                      cardPlatform === p.id ? "bg-blue-50 text-blue-700" : "text-gray-700 hover:bg-gray-50"
+                                    )}
+                                  >
+                                    {p.icon && <img src={p.icon} alt={p.label} className="w-4 h-4 object-contain" />}
+                                    {p.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </>
                           )}
-                          {categories.map((cat) => (
-                            <button
-                              key={cat}
-                              onClick={() => handleCategoryChange(cat)}
-                              className={cn(
-                                "px-2.5 py-1 rounded-lg text-xs font-medium transition-all border",
-                                asset.category === cat
-                                  ? "bg-blue-50 text-blue-700 border-blue-200"
-                                  : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
-                              )}
-                            >
-                              {cat}
-                            </button>
-                          ))}
+                        </div>
+                      </PropertyItem>
+
+                      {/* Category (카테고리) — dropdown */}
+                      <PropertyItem icon={<Tag size={14} />} label={ko ? "카테고리" : "Category"}>
+                        <div>
+                          <button
+                            ref={categoryBtnRef}
+                            onClick={() => {
+                              setPlatformDropdownOpen(false);
+                              if (!categoryDropdownOpen && categoryBtnRef.current) {
+                                const r = categoryBtnRef.current.getBoundingClientRect();
+                                setDropdownPos({ left: r.left, top: r.bottom + 4 });
+                              }
+                              setCategoryDropdownOpen(!categoryDropdownOpen);
+                            }}
+                            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-gray-200 hover:border-gray-400 bg-white transition-all min-w-[120px]"
+                          >
+                            <span className={asset.category ? "text-gray-700" : "text-gray-400"}>
+                              {asset.category || (ko ? "카테고리 선택" : "Select category")}
+                            </span>
+                            <ChevronDown size={12} className={cn("ml-auto text-gray-400 transition-transform", categoryDropdownOpen && "rotate-180")} />
+                          </button>
+                          {categoryDropdownOpen && (
+                            <>
+                              <div className="fixed inset-0 z-[60]" onClick={() => setCategoryDropdownOpen(false)} />
+                              <div
+                                className="fixed z-[61] bg-white border border-gray-200 rounded-xl shadow-xl py-1 w-48 max-h-64 overflow-y-auto"
+                                style={{ left: dropdownPos.left, top: dropdownPos.top }}
+                              >
+                                {asset.category && (
+                                  <button
+                                    onClick={() => { handleCategoryChange(""); setCategoryDropdownOpen(false); }}
+                                    className="w-full px-3 py-2 text-xs text-left text-gray-400 hover:bg-gray-50 transition-colors"
+                                  >
+                                    {ko ? "선택 해제" : "Clear"}
+                                  </button>
+                                )}
+                                {categories.map((cat) => (
+                                  <button
+                                    key={cat}
+                                    onClick={() => { handleCategoryChange(cat); setCategoryDropdownOpen(false); }}
+                                    className={cn(
+                                      "w-full px-3 py-2 text-xs text-left transition-colors",
+                                      asset.category === cat ? "bg-blue-50 text-blue-700" : "text-gray-700 hover:bg-gray-50"
+                                    )}
+                                  >
+                                    {cat}
+                                  </button>
+                                ))}
+                                {categories.length === 0 && (
+                                  <span className="block px-3 py-2 text-xs text-gray-400">
+                                    {ko ? "칼럼을 먼저 추가하세요" : "Add columns first"}
+                                  </span>
+                                )}
+                              </div>
+                            </>
+                          )}
                         </div>
                       </PropertyItem>
 

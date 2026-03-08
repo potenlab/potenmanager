@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback, KeyboardEvent } from "react";
 import { useNavigate } from "react-router";
 import { cn } from "../../lib/utils";
-import { GripVertical, Plus, Trash2, Type, Heading1, Heading2, Heading3, List, ListOrdered, Minus, FileText, ArrowRight, Bold, Italic, Underline, Image as ImageIcon } from "lucide-react";
+import { GripVertical, Plus, Trash2, Type, Heading1, Heading2, Heading3, List, ListOrdered, Minus, FileText, ArrowRight, Bold, Italic, Underline, Image as ImageIcon, Link2, ExternalLink, Loader2 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { createSubPage, getSubPage } from "../../lib/subPages";
+import { api } from "../../lib/api";
 
-type BlockType = "text" | "h1" | "h2" | "h3" | "bullet" | "numbered" | "divider" | "page" | "image";
+type BlockType = "text" | "h1" | "h2" | "h3" | "bullet" | "numbered" | "divider" | "page" | "image" | "bookmark";
 
 interface Block {
   id: string;
@@ -25,6 +26,7 @@ const BLOCK_TYPE_STYLES: Record<BlockType, string> = {
   divider: "min-h-[1px] py-[3px]",
   page: "min-h-[40px] py-[3px]",
   image: "min-h-[40px] py-[3px]",
+  bookmark: "min-h-[40px] py-[3px]",
 };
 
 interface SlashMenuItem {
@@ -45,6 +47,7 @@ const SLASH_MENU_ITEMS: SlashMenuItem[] = [
   { type: "numbered", label: "Numbered List", labelKo: "번호 매기기", desc: "Numbered list", descKo: "순서 목록", icon: <ListOrdered size={16} /> },
   { type: "divider", label: "Divider", labelKo: "구분선", desc: "Horizontal line", descKo: "가로 구분선", icon: <Minus size={16} /> },
   { type: "image", label: "Image", labelKo: "이미지", desc: "Upload or paste image", descKo: "이미지 업로드", icon: <ImageIcon size={16} /> },
+  { type: "bookmark", label: "Bookmark", labelKo: "북마크", desc: "Embed a link preview", descKo: "링크 미리보기", icon: <Link2 size={16} /> },
   { type: "page", label: "Sub Page", labelKo: "하위 페이지", desc: "Embedded page", descKo: "내부 페이지", icon: <FileText size={16} /> },
 ];
 
@@ -59,6 +62,7 @@ function serializeBlock(b: Block): string {
     case "divider": return "---";
     case "page": return `[page:${b.content}]`;
     case "image": return `[img:${b.imageWidth || 100}:${b.content}]`;
+    case "bookmark": return `[bookmark:${b.content}]`;
     default: return `${indentPrefix}${b.content}`;
   }
 }
@@ -69,6 +73,8 @@ function parseBlockLine(line: string): { type: BlockType; content: string; inden
   const indent = Math.floor(leadingSpaces / 2);
   const trimmed = line.replace(/^ */, "");
 
+  const bookmarkMatch = trimmed.match(/^\[bookmark:([^\]]+)\]$/);
+  if (bookmarkMatch) return { type: "bookmark", content: bookmarkMatch[1], indent: 0 };
   const pageMatch = trimmed.match(/^\[page:([^\]]+)\]$/);
   if (pageMatch) return { type: "page", content: pageMatch[1], indent: 0 };
   const imgMatch = trimmed.match(/^\[img:(\d+):(.+)\]$/);
@@ -210,6 +216,113 @@ function ImageBlock({ block, readOnly, onResize, onDelete, onSelect }: {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── Bookmark Block Component ─────────────────────────────────────
+const bookmarkCache = new Map<string, { ogTitle?: string; ogDescription?: string; ogImage?: string; ogSiteName?: string; favicon?: string } | null>();
+
+function BookmarkBlock({ block, readOnly, onDelete, onSelect }: {
+  block: Block;
+  readOnly: boolean;
+  onDelete: () => void;
+  onSelect: () => void;
+}) {
+  const [og, setOg] = useState<{ ogTitle?: string; ogDescription?: string; ogImage?: string; ogSiteName?: string; favicon?: string } | null>(
+    bookmarkCache.get(block.content) ?? null
+  );
+  const [loading, setLoading] = useState(!bookmarkCache.has(block.content));
+  const [hovered, setHovered] = useState(false);
+
+  let domain = "";
+  try { domain = new URL(block.content).hostname.replace("www.", ""); } catch { /* */ }
+
+  useEffect(() => {
+    if (bookmarkCache.has(block.content)) {
+      setOg(bookmarkCache.get(block.content) ?? null);
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    api.fetchOgMetadata(block.content).then((data) => {
+      if (cancelled) return;
+      bookmarkCache.set(block.content, data ?? null);
+      setOg(data ?? null);
+    }).catch(() => {
+      if (!cancelled) bookmarkCache.set(block.content, null);
+    }).finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [block.content]);
+
+  return (
+    <div
+      className="flex-1 relative group/bm"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={(e) => {
+        if (e.shiftKey || e.ctrlKey || e.metaKey) { e.preventDefault(); onSelect(); return; }
+      }}
+    >
+      <a
+        href={block.content}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm hover:shadow-md hover:border-gray-300 transition-all"
+      >
+        {loading ? (
+          <div className="flex items-center gap-2 p-4 text-sm text-gray-400">
+            <Loader2 size={14} className="animate-spin" />
+            <span className="truncate">{block.content}</span>
+          </div>
+        ) : og && (og.ogTitle || og.ogDescription) ? (
+          <div className="flex h-full">
+            <div className="flex-1 min-w-0 p-3.5 flex flex-col justify-between">
+              {og.ogSiteName && (
+                <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider mb-0.5">{og.ogSiteName}</p>
+              )}
+              {og.ogTitle && (
+                <p className="text-[13px] font-semibold text-gray-900 leading-snug line-clamp-2 group-hover/bm:text-blue-600 transition-colors">
+                  {og.ogTitle}
+                </p>
+              )}
+              {og.ogDescription && (
+                <p className="text-[11px] text-gray-500 line-clamp-2 mt-1 leading-relaxed">{og.ogDescription}</p>
+              )}
+              <div className="flex items-center gap-1.5 mt-2 text-[11px] text-gray-400">
+                {og.favicon ? (
+                  <img src={og.favicon} alt="" className="w-3.5 h-3.5 rounded-sm" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                ) : (
+                  <ExternalLink size={11} />
+                )}
+                <span className="truncate">{domain}</span>
+              </div>
+            </div>
+            {og.ogImage && (
+              <div className="w-[140px] shrink-0 bg-gray-100">
+                <img src={og.ogImage} alt="" className="w-full h-full object-cover" />
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 p-3.5 text-sm">
+            <ExternalLink size={14} className="text-gray-400 shrink-0" />
+            <span className="text-blue-600 truncate hover:underline">{block.content}</span>
+            <span className="text-[11px] text-gray-400 shrink-0 ml-auto">{domain}</span>
+          </div>
+        )}
+      </a>
+      {!readOnly && hovered && (
+        <button
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); onDelete(); }}
+          className="absolute top-2 right-2 p-1 rounded-md bg-black/50 backdrop-blur-sm text-white/80 hover:text-white hover:bg-red-500/80 transition-colors z-10"
+        >
+          <Trash2 size={12} />
+        </button>
+      )}
     </div>
   );
 }
@@ -537,6 +650,18 @@ export function NotionBlockEditor({
       closeSlashMenu();
       return;
     }
+    if (item.type === "bookmark") {
+      const url = prompt(ko ? "URL을 입력하세요:" : "Enter URL:");
+      if (url && /^https?:\/\//.test(url.trim())) {
+        const el = blockRefs.current.get(block.id);
+        if (el) el.textContent = "";
+        setBlocks((prev) =>
+          prev.map((b) => (b.id === block.id ? { ...b, type: "bookmark", content: url.trim() } : b))
+        );
+      }
+      closeSlashMenu();
+      return;
+    }
     if (item.type === "page") {
       const subPage = createSubPage(parentType || "unknown", parentId || "unknown");
       const el = blockRefs.current.get(block.id);
@@ -712,6 +837,18 @@ export function NotionBlockEditor({
       }
 
       if (!text) return;
+
+      // Auto-convert URL paste to bookmark block when block is empty
+      const trimmedText = text.trim();
+      if (/^https?:\/\/[^\s]+$/.test(trimmedText)) {
+        const block = blocks[idx];
+        if (!block.content.trim() && block.type === "text") {
+          pushUndo();
+          setBlocks((prev) => prev.map((b) => b.id === block.id ? { ...b, type: "bookmark" as BlockType, content: trimmedText } : b));
+          return;
+        }
+      }
+
       const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
       if (lines.length === 1) {
         document.execCommand("insertText", false, text);
@@ -1287,6 +1424,17 @@ export function NotionBlockEditor({
               onResize={(width) => {
                 setBlocks((prev) => prev.map((b) => b.id === block.id ? { ...b, imageWidth: width } : b));
               }}
+              onDelete={() => deleteBlock(idx)}
+              onSelect={() => {
+                setSelectedIds(new Set([block.id]));
+                lastClickedIdx.current = idx;
+                wrapperRef.current?.focus();
+              }}
+            />
+          ) : block.type === "bookmark" ? (
+            <BookmarkBlock
+              block={block}
+              readOnly={readOnly}
               onDelete={() => deleteBlock(idx)}
               onSelect={() => {
                 setSelectedIds(new Set([block.id]));

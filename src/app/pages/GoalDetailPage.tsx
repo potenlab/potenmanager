@@ -332,6 +332,13 @@ export function GoalDetailPage() {
                 {ko ? "AI 업무 추천" : "AI Task Suggest"}
               </button>
             )}
+            <button
+              onClick={() => navigate("/strategy/new")}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-xl transition-all border border-blue-200"
+            >
+              <Sparkles size={14} />
+              AI {ko ? "전략 생성" : "Strategy"}
+            </button>
             {canDelete && (
               <button onClick={handleDelete} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
                 <Trash2 size={18} />

@@ -33,6 +33,7 @@ interface MeetingContextType {
   updateMeeting: (id: string, updates: Partial<Meeting>) => void;
   removeMeeting: (id: string) => void;
   getMeeting: (id: string) => Meeting | undefined;
+  fetchMeetingById: (id: string) => Promise<Meeting | null>;
   isLoading: boolean;
   isSynced: boolean;
 }
@@ -43,6 +44,7 @@ const defaultValue: MeetingContextType = {
   updateMeeting: () => {},
   removeMeeting: () => {},
   getMeeting: () => undefined,
+  fetchMeetingById: async () => null,
   isLoading: true,
   isSynced: false,
 };
@@ -132,9 +134,31 @@ export function MeetingProvider({ children }: { children: ReactNode }) {
 
   const getMeeting = useCallback((id: string) => meetings.find((m) => m.id === id), [meetings]);
 
+  // Fetch a single meeting from server if not in local state
+  const fetchMeetingById = useCallback(async (id: string): Promise<Meeting | null> => {
+    // Already in local state
+    const local = meetings.find((m) => m.id === id);
+    if (local) return local;
+
+    try {
+      const meeting = await api.getMeetingById(id);
+      if (meeting) {
+        // Add to local state so it's available for subsequent renders
+        setMeetings((prev) => {
+          if (prev.find((m) => m.id === id)) return prev;
+          return [...prev, meeting as Meeting];
+        });
+        return meeting as Meeting;
+      }
+    } catch (err) {
+      console.error("[MeetingContext] Failed to fetch meeting by id:", err);
+    }
+    return null;
+  }, [meetings]);
+
   const value = useMemo<MeetingContextType>(() => ({
-    meetings, addMeeting, updateMeeting, removeMeeting, getMeeting, isLoading, isSynced,
-  }), [meetings, addMeeting, updateMeeting, removeMeeting, getMeeting, isLoading, isSynced]);
+    meetings, addMeeting, updateMeeting, removeMeeting, getMeeting, fetchMeetingById, isLoading, isSynced,
+  }), [meetings, addMeeting, updateMeeting, removeMeeting, getMeeting, fetchMeetingById, isLoading, isSynced]);
 
   return (
     <MeetingContext.Provider value={value}>

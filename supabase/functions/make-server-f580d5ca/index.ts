@@ -1,8 +1,101 @@
 import { Hono } from "npm:hono";
 import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
-import * as kv from "./kv_store.ts";
-import { Role, Permission, hasPermission } from "./permissions.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2.49.8";
+
+// ═══ Inlined kv_store ═══════════════════════════════════════════════
+const kvClient = () => createClient(
+  Deno.env.get("SUPABASE_URL")!,
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+);
+const KV_TABLE = "kv_store_f580d5ca";
+
+const kv = {
+  set: async (key: string, value: any): Promise<void> => {
+    const { error } = await kvClient().from(KV_TABLE).upsert({ key, value });
+    if (error) throw new Error(error.message);
+  },
+  get: async (key: string): Promise<any> => {
+    const { data, error } = await kvClient().from(KV_TABLE).select("value").eq("key", key).maybeSingle();
+    if (error) throw new Error(error.message);
+    return data?.value;
+  },
+  del: async (key: string): Promise<void> => {
+    const { error } = await kvClient().from(KV_TABLE).delete().eq("key", key);
+    if (error) throw new Error(error.message);
+  },
+  mset: async (keys: string[], values: any[]): Promise<void> => {
+    const { error } = await kvClient().from(KV_TABLE).upsert(keys.map((k, i) => ({ key: k, value: values[i] })));
+    if (error) throw new Error(error.message);
+  },
+  mget: async (keys: string[]): Promise<any[]> => {
+    const { data, error } = await kvClient().from(KV_TABLE).select("value").in("key", keys);
+    if (error) throw new Error(error.message);
+    return data?.map((d: any) => d.value) ?? [];
+  },
+  mdel: async (keys: string[]): Promise<void> => {
+    const { error } = await kvClient().from(KV_TABLE).delete().in("key", keys);
+    if (error) throw new Error(error.message);
+  },
+  getByPrefix: async (prefix: string): Promise<any[]> => {
+    const { data, error } = await kvClient().from(KV_TABLE).select("key, value").like("key", prefix + "%");
+    if (error) throw new Error(error.message);
+    return data?.map((d: any) => d.value) ?? [];
+  },
+  getByPrefixWithKeys: async (prefix: string): Promise<{ key: string; value: any }[]> => {
+    const { data, error } = await kvClient().from(KV_TABLE).select("key, value").like("key", prefix + "%");
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  },
+};
+
+// ═══ Inlined permissions ════════════════════════════════════════════
+type Role = 'owner' | 'admin' | 'member' | 'viewer';
+type Permission =
+  | 'team.invite' | 'team.remove' | 'team.editRole' | 'team.viewAll'
+  | 'task.create' | 'task.editAny' | 'task.editOwn' | 'task.deleteAny' | 'task.deleteOwn' | 'task.assignOthers' | 'task.changeStatus'
+  | 'goal.create' | 'goal.editAny' | 'goal.editOwn' | 'goal.delete' | 'strategy.create' | 'strategy.edit'
+  | 'calendar.editAny' | 'calendar.editOwn'
+  | 'settings.manage' | 'settings.billing' | 'settings.workspace'
+  | 'ai.recommend' | 'ai.strategy';
+
+const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
+  owner: [
+    'team.invite', 'team.remove', 'team.editRole', 'team.viewAll',
+    'task.create', 'task.editAny', 'task.editOwn', 'task.deleteAny', 'task.deleteOwn',
+    'task.assignOthers', 'task.changeStatus',
+    'goal.create', 'goal.editAny', 'goal.editOwn', 'goal.delete',
+    'strategy.create', 'strategy.edit',
+    'calendar.editAny', 'calendar.editOwn',
+    'settings.manage', 'settings.billing', 'settings.workspace',
+    'ai.recommend', 'ai.strategy',
+  ],
+  admin: [
+    'team.invite', 'team.remove', 'team.editRole', 'team.viewAll',
+    'task.create', 'task.editAny', 'task.editOwn', 'task.deleteAny', 'task.deleteOwn',
+    'task.assignOthers', 'task.changeStatus',
+    'goal.create', 'goal.editAny', 'goal.editOwn', 'goal.delete',
+    'strategy.create', 'strategy.edit',
+    'calendar.editAny', 'calendar.editOwn',
+    'settings.manage',
+    'ai.recommend', 'ai.strategy',
+  ],
+  member: [
+    'team.viewAll',
+    'task.create', 'task.editOwn', 'task.deleteOwn',
+    'task.changeStatus',
+    'goal.editOwn',
+    'calendar.editOwn',
+    'ai.recommend',
+  ],
+  viewer: [
+    'team.viewAll',
+  ],
+};
+
+function hasPermission(role: Role, permission: Permission): boolean {
+  return ROLE_PERMISSIONS[role]?.includes(permission) ?? false;
+}
 
 const app = new Hono();
 
@@ -1535,6 +1628,18 @@ app.get("/make-server-f580d5ca/meetings", async (c) => {
   } catch (e) {
     console.log("Error fetching meetings:", e);
     return c.json([]);
+  }
+});
+
+app.get("/make-server-f580d5ca/meetings/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const meeting = await kv.get(pfx(c, `meeting:${id}`));
+    if (!meeting) return c.json({ error: "Meeting not found" }, 404);
+    return c.json(meeting);
+  } catch (e) {
+    console.log("Error fetching meeting:", e);
+    return c.json({ error: "Failed to fetch meeting", message: String(e) }, 500);
   }
 });
 

@@ -63,7 +63,7 @@ export function Layout() {
         )}
         style={isMobile ? undefined : { marginLeft: width }}
       >
-        <main ref={mainRef} className="flex-1 p-4 md:p-8 overflow-y-auto bg-white shadow-xl md:rounded-l-[32px] border-l border-gray-100 min-h-screen">
+        <main ref={mainRef} className="flex-1 p-4 md:p-8 overflow-y-auto overflow-x-hidden bg-white shadow-xl md:rounded-l-[32px] border-l border-gray-100 min-h-screen min-w-0">
           {location.pathname === "/mypage" ? null : (
           <header className={cn(
             "flex flex-col md:flex-row justify-between md:items-center mb-6 md:mb-8 pb-4 border-b border-gray-100 gap-3 md:gap-4",
