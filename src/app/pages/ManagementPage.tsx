@@ -109,10 +109,31 @@ export interface KanbanCard {
   title: string;
   description?: string;
   color?: string;
+  platform?: string;
+  thumbnailUrl?: string;
   priority?: "high" | "medium" | "low";
   dueDate?: string;
   order: number;
   createdAt: string;
+}
+
+// ─── Platform Presets for Branding ─────────────────────────────
+const BRAND_PLATFORMS = [
+  { id: "instagram", label: "Instagram", icon: "https://cdn.simpleicons.org/instagram/E4405F" },
+  { id: "naver_blog", label: "네이버 블로그", icon: "https://cdn.simpleicons.org/naver/03C75A" },
+  { id: "youtube", label: "YouTube", icon: "https://cdn.simpleicons.org/youtube/FF0000" },
+  { id: "tiktok", label: "TikTok", icon: "https://cdn.simpleicons.org/tiktok/000000" },
+  { id: "threads", label: "Threads", icon: "https://cdn.simpleicons.org/threads/000000" },
+  { id: "x", label: "X", icon: "https://cdn.simpleicons.org/x/000000" },
+  { id: "tistory", label: "Tistory", icon: "https://cdn.simpleicons.org/tistory/EB531F" },
+  { id: "brunch", label: "Brunch", icon: "https://cdn.simpleicons.org/brunch/000000" },
+  { id: "medium", label: "Medium", icon: "https://cdn.simpleicons.org/medium/000000" },
+  { id: "other", label: "기타", icon: "" },
+] as const;
+
+function getPlatformInfo(id?: string) {
+  if (!id) return null;
+  return BRAND_PLATFORMS.find(p => p.id === id) || null;
 }
 
 export type BoardType = "projects" | "branding";
@@ -126,7 +147,7 @@ function isDemo() {
 }
 
 // ─── Demo Seed Data ─────────────────────────────────────────────
-const DEMO_SEED_KEY = "poten_mgmt_demo_seeded";
+const DEMO_SEED_KEY = "poten_mgmt_demo_seeded_v2";
 
 const DEMO_PROJECT_COLUMNS: KanbanColumn[] = [
   { id: "col-planning", name: "기획", order: 0 },
@@ -150,11 +171,11 @@ const DEMO_BRAND_COLUMNS: KanbanColumn[] = [
 ];
 
 const DEMO_BRAND_CARDS: KanbanCard[] = [
-  { id: "demo-b1", columnId: "col-instagram", title: "@ourteam_official", description: "메인 인스타그램 계정", color: "#E11D48", priority: "high", order: 0, createdAt: "2026-01-01T00:00:00Z" },
-  { id: "demo-b2", columnId: "col-instagram", title: "@ourteam_daily", description: "일상/비하인드 콘텐츠", color: "#F97316", priority: "medium", order: 1, createdAt: "2026-01-15T00:00:00Z" },
-  { id: "demo-b3", columnId: "col-blog", title: "팀 공식 블로그", description: "제품 업데이트 및 기술 블로그", color: "#22C55E", priority: "high", order: 0, createdAt: "2026-01-05T00:00:00Z" },
-  { id: "demo-b4", columnId: "col-blog", title: "마케팅 블로그", description: "SEO 키워드 콘텐츠 발행", color: "#3B82F6", priority: "medium", order: 1, createdAt: "2026-02-01T00:00:00Z" },
-  { id: "demo-b5", columnId: "col-youtube", title: "제품 소개 채널", description: "튜토리얼 및 기능 소개 영상", color: "#EF4444", priority: "high", order: 0, createdAt: "2026-01-10T00:00:00Z" },
+  { id: "demo-b1", columnId: "col-instagram", title: "@ourteam_official", description: "메인 인스타그램 계정", platform: "instagram", priority: "high", order: 0, createdAt: "2026-01-01T00:00:00Z" },
+  { id: "demo-b2", columnId: "col-instagram", title: "@ourteam_daily", description: "일상/비하인드 콘텐츠", platform: "instagram", priority: "medium", order: 1, createdAt: "2026-01-15T00:00:00Z" },
+  { id: "demo-b3", columnId: "col-blog", title: "팀 공식 블로그", description: "제품 업데이트 및 기술 블로그", platform: "naver_blog", priority: "high", order: 0, createdAt: "2026-01-05T00:00:00Z" },
+  { id: "demo-b4", columnId: "col-blog", title: "마케팅 블로그", description: "SEO 키워드 콘텐츠 발행", platform: "naver_blog", priority: "medium", order: 1, createdAt: "2026-02-01T00:00:00Z" },
+  { id: "demo-b5", columnId: "col-youtube", title: "제품 소개 채널", description: "튜토리얼 및 기능 소개 영상", platform: "youtube", priority: "high", order: 0, createdAt: "2026-01-10T00:00:00Z" },
 ];
 
 function seedDemoData() {
@@ -267,9 +288,15 @@ function MgmtCard({
       )}
     >
       {compact ? (
-        /* ── Compact: priority dot + color (branding only) + title + date ── */
+        /* ── Compact: platform icon + title + date ── */
         <div className="min-w-0">
           <div className="flex items-center gap-2 min-w-0">
+            {board === "branding" && (() => {
+              const pf = getPlatformInfo(card.platform);
+              if (pf?.icon) return <img src={pf.icon} alt={pf.label} className="w-4 h-4 rounded shrink-0 object-contain" />;
+              if (card.thumbnailUrl) return <img src={card.thumbnailUrl} alt="" className="w-4 h-4 rounded shrink-0 object-cover" />;
+              return null;
+            })()}
             {card.priority && card.priority !== "low" && (
               <span className={cn(
                 "w-2 h-2 rounded-full shrink-0",
@@ -330,7 +357,15 @@ function MgmtCard({
             </div>
           </div>
 
-          <h4 className="font-medium text-sm text-gray-900 mb-1 leading-snug">{card.title || (ko ? "제목 없음" : "Untitled")}</h4>
+          <div className="flex items-center gap-2 mb-1">
+            {board === "branding" && (() => {
+              const pf = getPlatformInfo(card.platform);
+              if (pf?.icon) return <img src={pf.icon} alt={pf.label} className="w-5 h-5 rounded shrink-0 object-contain" />;
+              if (card.thumbnailUrl) return <img src={card.thumbnailUrl} alt="" className="w-5 h-5 rounded shrink-0 object-cover" />;
+              return null;
+            })()}
+            <h4 className="font-medium text-sm text-gray-900 leading-snug truncate">{card.title || (ko ? "제목 없음" : "Untitled")}</h4>
+          </div>
           {card.description && (
             <p className="text-xs text-gray-500 line-clamp-2 mb-3">{card.description}</p>
           )}
@@ -365,7 +400,7 @@ function MgmtColumn({
   compact,
 }: {
   column: KanbanColumn; cards: KanbanCard[]; index: number; ko: boolean; board: BoardType;
-  onAddCard: (columnId: string, title: string) => void;
+  onAddCard: (columnId: string, title: string, platform?: string, thumbnailUrl?: string) => void;
   onDeleteCard: (id: string) => void;
   onMoveCard: (dragId: string, targetColId: string, targetIndex: number) => void;
   compact?: boolean;
@@ -375,6 +410,9 @@ function MgmtColumn({
 }) {
   const [isAdding, setIsAdding] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
+  const [customThumb, setCustomThumb] = useState<string | null>(null);
+  const thumbInputRef = useRef<HTMLInputElement>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(column.name);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -385,8 +423,22 @@ function MgmtColumn({
   useEffect(() => { if (isEditing && nameRef.current) nameRef.current.focus(); }, [isEditing]);
 
   const handleAdd = () => {
-    if (newTitle.trim()) { onAddCard(column.id, newTitle.trim()); setNewTitle(""); }
+    if (newTitle.trim()) {
+      onAddCard(column.id, newTitle.trim(), selectedPlatform || undefined, customThumb || undefined);
+      setNewTitle("");
+    }
     setIsAdding(false);
+    setSelectedPlatform(null);
+    setCustomThumb(null);
+  };
+
+  const handleCustomThumbUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 200 * 1024) { alert(ko ? "200KB 이하만 가능합니다" : "Max 200KB"); return; }
+    const reader = new FileReader();
+    reader.onload = () => setCustomThumb(reader.result as string);
+    reader.readAsDataURL(file);
   };
 
   const handleRename = () => {
@@ -485,15 +537,62 @@ function MgmtColumn({
       >
         {isAdding && (
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            {/* Platform selector (branding only) */}
+            {board === "branding" && (
+              <div className="px-3 pt-3 pb-2">
+                <p className="text-[10px] font-semibold text-gray-400 mb-2">{ko ? "플랫폼" : "Platform"}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {BRAND_PLATFORMS.map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        setSelectedPlatform(selectedPlatform === p.id ? null : p.id);
+                        if (p.id !== "other") setCustomThumb(null);
+                      }}
+                      className={cn(
+                        "flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium border transition-all",
+                        selectedPlatform === p.id
+                          ? "border-blue-300 bg-blue-50 text-blue-700"
+                          : "border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300"
+                      )}
+                    >
+                      {p.icon ? (
+                        <img src={p.icon} alt={p.label} className="w-3.5 h-3.5 object-contain" />
+                      ) : (
+                        <ImageIcon size={12} className="text-gray-400" />
+                      )}
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+                {selectedPlatform === "other" && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <input ref={thumbInputRef} type="file" accept="image/*" className="hidden" onChange={handleCustomThumbUpload} />
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => thumbInputRef.current?.click()}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] text-gray-500 border border-dashed border-gray-300 rounded-lg hover:border-blue-300 hover:text-blue-600 transition-colors"
+                    >
+                      <ImageIcon size={12} />
+                      {customThumb ? (ko ? "이미지 변경" : "Change") : (ko ? "아이콘 업로드" : "Upload icon")}
+                    </button>
+                    {customThumb && <img src={customThumb} alt="" className="w-6 h-6 rounded object-cover border border-gray-200" />}
+                  </div>
+                )}
+              </div>
+            )}
             <input
               ref={inputRef}
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") { e.preventDefault(); handleAdd(); }
-                if (e.key === "Escape") { setNewTitle(""); setIsAdding(false); }
+                if (e.key === "Escape") { setNewTitle(""); setIsAdding(false); setSelectedPlatform(null); setCustomThumb(null); }
               }}
-              onBlur={() => { if (newTitle.trim()) handleAdd(); else { setNewTitle(""); setIsAdding(false); } }}
+              onBlur={() => { if (newTitle.trim()) handleAdd(); else { setNewTitle(""); setIsAdding(false); setSelectedPlatform(null); setCustomThumb(null); } }}
               placeholder={ko ? "제목을 입력하세요..." : "Enter title..."}
               className="w-full px-4 py-3 text-sm outline-none bg-transparent placeholder-gray-400 text-gray-900"
             />
@@ -683,7 +782,7 @@ export function ManagementPage() {
   };
 
   // Card operations
-  const handleAddCard = (columnId: string, title: string) => {
+  const handleAddCard = (columnId: string, title: string, platform?: string, thumbnailUrl?: string) => {
     const colCards = cards.filter(c => c.columnId === columnId);
     const newCard: KanbanCard = {
       id: `card-${Date.now()}`,
@@ -692,6 +791,8 @@ export function ManagementPage() {
       priority: "medium",
       order: colCards.length,
       createdAt: new Date().toISOString(),
+      ...(platform ? { platform } : {}),
+      ...(thumbnailUrl ? { thumbnailUrl } : {}),
     };
     persistCards([...cards, newCard]);
   };
