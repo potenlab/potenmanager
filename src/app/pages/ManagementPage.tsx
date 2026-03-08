@@ -267,20 +267,28 @@ function MgmtCard({
       )}
     >
       {compact ? (
-        /* ── Compact: priority dot + color + title only ── */
-        <div className="flex items-center gap-2 min-w-0">
-          {card.priority && card.priority !== "low" && (
-            <span className={cn(
-              "w-2 h-2 rounded-full shrink-0",
-              card.priority === "high" ? "bg-red-400" : "bg-amber-400"
-            )} />
+        /* ── Compact: priority dot + color (branding only) + title + date ── */
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            {card.priority && card.priority !== "low" && (
+              <span className={cn(
+                "w-2 h-2 rounded-full shrink-0",
+                card.priority === "high" ? "bg-red-400" : "bg-amber-400"
+              )} />
+            )}
+            {board === "branding" && card.color && (
+              <div className="w-3 h-3 rounded-full shrink-0 border border-white shadow-sm" style={{ backgroundColor: card.color }} />
+            )}
+            <h4 className="font-medium text-sm text-gray-900 truncate flex-1 leading-snug">
+              {card.title || (ko ? "제목 없음" : "Untitled")}
+            </h4>
+          </div>
+          {(card.dueDate || card.createdAt) && (
+            <div className="flex items-center gap-1 text-[11px] text-gray-400 mt-1 pl-0.5">
+              <CalendarIcon size={10} className="shrink-0" />
+              <span>{format(new Date(card.dueDate || card.createdAt), "M/d")}</span>
+            </div>
           )}
-          {card.color && (
-            <div className="w-3 h-3 rounded-full shrink-0 border border-white shadow-sm" style={{ backgroundColor: card.color }} />
-          )}
-          <h4 className="font-medium text-sm text-gray-900 truncate flex-1 leading-snug">
-            {card.title || (ko ? "제목 없음" : "Untitled")}
-          </h4>
         </div>
       ) : (
         /* ── Detailed: full info ── */
