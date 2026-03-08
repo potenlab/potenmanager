@@ -167,6 +167,42 @@ export function GoalPage() {
   const urgentMissions = urgentGoals.filter((g) => !g.parentId);
   const hasGoals = !!coreGoal;
 
+  // ── Inline core goal creation / editing ──
+  const [newCoreGoalTitle, setNewCoreGoalTitle] = useState("");
+  const [isEditingCore, setIsEditingCore] = useState(false);
+  const [editCoreTitle, setEditCoreTitle] = useState("");
+  const coreInputRef = useRef<HTMLInputElement>(null);
+  const coreEditRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditingCore && coreEditRef.current) coreEditRef.current.focus();
+  }, [isEditingCore]);
+
+  const handleCreateCoreGoal = () => {
+    if (!newCoreGoalTitle.trim()) return;
+    const newGoal: GoalItem = {
+      id: uid(),
+      title: newCoreGoalTitle.trim(),
+      titleKo: ko ? newCoreGoalTitle.trim() : undefined,
+      level: "Year",
+      progress: 0,
+      status: "pending",
+    };
+    addGoal(newGoal);
+    setNewCoreGoalTitle("");
+  };
+
+  const handleSaveCoreTitle = () => {
+    if (!coreGoal || !editCoreTitle.trim()) { setIsEditingCore(false); return; }
+    if (editCoreTitle.trim() !== (ko ? (coreGoal.titleKo || coreGoal.title) : coreGoal.title)) {
+      updateGoal(coreGoal.id, {
+        title: editCoreTitle.trim(),
+        titleKo: ko ? editCoreTitle.trim() : coreGoal.titleKo,
+      });
+    }
+    setIsEditingCore(false);
+  };
+
   const [orgName, setOrgName] = useState("");
   const [creating, setCreating] = useState(false);
 
@@ -648,18 +684,39 @@ export function GoalPage() {
                   </h3>
                 </div>
                 <div className="px-6 py-5">
-                  {/* Core goal - clickable to detail */}
-                  <Link
-                    to={`/organization/${coreGoal.id}`}
-                    className="flex items-start gap-3 group cursor-pointer"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0 shadow-sm">
-                      <Sparkles size={18} className="text-white" />
-                    </div>
+                  {/* Core goal - inline editable */}
+                  <div className="flex items-start gap-3">
+                    <Link to={`/organization/${coreGoal.id}`} className="shrink-0">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm hover:shadow-md transition-shadow">
+                        <Sparkles size={18} className="text-white" />
+                      </div>
+                    </Link>
                     <div className="flex-1 min-w-0">
-                      <p className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                        {ko ? (coreGoal.titleKo || coreGoal.title) : coreGoal.title}
-                      </p>
+                      {isEditingCore ? (
+                        <input
+                          ref={coreEditRef}
+                          value={editCoreTitle}
+                          onChange={(e) => setEditCoreTitle(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleSaveCoreTitle();
+                            if (e.key === "Escape") setIsEditingCore(false);
+                          }}
+                          onBlur={handleSaveCoreTitle}
+                          className="w-full text-lg font-bold text-gray-900 outline-none border-b-2 border-blue-400 bg-transparent pb-1"
+                        />
+                      ) : (
+                        <p
+                          onClick={() => {
+                            if (!canEdit) return;
+                            setEditCoreTitle(ko ? (coreGoal.titleKo || coreGoal.title) : coreGoal.title);
+                            setIsEditingCore(true);
+                          }}
+                          className={cn("text-lg font-bold text-gray-900 leading-snug", canEdit && "cursor-text hover:text-blue-600 transition-colors")}
+                          title={canEdit ? (ko ? "클릭하여 수정" : "Click to edit") : ""}
+                        >
+                          {ko ? (coreGoal.titleKo || coreGoal.title) : coreGoal.title}
+                        </p>
+                      )}
                       {/* Progress bar */}
                       {categoryGoals.length > 0 && (
                         <div className="flex items-center gap-2 mt-2">
@@ -675,12 +732,11 @@ export function GoalPage() {
                           <span className="text-xs font-bold text-gray-400">{coreProgress}%</span>
                         </div>
                       )}
-                      <p className="text-xs text-gray-400 mt-1">
-                        {ko ? "\uD074\uB9AD\uD558\uC5EC \uC0C1\uC138 \uBCF4\uAE30" : "Click to view details"}
-                      </p>
                     </div>
-                    <ArrowRight size={16} className="text-gray-300 group-hover:text-blue-500 mt-2 shrink-0 opacity-0 group-hover:opacity-100 transition-all" />
-                  </Link>
+                    <Link to={`/organization/${coreGoal.id}`} className="shrink-0 mt-1">
+                      <ArrowRight size={16} className="text-gray-300 hover:text-blue-500 transition-colors" />
+                    </Link>
+                  </div>
 
                   {/* Category goals with checkboxes */}
                   {categoryGoals.length > 0 && (
@@ -1230,28 +1286,46 @@ export function GoalPage() {
               </div>
             </div>
           ) : (
-            <Link
-              to="/organization/setup"
-              className="group flex items-center gap-4 px-5 py-5 rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md hover:shadow-lg hover:from-blue-600 hover:to-blue-700 transition-all"
-            >
-              <div className="p-2.5 rounded-xl bg-white/20 shrink-0">
-                <Sparkles size={20} className="text-white" />
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <Sparkles size={16} className="text-blue-500" />
+                  {ko ? "핵심 목표" : "Core Goal"}
+                </h3>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm">
-                  {ko ? "\uC62C\uD574\uC758 \uBAA9\uD45C\uB97C \uC124\uC815\uD574\uC8FC\uC138\uC694" : "Set your goals for this year"}
-                </p>
-                <p className="text-blue-100 text-xs mt-0.5">
-                  {ko
-                    ? "\uD575\uC2EC \uBAA9\uD45C\uC640 \uCE74\uD14C\uACE0\uB9AC\uBCC4 \uACC4\uD68D\uC744 \uC138\uC6CC\uBCF4\uC138\uC694"
-                    : "Define your core goal & category plans"}
-                </p>
+              <div className="px-6 py-5">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0 shadow-sm">
+                    <Sparkles size={18} className="text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-gray-400 mb-2">
+                      {ko ? "올해 이루고 싶은 목표를 입력하세요" : "What do you want to achieve this year?"}
+                    </p>
+                    <input
+                      ref={coreInputRef}
+                      value={newCoreGoalTitle}
+                      onChange={(e) => setNewCoreGoalTitle(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleCreateCoreGoal();
+                      }}
+                      placeholder={ko ? "예: 연매출 10억 달성" : "e.g. Achieve $1M annual revenue"}
+                      className="w-full text-lg font-bold text-gray-900 placeholder-gray-300 outline-none border-b-2 border-gray-200 focus:border-blue-400 transition-colors pb-1 bg-transparent"
+                      autoFocus
+                    />
+                    {newCoreGoalTitle.trim() && (
+                      <button
+                        onClick={handleCreateCoreGoal}
+                        className="mt-3 flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 transition-colors shadow-sm"
+                      >
+                        <Check size={14} />
+                        {ko ? "목표 설정" : "Set Goal"}
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
-              <ArrowRight
-                size={18}
-                className="text-white/70 group-hover:translate-x-1 transition-transform shrink-0"
-              />
-            </Link>
+            </div>
           )}
         </>
       )}
