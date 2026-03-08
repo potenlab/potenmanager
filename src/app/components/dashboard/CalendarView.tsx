@@ -21,6 +21,9 @@ import {
   User as UserIcon,
   CircleDot,
   Video,
+  Palette,
+  AlignJustify,
+  LayoutList,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import {
@@ -112,6 +115,18 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
+// ─── Calendar card style ──────────────────────────────────────────────
+type CalendarCardStyle = "compact" | "detailed";
+const CAL_CARD_STYLE_KEY = "poten_calendar_card_style";
+const CAL_ORDER_KEY = "poten_cal_task_order";
+
+function loadCalOrder(): Record<string, number> {
+  try { return JSON.parse(localStorage.getItem(CAL_ORDER_KEY) || "{}"); } catch { return {}; }
+}
+function saveCalOrder(order: Record<string, number>) {
+  try { localStorage.setItem(CAL_ORDER_KEY, JSON.stringify(order)); } catch {}
+}
+
 interface ResizeState {
   taskId: string;
   edge: "left" | "right";
@@ -131,6 +146,7 @@ function ResizableTaskBar({
   onResizeStart,
   onContextMenu,
   canDragTask = true,
+  cardStyle = "compact",
 }: {
   task: Task;
   language: string;
@@ -143,6 +159,7 @@ function ResizableTaskBar({
   onResizeStart: (taskId: string, edge: "left" | "right", e: React.MouseEvent) => void;
   onContextMenu: (task: Task, x: number, y: number) => void;
   canDragTask?: boolean;
+  cardStyle?: CalendarCardStyle;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const title = language === "ko" ? task.titleKo || task.title : task.title;
@@ -228,7 +245,8 @@ function ResizableTaskBar({
       onClick={handleClick}
       onContextMenu={handleRightClick}
       className={cn(
-        "text-[10px] font-medium h-[26px] flex items-center transition-all relative group/bar overflow-hidden",
+        "text-[10px] font-medium transition-all relative group/bar overflow-hidden",
+        cardStyle === "detailed" ? "min-h-[52px] flex flex-col justify-center" : "h-[26px] flex items-center",
         position === "single" && "shadow-sm",
         isDragging && "opacity-40 ring-2 ring-blue-300",
         !isResizing && canDragTask && "cursor-grab active:cursor-grabbing",
@@ -285,37 +303,86 @@ function ResizableTaskBar({
       )}
 
       {/* Content */}
-      <div className="flex justify-between items-center gap-1 px-2 overflow-hidden">
-        {(position === "single" || position === "start") && (
-          <>
-            <span className="truncate">{title}</span>
-            <div className="flex items-center shrink-0 gap-0.5">
-              {allIds.map((id) => {
-                const memberColor = getUserColor(id);
-                return (
-                  <span key={id} className="relative flex items-center justify-center">
-                    <span className="w-4 h-4 rounded-full bg-white text-[8px] flex items-center justify-center border border-gray-100 text-gray-500 font-bold">
-                      {getAssigneeInitials(id, members)}
+      {cardStyle === "detailed" ? (
+        <div className="px-2 py-1 overflow-hidden">
+          {(position === "single" || position === "start") ? (
+            <>
+              <div className="flex items-center gap-1 mb-0.5">
+                {task.priority && task.priority !== "low" && (
+                  <span className={cn(
+                    "w-1.5 h-1.5 rounded-full shrink-0",
+                    task.priority === "high" ? "bg-red-400" : "bg-amber-400"
+                  )} />
+                )}
+                {task.category && (
+                  <span className="text-[8px] text-gray-400 truncate">{task.category}</span>
+                )}
+              </div>
+              <div className="flex justify-between items-start gap-1">
+                <span className="truncate font-semibold text-[11px] leading-tight">{title}</span>
+                <div className="flex items-center shrink-0 gap-0.5 mt-0.5">
+                  {allIds.slice(0, 3).map((id) => {
+                    const memberColor = getUserColor(id);
+                    return (
+                      <span key={id} className="relative flex items-center justify-center">
+                        <span className="w-4 h-4 rounded-full bg-white text-[8px] flex items-center justify-center border border-gray-100 text-gray-500 font-bold">
+                          {getAssigneeInitials(id, members)}
+                        </span>
+                        {memberColor && (
+                          <span
+                            className="absolute -bottom-0.5 -right-0.5 w-[6px] h-[6px] rounded-full ring-1 ring-white"
+                            style={{ backgroundColor: memberColor }}
+                          />
+                        )}
+                      </span>
+                    );
+                  })}
+                  {allIds.length > 3 && (
+                    <span className="text-[8px] text-gray-400">+{allIds.length - 3}</span>
+                  )}
+                </div>
+              </div>
+              {task.description && (
+                <p className="text-[9px] text-gray-400 truncate mt-0.5 leading-tight">{task.description}</p>
+              )}
+            </>
+          ) : (
+            <span className="truncate opacity-0 select-none">&nbsp;</span>
+          )}
+        </div>
+      ) : (
+        <div className="flex justify-between items-center gap-1 px-2 overflow-hidden">
+          {(position === "single" || position === "start") && (
+            <>
+              <span className="truncate">{title}</span>
+              <div className="flex items-center shrink-0 gap-0.5">
+                {allIds.map((id) => {
+                  const memberColor = getUserColor(id);
+                  return (
+                    <span key={id} className="relative flex items-center justify-center">
+                      <span className="w-4 h-4 rounded-full bg-white text-[8px] flex items-center justify-center border border-gray-100 text-gray-500 font-bold">
+                        {getAssigneeInitials(id, members)}
+                      </span>
+                      {memberColor && (
+                        <span
+                          className="absolute -bottom-0.5 -right-0.5 w-[6px] h-[6px] rounded-full ring-1 ring-white"
+                          style={{ backgroundColor: memberColor }}
+                        />
+                      )}
                     </span>
-                    {memberColor && (
-                      <span
-                        className="absolute -bottom-0.5 -right-0.5 w-[6px] h-[6px] rounded-full ring-1 ring-white"
-                        style={{ backgroundColor: memberColor }}
-                      />
-                    )}
-                  </span>
-                );
-              })}
-            </div>
-          </>
-        )}
-        {position === "middle" && (
-          <span className="truncate opacity-0 select-none">&nbsp;</span>
-        )}
-        {position === "end" && (
-          <span className="truncate opacity-0 select-none">&nbsp;</span>
-        )}
-      </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+          {position === "middle" && (
+            <span className="truncate opacity-0 select-none">&nbsp;</span>
+          )}
+          {position === "end" && (
+            <span className="truncate opacity-0 select-none">&nbsp;</span>
+          )}
+        </div>
+      )}
 
       {/* Right resize handle */}
       {showRightHandle && (
@@ -393,6 +460,7 @@ function DroppableDayCell({
   onContextMenu,
   onMeetingContextMenu,
   canDragTaskFn,
+  cardStyle = "compact",
 }: {
   day: Date;
   isCurrentMonth: boolean;
@@ -402,7 +470,7 @@ function DroppableDayCell({
   viewMode: ViewMode;
   language: string;
   selectedIds: Set<string>;
-  onDropTask: (taskIds: string[], newDate: Date) => void;
+  onDropTask: (taskIds: string[], newDate: Date, clientY?: number) => void;
   onDropMeeting: (meetingId: string, newDate: Date) => void;
   onTaskClick: (task: Task, rect: DOMRect) => void;
   onSelectTask: (taskId: string, multi: boolean) => void;
@@ -415,6 +483,7 @@ function DroppableDayCell({
   onContextMenu: (task: Task, x: number, y: number) => void;
   onMeetingContextMenu?: (meeting: Meeting, x: number, y: number) => void;
   canDragTaskFn?: (task: Task) => boolean;
+  cardStyle?: CalendarCardStyle;
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -427,7 +496,8 @@ function DroppableDayCell({
           onDropMeeting(item.meetingId, day);
         } else {
           const ids = item.taskIds && item.taskIds.length > 0 ? item.taskIds : item.taskId ? [item.taskId] : [];
-          if (ids.length > 0) onDropTask(ids, day);
+          const clientY = monitor.getClientOffset()?.y;
+          if (ids.length > 0) onDropTask(ids, day, clientY);
         }
       },
       collect: (monitor) => ({
@@ -503,11 +573,15 @@ function DroppableDayCell({
                 onResizeStart={onResizeStart}
                 onContextMenu={onContextMenu}
                 canDragTask={canDragTaskFn ? canDragTaskFn(task) : true}
+                cardStyle={cardStyle}
               />
             </div>
           ) : (
             /* Invisible placeholder to keep slots aligned across days */
-            <div key={`ph-${idx}`} className="h-[26px] mx-1.5 pointer-events-none invisible" />
+            <div key={`ph-${idx}`} className={cn(
+              "mx-1.5 pointer-events-none invisible",
+              cardStyle === "detailed" ? "min-h-[52px]" : "h-[26px]"
+            )} />
           )
         )}
 
@@ -940,6 +1014,18 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
   const [viewMode, setViewMode] = useState<ViewMode>("3week");
   const [currentDate, setCurrentDate] = useState(new Date());
 
+  // Card style toggle (compact / detailed)
+  const [cardStyle, setCardStyle] = useState<CalendarCardStyle>(() => {
+    try { return (localStorage.getItem(CAL_CARD_STYLE_KEY) as CalendarCardStyle) || "compact"; } catch { return "compact"; }
+  });
+  const toggleCardStyle = useCallback((style: CalendarCardStyle) => {
+    setCardStyle(style);
+    try { localStorage.setItem(CAL_CARD_STYLE_KEY, style); } catch {}
+  }, []);
+
+  // Calendar task order for vertical reordering
+  const [calOrder, setCalOrder] = useState<Record<string, number>>(loadCalOrder);
+
   // Expand state – show 2 extra weeks from next month
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -1177,20 +1263,57 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
     };
   }, [checkAutoScroll, clearAutoScroll]);
 
-  // Handle drop: update task dates and persist to server
+  // Handle drop: update task dates and persist to server (or reorder within same day)
   const handleDropTask = useCallback(
-    (taskIds: string[], newDate: Date) => {
-      // Use the task's visual start date as anchor so dropping on a date
-      // makes that date the new START of the range (not the end).
+    (taskIds: string[], newDate: Date, clientY?: number) => {
       const anchorTask = calTasks.find((t) => t.id === taskIds[0]);
       if (!anchorTask) return;
       const range = getTaskDateRange(anchorTask);
       if (!range) return;
       const anchorStart = range.start;
       const anchorDelta = newDate.getTime() - anchorStart.getTime();
+
+      // Same day drop → reorder vertically
+      if (anchorDelta === 0 && clientY != null) {
+        const dayKey = format(newDate, "yyyy-MM-dd");
+        // Find all task bars in this day cell
+        const cellEl = document.querySelector(`[data-date="${dayKey}"]`);
+        if (!cellEl) return;
+        const taskEls = cellEl.querySelectorAll("[data-task-id]");
+        const dayTaskIds: string[] = [];
+        let insertIdx = -1;
+
+        taskEls.forEach((el) => {
+          const tid = el.getAttribute("data-task-id");
+          if (tid && !taskIds.includes(tid)) dayTaskIds.push(tid);
+          if (tid) {
+            const rect = el.getBoundingClientRect();
+            const mid = rect.top + rect.height / 2;
+            if (clientY > mid) insertIdx = dayTaskIds.length;
+          }
+        });
+
+        // Insert dragged task(s) at the determined position
+        if (insertIdx < 0) insertIdx = 0;
+        const newOrder: string[] = [
+          ...dayTaskIds.slice(0, insertIdx),
+          ...taskIds,
+          ...dayTaskIds.slice(insertIdx),
+        ];
+
+        // Update calOrder with new positions
+        const updated = { ...calOrder };
+        newOrder.forEach((tid, i) => {
+          updated[tid] = i;
+        });
+        setCalOrder(updated);
+        saveCalOrder(updated);
+        return;
+      }
+
       if (anchorDelta === 0) return;
 
-      // Update each task via context (persists to server)
+      // Different day → move task dates
       for (const tid of taskIds) {
         const t = calTasks.find((tk) => tk.id === tid);
         if (!t) continue;
@@ -1205,7 +1328,7 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
       }
       setQuickViewTask(null);
     },
-    [calTasks, updateTask]
+    [calTasks, updateTask, calOrder]
   );
 
   // Handle drop: update meeting date
@@ -1405,7 +1528,7 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
         });
       }
 
-      // Sort: multi-day first (longer → earlier start), then single-day by date
+      // Sort: multi-day first (longer → earlier start), then single-day by calOrder then date
       // Additionally, tasks with persistent slots come first to reserve their positions
       weekTasks.sort((a, b) => {
         const aHasSlot = persistentSlots.has(a.task.id) ? 1 : 0;
@@ -1418,6 +1541,12 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
           if (lenDiff !== 0) return lenDiff;
           return a.range.start.getTime() - b.range.start.getTime();
         }
+        // Single-day: use calendarOrder if available
+        const aOrd = calOrder[a.task.id];
+        const bOrd = calOrder[b.task.id];
+        if (aOrd != null && bOrd != null) return aOrd - bOrd;
+        if (aOrd != null) return -1;
+        if (bOrd != null) return 1;
         return a.range.start.getTime() - b.range.start.getTime();
       });
 
@@ -1500,7 +1629,7 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
     }
 
     return result;
-  }, [days, calTasks, resizeState]);
+  }, [days, calTasks, resizeState, calOrder]);
 
   // Find the resizing task for the overlay
   const resizingTask = resizeState ? calTasks.find((t) => t.id === resizeState.taskId) : null;
@@ -1690,29 +1819,60 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
               <ChevronRight size={20} />
             </button>
           </div>
-          <div className="flex items-center bg-gray-50 rounded-lg p-0.5 border border-gray-200">
-            <button
-              onClick={() => setViewMode("3week")}
-              className={cn(
-                "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
-                viewMode === "3week"
-                  ? "bg-white text-blue-600 shadow-sm"
-                  : "text-gray-500 hover:text-gray-900"
-              )}
-            >
-              {t("3week")}
-            </button>
-            <button
-              onClick={() => setViewMode("month")}
-              className={cn(
-                "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
-                viewMode === "month"
-                  ? "bg-white text-blue-600 shadow-sm"
-                  : "text-gray-500 hover:text-gray-900"
-              )}
-            >
-              {t("month")}
-            </button>
+          <div className="flex items-center gap-2">
+            {/* Card style toggle */}
+            <div className="flex items-center bg-gray-50 rounded-lg p-0.5 border border-gray-200">
+              <button
+                onClick={() => toggleCardStyle("compact")}
+                className={cn(
+                  "p-1.5 rounded-md transition-all",
+                  cardStyle === "compact"
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-gray-400 hover:text-gray-600"
+                )}
+                title={language === "ko" ? "간결 카드" : "Compact"}
+              >
+                <AlignJustify size={14} />
+              </button>
+              <button
+                onClick={() => toggleCardStyle("detailed")}
+                className={cn(
+                  "p-1.5 rounded-md transition-all",
+                  cardStyle === "detailed"
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-gray-400 hover:text-gray-600"
+                )}
+                title={language === "ko" ? "상세 카드" : "Detailed"}
+              >
+                <LayoutList size={14} />
+              </button>
+            </div>
+
+            {/* View mode toggle */}
+            <div className="flex items-center bg-gray-50 rounded-lg p-0.5 border border-gray-200">
+              <button
+                onClick={() => setViewMode("3week")}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+                  viewMode === "3week"
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-gray-500 hover:text-gray-900"
+                )}
+              >
+                {t("3week")}
+              </button>
+              <button
+                onClick={() => setViewMode("month")}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+                  viewMode === "month"
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-gray-500 hover:text-gray-900"
+                )}
+              >
+                {t("month")}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1887,6 +2047,7 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
                 }}
                 onContextMenu={handleContextMenu}
                 onMeetingContextMenu={handleMeetingContextMenu}
+                cardStyle={cardStyle}
                 canDragTaskFn={(task: Task) => {
                   if (canEditAnyCalendar) return true;
                   if (canEditOwnCalendar) {

@@ -54,6 +54,41 @@ const pfx = (c: any, base: string) => {
 // ─── Health ──────────────────────────────────────────────────────────
 app.get("/make-server-f580d5ca/health", (c) => c.json({ status: "ok" }));
 
+// ─── Migrate unprefixed data to org-prefixed keys ───────────────────
+// POST /migrate-org?orgId=xxx&prefix=member: (one prefix at a time)
+app.post("/make-server-f580d5ca/migrate-org", async (c) => {
+  try {
+    const orgId = c.req.query("orgId");
+    const prefix = c.req.query("prefix");
+    if (!orgId) return c.json({ error: "orgId query param required" }, 400);
+    if (!prefix) return c.json({ error: "prefix query param required (e.g. member:, task:, goal:)" }, 400);
+
+    const items = await kv.getByPrefixWithKeys(prefix);
+    const keys: string[] = [];
+    const values: any[] = [];
+
+    for (const item of items) {
+      // Only include keys that start exactly with this prefix (skip already-prefixed ones)
+      if (!item.key.startsWith(prefix)) continue;
+      // Skip keys that already have an org prefix before this prefix
+      if (item.key.startsWith(orgId + ":")) continue;
+
+      keys.push(`${orgId}:${item.key}`);
+      values.push(item.value);
+    }
+
+    if (keys.length > 0) {
+      await kv.mset(keys, values);
+    }
+
+    console.log(`[Migrate] Copied ${keys.length} items with prefix "${prefix}" → orgId "${orgId}"`);
+    return c.json({ success: true, migrated: keys.length, prefix });
+  } catch (e) {
+    console.error("[Migrate] Error:", e);
+    return c.json({ error: "Migration failed", message: String(e) }, 500);
+  }
+});
+
 // ─── Seed Check ──────────────────────────────────────────────────────
 app.get("/make-server-f580d5ca/seeded", async (c) => {
   try {
