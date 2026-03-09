@@ -11,6 +11,7 @@ import {
   Check,
   CheckCheck,
   Trash2,
+  ArrowLeft,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
@@ -124,6 +125,13 @@ export function NotificationsPage() {
   return (
     <div className="max-w-[900px] mx-auto space-y-6 pb-12">
       {/* Header */}
+      <button
+        onClick={() => navigate(-1)}
+        className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors mb-1"
+      >
+        <ArrowLeft size={14} />
+        <span>{language === "ko" ? "뒤로가기" : "Back"}</span>
+      </button>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="p-2 sm:p-2.5 rounded-xl bg-blue-50 border border-blue-100">

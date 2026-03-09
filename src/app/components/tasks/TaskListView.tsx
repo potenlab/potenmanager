@@ -1,11 +1,15 @@
-import { 
-  Calendar, 
-  Clock, 
-  CheckCircle2, 
-  Circle, 
+import { useState, useRef, useEffect } from "react";
+import {
+  Calendar,
+  Clock,
+  CheckCircle2,
+  Circle,
   MoreHorizontal,
   User,
-  AlertCircle
+  AlertCircle,
+  ChevronDown,
+  Zap,
+  AlertTriangle as AlertTriangleIcon,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { Task, TaskCategory } from "../../../lib/mockData";
@@ -14,6 +18,13 @@ import { useLanguage } from "../../context/LanguageContext";
 import { usePermission } from "../../context/PermissionContext";
 import { format } from "date-fns";
 import { useNavigate } from "react-router";
+
+const STATUS_OPTIONS: { value: Task['status']; labelKo: string; labelEn: string; color: string; icon: typeof Circle }[] = [
+  { value: 'pending', labelKo: '할 일', labelEn: 'To Do', color: 'text-gray-500', icon: Circle },
+  { value: 'in-progress', labelKo: '진행 중', labelEn: 'In Progress', color: 'text-blue-500', icon: Clock },
+  { value: 'delayed', labelKo: '지연', labelEn: 'Delayed', color: 'text-amber-500', icon: AlertTriangleIcon },
+  { value: 'completed', labelKo: '완료', labelEn: 'Done', color: 'text-emerald-500', icon: CheckCircle2 },
+];
 
 interface TaskListViewProps {
   tasks: Task[];
@@ -24,6 +35,16 @@ export function TaskListView({ tasks, onStatusChange }: TaskListViewProps) {
   const { language, t } = useLanguage();
   const navigate = useNavigate();
   const { members } = usePermission();
+  const [openStatusId, setOpenStatusId] = useState<string | null>(null);
+  const statusRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (statusRef.current && !statusRef.current.contains(e.target as Node)) setOpenStatusId(null);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const getStatusIcon = (status: Task['status']) => {
     switch (status) {
@@ -97,15 +118,41 @@ export function TaskListView({ tasks, onStatusChange }: TaskListViewProps) {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onStatusChange?.(task.id, task.status === 'completed' ? 'pending' : 'completed');
-                          }}
-                          className="shrink-0"
-                        >
-                          {getStatusIcon(task.status)}
-                        </button>
+                        <div className="relative shrink-0" ref={openStatusId === task.id ? statusRef : undefined}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenStatusId(openStatusId === task.id ? null : task.id);
+                            }}
+                            className="shrink-0"
+                          >
+                            {getStatusIcon(task.status)}
+                          </button>
+                          {openStatusId === task.id && (
+                            <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 min-w-[130px]">
+                              {STATUS_OPTIONS.map((opt) => {
+                                const Icon = opt.icon;
+                                return (
+                                  <button
+                                    key={opt.value}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (task.status !== opt.value) onStatusChange?.(task.id, opt.value);
+                                      setOpenStatusId(null);
+                                    }}
+                                    className={cn(
+                                      "w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-gray-50 transition-colors",
+                                      task.status === opt.value && "bg-blue-50/50 font-semibold"
+                                    )}
+                                  >
+                                    <Icon size={14} className={opt.color} />
+                                    {language === 'ko' ? opt.labelKo : opt.labelEn}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
                         <div>
                           <p className={cn(
                             "text-sm font-medium text-gray-900 line-clamp-1",

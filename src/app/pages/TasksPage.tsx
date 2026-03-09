@@ -284,13 +284,15 @@ function TaskColumn({
   const { language } = useLanguage();
   const [newTitle, setNewTitle] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const submittedRef = useRef(false);
 
   useEffect(() => {
-    if (isAdding && inputRef.current) inputRef.current.focus();
+    if (isAdding) { submittedRef.current = false; inputRef.current?.focus(); }
   }, [isAdding]);
 
   const handleSubmit = () => {
-    if (newTitle.trim()) { onAddTask(newTitle.trim(), status); setNewTitle(''); }
+    if (submittedRef.current) return;
+    if (newTitle.trim()) { submittedRef.current = true; onAddTask(newTitle.trim(), status); setNewTitle(''); }
   };
   const handleCancel = () => { setNewTitle(''); onCancelAdd?.(); };
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -550,18 +552,18 @@ function BoardView({
           isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
         />
         <TaskColumn
-          title={language === 'ko' ? "진행 중" : "In Progress"} count={inProgressTasks.length} tasks={inProgressTasks}
-          icon={<Clock size={16} className="text-blue-600" />}
-          onAddTask={onAddTask} status="in-progress" onDrop={onStatusChange}
-          isAdding={addingInColumn === 'in-progress'} onStartAdd={() => onStartAdd('in-progress')} onCancelAdd={onCancelAdd}
-          compact={cardStyle === 'compact'}
-          isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
-        />
-        <TaskColumn
           title={language === 'ko' ? "할 일" : "To Do"} count={pendingTasks.length} tasks={pendingTasks}
           icon={<Circle size={16} className="text-gray-500" />}
           onAddTask={onAddTask} status="pending" onDrop={onStatusChange}
           isAdding={addingInColumn === 'pending'} onStartAdd={() => onStartAdd('pending')} onCancelAdd={onCancelAdd}
+          compact={cardStyle === 'compact'}
+          isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
+        />
+        <TaskColumn
+          title={language === 'ko' ? "진행 중" : "In Progress"} count={inProgressTasks.length} tasks={inProgressTasks}
+          icon={<Clock size={16} className="text-blue-600" />}
+          onAddTask={onAddTask} status="in-progress" onDrop={onStatusChange}
+          isAdding={addingInColumn === 'in-progress'} onStartAdd={() => onStartAdd('in-progress')} onCancelAdd={onCancelAdd}
           compact={cardStyle === 'compact'}
           isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
         />

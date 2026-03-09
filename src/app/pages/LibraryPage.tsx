@@ -176,11 +176,17 @@ function KanbanColumn({
   useEffect(() => { if (isAdding && quickInputRef.current) quickInputRef.current.focus(); }, [isAdding]);
 
   const handleQuickSubmit = () => {
-    const url = quickUrl.trim();
-    if (!url) { setIsAdding(false); return; }
-    // Auto-prepend https:// if no protocol
-    const finalUrl = /^https?:\/\//i.test(url) ? url : `https://${url}`;
-    onQuickAdd?.(finalUrl, categoryKey);
+    const val = quickUrl.trim();
+    if (!val) { setIsAdding(false); return; }
+    // Check if it looks like a URL
+    const isUrl = /^https?:\/\//i.test(val) || /^[a-z0-9-]+\.[a-z]{2,}/i.test(val);
+    if (isUrl) {
+      const finalUrl = /^https?:\/\//i.test(val) ? val : `https://${val}`;
+      onQuickAdd?.(finalUrl, categoryKey);
+    } else {
+      // Text-only note
+      onQuickAdd?.(`__note__:${val}`, categoryKey);
+    }
     setQuickUrl("");
     setIsAdding(false);
   };
@@ -252,7 +258,7 @@ function KanbanColumn({
                   if (e.key === "Escape") { setQuickUrl(""); setIsAdding(false); }
                 }}
                 onBlur={() => { if (quickUrl.trim()) handleQuickSubmit(); else { setQuickUrl(""); setIsAdding(false); } }}
-                placeholder="URL 붙여넣기..."
+                placeholder="URL 또는 메모 입력..."
                 className="flex-1 text-xs outline-none bg-transparent placeholder-gray-400 text-gray-900 min-w-0"
               />
             </div>
@@ -262,7 +268,7 @@ function KanbanColumn({
             onClick={() => setIsAdding(true)}
             className="w-full py-2 rounded-lg text-gray-400 text-xs hover:text-blue-600 hover:bg-gray-100/80 transition-all flex items-center gap-1.5 px-2.5"
           >
-            <Plus size={13} /> URL 추가
+            <Plus size={13} /> 추가
           </button>
         )}
       </div>
@@ -413,12 +419,31 @@ export function LibraryPage() {
     [currentUser.id]
   );
 
-  const handleQuickAdd = useCallback(async (url: string, categoryKey: string) => {
+  const handleQuickAdd = useCallback(async (urlOrNote: string, categoryKey: string) => {
     const now = new Date().toISOString();
     const id = `lib-${Date.now()}`;
     const category = categoryKey === "__uncategorized__" ? undefined : categoryKey;
 
-    // Create item immediately with URL as title
+    // Check if this is a text-only note
+    if (urlOrNote.startsWith("__note__:")) {
+      const noteTitle = urlOrNote.slice("__note__:".length);
+      const item: LibraryItem = {
+        id,
+        title: noteTitle,
+        type: "note",
+        visibility: "private",
+        category,
+        ownerId: currentUser.id,
+        ownerName: currentUser.name,
+        createdAt: now,
+        updatedAt: now,
+      };
+      addItem(item);
+      return;
+    }
+
+    // URL-based item
+    const url = urlOrNote;
     let title = url;
     try { title = new URL(url).hostname.replace("www.", ""); } catch {}
 

@@ -17,6 +17,7 @@ export function ChatPage() {
   const { isOnline } = usePresence();
   const [input, setInput] = useState("");
   const [search, setSearch] = useState("");
+  const [chatTab, setChatTab] = useState<'conversations' | 'members'>('conversations');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -252,24 +253,45 @@ export function ChatPage() {
         </p>
       </header>
 
+      {/* Tabs */}
+      <div className="flex bg-gray-100 p-1 rounded-xl mb-4 shrink-0">
+        <button
+          onClick={() => { setChatTab('conversations'); setSearch(''); }}
+          className={cn(
+            "flex-1 py-2 text-xs font-semibold rounded-lg transition-all",
+            chatTab === 'conversations' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+          )}
+        >
+          {ko ? "대화" : "Conversations"}
+          {rooms.length > 0 && <span className="ml-1 text-[10px] text-gray-400">{rooms.length}</span>}
+        </button>
+        <button
+          onClick={() => setChatTab('members')}
+          className={cn(
+            "flex-1 py-2 text-xs font-semibold rounded-lg transition-all",
+            chatTab === 'members' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+          )}
+        >
+          {ko ? "팀원" : "Members"}
+          <span className="ml-1 text-[10px] text-gray-400">{filteredMembers.length}</span>
+        </button>
+      </div>
+
       {/* Search */}
       <div className="relative mb-4 shrink-0">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder={ko ? "팀원 검색..." : "Search members..."}
+          placeholder={ko ? (chatTab === 'members' ? "팀원 검색..." : "대화 검색...") : "Search..."}
           className="w-full pl-9 pr-4 py-2.5 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-200 transition-all"
         />
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-hide">
         {/* Existing conversations */}
-        {rooms.length > 0 && !search && (
+        {chatTab === 'conversations' && rooms.length > 0 && (
           <div className="mb-4">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1 mb-2">
-              {ko ? "대화" : "Conversations"}
-            </p>
             <div className="space-y-1">
               {rooms.map((room) => {
                 const otherId = getOtherUserId(room);
@@ -323,7 +345,15 @@ export function ChatPage() {
           </div>
         )}
 
+        {/* Conversations empty state */}
+        {chatTab === 'conversations' && rooms.length === 0 && !search && (
+          <div className="text-center py-12 text-gray-400 text-sm">
+            {ko ? "아직 대화가 없습니다. 팀원 탭에서 대화를 시작하세요." : "No conversations yet. Start one from the Members tab."}
+          </div>
+        )}
+
         {/* All team members */}
+        {chatTab === 'members' && (
         <div>
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1 mb-2">
             {ko ? "팀원" : "Team Members"}
@@ -368,6 +398,7 @@ export function ChatPage() {
             </div>
           )}
         </div>
+        )}
       </div>
     </div>
   );

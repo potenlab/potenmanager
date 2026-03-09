@@ -673,32 +673,6 @@ export function MyPage() {
           </div>
         </div>
 
-        {/* Settings */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
-          <div className="px-6 py-4 border-b border-gray-100">
-            <h3 className="text-sm font-bold text-gray-900">
-              {language === "ko" ? "설정" : "Settings"}
-            </h3>
-          </div>
-          <div className="divide-y divide-gray-50">
-            {/* Language (read-only, controlled from sidebar) */}
-            <div className="px-6 py-3.5 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Globe size={16} className="text-gray-400" />
-                <div>
-                  <p className="text-sm text-gray-900">
-                    {language === "ko" ? "언어" : "Language"}
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    {language === "ko" ? "한국어" : "English"}
-                  </p>
-                </div>
-              </div>
-              <ChevronRight size={16} className="text-gray-300" />
-            </div>
-          </div>
-        </div>
-
         {/* Logout */}
         <button
           onClick={handleSignOut}

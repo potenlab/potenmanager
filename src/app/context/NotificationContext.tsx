@@ -54,15 +54,8 @@ function eventToNotification(event: NotificationEvent): Omit<AppNotification, "i
 
   switch (type) {
     case "task.created":
-      return {
-        type: "task",
-        priority: "low",
-        titleKo: "새 업무가 생성되었습니다",
-        titleEn: "New task created",
-        descriptionKo: `'${data.titleKo || data.title}' 업무가 추가되었습니다.`,
-        descriptionEn: `Task '${data.title}' has been created.`,
-        actionUrl: `/tasks/${data.taskId}`,
-      };
+      // Skip notification for tasks created by the current user (feedback #5)
+      return null;
 
     case "task.completed":
       return {

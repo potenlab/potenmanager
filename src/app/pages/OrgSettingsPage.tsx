@@ -1,9 +1,11 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import { useNavigate } from "react-router";
 import {
   Camera,
   Building2,
   Check,
   Trash2,
+  ArrowLeft,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
@@ -87,6 +89,7 @@ function InlineField({
 }
 
 export function OrgSettingsPage() {
+  const navigate = useNavigate();
   const { language } = useLanguage();
   const ko = language === "ko";
   const { org, updateOrgName, updateOrgLogo, updateOrgField } = useInvite();
@@ -122,6 +125,14 @@ export function OrgSettingsPage() {
 
   return (
     <div className="max-w-2xl mx-auto py-6 px-4 pb-20">
+      {/* Back */}
+      <button
+        onClick={() => navigate(-1)}
+        className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors mb-3"
+      >
+        <ArrowLeft size={14} />
+        <span>{ko ? "뒤로가기" : "Back"}</span>
+      </button>
       {/* Header */}
       <div className="flex items-center gap-3 mb-8">
         <div className="flex-1">
