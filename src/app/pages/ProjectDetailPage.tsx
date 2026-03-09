@@ -185,12 +185,14 @@ export function ProjectDetailPage() {
         saveProjects(next);
         return next;
       });
-      // Sync logoUrl to kanban card
-      if (updates.logoUrl !== undefined) {
+      // Sync fields to kanban card
+      if (updates.logoUrl !== undefined || updates.name !== undefined || updates.description !== undefined) {
         const allCards = loadCards("projects");
         const card = allCards.find(c => c.id === currentId);
         if (card) {
-          card.logoUrl = updates.logoUrl || undefined;
+          if (updates.logoUrl !== undefined) card.logoUrl = updates.logoUrl || undefined;
+          if (updates.name !== undefined) card.title = updates.name;
+          if (updates.description !== undefined) card.description = updates.description;
           saveCards("projects", allCards);
         }
       }

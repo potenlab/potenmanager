@@ -158,6 +158,7 @@ export function TaskListView({ tasks, onStatusChange }: TaskListViewProps) {
                             "text-sm font-medium text-gray-900 line-clamp-1",
                             task.status === 'completed' && "line-through text-gray-400"
                           )}>
+                            {task.emoji && <span className="mr-1.5">{task.emoji}</span>}
                             {title}
                           </p>
                           {task.description && (

@@ -86,6 +86,16 @@ function useBrandData(id: string | undefined) {
       saveBrandAssets(next);
       return next;
     });
+    // Sync fields to kanban card
+    if (updates.name !== undefined || updates.description !== undefined) {
+      const allCards = loadCards("branding");
+      const card = allCards.find(c => c.id === currentId);
+      if (card) {
+        if (updates.name !== undefined) card.title = updates.name;
+        if (updates.description !== undefined) card.description = updates.description;
+        saveCards("branding", allCards);
+      }
+    }
   }, [currentId]);
 
   const handleDelete = useCallback(() => {

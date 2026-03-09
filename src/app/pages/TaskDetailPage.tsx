@@ -50,6 +50,7 @@ import { usePortalPosition } from "../hooks/usePortalPosition";
 import { DetailPageShell } from "../components/detail/DetailPageShell";
 import { AttachmentSection, getAttachmentIcon } from "../components/detail/AttachmentSection";
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
+import { EmojiPicker } from "../components/EmojiPicker";
 
 type TaskStatus = "pending" | "in-progress" | "completed" | "delayed";
 type TaskPriority = "low" | "medium" | "high";
@@ -406,6 +407,7 @@ export function TaskDetailPage() {
   );
   const [linkedBoard, setLinkedBoard] = useState<BoardType | undefined>(task?.linkedBoard);
   const [linkedCardId, setLinkedCardId] = useState<string | undefined>(task?.linkedCardId);
+  const [emoji, setEmoji] = useState<string | undefined>(task?.emoji);
   const [attachments, setAttachments] = useState<Attachment[]>(task?.attachments || []);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -453,10 +455,10 @@ export function TaskDetailPage() {
         startDate: dateStart ?? undefined, endDate: dateEnd ?? undefined,
         dueDate: dateEnd ?? dateStart ?? undefined,
         estimatedTime: estTime, category, attachments,
-        linkedBoard, linkedCardId,
+        linkedBoard, linkedCardId, emoji,
       });
     }
-  }, [title, description, status, priority, assigneeIds, dateStart, dateEnd, estTime, category, attachments, linkedBoard, linkedCardId]);
+  }, [title, description, status, priority, assigneeIds, dateStart, dateEnd, estTime, category, attachments, linkedBoard, linkedCardId, emoji]);
 
   const handleDelete = () => {
     if (confirm(language === "ko" ? "정말 삭제하시겠습니까?" : "Are you sure you want to delete?")) {
@@ -499,6 +501,9 @@ export function TaskDetailPage() {
       onDelete={canDelete ? handleDelete : undefined}
       collapsible={true}
       defaultExpanded={true}
+      titlePrefix={
+        <EmojiPicker value={emoji} onChange={setEmoji} size="lg" />
+      }
       title={
         <div>
           <InlineText

@@ -13,7 +13,9 @@ import { useTeam } from "../context/TeamContext";
 import { useTrash } from "../context/TrashContext";
 
 const LIBRARY_DRAG_TYPE = "LIBRARY_CARD";
+const LIBRARY_COL_DRAG = "LIBRARY_COL";
 interface LibraryDragItem { id: string; category?: string; }
+interface LibraryColDragItem { key: string; index: number; }
 
 // ─── Predefined Archive Categories ──────────────────────────────
 export const ARCHIVE_CATEGORIES = [
@@ -148,6 +150,8 @@ function KanbanColumn({
   isCustom,
   compact,
   onDrop,
+  colIndex,
+  onMoveColumn,
 }: {
   title: string;
   categoryKey: string;
@@ -161,13 +165,38 @@ function KanbanColumn({
   isCustom?: boolean;
   compact?: boolean;
   onDrop: (itemId: string, targetCategory: string) => void;
+  colIndex: number;
+  onMoveColumn: (fromIndex: number, toIndex: number) => void;
 }) {
-  const [{ isOver, canDrop }, dropRef] = useDrop<LibraryDragItem, void, { isOver: boolean; canDrop: boolean }>({
+  const colRef = useRef<HTMLDivElement>(null);
+
+  const [{ isOver, canDrop }, cardDropRef] = useDrop<LibraryDragItem, void, { isOver: boolean; canDrop: boolean }>({
     accept: LIBRARY_DRAG_TYPE,
     canDrop: (item) => (item.category || "__uncategorized__") !== categoryKey,
     drop: (item) => onDrop(item.id, categoryKey),
     collect: (monitor) => ({ isOver: monitor.isOver(), canDrop: monitor.canDrop() }),
   });
+
+  // Column drag
+  const [{ isDragging: colDragging }, colDrag, colDragPreview] = useDrag<LibraryColDragItem, void, { isDragging: boolean }>({
+    type: LIBRARY_COL_DRAG,
+    item: { key: categoryKey, index: colIndex },
+    collect: (m) => ({ isDragging: m.isDragging() }),
+  });
+
+  const [, colDrop] = useDrop<LibraryColDragItem>({
+    accept: LIBRARY_COL_DRAG,
+    hover(item) {
+      if (item.key === categoryKey) return;
+      onMoveColumn(item.index, colIndex);
+      item.index = colIndex;
+    },
+  });
+
+  // Combine refs: card drop + column drop + column preview all on same div
+  colDrop(colRef);
+  colDragPreview(colRef);
+  cardDropRef(colRef);
 
   const [quickUrl, setQuickUrl] = useState("");
   const [isAdding, setIsAdding] = useState(false);
@@ -193,10 +222,11 @@ function KanbanColumn({
 
   return (
     <div
-      ref={dropRef}
+      ref={colRef}
       className={cn(
         "flex flex-col shrink-0 rounded-2xl border transition-all duration-200",
         compact ? "w-[200px]" : "w-[280px]",
+        colDragging && "opacity-40 ring-2 ring-blue-200",
         isOver && canDrop
           ? "bg-blue-50/80 border-blue-300 ring-2 ring-blue-200/50 shadow-lg"
           : canDrop
@@ -204,8 +234,13 @@ function KanbanColumn({
             : "bg-gray-50/70 border-gray-100"
       )}
     >
+      {/* Drag handle bar */}
+      <div ref={colDrag} className="flex justify-center py-1.5 cursor-grab active:cursor-grabbing group/grip" data-col-grip>
+        <div className="w-10 h-1 rounded-full bg-gray-200 group-hover/grip:bg-gray-400 group-active/grip:bg-blue-400 transition-colors" />
+      </div>
+
       {/* Column header */}
-      <div className="flex items-center justify-between px-3.5 py-3 border-b border-gray-100">
+      <div className="flex items-center justify-between px-3.5 pb-3 pt-1 border-b border-gray-100">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-[13px] font-bold text-gray-700 truncate">{title}</span>
           <span className="text-[11px] font-semibold text-gray-400 bg-gray-200/60 rounded-full px-1.5 min-w-[20px] text-center">
@@ -303,6 +338,7 @@ export function LibraryPage() {
   });
   const setActiveTab = (v: "all" | "private" | "team") => { _setActiveTab(v); localStorage.setItem('poten_lib_tab', v); };
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+  const initialSelectionDone = useRef(false);
   const [viewMode, _setViewMode] = useState<"kanban" | "compact" | "grid">(() => {
     try { return (localStorage.getItem('poten_lib_view') as "kanban" | "compact" | "grid") || "kanban"; } catch { return "kanban"; }
   });
@@ -394,6 +430,16 @@ export function LibraryPage() {
     return map;
   }, [filteredItems, allColumns]);
 
+  // Auto-select categories that have items (on first load)
+  useEffect(() => {
+    if (initialSelectionDone.current) return;
+    const nonEmpty = Object.entries(columnItems).filter(([, arr]) => arr.length > 0).map(([key]) => key);
+    if (nonEmpty.length > 0) {
+      setSelectedCategories(new Set(nonEmpty));
+      initialSelectionDone.current = true;
+    }
+  }, [columnItems]);
+
   // Extra columns from items with categories not in allColumns
   const extraColumns = useMemo(() => {
     const knownKeys = new Set(allColumns.map((c) => c.key));
@@ -406,11 +452,43 @@ export function LibraryPage() {
     return extras;
   }, [allColumns, columnItems]);
 
+  // Column ordering (persisted to localStorage)
+  const [columnOrder, _setColumnOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("poten_lib_col_order");
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const setColumnOrder = useCallback((order: string[]) => {
+    _setColumnOrder(order);
+    localStorage.setItem("poten_lib_col_order", JSON.stringify(order));
+  }, []);
+
   const displayColumns = useMemo(() => {
     const all = [...allColumns, ...extraColumns];
-    if (selectedCategories.size === 0) return all;
-    return all.filter((col) => selectedCategories.has(col.key));
-  }, [allColumns, extraColumns, selectedCategories]);
+    const filtered = selectedCategories.size === 0 ? all : all.filter((col) => selectedCategories.has(col.key));
+    // Apply saved order
+    if (columnOrder.length > 0) {
+      const keyMap = new Map(filtered.map((c) => [c.key, c]));
+      const ordered: typeof filtered = [];
+      // First: keys in saved order that exist in filtered
+      columnOrder.forEach((key) => {
+        const col = keyMap.get(key);
+        if (col) { ordered.push(col); keyMap.delete(key); }
+      });
+      // Then: remaining columns not in saved order
+      keyMap.forEach((col) => ordered.push(col));
+      return ordered;
+    }
+    return filtered;
+  }, [allColumns, extraColumns, selectedCategories, columnOrder]);
+
+  const handleMoveColumn = useCallback((fromIndex: number, toIndex: number) => {
+    const keys = displayColumns.map((c) => c.key);
+    const [moved] = keys.splice(fromIndex, 1);
+    keys.splice(toIndex, 0, moved);
+    setColumnOrder(keys);
+  }, [displayColumns, setColumnOrder]);
 
   const totalCatCount = ARCHIVE_CATEGORIES.length + customCategories.length + extraColumns.length;
 
@@ -733,7 +811,7 @@ export function LibraryPage() {
         /* Kanban Board */
         <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4">
           <div className="flex gap-3 h-full min-w-max pr-4">
-            {displayColumns.map((col) => (
+            {displayColumns.map((col, colIdx) => (
               <KanbanColumn
                 key={col.key}
                 title={col.label}
@@ -751,6 +829,8 @@ export function LibraryPage() {
                   const newCat = targetCategory === "__uncategorized__" ? undefined : targetCategory;
                   updateItem(itemId, { category: newCat });
                 }}
+                colIndex={colIdx}
+                onMoveColumn={handleMoveColumn}
               />
             ))}
           </div>

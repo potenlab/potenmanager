@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import {
   FolderKanban, Palette, Plus, Trash2,
   Calendar as CalendarIcon, MoreHorizontal, X, Check,
-  Image as ImageIcon, Globe, GripVertical, Search, Edit3,
+  Image as ImageIcon, Globe, Search, Edit3,
   StickyNote, LayoutGrid, List, AlignJustify, LayoutList,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -244,34 +244,31 @@ export function saveCards(board: BoardType, cards: KanbanCard[]) {
 const CARD_DRAG = "MGMT_CARD";
 const COL_DRAG = "MGMT_COL";
 
-interface CardDragItem { id: string; ids: string[]; columnId: string; index: number; }
+interface CardDragItem { id: string; columnId: string; index: number; }
 interface ColDragItem { id: string; index: number; }
 
 // ─── Card Component (TaskCard style) ────────────────────────────
 function MgmtCard({
   card, index, columnId, ko, board,
   onDelete, onMove, compact,
-  isSelected, selectedIds, onContextMenu,
+  isSelected, onContextMenu,
 }: {
   card: KanbanCard; index: number; columnId: string; ko: boolean; board: BoardType;
   onDelete: (id: string) => void;
   onMove: (dragId: string, targetColId: string, targetIndex: number) => void;
   compact?: boolean;
   isSelected?: boolean;
-  selectedIds?: Set<string>;
   onContextMenu?: (e: React.MouseEvent, id: string) => void;
 }) {
   const navigate = useNavigate();
   const ref = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const dragIds = isSelected && selectedIds ? Array.from(selectedIds) : [card.id];
-
   const [{ isDragging }, drag] = useDrag<CardDragItem, void, { isDragging: boolean }>({
     type: CARD_DRAG,
-    item: { id: card.id, ids: dragIds, columnId, index },
+    item: { id: card.id, columnId, index },
     collect: (monitor) => ({ isDragging: monitor.isDragging() }),
-  }, [card.id, columnId, index, dragIds]);
+  }, [card.id, columnId, index]);
 
   const [, drop] = useDrop<CardDragItem>({
     accept: CARD_DRAG,
@@ -306,12 +303,6 @@ function MgmtCard({
             : "border-gray-100"
       )}
     >
-      {/* Multi-drag badge */}
-      {isDragging && dragIds.length > 1 && (
-        <div className="absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center shadow-lg ring-2 ring-white">
-          {dragIds.length}
-        </div>
-      )}
       {compact ? (
         /* ── Compact: logo/platform icon + title + date ── */
         <div className="min-w-0">
@@ -348,7 +339,7 @@ function MgmtCard({
               <MoreHorizontal size={16} />
             </button>
             {menuOpen && (
-              <div className="absolute right-0 top-7 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-24"
+              <div className="absolute right-0 top-7 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-36"
                 onMouseLeave={() => setMenuOpen(false)}>
                 <button
                   onClick={(e) => { e.stopPropagation(); setMenuOpen(false); navigate(detailPath); }}
@@ -356,6 +347,7 @@ function MgmtCard({
                 >
                   <Edit3 size={10} /> {ko ? "수정" : "Edit"}
                 </button>
+                <div className="mx-2 my-0.5 border-t border-gray-100" />
                 <button
                   onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete(card.id); }}
                   className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-1.5"
@@ -460,8 +452,8 @@ function MgmtColumn({
     setIsEditing(false);
   };
 
-  // Column drag
-  const [{ isDragging: colDragging }, colDrag] = useDrag<ColDragItem, void, { isDragging: boolean }>({
+  // Column drag — grip handle only
+  const [{ isDragging: colDragging }, colDrag, colDragPreview] = useDrag<ColDragItem, void, { isDragging: boolean }>({
     type: COL_DRAG,
     item: { id: column.id, index },
     collect: (m) => ({ isDragging: m.isDragging() }),
@@ -476,34 +468,33 @@ function MgmtColumn({
     },
   });
 
-  // Drop zone for cards (handles multi-drag)
-  const [{ isOver, canDrop }, cardDrop] = useDrop<CardDragItem, void, { isOver: boolean; canDrop: boolean }>({
+  // Card drop zone (for dropping cards into this column)
+  const [{ isOver: cardIsOver, canDrop: cardCanDrop }, cardDrop] = useDrop<CardDragItem, void, { isOver: boolean; canDrop: boolean }>({
     accept: CARD_DRAG,
     canDrop: (item) => item.columnId !== column.id || item.index !== cards.length,
     drop(item) {
-      // Move all selected cards if multi-drag
-      if (item.ids && item.ids.length > 1) {
-        item.ids.forEach((id, i) => onMoveCard(id, column.id, cards.length + i));
-      } else {
-        onMoveCard(item.id, column.id, cards.length);
-      }
+      onMoveCard(item.id, column.id, cards.length);
     },
     collect: (m) => ({ isOver: m.isOver(), canDrop: m.canDrop() }),
   });
 
-  colDrag(colDrop(colRef));
+  // Column: drop target for columns on whole div, drag preview on whole div, drag handle on grip only
+  colDrop(colRef);
+  colDragPreview(colRef);
 
   return (
     <div
       ref={colRef}
       className={cn(
         "w-[300px] shrink-0 flex flex-col rounded-2xl border p-4 transition-all duration-200 h-full",
-        colDragging ? "opacity-40 ring-2 ring-blue-200" :
-        isOver && canDrop
-          ? "bg-blue-50/80 border-blue-300 ring-2 ring-blue-200/50 shadow-lg"
-          : canDrop ? "bg-gray-50/50 border-gray-200 border-dashed" : "bg-gray-50/50 border-gray-100"
+        colDragging ? "opacity-40 ring-2 ring-blue-200" : "bg-gray-50/50 border-gray-100"
       )}
     >
+      {/* Drag handle bar */}
+      <div ref={colDrag} data-col-grip className="flex justify-center py-1.5 cursor-grab active:cursor-grabbing group/grip">
+        <div className="w-10 h-1 rounded-full bg-gray-200 group-hover/grip:bg-gray-400 group-active/grip:bg-blue-400 transition-colors" />
+      </div>
+
       {/* Column Header */}
       <div className="flex items-center justify-between mb-4 px-1">
         {isEditing ? (
@@ -519,16 +510,13 @@ function MgmtColumn({
           </div>
         ) : (
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            <GripVertical size={14} className="text-gray-300 cursor-grab shrink-0" />
             <h3
               onClick={() => { setEditName(column.name); setIsEditing(true); }}
               className="font-semibold text-gray-700 text-sm truncate cursor-pointer hover:text-blue-600 transition-colors"
             >
               {column.name}
             </h3>
-            <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full transition-colors",
-              isOver && canDrop ? "bg-blue-200 text-blue-700" : "bg-gray-200 text-gray-600"
-            )}>{cards.length}</span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-200 text-gray-600">{cards.length}</span>
           </div>
         )}
         <div className="flex items-center gap-0.5 shrink-0">
@@ -574,12 +562,12 @@ function MgmtColumn({
           </div>
         )}
 
-        {cards.length === 0 && isOver && canDrop && (
+        {cards.length === 0 && cardIsOver && cardCanDrop && (
           <div className="border-2 border-dashed border-blue-300 rounded-xl p-6 text-center text-blue-500 text-xs font-medium animate-pulse">
             {ko ? "여기에 놓으세요" : "Drop here"}
           </div>
         )}
-        {cards.length === 0 && !isOver && !isAdding && (
+        {cards.length === 0 && !cardIsOver && !isAdding && (
           <button onClick={() => setIsAdding(true)}
             className="w-full flex flex-col items-center justify-center py-8 text-gray-300 hover:text-blue-500 hover:bg-blue-50/50 rounded-xl transition-all cursor-pointer group">
             <Plus size={20} className="mb-1.5 opacity-50 group-hover:opacity-100 transition-opacity" />
@@ -599,7 +587,6 @@ function MgmtColumn({
             onMove={onMoveCard}
             compact={compact}
             isSelected={selectedIds?.has(card.id)}
-            selectedIds={selectedIds}
             onContextMenu={onContextMenu}
           />
         ))}
@@ -725,7 +712,7 @@ export function ManagementPage() {
 
   const handleBoardMouseDown = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (target.closest('[data-mgmt-card]') || target.closest('button') || target.closest('input') || target.closest('a')) return;
+    if (target.closest('[data-mgmt-card]') || target.closest('[data-col-grip]') || target.closest('button') || target.closest('input') || target.closest('a')) return;
     if (e.button !== 0) return;
     e.preventDefault();
     startRef.current = { x: e.clientX, y: e.clientY };
@@ -880,7 +867,7 @@ export function ManagementPage() {
     persistCards(cards.filter(c => c.id !== id));
   };
 
-  const handleMoveCard = (dragId: string, targetColId: string, targetIndex: number) => {
+  const handleMoveCard = useCallback((dragId: string, targetColId: string, targetIndex: number) => {
     const next = [...cards];
     const cardIndex = next.findIndex(c => c.id === dragId);
     if (cardIndex === -1) return;
@@ -891,20 +878,7 @@ export function ManagementPage() {
     colCards.splice(Math.min(targetIndex, colCards.length), 0, moved);
     colCards.forEach((c, i) => c.order = i);
     persistCards([...otherCards, ...colCards]);
-
-    // Sync brand asset category when moving cards between branding columns
-    if (board === "branding") {
-      const targetCol = columns.find(c => c.id === targetColId);
-      if (targetCol) {
-        const assets = loadBrandAssets();
-        const asset = assets.find(a => a.id === dragId);
-        if (asset) {
-          asset.category = targetCol.name;
-          saveBrandAssets(assets);
-        }
-      }
-    }
-  };
+  }, [cards, persistCards]);
 
   const sortedColumns = useMemo(() => [...columns].sort((a, b) => a.order - b.order), [columns]);
 

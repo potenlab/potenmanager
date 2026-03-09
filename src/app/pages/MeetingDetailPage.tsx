@@ -615,9 +615,6 @@ export function MeetingDetailPage() {
     >
             {/* Notes — above action items */}
             <div className="min-h-[200px] border-t border-gray-100 pt-5">
-              <div className="mb-3">
-                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">{ko ? '회의록' : 'Meeting Notes'}</span>
-              </div>
               <NotionBlockEditor
                 initialContent={notes}
                 onChange={setNotes}

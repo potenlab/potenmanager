@@ -186,6 +186,8 @@ export interface Task extends GoalItem {
   linkedBoard?: 'projects' | 'branding';
   /** Linked management card ID */
   linkedCardId?: string;
+  /** Emoji icon (like Notion page icons) */
+  emoji?: string;
 }
 
 // Helper: get the "main" assignee id for calendar color purposes.

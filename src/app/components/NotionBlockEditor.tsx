@@ -1171,6 +1171,9 @@ export function NotionBlockEditor({
 
   const handleBlockMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
     if (readOnly) return;
+    // Don't start multi-select drag from inside contenteditable elements
+    const target = e.target as HTMLElement;
+    const isContentEditable = target.getAttribute("contenteditable") === "true" || target.closest("[contenteditable]");
     if (e.shiftKey && lastClickedIdx.current !== null) {
       e.preventDefault();
       selectRange(lastClickedIdx.current, idx);
@@ -1178,7 +1181,8 @@ export function NotionBlockEditor({
     } else if (!e.shiftKey) {
       if (selectedIds.size > 0) clearSelection();
       lastClickedIdx.current = idx;
-      dragStartIdx.current = idx;
+      // Only start multi-select drag from non-editable areas (e.g., the row container itself)
+      dragStartIdx.current = isContentEditable ? null : idx;
       isDragging.current = false;
     }
   }, [readOnly, selectedIds, selectRange, clearSelection]);
@@ -1230,6 +1234,8 @@ export function NotionBlockEditor({
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", String(idx));
     setDragBlockIdx(idx);
+    // Prevent text selection during drag
+    if (wrapperRef.current) wrapperRef.current.style.userSelect = "none";
   };
 
   const handleBlockDragOver = (e: React.DragEvent, idx: number) => {
@@ -1261,6 +1267,7 @@ export function NotionBlockEditor({
   const handleBlockDragEnd = () => {
     setDragBlockIdx(null);
     setDropTargetIdx(null);
+    if (wrapperRef.current) wrapperRef.current.style.userSelect = "";
   };
 
   // Wrapper-level keyDown
@@ -1345,17 +1352,17 @@ export function NotionBlockEditor({
           onDragOver={(e) => handleBlockDragOver(e, idx)}
           onDrop={(e) => handleBlockDrop(e, idx)}
         >
-          {/* Left handle area */}
+          {/* Left handle area — inline, appears on hover */}
           {!readOnly && (
             <div
               className={cn(
-                "absolute -left-14 flex items-center gap-0.5 shrink-0 transition-opacity duration-100",
+                "flex items-center gap-0 shrink-0 transition-opacity duration-100 -ml-1 mr-0.5",
                 block.type === "h1" ? "pt-[8px]" : block.type === "h2" ? "pt-[6px]" : "pt-[5px]",
                 hoveredIdx === idx || focusedIdx === idx ? "opacity-100" : "opacity-0"
               )}
-              style={{ left: `${block.indent * 24 - 56}px` }}
             >
               <button
+                onMouseDown={(e) => e.stopPropagation()}
                 onClick={() => addBlockAfter(idx)}
                 className="p-0.5 rounded hover:bg-gray-100 text-gray-300 hover:text-gray-500 transition-colors"
                 tabIndex={-1}
@@ -1364,6 +1371,7 @@ export function NotionBlockEditor({
               </button>
               <div
                 draggable
+                onMouseDown={(e) => e.stopPropagation()}
                 onDragStart={(e) => handleGripDragStart(e, idx)}
                 onDragEnd={handleBlockDragEnd}
                 className="text-gray-300 cursor-grab active:cursor-grabbing p-0.5 hover:bg-gray-100 rounded transition-colors"

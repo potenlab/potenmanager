@@ -188,7 +188,7 @@ function TaskCard({
           <h4 className={cn(
             "font-medium text-sm leading-snug truncate",
             task.status === 'completed' ? "text-gray-400 line-through" : "text-gray-900"
-          )}>{title}</h4>
+          )}>{task.emoji && <span className="mr-1">{task.emoji}</span>}{title}</h4>
         </div>
       ) : (
         /* ── Detailed card: full info ── */
@@ -221,7 +221,7 @@ function TaskCard({
           <h4 className={cn(
             "font-medium text-sm mb-1 leading-snug",
             task.status === 'completed' ? "text-gray-400 line-through" : "text-gray-900"
-          )}>{title}</h4>
+          )}>{task.emoji && <span className="mr-1">{task.emoji}</span>}{title}</h4>
           {task.description && (
             <p className="text-xs text-gray-500 line-clamp-2 mb-3 break-all overflow-hidden">
               {task.description.replace(/\[img:[^\]]*\]/g, '').trim() || undefined}
