@@ -339,33 +339,31 @@ function MgmtCard({
       ) : (
         /* ── Detailed: full info ── */
         <>
-          <div className="flex items-start gap-2 mb-2">
-            <div className="flex-1 min-w-0" />
-            <div className="relative shrink-0">
-              <button
-                onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
-                className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-              >
-                <MoreHorizontal size={16} />
-              </button>
-              {menuOpen && (
-                <div className="absolute right-0 top-7 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-24"
-                  onMouseLeave={() => setMenuOpen(false)}>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); navigate(detailPath); }}
-                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-1.5"
-                  >
-                    <Edit3 size={10} /> {ko ? "수정" : "Edit"}
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete(card.id); }}
-                    className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-1.5"
-                  >
-                    <Trash2 size={10} /> {ko ? "삭제" : "Delete"}
-                  </button>
-                </div>
-              )}
-            </div>
+          {/* Menu button (absolute top-right) */}
+          <div className="absolute top-2 right-2 z-10">
+            <button
+              onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
+              className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-gray-100"
+            >
+              <MoreHorizontal size={16} />
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-7 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-24"
+                onMouseLeave={() => setMenuOpen(false)}>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setMenuOpen(false); navigate(detailPath); }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-1.5"
+                >
+                  <Edit3 size={10} /> {ko ? "수정" : "Edit"}
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete(card.id); }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-1.5"
+                >
+                  <Trash2 size={10} /> {ko ? "삭제" : "Delete"}
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2 mb-1">
