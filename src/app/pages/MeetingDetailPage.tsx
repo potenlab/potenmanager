@@ -354,7 +354,7 @@ export function MeetingDetailPage() {
         title: '',
         date: meetingDate.toISOString(),
         duration: 60,
-        type: 'other',
+        type: 'external',
         status: 'scheduled',
         attendeeIds: [currentUser.id],
         organizerId: currentUser.id,
@@ -375,6 +375,21 @@ export function MeetingDetailPage() {
   const [newActionAssignee, setNewActionAssignee] = useState('');
   const [newActionCategory, setNewActionCategory] = useState<TaskCategory | ''>('');
   const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [locationText, setLocationText] = useState(meeting?.location || '');
+  const notesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Sync locationText when meeting changes externally
+  useEffect(() => { if (meeting) setLocationText(meeting.location || ''); }, [meeting?.id]);
+
+  // Auto-save notes on change (debounced)
+  useEffect(() => {
+    if (!meeting) return;
+    if (notesTimerRef.current) clearTimeout(notesTimerRef.current);
+    notesTimerRef.current = setTimeout(() => {
+      updateMeeting(meeting.id, { notes });
+    }, 800);
+    return () => { if (notesTimerRef.current) clearTimeout(notesTimerRef.current); };
+  }, [notes]);
 
   if (meetingId === 'new') {
     return (
@@ -410,9 +425,6 @@ export function MeetingDetailPage() {
   const handleStatusChange = (s: MeetingStatus) => updateMeeting(meeting.id, { status: s });
   const handleTypeChange = (t: MeetingType) => updateMeeting(meeting.id, { type: t });
   const handleDurationChange = (d: string) => updateMeeting(meeting.id, { duration: Number(d) });
-  const [locationText, setLocationText] = useState(meeting?.location || '');
-  // Sync locationText when meeting changes externally
-  useEffect(() => { if (meeting) setLocationText(meeting.location || ''); }, [meeting?.id]);
   const handleLocationBlur = () => {
     const loc = locationText.trim();
     if (loc !== (meeting.location || '')) {
@@ -444,16 +456,6 @@ export function MeetingDetailPage() {
     d.setHours(hour, minute, 0, 0);
     updateMeeting(meeting.id, { date: d.toISOString() });
   };
-
-  // Auto-save notes on change (debounced to avoid race conditions)
-  const notesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    if (notesTimerRef.current) clearTimeout(notesTimerRef.current);
-    notesTimerRef.current = setTimeout(() => {
-      updateMeeting(meeting.id, { notes });
-    }, 800);
-    return () => { if (notesTimerRef.current) clearTimeout(notesTimerRef.current); };
-  }, [notes]);
 
   const addActionItem = () => {
     if (!newActionTitle.trim()) return;
