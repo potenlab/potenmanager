@@ -30,9 +30,7 @@ import {
   DollarSign,
   Upload,
   File as FileIcon,
-  LayoutGrid,
   FolderKanban,
-  ArrowLeft,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Task, TaskCategory, Attachment } from "../../lib/mockData";
@@ -48,7 +46,7 @@ import { InlineText } from "../components/detail/InlineText";
 import { InlineDropdown } from "../components/detail/InlineDropdown";
 import { PropertyItem } from "../components/detail/PropertyItem";
 import { usePortalPosition } from "../hooks/usePortalPosition";
-import { ShareButton } from "../components/detail/ShareButton";
+import { DetailPageShell } from "../components/detail/DetailPageShell";
 import { AttachmentSection, getAttachmentIcon } from "../components/detail/AttachmentSection";
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
 
@@ -407,7 +405,6 @@ export function TaskDetailPage() {
   );
   const [linkedBoard, setLinkedBoard] = useState<BoardType | undefined>(task?.linkedBoard);
   const [linkedCardId, setLinkedCardId] = useState<string | undefined>(task?.linkedCardId);
-  const [propsExpanded, setPropsExpanded] = useState(true);
   const [attachments, setAttachments] = useState<Attachment[]>(task?.attachments || []);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -491,248 +488,196 @@ export function TaskDetailPage() {
   }, [taskId, addTask, updateTask, getTask, currentUser.id]);
 
   return (
-    <div className="h-full overflow-y-auto bg-white scrollbar-hide">
-      <div className="max-w-6xl mx-auto py-4 sm:py-7 px-4 sm:px-8 pb-64">
-        
-        {/* Back + Breadcrumb Navigation */}
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors mb-2 -ml-0.5"
-        >
-          <ArrowLeft size={14} />
-          <span>{language === "ko" ? "뒤로가기" : "Back"}</span>
-        </button>
-        <div className="flex items-center justify-between mb-6">
-          <nav className="flex items-center gap-1.5 text-sm text-gray-400">
-            <button onClick={() => navigate("/tasks")} className="hover:text-gray-900 transition-colors">
-              {language === "ko" ? "내 업무" : "My Tasks"}
-            </button>
-            <span>/</span>
-            <span className="text-gray-700 font-medium truncate max-w-[300px]">
-              {title || (language === "ko" ? "새 업무" : "New Task")}
-            </span>
-          </nav>
-          <div className="flex items-center gap-2">
-            <ShareButton type="task" itemId={task.id} createdBy={currentUser.id} />
-            {canDelete && (
-              <button onClick={handleDelete} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
-                <X size={20} />
-              </button>
-            )}
-          </div>
+    <DetailPageShell
+      shareType="task"
+      itemId={task?.id || ""}
+      currentUserId={currentUser.id}
+      backPath="/tasks"
+      backLabel={language === "ko" ? "내 업무" : "My Tasks"}
+      breadcrumbs={[{ label: title || (language === "ko" ? "새 업무" : "New Task") }]}
+      onDelete={canDelete ? handleDelete : undefined}
+      collapsible={true}
+      defaultExpanded={true}
+      title={
+        <div>
+          <InlineText
+            value={title} onChange={setTitle} readOnly={!canEdit}
+            placeholder={language === "ko" ? "태스크 제목" : "Task Title"}
+            className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight tracking-tight focus:ring-0 focus:bg-transparent hover:bg-transparent border-b-2 border-transparent focus:border-gray-200 rounded-none pb-0.5"
+            as="h1"
+          />
         </div>
-
-        <div className="max-w-3xl">
-
-          {/* Title & Description */}
-          <div className="space-y-6">
-            <div>
-              <InlineText
-                value={title} onChange={setTitle} readOnly={!canEdit}
-                placeholder={language === "ko" ? "태스크 제목" : "Task Title"}
-                className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight tracking-tight focus:ring-0 focus:bg-transparent hover:bg-transparent border-b-2 border-transparent focus:border-gray-200 rounded-none pb-0.5"
-                as="h1"
-              />
-            </div>
-
-            {/* Properties — collapsible, notion style */}
-            <div className="bg-gray-50/50 rounded-2xl border border-gray-100 overflow-hidden">
-              <button
-                onClick={() => setPropsExpanded(p => !p)}
-                className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-100/50 transition-colors"
-              >
-                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
-                  <LayoutGrid size={12} />
-                  {language === 'ko' ? '속성' : 'Properties'}
-                </span>
-                <div className="flex items-center gap-2">
-                  {!propsExpanded && (
-                    <div className="flex items-center gap-1.5">
-                      <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded", STATUS_CONFIG[status].bg, STATUS_CONFIG[status].color)}>
-                        {language === 'ko' ? STATUS_CONFIG[status].labelKo : STATUS_CONFIG[status].label}
-                      </span>
-                      <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded", PRIORITY_CONFIG[priority].bg, PRIORITY_CONFIG[priority].color)}>
-                        {language === 'ko' ? PRIORITY_CONFIG[priority].labelKo : PRIORITY_CONFIG[priority].label}
-                      </span>
-                      {category && TASK_CATEGORY_CONFIG[category] && (
-                        <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5", TASK_CATEGORY_CONFIG[category].bg, TASK_CATEGORY_CONFIG[category].color)}>
-                          {TASK_CATEGORY_CONFIG[category].icon}
-                          {language === 'ko' ? TASK_CATEGORY_CONFIG[category].labelKo : TASK_CATEGORY_CONFIG[category].label}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  <ChevronDown size={14} className={cn("text-gray-400 transition-transform duration-200", propsExpanded && "rotate-180")} />
-                </div>
-              </button>
-              <AnimatePresence initial={false}>
-                {propsExpanded && (
-                  <motion.div
-                    initial={{ height: 0 }}
-                    animate={{ height: "auto" }}
-                    exit={{ height: 0 }}
-                    transition={{ duration: 0.2, ease: "easeInOut" }}
-                    className="overflow-hidden"
-                  >
-                    <div className="divide-y divide-gray-100 border-t border-gray-100">
-              <PropertyItem icon={<Clock size={14} />} label={language === "ko" ? "상태" : "Status"}>
-                <InlineDropdown 
-                  value={status} options={["pending", "in-progress", "delayed", "completed"] as TaskStatus[]}
-                  onChange={setStatus} disabled={!canEdit}
-                  renderValue={(v) => {
-                    const cfg = STATUS_CONFIG[v];
-                    return <span className={cn("flex items-center gap-1.5 font-bold", cfg.color)}>{cfg.icon} {language === "ko" ? cfg.labelKo : cfg.label}</span>;
-                  }}
-                  renderOption={(o) => <span className={cn("flex items-center gap-2", STATUS_CONFIG[o].color)}>{STATUS_CONFIG[o].icon} {language === "ko" ? STATUS_CONFIG[o].labelKo : STATUS_CONFIG[o].label}</span>}
-                />
-              </PropertyItem>
-
-              <PropertyItem icon={<Flag size={14} />} label={language === "ko" ? "우선순위" : "Priority"}>
-                <InlineDropdown 
-                  value={priority} options={["low", "medium", "high"] as TaskPriority[]}
-                  onChange={setPriority} disabled={!canEdit}
-                  renderValue={(v) => <span className={cn("px-2 py-0.5 rounded-md font-bold", PRIORITY_CONFIG[v].bg, PRIORITY_CONFIG[v].color)}>{language === "ko" ? PRIORITY_CONFIG[v].labelKo : PRIORITY_CONFIG[v].label}</span>}
-                  renderOption={(o) => <span className={PRIORITY_CONFIG[o].color}>{language === "ko" ? PRIORITY_CONFIG[o].labelKo : PRIORITY_CONFIG[o].label}</span>}
-                />
-              </PropertyItem>
-
-              <PropertyItem icon={<Tag size={14} />} label={language === "ko" ? "카테고리" : "Category"}>
-                <InlineDropdown
-                  value={category || ''}
-                  options={['', ...Object.keys(TASK_CATEGORY_CONFIG)] as string[]}
-                  onChange={(v) => setCategory(v ? v as TaskCategory : undefined)}
-                  disabled={!canEdit}
-                  renderValue={(v) => {
-                    if (!v || !TASK_CATEGORY_CONFIG[v as TaskCategory]) return <span className="text-sm text-gray-400">{language === "ko" ? "미설정" : "Not set"}</span>;
-                    const cfg = TASK_CATEGORY_CONFIG[v as TaskCategory];
-                    return <span className={cn("flex items-center gap-1.5 font-bold text-sm", cfg.color)}>{cfg.icon} {language === "ko" ? cfg.labelKo : cfg.label}</span>;
-                  }}
-                  renderOption={(o) => {
-                    if (!o || !TASK_CATEGORY_CONFIG[o as TaskCategory]) return <span className="text-gray-400">{language === "ko" ? "없음" : "None"}</span>;
-                    const cfg = TASK_CATEGORY_CONFIG[o as TaskCategory];
-                    return <span className={cn("flex items-center gap-2", cfg.color)}>{cfg.icon} {language === "ko" ? cfg.labelKo : cfg.label}</span>;
-                  }}
-                />
-              </PropertyItem>
-
-              <PropertyItem icon={<FolderKanban size={14} />} label={language === "ko" ? "업무 유형" : "Linked Board"}>
-                <LinkedBoardPicker
-                  linkedBoard={linkedBoard}
-                  linkedCardId={linkedCardId}
-                  onChange={(board, cardId) => { setLinkedBoard(board); setLinkedCardId(cardId); }}
-                  language={language}
-                  disabled={!canEdit}
-                />
-              </PropertyItem>
-
-              <PropertyItem icon={<UserIcon size={14} />} label={language === "ko" ? "참여자" : "Participants"}>
-                <MultiAssigneePicker selectedIds={assigneeIds} onChange={setAssigneeIds} language={language} disabled={!canEdit} />
-              </PropertyItem>
-
-              <PropertyItem icon={<Calendar size={14} />} label={language === "ko" ? "마감기한" : "Deadline"}>
-                <NotionDateRangePicker startDate={dateStart} endDate={dateEnd} onChange={(s, e) => { setDateStart(s); setDateEnd(e); }} language={language} />
-              </PropertyItem>
-
-              <PropertyItem icon={<Timer size={14} />} label={language === "ko" ? "예상 시간" : "Est. Time"}>
-                <EstimatedTimeEditor language={language} value={estTime} onChange={setEstTime} disabled={!canEdit} />
-              </PropertyItem>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Sub-tasks with checkboxes */}
-            {!isNew && <SubTaskSection taskId={taskId!} language={language} canEdit={canEdit} />}
-
-            {/* Category-specific Helpers */}
-            {!isNew && canEdit && category && (
-              <CategoryHelpers category={category} language={language} onInsertToDescription={(text) => {
-                setDescription((prev) => prev ? `${prev}\n\n${text}` : text);
-              }} />
-            )}
-
-            {/* Description / Editor + Drop zone */}
-            <div
-              className={cn(
-                "min-h-[200px] border-t border-gray-100 pt-5 relative transition-colors",
-                isDragOver && "bg-blue-50/50 ring-2 ring-blue-200 ring-dashed rounded-xl"
-              )}
-              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragOver(true); }}
-              onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragOver(false); }}
-              onDrop={(e) => {
-                e.preventDefault(); e.stopPropagation(); setIsDragOver(false);
-                if (e.dataTransfer.files.length > 0) handleFileDrop(e.dataTransfer.files);
+      }
+      properties={
+        <>
+          <PropertyItem icon={<Clock size={14} />} label={language === "ko" ? "상태" : "Status"}>
+            <InlineDropdown
+              value={status} options={["pending", "in-progress", "delayed", "completed"] as TaskStatus[]}
+              onChange={setStatus} disabled={!canEdit}
+              renderValue={(v) => {
+                const cfg = STATUS_CONFIG[v];
+                return <span className={cn("flex items-center gap-1.5 font-bold", cfg.color)}>{cfg.icon} {language === "ko" ? cfg.labelKo : cfg.label}</span>;
               }}
-            >
-              {(isDragOver || isUploading) && (
-                <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-                  <div className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-xl shadow-lg">
-                    {isUploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-                    {isUploading
-                      ? (language === "ko" ? "업로드 중..." : "Uploading...")
-                      : (language === "ko" ? "파일을 놓아주세요 (최대 5MB)" : "Drop files here (max 5MB)")}
-                  </div>
-                </div>
-              )}
-              <NotionBlockEditor
-                initialContent={description}
-                onChange={setDescription}
-                readOnly={!canEdit}
-                placeholder={language === "ko" ? "/ 를 입력하여 블록 유형 선택..." : "Type / to select block type..."}
-                language={language}
-                parentType="task"
-                parentId={taskId}
-              />
+              renderOption={(o) => <span className={cn("flex items-center gap-2", STATUS_CONFIG[o].color)}>{STATUS_CONFIG[o].icon} {language === "ko" ? STATUS_CONFIG[o].labelKo : STATUS_CONFIG[o].label}</span>}
+            />
+          </PropertyItem>
 
-              {/* URL previews auto-detected from content */}
-              <UrlPreviewSection content={description} language={language} />
+          <PropertyItem icon={<Flag size={14} />} label={language === "ko" ? "우선순위" : "Priority"}>
+            <InlineDropdown
+              value={priority} options={["low", "medium", "high"] as TaskPriority[]}
+              onChange={setPriority} disabled={!canEdit}
+              renderValue={(v) => <span className={cn("px-2 py-0.5 rounded-md font-bold", PRIORITY_CONFIG[v].bg, PRIORITY_CONFIG[v].color)}>{language === "ko" ? PRIORITY_CONFIG[v].labelKo : PRIORITY_CONFIG[v].label}</span>}
+              renderOption={(o) => <span className={PRIORITY_CONFIG[o].color}>{language === "ko" ? PRIORITY_CONFIG[o].labelKo : PRIORITY_CONFIG[o].label}</span>}
+            />
+          </PropertyItem>
 
-              {/* Inline attached files */}
-              {attachments.length > 0 && (
-                <div className="mt-4 space-y-1">
-                  {attachments.map((att) => {
-                    const isFile = att.type === 'file';
-                    const { icon, color, bg } = isFile
-                      ? { icon: <FileIcon size={14} />, color: 'text-gray-600', bg: 'bg-gray-100' }
-                      : getAttachmentIcon(att.type);
-                    const sizeStr = att.fileSize ? (att.fileSize < 1024 ? `${att.fileSize}B` : att.fileSize < 1048576 ? `${(att.fileSize / 1024).toFixed(0)}KB` : `${(att.fileSize / 1048576).toFixed(1)}MB`) : '';
-                    return (
-                      <div key={att.id} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-colors group">
-                        <div className={cn("w-6 h-6 rounded-md flex items-center justify-center shrink-0", bg)}>
-                          <span className={color}>{icon}</span>
-                        </div>
-                        <a
-                          href={att.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          download={att.fileName}
-                          className="flex-1 text-[13px] text-gray-600 hover:text-blue-600 truncate transition-colors"
-                        >
-                          {att.title}
-                        </a>
-                        {sizeStr && <span className="text-[10px] text-gray-300 shrink-0">{sizeStr}</span>}
-                        {canEdit && (
-                          <button
-                            onClick={() => setAttachments((prev) => prev.filter((a) => a.id !== att.id))}
-                            className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-300 hover:text-red-500 transition-all"
-                          >
-                            <Trash2 size={11} />
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+          <PropertyItem icon={<Tag size={14} />} label={language === "ko" ? "카테고리" : "Category"}>
+            <InlineDropdown
+              value={category || ''}
+              options={['', ...Object.keys(TASK_CATEGORY_CONFIG)] as string[]}
+              onChange={(v) => setCategory(v ? v as TaskCategory : undefined)}
+              disabled={!canEdit}
+              renderValue={(v) => {
+                if (!v || !TASK_CATEGORY_CONFIG[v as TaskCategory]) return <span className="text-sm text-gray-400">{language === "ko" ? "미설정" : "Not set"}</span>;
+                const cfg = TASK_CATEGORY_CONFIG[v as TaskCategory];
+                return <span className={cn("flex items-center gap-1.5 font-bold text-sm", cfg.color)}>{cfg.icon} {language === "ko" ? cfg.labelKo : cfg.label}</span>;
+              }}
+              renderOption={(o) => {
+                if (!o || !TASK_CATEGORY_CONFIG[o as TaskCategory]) return <span className="text-gray-400">{language === "ko" ? "없음" : "None"}</span>;
+                const cfg = TASK_CATEGORY_CONFIG[o as TaskCategory];
+                return <span className={cn("flex items-center gap-2", cfg.color)}>{cfg.icon} {language === "ko" ? cfg.labelKo : cfg.label}</span>;
+              }}
+            />
+          </PropertyItem>
 
-            {/* ActivityLogSection — 필요 시 주석 해제하여 사용 */}
-            {/* {!isNew && <ActivityLogSection taskId={taskId!} language={language} />} */}
-          </div>
+          <PropertyItem icon={<FolderKanban size={14} />} label={language === "ko" ? "업무 유형" : "Linked Board"}>
+            <LinkedBoardPicker
+              linkedBoard={linkedBoard}
+              linkedCardId={linkedCardId}
+              onChange={(board, cardId) => { setLinkedBoard(board); setLinkedCardId(cardId); }}
+              language={language}
+              disabled={!canEdit}
+            />
+          </PropertyItem>
+
+          <PropertyItem icon={<UserIcon size={14} />} label={language === "ko" ? "참여자" : "Participants"}>
+            <MultiAssigneePicker selectedIds={assigneeIds} onChange={setAssigneeIds} language={language} disabled={!canEdit} />
+          </PropertyItem>
+
+          <PropertyItem icon={<Calendar size={14} />} label={language === "ko" ? "마감기한" : "Deadline"}>
+            <NotionDateRangePicker startDate={dateStart} endDate={dateEnd} onChange={(s, e) => { setDateStart(s); setDateEnd(e); }} language={language} />
+          </PropertyItem>
+
+          <PropertyItem icon={<Timer size={14} />} label={language === "ko" ? "예상 시간" : "Est. Time"}>
+            <EstimatedTimeEditor language={language} value={estTime} onChange={setEstTime} disabled={!canEdit} />
+          </PropertyItem>
+        </>
+      }
+      collapsedPreview={
+        <div className="flex items-center gap-1.5">
+          <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded", STATUS_CONFIG[status].bg, STATUS_CONFIG[status].color)}>
+            {language === 'ko' ? STATUS_CONFIG[status].labelKo : STATUS_CONFIG[status].label}
+          </span>
+          <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded", PRIORITY_CONFIG[priority].bg, PRIORITY_CONFIG[priority].color)}>
+            {language === 'ko' ? PRIORITY_CONFIG[priority].labelKo : PRIORITY_CONFIG[priority].label}
+          </span>
+          {category && TASK_CATEGORY_CONFIG[category] && (
+            <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5", TASK_CATEGORY_CONFIG[category].bg, TASK_CATEGORY_CONFIG[category].color)}>
+              {TASK_CATEGORY_CONFIG[category].icon}
+              {language === 'ko' ? TASK_CATEGORY_CONFIG[category].labelKo : TASK_CATEGORY_CONFIG[category].label}
+            </span>
+          )}
         </div>
+      }
+    >
+      {/* Sub-tasks with checkboxes */}
+      {!isNew && <SubTaskSection taskId={taskId!} language={language} canEdit={canEdit} />}
+
+      {/* Category-specific Helpers */}
+      {!isNew && canEdit && category && (
+        <CategoryHelpers category={category} language={language} onInsertToDescription={(text) => {
+          setDescription((prev) => prev ? `${prev}\n\n${text}` : text);
+        }} />
+      )}
+
+      {/* Description / Editor + Drop zone */}
+      <div
+        className={cn(
+          "min-h-[200px] border-t border-gray-100 pt-5 relative transition-colors",
+          isDragOver && "bg-blue-50/50 ring-2 ring-blue-200 ring-dashed rounded-xl"
+        )}
+        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragOver(true); }}
+        onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragOver(false); }}
+        onDrop={(e) => {
+          e.preventDefault(); e.stopPropagation(); setIsDragOver(false);
+          if (e.dataTransfer.files.length > 0) handleFileDrop(e.dataTransfer.files);
+        }}
+      >
+        {(isDragOver || isUploading) && (
+          <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+            <div className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-xl shadow-lg">
+              {isUploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+              {isUploading
+                ? (language === "ko" ? "업로드 중..." : "Uploading...")
+                : (language === "ko" ? "파일을 놓아주세요 (최대 5MB)" : "Drop files here (max 5MB)")}
+            </div>
+          </div>
+        )}
+        <NotionBlockEditor
+          initialContent={description}
+          onChange={setDescription}
+          readOnly={!canEdit}
+          placeholder={language === "ko" ? "/ 를 입력하여 블록 유형 선택..." : "Type / to select block type..."}
+          language={language}
+          parentType="task"
+          parentId={taskId}
+        />
+
+        {/* URL previews auto-detected from content */}
+        <UrlPreviewSection content={description} language={language} />
+
+        {/* Inline attached files */}
+        {attachments.length > 0 && (
+          <div className="mt-4 space-y-1">
+            {attachments.map((att) => {
+              const isFile = att.type === 'file';
+              const { icon, color, bg } = isFile
+                ? { icon: <FileIcon size={14} />, color: 'text-gray-600', bg: 'bg-gray-100' }
+                : getAttachmentIcon(att.type);
+              const sizeStr = att.fileSize ? (att.fileSize < 1024 ? `${att.fileSize}B` : att.fileSize < 1048576 ? `${(att.fileSize / 1024).toFixed(0)}KB` : `${(att.fileSize / 1048576).toFixed(1)}MB`) : '';
+              return (
+                <div key={att.id} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-colors group">
+                  <div className={cn("w-6 h-6 rounded-md flex items-center justify-center shrink-0", bg)}>
+                    <span className={color}>{icon}</span>
+                  </div>
+                  <a
+                    href={att.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download={att.fileName}
+                    className="flex-1 text-[13px] text-gray-600 hover:text-blue-600 truncate transition-colors"
+                  >
+                    {att.title}
+                  </a>
+                  {sizeStr && <span className="text-[10px] text-gray-300 shrink-0">{sizeStr}</span>}
+                  {canEdit && (
+                    <button
+                      onClick={() => setAttachments((prev) => prev.filter((a) => a.id !== att.id))}
+                      className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-300 hover:text-red-500 transition-all"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
-    </div>
+
+      {/* ActivityLogSection — 필요 시 주석 해제하여 사용 */}
+      {/* {!isNew && <ActivityLogSection taskId={taskId!} language={language} />} */}
+    </DetailPageShell>
   );
 }
 
