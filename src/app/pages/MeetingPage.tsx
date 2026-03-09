@@ -440,7 +440,10 @@ export function MeetingPage() {
   const { meetings, addMeeting, updateMeeting, removeMeeting, getMeeting, isLoading } = useMeetingContext();
   const { moveToTrash } = useTrash();
   const { currentUser } = useTeam();
-  const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
+  const [viewMode, _setMtgView] = useState<'board' | 'list'>(() => {
+    try { return (localStorage.getItem('poten_mtg_view') as 'board' | 'list') || 'board'; } catch { return 'board'; }
+  });
+  const setViewMode = (v: 'board' | 'list') => { _setMtgView(v); localStorage.setItem('poten_mtg_view', v); };
   const [searchQuery, setSearchQuery] = useState('');
   const [addingInColumn, setAddingInColumn] = useState<ColumnKey | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());

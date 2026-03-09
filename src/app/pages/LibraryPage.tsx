@@ -298,10 +298,19 @@ export function LibraryPage() {
   const { currentUser } = useTeam();
   const { moveToTrash } = useTrash();
 
-  const [activeTab, setActiveTab] = useState<"all" | "private" | "team">("all");
+  const [activeTab, _setActiveTab] = useState<"all" | "private" | "team">(() => {
+    try { return (localStorage.getItem('poten_lib_tab') as "all" | "private" | "team") || "all"; } catch { return "all"; }
+  });
+  const setActiveTab = (v: "all" | "private" | "team") => { _setActiveTab(v); localStorage.setItem('poten_lib_tab', v); };
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
-  const [viewMode, setViewMode] = useState<"kanban" | "compact" | "grid">("kanban");
-  const [boardSize, setBoardSize] = useState<"normal" | "compact">("normal");
+  const [viewMode, _setViewMode] = useState<"kanban" | "compact" | "grid">(() => {
+    try { return (localStorage.getItem('poten_lib_view') as "kanban" | "compact" | "grid") || "kanban"; } catch { return "kanban"; }
+  });
+  const setViewMode = (v: "kanban" | "compact" | "grid") => { _setViewMode(v); localStorage.setItem('poten_lib_view', v); };
+  const [boardSize, _setBoardSize] = useState<"normal" | "compact">(() => {
+    try { return (localStorage.getItem('poten_lib_size') as "normal" | "compact") || "normal"; } catch { return "normal"; }
+  });
+  const setBoardSize = (v: "normal" | "compact") => { _setBoardSize(v); localStorage.setItem('poten_lib_size', v); };
   const [searchQuery, setSearchQuery] = useState("");
   const [addingCategory, setAddingCategory] = useState(false);
   const [newCatName, setNewCatName] = useState("");

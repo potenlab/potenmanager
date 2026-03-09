@@ -805,8 +805,12 @@ export function TasksPage() {
   const { goals } = useGoalContext();
   const { moveToTrash } = useTrash();
   const { currentUser } = usePermission();
-  const [viewMode, setViewMode] = useState<'board' | 'list' | 'calendar'>('board');
-  const [boardMode, setBoardMode] = useState<'status' | 'time'>('status');
+  const [viewMode, setViewMode] = useState<'board' | 'list' | 'calendar'>(() => {
+    try { return (localStorage.getItem('poten_tasks_view') as 'board' | 'list' | 'calendar') || 'board'; } catch { return 'board'; }
+  });
+  const [boardMode, setBoardMode] = useState<'status' | 'time'>(() => {
+    try { return (localStorage.getItem('poten_tasks_board') as 'status' | 'time') || 'status'; } catch { return 'status'; }
+  });
   const [cardStyle, setCardStyle] = useState<'detailed' | 'compact'>(() => {
     return (localStorage.getItem('poten_card_style') as 'detailed' | 'compact') || 'detailed';
   });
@@ -1182,17 +1186,17 @@ export function TasksPage() {
             </div>
 
             <div className="flex bg-gray-100 p-1 rounded-xl">
-              <button onClick={() => setViewMode('board')}
+              <button onClick={() => { setViewMode('board'); localStorage.setItem('poten_tasks_view', 'board'); }}
                 className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
                   viewMode === 'board' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
                 <LayoutGrid size={14} /> Board
               </button>
-              <button onClick={() => setViewMode('list')}
+              <button onClick={() => { setViewMode('list'); localStorage.setItem('poten_tasks_view', 'list'); }}
                 className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
                   viewMode === 'list' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
                 <ListIcon size={14} /> List
               </button>
-              <button onClick={() => setViewMode('calendar')}
+              <button onClick={() => { setViewMode('calendar'); localStorage.setItem('poten_tasks_view', 'calendar'); }}
                 className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
                   viewMode === 'calendar' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
                 <CalendarIcon size={14} /> {language === 'ko' ? '캘린더' : 'Calendar'}
@@ -1200,12 +1204,12 @@ export function TasksPage() {
             </div>
             {viewMode === 'board' && (
               <div className="flex bg-gray-100 p-1 rounded-xl">
-                <button onClick={() => setBoardMode('status')}
+                <button onClick={() => { setBoardMode('status'); localStorage.setItem('poten_tasks_board', 'status'); }}
                   className={cn("px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
                     boardMode === 'status' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
                   {language === 'ko' ? '상태별' : 'By Status'}
                 </button>
-                <button onClick={() => setBoardMode('time')}
+                <button onClick={() => { setBoardMode('time'); localStorage.setItem('poten_tasks_board', 'time'); }}
                   className={cn("px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
                     boardMode === 'time' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
                   {language === 'ko' ? '시간별' : 'By Time'}

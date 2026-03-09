@@ -161,7 +161,10 @@ export function GoalPage() {
   const { org, createOrg, isLoading } = useInvite();
   const { currentUser, members } = usePermission();
   const { goals, urgentGoals, allGoals, addGoal, updateGoal, removeGoal } = useGoalContext();
-  const [activeTab, setActiveTab] = useState<"goals" | "strategy">("goals");
+  const [activeTab, _setGoalTab] = useState<"goals" | "strategy">(() => {
+    try { return (localStorage.getItem('poten_goal_tab') as "goals" | "strategy") || "goals"; } catch { return "goals"; }
+  });
+  const setActiveTab = (v: "goals" | "strategy") => { _setGoalTab(v); localStorage.setItem('poten_goal_tab', v); };
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const settingsMenuRef = useRef<HTMLDivElement>(null);
 

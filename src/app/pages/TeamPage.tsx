@@ -50,7 +50,10 @@ export function TeamPage() {
   const { org, isLoading: orgLoading, joinRequests, pendingCount, approveRequest, rejectRequest } = useInvite();
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"members" | "tasks">("members");
+  const [activeTab, _setTeamTab] = useState<"members" | "tasks">(() => {
+    try { return (localStorage.getItem('poten_team_tab') as "members" | "tasks") || "members"; } catch { return "members"; }
+  });
+  const setActiveTab = (v: "members" | "tasks") => { _setTeamTab(v); localStorage.setItem('poten_team_tab', v); };
 
   const pendingRequests = joinRequests.filter(r => r.status === 'pending');
 

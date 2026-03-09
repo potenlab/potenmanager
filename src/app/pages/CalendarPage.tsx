@@ -10,7 +10,12 @@ export function CalendarPage() {
   const { t, language } = useLanguage();
   const ko = language === "ko";
   const { currentUser } = useTeam();
-  const [myOnly, setMyOnly] = useState(false);
+  const [myOnly, _setMyOnly] = useState(() => {
+    try { return localStorage.getItem('poten_cal_myonly') === 'true'; } catch { return false; }
+  });
+  const setMyOnly = (v: boolean | ((prev: boolean) => boolean)) => {
+    _setMyOnly((prev) => { const next = typeof v === 'function' ? v(prev) : v; localStorage.setItem('poten_cal_myonly', String(next)); return next; });
+  };
 
   const myTaskFilter = useCallback(
     (task: Task) => getAllAssigneeIds(task).includes(currentUser.id),

@@ -382,8 +382,14 @@ export function BizRadarPage() {
   const { items, addItem, updateItem, removeItem, getItem, isLoading } = useBizRadar();
   const { moveToTrash } = useTrash();
   const { currentUser } = useTeam();
-  const [activeCategory, setActiveCategory] = useState<BizCategory>('sales');
-  const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
+  const [activeCategory, _setBizCat] = useState<BizCategory>(() => {
+    try { return (localStorage.getItem('poten_biz_cat') as BizCategory) || 'sales'; } catch { return 'sales'; }
+  });
+  const setActiveCategory = (v: BizCategory) => { _setBizCat(v); localStorage.setItem('poten_biz_cat', v); };
+  const [viewMode, _setBizView] = useState<'board' | 'list'>(() => {
+    try { return (localStorage.getItem('poten_biz_view') as 'board' | 'list') || 'board'; } catch { return 'board'; }
+  });
+  const setViewMode = (v: 'board' | 'list') => { _setBizView(v); localStorage.setItem('poten_biz_view', v); };
   const [searchQuery, setSearchQuery] = useState('');
   const [addingInColumn, setAddingInColumn] = useState<BizStage | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());

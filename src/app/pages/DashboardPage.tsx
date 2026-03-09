@@ -311,7 +311,10 @@ function ApiIntegrationCard({
 
 // ─── Main Dashboard ─────────────────────────────────────────────
 export function DashboardPage() {
-  const [activeTab, setActiveTab] = useState<DashboardTab>("performance");
+  const [activeTab, _setDashTab] = useState<DashboardTab>(() => {
+    try { return (localStorage.getItem('poten_dash_tab') as DashboardTab) || "performance"; } catch { return "performance"; }
+  });
+  const setActiveTab = (v: DashboardTab) => { _setDashTab(v); localStorage.setItem('poten_dash_tab', v); };
   const { language } = useLanguage();
   const ko = language === "ko";
 
