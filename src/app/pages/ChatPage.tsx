@@ -20,6 +20,8 @@ export function ChatPage() {
   const [chatTab, setChatTab] = useState<'conversations' | 'members'>('conversations');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const sendingRef = useRef(false);
+  const composingRef = useRef(false);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -62,14 +64,19 @@ export function ChatPage() {
   };
 
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || sendingRef.current) return;
+    sendingRef.current = true;
     const text = input;
     setInput("");
-    await sendMessage(text);
+    try {
+      await sendMessage(text);
+    } finally {
+      sendingRef.current = false;
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey && !composingRef.current) {
       e.preventDefault();
       handleSend();
     }
@@ -219,6 +226,8 @@ export function ChatPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
+              onCompositionStart={() => { composingRef.current = true; }}
+              onCompositionEnd={() => { composingRef.current = false; }}
               placeholder={ko ? "메시지를 입력하세요..." : "Type a message..."}
               className="flex-1 px-4 py-2.5 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-200 transition-all"
             />

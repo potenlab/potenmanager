@@ -170,8 +170,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const sendMessage = useCallback(async (text: string) => {
     if (!currentRoomId || !text.trim()) return;
     const msg = await api.sendChatMessage(currentRoomId, currentUser.id, text.trim());
-    // Add to local messages
-    setMessages((prev) => [...prev, msg]);
+    // Add to local messages (dedup by id)
+    setMessages((prev) => {
+      if (prev.some((m) => m.id === msg.id)) return prev;
+      return [...prev, msg];
+    });
     // Update room
     setRooms((prev) =>
       prev.map((r) =>
