@@ -24,18 +24,32 @@ export function CalendarPage() {
           <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">{t("calendar")}</h1>
           <p className="text-gray-500 text-sm">{t("manage_schedule")}</p>
         </div>
-        <button
-          onClick={() => setMyOnly((v) => !v)}
-          className={cn(
-            "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all shrink-0 mt-1",
-            myOnly
-              ? "bg-blue-50 text-blue-600 border-blue-200"
-              : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
-          )}
-        >
-          {myOnly ? <User size={13} /> : <Users size={13} />}
-          {myOnly ? (ko ? "내 업무만" : "My Tasks") : (ko ? "팀 전체" : "All Team")}
-        </button>
+        <div className="flex items-center bg-gray-100 rounded-lg p-0.5 shrink-0 mt-1">
+          <button
+            onClick={() => setMyOnly(false)}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+              !myOnly
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            )}
+          >
+            <Users size={13} />
+            {ko ? "팀 전체" : "All Team"}
+          </button>
+          <button
+            onClick={() => setMyOnly(true)}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+              myOnly
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            )}
+          >
+            <User size={13} />
+            {ko ? "내 업무" : "My Tasks"}
+          </button>
+        </div>
       </header>
 
       <div className="flex-1 min-h-0 bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden">
