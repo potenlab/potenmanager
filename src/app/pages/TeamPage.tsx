@@ -35,10 +35,16 @@ import { useDrag, useDrop } from "react-dnd";
 import { format, isToday, isTomorrow, startOfWeek, endOfWeek, isWithinInterval } from "date-fns";
 
 const TEAM_TASK_DRAG = "TEAM_TASK_CARD";
+const TEAM_COLUMN_DRAG = "TEAM_COLUMN";
 
 interface TeamTaskDragItem {
   id: string;
   fromColumnId: string;
+}
+
+interface TeamColumnDragItem {
+  memberId: string;
+  index: number;
 }
 
 export function TeamPage() {
@@ -283,15 +289,40 @@ function TeamTaskBoard({
 }) {
   const [dateFilter, setDateFilter] = useState<"all" | "today" | "tomorrow" | "week">("all");
 
+  // Column order: persisted in localStorage
+  const [columnOrder, _setColumnOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('poten_team_board_order');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const setColumnOrder = (v: string[] | ((prev: string[]) => string[])) => {
+    _setColumnOrder((prev) => {
+      const next = typeof v === 'function' ? v(prev) : v;
+      localStorage.setItem('poten_team_board_order', JSON.stringify(next));
+      return next;
+    });
+  };
+
   const roleOrder: Record<string, number> = { owner: 0, admin: 1, member: 2, viewer: 3 };
-  const sortedMembers = useMemo(
-    () => [...members].sort((a, b) => {
+  const sortedMembers = useMemo(() => {
+    const defaultSort = [...members].sort((a, b) => {
       if (a.id === currentUser.id) return -1;
       if (b.id === currentUser.id) return 1;
       return (roleOrder[a.role] ?? 9) - (roleOrder[b.role] ?? 9);
-    }),
-    [members, currentUser.id]
-  );
+    });
+    if (columnOrder.length === 0) return defaultSort;
+    // Apply saved order, appending any new members not in saved order
+    const ordered: User[] = [];
+    for (const id of columnOrder) {
+      const m = members.find((u) => u.id === id);
+      if (m) ordered.push(m);
+    }
+    for (const m of defaultSort) {
+      if (!ordered.some((o) => o.id === m.id)) ordered.push(m);
+    }
+    return ordered;
+  }, [members, currentUser.id, columnOrder]);
 
   // Filter tasks by date
   const filteredTasks = useMemo(() => {
@@ -347,6 +378,13 @@ function TeamTaskBoard({
     [tasks, updateTask]
   );
 
+  const handleColumnMove = useCallback((dragIndex: number, hoverIndex: number) => {
+    const ids = sortedMembers.map((m) => m.id);
+    const [removed] = ids.splice(dragIndex, 1);
+    ids.splice(hoverIndex, 0, removed);
+    setColumnOrder(ids);
+  }, [sortedMembers]);
+
   const dateFilterOptions: { key: typeof dateFilter; label: string; labelKo: string }[] = [
     { key: "all", label: "All", labelKo: "전체" },
     { key: "today", label: "Today", labelKo: "오늘" },
@@ -379,7 +417,7 @@ function TeamTaskBoard({
         )}
       </div>
       <div className="overflow-x-auto h-full pb-4">
-        <div className="inline-flex gap-4 h-full items-start px-1">
+        <div className="inline-flex gap-4 h-full items-start px-1 pr-4">
           {/* Unassigned column */}
           <TaskColumn
             columnId="__unassigned__"
@@ -392,8 +430,8 @@ function TeamTaskBoard({
             navigate={navigate}
           />
 
-          {/* Member columns */}
-          {sortedMembers.map((member) => (
+          {/* Member columns (reorderable) */}
+          {sortedMembers.map((member, index) => (
             <TaskColumn
               key={member.id}
               columnId={member.id}
@@ -404,6 +442,8 @@ function TeamTaskBoard({
               onDrop={(taskId) => handleDrop(taskId, member.id)}
               ko={ko}
               navigate={navigate}
+              index={index}
+              onColumnMove={handleColumnMove}
             />
           ))}
         </div>
@@ -422,6 +462,8 @@ function TaskColumn({
   onDrop,
   ko,
   navigate,
+  index,
+  onColumnMove,
 }: {
   columnId: string;
   title: string;
@@ -431,14 +473,57 @@ function TaskColumn({
   onDrop: (taskId: string) => void;
   ko: boolean;
   navigate: (path: string) => void;
+  index?: number;
+  onColumnMove?: (dragIndex: number, hoverIndex: number) => void;
 }) {
-  const [{ isOver }, dropRef] = useDrop({
+  const columnRef = useRef<HTMLDivElement>(null);
+
+  const [{ isOver }, taskDropRef] = useDrop({
     accept: TEAM_TASK_DRAG,
     drop: (item: TeamTaskDragItem) => {
       if (item.fromColumnId !== columnId) onDrop(item.id);
     },
     collect: (monitor) => ({ isOver: monitor.isOver() }),
   });
+
+  const [{ isDragging: isColDragging }, colDragRef] = useDrag({
+    type: TEAM_COLUMN_DRAG,
+    item: () => ({ memberId: columnId, index: index ?? -1 }),
+    canDrag: () => index !== undefined && onColumnMove !== undefined,
+    collect: (monitor) => ({ isDragging: monitor.isDragging() }),
+  });
+
+  const [, colDropRef] = useDrop({
+    accept: TEAM_COLUMN_DRAG,
+    hover: (item: TeamColumnDragItem, monitor) => {
+      if (index === undefined || !onColumnMove || !columnRef.current) return;
+      const dragIdx = item.index;
+      const hoverIdx = index;
+      if (dragIdx === hoverIdx) return;
+
+      const hoverRect = columnRef.current.getBoundingClientRect();
+      const hoverMiddleX = (hoverRect.right - hoverRect.left) / 2;
+      const clientOffset = monitor.getClientOffset();
+      if (!clientOffset) return;
+      const hoverClientX = clientOffset.x - hoverRect.left;
+
+      if (dragIdx < hoverIdx && hoverClientX < hoverMiddleX) return;
+      if (dragIdx > hoverIdx && hoverClientX > hoverMiddleX) return;
+
+      onColumnMove(dragIdx, hoverIdx);
+      item.index = hoverIdx;
+    },
+  });
+
+  // Combine refs: column drag + column drop + task drop
+  const combinedRef = (node: HTMLDivElement | null) => {
+    columnRef.current = node;
+    taskDropRef(node);
+    if (onColumnMove) {
+      colDragRef(node);
+      colDropRef(node);
+    }
+  };
 
   const statusGroups = useMemo(() => {
     const pending = columnTasks.filter((t) => t.status === "pending");
@@ -449,10 +534,12 @@ function TaskColumn({
 
   return (
     <div
-      ref={dropRef as any}
+      ref={combinedRef}
       className={cn(
         "w-[280px] shrink-0 bg-gray-50 rounded-2xl border transition-colors flex flex-col max-h-[calc(100vh-240px)]",
-        isOver ? "border-blue-400 bg-blue-50/50" : "border-gray-200"
+        isOver ? "border-blue-400 bg-blue-50/50" : "border-gray-200",
+        isColDragging && "opacity-40",
+        onColumnMove && "cursor-grab active:cursor-grabbing"
       )}
     >
       {/* Column header */}
