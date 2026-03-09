@@ -292,7 +292,7 @@ export function ChatPage() {
         {/* Existing conversations */}
         {chatTab === 'conversations' && rooms.length > 0 && (
           <div className="mb-4">
-            <div className="space-y-1">
+            <div className="divide-y divide-gray-100">
               {rooms.map((room) => {
                 const otherId = getOtherUserId(room);
                 const name = getMemberName(otherId);
@@ -302,7 +302,7 @@ export function ChatPage() {
                   <button
                     key={room.id}
                     onClick={() => openRoom(room.id)}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors text-left group"
+                    className="w-full flex items-center gap-3 px-3 py-3.5 hover:bg-gray-50 transition-colors text-left group"
                   >
                     <div className="relative shrink-0">
                       {avatar ? (
@@ -363,14 +363,14 @@ export function ChatPage() {
               {ko ? "팀원이 없습니다" : "No team members"}
             </p>
           ) : (
-            <div className="space-y-0.5">
+            <div className="divide-y divide-gray-100">
               {filteredMembers.map((member) => {
                 const online = isOnline(member.id);
                 return (
                   <button
                     key={member.id}
                     onClick={() => handleStartDM(member.id)}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors text-left"
+                    className="w-full flex items-center gap-3 px-3 py-3.5 hover:bg-gray-50 transition-colors text-left"
                   >
                     <div className="relative shrink-0">
                       {member.avatar ? (
