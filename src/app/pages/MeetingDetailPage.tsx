@@ -4,7 +4,7 @@ import {
   ArrowLeft, Clock, MapPin, Users, Calendar, Video,
   CheckCircle2, Circle, Plus, Trash2, ArrowRightCircle,
   Edit3, Check, X, ChevronDown, CircleDot, XCircle,
-  Timer, User as UserIcon, Sun, Sparkles, ClipboardList,
+  Timer, User as UserIcon, Sun, Sparkles, ClipboardList, Star,
 } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
 import { useMeetingContext, Meeting, ActionItem } from "../context/MeetingContext";
@@ -35,6 +35,7 @@ const TYPE_CONFIG: Record<MeetingType, { label: string; labelKo: string; color: 
   review:     { label: "Review",     labelKo: "리뷰",         color: "text-purple-600", bg: "bg-purple-50", icon: <CheckCircle2 size={12} /> },
   brainstorm: { label: "Brainstorm", labelKo: "브레인스토밍", color: "text-amber-600",  bg: "bg-amber-50",  icon: <Sparkles size={12} /> },
   external:   { label: "External",   labelKo: "외부미팅",     color: "text-cyan-600",   bg: "bg-cyan-50",   icon: <MapPin size={12} /> },
+  event:      { label: "Event",      labelKo: "행사참여",     color: "text-rose-600",   bg: "bg-rose-50",   icon: <Star size={12} /> },
   other:      { label: "Other",      labelKo: "기타",         color: "text-gray-600",   bg: "bg-gray-50",   icon: <Circle size={12} /> },
 };
 
@@ -541,7 +542,7 @@ export function MeetingDetailPage() {
               <PropertyItem icon={<Video size={14} />} label={ko ? '유형' : 'Type'}>
                 <InlineDropdown
                   value={meeting.type}
-                  options={['standup', 'planning', 'review', 'brainstorm', 'external', 'other'] as MeetingType[]}
+                  options={['standup', 'planning', 'review', 'brainstorm', 'external', 'event', 'other'] as MeetingType[]}
                   onChange={handleTypeChange}
                   renderValue={(v) => <span className={cn("px-2 py-0.5 rounded-md font-bold flex items-center gap-1", TYPE_CONFIG[v].bg, TYPE_CONFIG[v].color)}>{TYPE_CONFIG[v].icon} {ko ? TYPE_CONFIG[v].labelKo : TYPE_CONFIG[v].label}</span>}
                   renderOption={(o) => <span className={cn("flex items-center gap-1.5", TYPE_CONFIG[o].color)}>{TYPE_CONFIG[o].icon} {ko ? TYPE_CONFIG[o].labelKo : TYPE_CONFIG[o].label}</span>}

@@ -17,7 +17,7 @@ export interface Meeting {
   date: string;
   duration: number;
   location?: string;
-  type: 'standup' | 'planning' | 'review' | 'brainstorm' | 'external' | 'other';
+  type: 'standup' | 'planning' | 'review' | 'brainstorm' | 'external' | 'event' | 'other';
   status: 'scheduled' | 'completed' | 'cancelled';
   attendeeIds: string[];
   organizerId: string;
