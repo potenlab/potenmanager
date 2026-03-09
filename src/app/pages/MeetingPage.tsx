@@ -25,6 +25,7 @@ const TYPE_COLORS: Record<Meeting['type'], { bg: string; text: string; border: s
   review:     { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-100', label: 'Review',     labelKo: '리뷰',         icon: <CheckCircle2 size={11} /> },
   brainstorm: { bg: 'bg-amber-50',  text: 'text-amber-600',  border: 'border-amber-100',  label: 'Brainstorm', labelKo: '브레인스토밍', icon: <Zap size={11} /> },
   external:   { bg: 'bg-cyan-50',   text: 'text-cyan-600',   border: 'border-cyan-100',   label: 'External',   labelKo: '외부미팅',     icon: <MapPin size={11} /> },
+  event:      { bg: 'bg-rose-50',   text: 'text-rose-600',   border: 'border-rose-100',   label: 'Event',      labelKo: '행사참여',     icon: <CalendarIcon size={11} /> },
   other:      { bg: 'bg-gray-50',   text: 'text-gray-600',   border: 'border-gray-100',   label: 'Other',      labelKo: '기타',         icon: <MoreHorizontal size={11} /> },
 };
 
