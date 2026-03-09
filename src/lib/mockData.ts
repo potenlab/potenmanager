@@ -15,18 +15,26 @@ export type User = {
 //   Meeting (purple #7C3AED)
 //   Status stripes (yellow #EAB308, blue #3B82F6, green #22C55E) — thin bar, low conflict
 export const MEMBER_COLORS = [
-  { id: 'mc1', hex: '#0891B2', label: 'Cyan', labelKo: '시안', bg: 'rgba(8,145,178,0.10)', text: '#0E7490' },
-  { id: 'mc2', hex: '#0D9488', label: 'Teal', labelKo: '틸', bg: 'rgba(13,148,136,0.10)', text: '#0F766E' },
-  { id: 'mc3', hex: '#4F46E5', label: 'Indigo', labelKo: '인디고', bg: 'rgba(79,70,229,0.10)', text: '#4338CA' },
-  { id: 'mc4', hex: '#0284C7', label: 'Sky', labelKo: '스카이블루', bg: 'rgba(2,132,199,0.10)', text: '#0369A1' },
-  { id: 'mc5', hex: '#475569', label: 'Slate', labelKo: '슬레이트', bg: 'rgba(71,85,105,0.10)', text: '#334155' },
-  { id: 'mc6', hex: '#B45309', label: 'Amber', labelKo: '앰버', bg: 'rgba(180,83,9,0.10)', text: '#92400E' },
-  { id: 'mc7', hex: '#059669', label: 'Emerald', labelKo: '에메랄드', bg: 'rgba(5,150,105,0.10)', text: '#047857' },
-  { id: 'mc8', hex: '#65A30D', label: 'Lime', labelKo: '라임', bg: 'rgba(101,163,13,0.10)', text: '#4D7C0F' },
-  { id: 'mc9', hex: '#CA8A04', label: 'Yellow', labelKo: '옐로', bg: 'rgba(202,138,4,0.10)', text: '#A16207' },
+  // ── Vivid (distinct hues) ──
+  { id: 'mc1', hex: '#E74C3C', label: 'Red', labelKo: '레드', bg: 'rgba(231,76,60,0.10)', text: '#C0392B' },
+  { id: 'mc2', hex: '#E67E22', label: 'Orange', labelKo: '오렌지', bg: 'rgba(230,126,34,0.10)', text: '#D35400' },
+  { id: 'mc3', hex: '#F39C12', label: 'Gold', labelKo: '골드', bg: 'rgba(243,156,18,0.10)', text: '#C77E0A' },
+  { id: 'mc4', hex: '#CA8A04', label: 'Yellow', labelKo: '옐로', bg: 'rgba(202,138,4,0.10)', text: '#A16207' },
+  { id: 'mc5', hex: '#27AE60', label: 'Green', labelKo: '그린', bg: 'rgba(39,174,96,0.10)', text: '#1E8449' },
+  { id: 'mc6', hex: '#0D9488', label: 'Teal', labelKo: '틸', bg: 'rgba(13,148,136,0.10)', text: '#0F766E' },
+  { id: 'mc7', hex: '#2980B9', label: 'Blue', labelKo: '블루', bg: 'rgba(41,128,185,0.10)', text: '#1F6F9F' },
+  { id: 'mc8', hex: '#4F46E5', label: 'Indigo', labelKo: '인디고', bg: 'rgba(79,70,229,0.10)', text: '#4338CA' },
+  { id: 'mc9', hex: '#8E44AD', label: 'Purple', labelKo: '퍼플', bg: 'rgba(142,68,173,0.10)', text: '#6C3483' },
   { id: 'mc10', hex: '#BE185D', label: 'Pink', labelKo: '핑크', bg: 'rgba(190,24,93,0.10)', text: '#9D174D' },
-  { id: 'mc11', hex: '#1D4ED8', label: 'Blue', labelKo: '블루', bg: 'rgba(29,78,216,0.10)', text: '#1E40AF' },
-  { id: 'mc12', hex: '#D97706', label: 'Gold', labelKo: '골드', bg: 'rgba(217,119,6,0.10)', text: '#B45309' },
+  { id: 'mc11', hex: '#475569', label: 'Slate', labelKo: '슬레이트', bg: 'rgba(71,85,105,0.10)', text: '#334155' },
+  { id: 'mc12', hex: '#6D4C41', label: 'Brown', labelKo: '브라운', bg: 'rgba(109,76,65,0.10)', text: '#4E342E' },
+  // ── Pastels ──
+  { id: 'mc13', hex: '#F1948A', label: 'Coral', labelKo: '코랄', bg: 'rgba(241,148,138,0.12)', text: '#CB4335' },
+  { id: 'mc14', hex: '#F0B27A', label: 'Peach', labelKo: '피치', bg: 'rgba(240,178,122,0.12)', text: '#CA6F1E' },
+  { id: 'mc15', hex: '#82E0AA', label: 'Mint', labelKo: '민트', bg: 'rgba(130,224,170,0.12)', text: '#1E8449' },
+  { id: 'mc16', hex: '#85C1E9', label: 'Sky', labelKo: '스카이', bg: 'rgba(133,193,233,0.12)', text: '#2471A3' },
+  { id: 'mc17', hex: '#BB8FCE', label: 'Lavender', labelKo: '라벤더', bg: 'rgba(187,143,206,0.12)', text: '#7D3C98' },
+  { id: 'mc18', hex: '#F5B7B1', label: 'Salmon', labelKo: '살몬', bg: 'rgba(245,183,177,0.12)', text: '#C0392B' },
 ];
 
 // Mutable map: userId → color hex (backed by localStorage)
