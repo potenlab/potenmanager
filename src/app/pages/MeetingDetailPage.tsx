@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import {
-  ArrowLeft, Clock, MapPin, Users, Calendar, Video,
-  CheckCircle2, Circle, Plus, Trash2, ArrowRightCircle,
+  Clock, MapPin, Users, Calendar, Video,
+  CheckCircle2, Circle, Plus, ArrowRightCircle,
   Edit3, Check, X, ChevronDown, CircleDot, XCircle,
   Timer, User as UserIcon, Sun, Sparkles, ClipboardList, Star,
 } from "lucide-react";
@@ -18,7 +18,7 @@ import { TaskCategory } from "../../lib/mockData";
 import { TASK_CATEGORY_CONFIG, findBestAssignee } from "../../lib/jobRoles";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
-import { ShareButton } from "../components/detail/ShareButton";
+import { DetailPageShell } from "../components/detail/DetailPageShell";
 import { NotionDateRangePicker } from "../components/NotionDateRangePicker";
 
 type MeetingStatus = Meeting['status'];
@@ -512,31 +512,16 @@ export function MeetingDetailPage() {
   // dateLocalStr no longer needed — using NotionDateRangePicker
 
   return (
-    <div className="h-full overflow-y-auto bg-white scrollbar-hide">
-      <div className="max-w-6xl mx-auto py-4 sm:py-7 px-4 sm:px-8 pb-64">
-
-        {/* Navigation & Actions */}
-        <div className="flex items-center justify-between mb-6">
-          <button onClick={() => navigate('/meetings')} className="flex items-center gap-2 text-gray-400 hover:text-gray-900 transition-colors text-sm group">
-            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-            {ko ? '회의 목록' : 'Meetings'}
-          </button>
-          <div className="flex items-center gap-2">
-            <ShareButton type="meeting" itemId={meeting.id} createdBy={currentUser.id} />
-            <button onClick={handleDelete} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
-              <Trash2 size={18} />
-            </button>
-          </div>
-        </div>
-
-        <div className="max-w-3xl">
-          <div className="space-y-6">
-
-            {/* Title */}
-            <InlineTitle value={meeting.title} onChange={handleTitleChange} placeholder={ko ? '회의 제목' : 'Meeting Title'} />
-
-            {/* Properties */}
-            <div className="bg-gray-50/50 rounded-2xl border border-gray-100 divide-y divide-gray-100 overflow-hidden">
+    <DetailPageShell
+      shareType="meeting"
+      itemId={meeting.id}
+      currentUserId={currentUser.id}
+      backPath="/meetings"
+      backLabel={ko ? '회의 목록' : 'Meetings'}
+      onDelete={handleDelete}
+      title={<InlineTitle value={meeting.title} onChange={handleTitleChange} placeholder={ko ? '회의 제목' : 'Meeting Title'} />}
+      collapsible={false}
+      properties={<>
               <PropertyItem icon={<CircleDot size={14} />} label={ko ? '상태' : 'Status'}>
                 <span className={cn("flex items-center gap-1.5 px-2 py-1 text-sm font-bold", STATUS_CONFIG[meeting.status].color)}>
                   {STATUS_CONFIG[meeting.status].icon} {ko ? STATUS_CONFIG[meeting.status].labelKo : STATUS_CONFIG[meeting.status].label}
@@ -601,8 +586,8 @@ export function MeetingDetailPage() {
               <PropertyItem icon={<UserIcon size={14} />} label={ko ? '주최자' : 'Organizer'}>
                 <span className="px-2 py-1 text-sm font-medium text-gray-700">{getMemberName(meeting.organizerId)}</span>
               </PropertyItem>
-            </div>
-
+      </>}
+    >
             {/* Notes — above action items */}
             <div className="min-h-[200px] border-t border-gray-100 pt-5">
               <div className="mb-3">
@@ -725,9 +710,6 @@ export function MeetingDetailPage() {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
 
       {/* Task Assignment Dialog */}
       {showAssignDialog && createPortal(
@@ -805,6 +787,6 @@ export function MeetingDetailPage() {
         </div>,
         document.body
       )}
-    </div>
+    </DetailPageShell>
   );
 }
