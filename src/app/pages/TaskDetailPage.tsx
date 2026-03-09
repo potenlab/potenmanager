@@ -48,6 +48,7 @@ import { InlineText } from "../components/detail/InlineText";
 import { InlineDropdown } from "../components/detail/InlineDropdown";
 import { PropertyItem } from "../components/detail/PropertyItem";
 import { usePortalPosition } from "../hooks/usePortalPosition";
+import { ShareButton } from "../components/detail/ShareButton";
 import { AttachmentSection, getAttachmentIcon } from "../components/detail/AttachmentSection";
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
 
@@ -512,6 +513,7 @@ export function TaskDetailPage() {
             </span>
           </nav>
           <div className="flex items-center gap-2">
+            <ShareButton type="task" itemId={task.id} createdBy={currentUser.id} />
             {canDelete && (
               <button onClick={handleDelete} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
                 <X size={20} />

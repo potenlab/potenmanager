@@ -38,6 +38,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
+// Public request (no orgId/demo scope — for share links)
+async function publicRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const url = `${BASE}${path}`;
+  const res = await fetch(url, {
+    ...init,
+    headers: { ...AUTH_HEADERS, ...init?.headers },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message || body.error || res.statusText);
+  }
+  return res.json();
+}
+
 // ─── Date Parsing ───────────────────────────────────────────────────
 // KV store serializes Dates as ISO strings. Convert them back on read.
 const DATE_FIELDS = ['dueDate', 'startDate', 'endDate', 'deadline', 'timestamp'];
@@ -291,4 +305,14 @@ export const api = {
     request<any>('/chat/messages', { method: 'POST', body: JSON.stringify({ roomId, senderId, text }) }),
   markChatRead: (roomId: string, userId: string) =>
     request<any>('/chat/messages/read', { method: 'PATCH', body: JSON.stringify({ roomId, userId }) }),
+
+  // ── Share ──
+  createShare: (type: string, itemId: string, orgId: string, createdBy: string) =>
+    request<any>('/share', { method: 'POST', body: JSON.stringify({ type, itemId, orgId, createdBy }) }),
+  getShare: (token: string) =>
+    publicRequest<any>(`/share/${token}`),
+  deleteShare: (token: string) =>
+    request<any>(`/share/${token}`, { method: 'DELETE' }),
+  checkShare: (type: string, itemId: string) =>
+    request<any>(`/share/check/${type}/${itemId}`),
 };

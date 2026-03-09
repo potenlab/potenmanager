@@ -8,11 +8,13 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
+import { useTeam } from "../context/TeamContext";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
 import { InlineText } from "../components/detail/InlineText";
 import { PropertyItem } from "../components/detail/PropertyItem";
 import { AIStrategyPanel } from "../components/AIStrategyPanel";
+import { ShareButton } from "../components/detail/ShareButton";
 import {
   BrandAsset,
   loadBrandAssets, saveBrandAssets, loadCards, saveCards, loadColumns,
@@ -36,6 +38,7 @@ export function BrandDetailPage() {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const ko = language === "ko";
+  const { currentUser } = useTeam();
 
   const isNew = brandId === "new" || !brandId;
 
@@ -207,12 +210,15 @@ export function BrandDetailPage() {
                   {asset.name || (ko ? "새 채널" : "New Channel")}
                 </span>
               </nav>
-              <button
-                onClick={handleDelete}
-                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-              >
-                <Trash2 size={18} />
-              </button>
+              <div className="flex items-center gap-1">
+                <ShareButton type="brand" itemId={asset.id} createdBy={currentUser.id} />
+                <button
+                  onClick={handleDelete}
+                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
             </div>
 
             {/* Image + Title */}

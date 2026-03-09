@@ -3010,7 +3010,94 @@ app.patch("/make-server-f580d5ca/chat/messages/read", async (c) => {
   }
 });
 
+// ─── Share Links ──────────────────────────────────────────────────
+// POST /share — create share link
+app.post("/make-server-f580d5ca/share", async (c) => {
+  try {
+    const { type, itemId, orgId, createdBy } = await c.req.json();
+    if (!type || !itemId || !orgId) return c.json({ error: "type, itemId, orgId required" }, 400);
+    // Check if share already exists for this item
+    const existingKey = `share:idx:${orgId}:${type}:${itemId}`;
+    const existingToken = await kv.get(existingKey);
+    if (existingToken) {
+      const existing = await kv.get(`share:${existingToken}`);
+      if (existing) return c.json(existing);
+    }
+    // Create new share
+    const token = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const share = { token, type, itemId, orgId, createdBy, createdAt: new Date().toISOString(), active: true };
+    await kv.set(`share:${token}`, share);
+    // Index: orgId:type:itemId → token (for lookup)
+    await kv.set(existingKey, token);
+    return c.json(share);
+  } catch (e) {
+    return c.json({ error: String(e) }, 500);
+  }
+});
+
+// GET /share/:token — get shared item data (public, no auth needed for reading)
+app.get("/make-server-f580d5ca/share/:token", async (c) => {
+  try {
+    const token = c.req.param("token");
+    const share = await kv.get(`share:${token}`);
+    if (!share || !share.active) return c.json({ error: "Share link not found or expired" }, 404);
+    // Fetch the actual item data
+    const { type, itemId, orgId } = share;
+    const keyPrefix = orgId ? `${orgId}:` : '';
+    let item: any = null;
+    switch (type) {
+      case 'task': item = await kv.get(`${keyPrefix}task:${itemId}`); break;
+      case 'meeting': item = await kv.get(`${keyPrefix}meeting:${itemId}`); break;
+      case 'project': item = await kv.get(`${keyPrefix}mgmt:${itemId}`); break;
+      case 'brand': item = await kv.get(`${keyPrefix}mgmt:${itemId}`); break;
+      case 'library': item = await kv.get(`${keyPrefix}library:${itemId}`); break;
+      case 'goal': item = await kv.get(`${keyPrefix}goal:${itemId}`); break;
+      case 'radar': item = await kv.get(`${keyPrefix}radar:${itemId}`); break;
+      case 'board': item = await kv.get(`${keyPrefix}mgmt:${itemId}`); break;
+    }
+    if (!item) return c.json({ error: "Item not found" }, 404);
+    // Fetch members for display names
+    const members = await kv.getByPrefix(`${keyPrefix}member:`);
+    return c.json({ share, item, members });
+  } catch (e) {
+    return c.json({ error: String(e) }, 500);
+  }
+});
+
+// DELETE /share/:token — revoke share link
+app.delete("/make-server-f580d5ca/share/:token", async (c) => {
+  try {
+    const token = c.req.param("token");
+    const share = await kv.get(`share:${token}`);
+    if (!share) return c.json({ error: "Not found" }, 404);
+    // Deactivate
+    share.active = false;
+    await kv.set(`share:${token}`, share);
+    // Remove index
+    await kv.del(`share:idx:${share.orgId}:${share.type}:${share.itemId}`);
+    return c.json({ success: true });
+  } catch (e) {
+    return c.json({ error: String(e) }, 500);
+  }
+});
+
+// GET /share/check/:type/:itemId — check if item has active share link
+app.get("/make-server-f580d5ca/share/check/:type/:itemId", async (c) => {
+  try {
+    const type = c.req.param("type");
+    const itemId = c.req.param("itemId");
+    const orgId = c.req.query("orgId") || '';
+    const token = await kv.get(`share:idx:${orgId}:${type}:${itemId}`);
+    if (!token) return c.json({ shared: false });
+    const share = await kv.get(`share:${token}`);
+    if (!share || !share.active) return c.json({ shared: false });
+    return c.json({ shared: true, token, share });
+  } catch (e) {
+    return c.json({ error: String(e) }, 500);
+  }
+});
+
 // Version check endpoint
-app.get("/make-server-f580d5ca/version", (c) => c.json({ version: "0.4.0", routes: "full" }));
+app.get("/make-server-f580d5ca/version", (c) => c.json({ version: "0.5.0", routes: "full" }));
 
 Deno.serve(app.fetch);

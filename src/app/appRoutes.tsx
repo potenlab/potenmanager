@@ -35,6 +35,7 @@ import { ProjectDetailPage } from "./pages/ProjectDetailPage";
 import { BrandDetailPage } from "./pages/BrandDetailPage";
 import { SubPageDetailPage } from "./pages/SubPageDetailPage";
 import { ChatPage } from "./pages/ChatPage";
+import { SharePage } from "./pages/SharePage";
 
 export const router = createBrowserRouter([
   {
@@ -46,6 +47,7 @@ export const router = createBrowserRouter([
       { path: "auth/callback", Component: AuthCallbackPage },
       { path: "onboarding", Component: OnboardingPage },
       { path: "invite/:code", Component: InviteAcceptPage },
+      { path: "share/:token", Component: SharePage },
 
       // ── Protected routes (AuthGuard) ───────────────────
       {

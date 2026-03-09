@@ -16,6 +16,7 @@ import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
 import { InlineText } from "../components/detail/InlineText";
 import { PropertyItem } from "../components/detail/PropertyItem";
 import { AIStrategyPanel } from "../components/AIStrategyPanel";
+import { ShareButton } from "../components/detail/ShareButton";
 import {
   Project, PROJECT_STATUS_CONFIG, PROJECT_COLORS, PROJECT_CATEGORY_CONFIG,
   loadProjects, saveProjects, loadCards, saveCards, loadColumns,
@@ -242,12 +243,15 @@ export function ProjectDetailPage() {
                   {project.name || (ko ? "새 프로젝트" : "New Project")}
                 </span>
               </nav>
-              <button
-                onClick={handleDelete}
-                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-              >
-                <Trash2 size={18} />
-              </button>
+              <div className="flex items-center gap-1">
+                <ShareButton type="project" itemId={project.id} createdBy={currentUser.id} />
+                <button
+                  onClick={handleDelete}
+                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
             </div>
 
             {/* Logo + Title */}

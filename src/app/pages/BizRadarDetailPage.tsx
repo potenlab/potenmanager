@@ -19,6 +19,7 @@ import { TASK_CATEGORY_CONFIG, findBestAssignee } from "../../lib/jobRoles";
 import { InlineText } from "../components/detail/InlineText";
 import { InlineDropdown } from "../components/detail/InlineDropdown";
 import { PropertyItem } from "../components/detail/PropertyItem";
+import { ShareButton } from "../components/detail/ShareButton";
 import { usePortalPosition } from "../hooks/usePortalPosition";
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
 
@@ -273,6 +274,7 @@ export function BizRadarDetailPage() {
             {ko ? '비즈 레이더' : 'Biz Radar'}
           </button>
           <div className="flex items-center gap-2">
+            <ShareButton type="radar" itemId={item.id} createdBy={currentUser.id} />
             <button onClick={handleDelete} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
               <Trash2 size={18} />
             </button>

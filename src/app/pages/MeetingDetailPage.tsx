@@ -18,6 +18,7 @@ import { TaskCategory } from "../../lib/mockData";
 import { TASK_CATEGORY_CONFIG, findBestAssignee } from "../../lib/jobRoles";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
+import { ShareButton } from "../components/detail/ShareButton";
 import { NotionDateRangePicker } from "../components/NotionDateRangePicker";
 
 type MeetingStatus = Meeting['status'];
@@ -521,6 +522,7 @@ export function MeetingDetailPage() {
             {ko ? '회의 목록' : 'Meetings'}
           </button>
           <div className="flex items-center gap-2">
+            <ShareButton type="meeting" itemId={meeting.id} createdBy={currentUser.id} />
             <button onClick={handleDelete} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
               <Trash2 size={18} />
             </button>

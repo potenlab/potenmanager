@@ -13,6 +13,7 @@ import { useTeam } from "../context/TeamContext";
 import { useTrash } from "../context/TrashContext";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
+import { ShareButton } from "../components/detail/ShareButton";
 import { ARCHIVE_CATEGORIES, isPredefinedCategory } from "./LibraryPage";
 import { InlineText } from "../components/detail/InlineText";
 import { PropertyItem } from "../components/detail/PropertyItem";
@@ -196,6 +197,7 @@ export function LibraryDetailPage() {
                 {ko ? '아카이빙' : 'Archive'}
               </button>
               <div className="flex items-center gap-2">
+                <ShareButton type="library" itemId={item.id} createdBy={currentUser.id} />
                 <button onClick={handleDelete} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
                   <Trash2 size={18} />
                 </button>
