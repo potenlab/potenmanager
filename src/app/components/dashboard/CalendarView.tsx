@@ -2030,7 +2030,7 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
                     title: language === 'ko' ? '제목없음' : 'Untitled',
                     date: meetingDate.toISOString(),
                     duration: 60,
-                    type: 'other',
+                    type: 'external',
                     status: 'scheduled',
                     attendeeIds: [currentUser.id],
                     organizerId: currentUser.id,

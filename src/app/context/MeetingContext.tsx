@@ -123,8 +123,14 @@ export function MeetingProvider({ children }: { children: ReactNode }) {
   }, [syncToServer]);
 
   const updateMeeting = useCallback((id: string, updates: Partial<Meeting>) => {
-    setMeetings((prev) => prev.map((m) => (m.id === id ? { ...m, ...updates, updatedAt: new Date().toISOString() } : m)));
-    syncToServer('update', id, updates);
+    let fullMeeting: Meeting | undefined;
+    setMeetings((prev) => prev.map((m) => {
+      if (m.id !== id) return m;
+      fullMeeting = { ...m, ...updates, updatedAt: new Date().toISOString() };
+      return fullMeeting;
+    }));
+    // Send full meeting to server to ensure all fields are persisted
+    if (fullMeeting) syncToServer('update', id, fullMeeting);
   }, [syncToServer]);
 
   const removeMeeting = useCallback((id: string) => {
