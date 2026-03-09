@@ -598,7 +598,7 @@ type TimeBucket = 'today' | 'tomorrow' | 'week' | 'month';
 
 function TimeColumn({
   title, count, tasks, icon, timeBucket, onDrop,
-  isSelecting, selectedIds, onToggleSelect, onCardContextMenu,
+  isSelecting, selectedIds, onToggleSelect, onCardContextMenu, compact,
 }: {
   title: string;
   count: number;
@@ -610,6 +610,7 @@ function TimeColumn({
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
   onCardContextMenu?: (e: React.MouseEvent, id: string) => void;
+  compact?: boolean;
 }) {
   const { language } = useLanguage();
   const [{ isOver }, dropRef] = useDrop<DragItem, void, { isOver: boolean }>(
@@ -654,6 +655,7 @@ function TimeColumn({
         {tasks.map(task => (
           <TaskCard
             key={task.id} task={task}
+            compact={compact}
             isSelecting={isSelecting} isSelected={selectedIds.has(task.id)}
             onToggleSelect={onToggleSelect} selectedIds={selectedIds}
             onContextMenu={onCardContextMenu}
@@ -666,7 +668,7 @@ function TimeColumn({
 
 function TimeBoardView({
   todayTasks, tomorrowTasks, thisWeekTasks, thisMonthTasks,
-  onTimeDrop, language,
+  onTimeDrop, language, cardStyle,
   isSelecting, selectedIds, onToggleSelect, onBulkSelect, onCardContextMenu,
 }: {
   todayTasks: Task[];
@@ -675,6 +677,7 @@ function TimeBoardView({
   thisMonthTasks: Task[];
   onTimeDrop: (taskIds: string[], bucket: TimeBucket, clone?: boolean) => void;
   language: string;
+  cardStyle?: 'detailed' | 'compact';
   isSelecting: boolean;
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
@@ -757,31 +760,32 @@ function TimeBoardView({
   }, []);
 
   const ko = language === 'ko';
+  const compact = cardStyle === 'compact';
   return (
     <div ref={boardRef} className="h-full flex flex-col" onMouseDown={handleBoardMouseDown}>
       <div className="flex flex-col md:flex-row gap-4 md:gap-3 h-full">
         <TimeColumn
           title={ko ? "오늘" : "Today"} count={todayTasks.length} tasks={todayTasks}
           icon={<Clock size={16} className="text-orange-500" />}
-          timeBucket="today" onDrop={onTimeDrop}
+          timeBucket="today" onDrop={onTimeDrop} compact={compact}
           isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
         />
         <TimeColumn
           title={ko ? "내일" : "Tomorrow"} count={tomorrowTasks.length} tasks={tomorrowTasks}
           icon={<CalendarIcon size={16} className="text-blue-500" />}
-          timeBucket="tomorrow" onDrop={onTimeDrop}
+          timeBucket="tomorrow" onDrop={onTimeDrop} compact={compact}
           isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
         />
         <TimeColumn
           title={ko ? "이번 주" : "This Week"} count={thisWeekTasks.length} tasks={thisWeekTasks}
           icon={<CalendarClock size={16} className="text-indigo-500" />}
-          timeBucket="week" onDrop={onTimeDrop}
+          timeBucket="week" onDrop={onTimeDrop} compact={compact}
           isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
         />
         <TimeColumn
           title={ko ? "이번 달" : "This Month"} count={thisMonthTasks.length} tasks={thisMonthTasks}
           icon={<CalendarIcon size={16} className="text-purple-500" />}
-          timeBucket="month" onDrop={onTimeDrop}
+          timeBucket="month" onDrop={onTimeDrop} compact={compact}
           isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
         />
       </div>
@@ -1251,7 +1255,7 @@ export function TasksPage() {
             <TimeBoardView
               todayTasks={timeBuckets.todayTasks} tomorrowTasks={timeBuckets.tomorrowTasks}
               thisWeekTasks={timeBuckets.thisWeekTasks} thisMonthTasks={timeBuckets.thisMonthTasks}
-              onTimeDrop={handleTimeDrop} language={language}
+              onTimeDrop={handleTimeDrop} language={language} cardStyle={cardStyle}
               isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={toggleSelect}
               onBulkSelect={setSelectedIds} onCardContextMenu={handleCardContextMenu}
             />
