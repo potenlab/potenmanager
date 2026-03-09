@@ -548,53 +548,88 @@ function DroppableDayCell({
       </div>
 
       <div className="flex flex-col gap-0.5 flex-1 overflow-y-auto no-scrollbar">
-        {/* Tasks first (multi-day bars need consistent alignment) */}
-        {dayTasks.map(({ task, position }, idx) =>
-          task ? (
-            <div
-              key={task.id}
-              className={cn(
-                "relative",
-                position === "single" && "mx-1.5",
-                position === "start" && "ml-1.5 -mr-[3px] z-[2]",
-                position === "middle" && "-mx-[3px] z-[2]",
-                position === "end" && "-ml-[3px] mr-1.5 z-[2]"
-              )}
-            >
-              <ResizableTaskBar
-                task={task}
-                language={language}
-                position={position}
-                isResizing={resizeState?.taskId === task.id}
-                isSelected={selectedIds.has(task.id)}
-                selectedIds={selectedIds}
-                onClick={onTaskClick}
-                onSelect={onSelectTask}
-                onResizeStart={onResizeStart}
-                onContextMenu={onContextMenu}
-                canDragTask={canDragTaskFn ? canDragTaskFn(task) : true}
-                cardStyle={cardStyle}
-              />
-            </div>
-          ) : (
-            /* Invisible placeholder to keep slots aligned across days */
-            <div key={`ph-${idx}`} className={cn(
-              "mx-1.5 pointer-events-none invisible",
-              cardStyle === "detailed" ? "min-h-[52px]" : "h-[26px]"
-            )} />
-          )
-        )}
+        {/* Priority order: 1) Multi-day spanning tasks  2) Meetings  3) Single-day tasks */}
+        {(() => {
+          // Find split point: last multi-day entry (non-single position or placeholder in multi-day zone)
+          let lastMultiIdx = -1;
+          for (let i = dayTasks.length - 1; i >= 0; i--) {
+            const { task, position } = dayTasks[i];
+            if (position !== "single" || (task === null && i <= lastMultiIdx)) {
+              lastMultiIdx = i;
+              break;
+            }
+            // Also check if a null placeholder precedes a multi-day entry
+            if (task === null) {
+              for (let j = i - 1; j >= 0; j--) {
+                if (dayTasks[j].position !== "single") { lastMultiIdx = i; break; }
+              }
+              if (lastMultiIdx >= i) break;
+            }
+          }
+          const multiDayEntries = dayTasks.slice(0, lastMultiIdx + 1);
+          const singleDayEntries = dayTasks.slice(lastMultiIdx + 1).filter(e => e.task !== null);
 
-        {/* Meetings (after tasks so multi-day bars stay at top) */}
-        {dayMeetings.map((meeting) => (
-          <DraggableMeetingBar
-            key={meeting.id}
-            meeting={meeting}
-            language={language}
-            onClick={() => onMeetingClick(meeting.id)}
-            onContextMenu={onMeetingContextMenu ? (x, y) => onMeetingContextMenu(meeting, x, y) : undefined}
-          />
-        ))}
+          return (
+            <>
+              {/* 1) Multi-day spanning tasks with placeholders */}
+              {multiDayEntries.map(({ task, position }, idx) =>
+                task ? (
+                  <div
+                    key={task.id}
+                    className={cn(
+                      "relative",
+                      position === "single" && "mx-1.5",
+                      position === "start" && "ml-1.5 -mr-[3px] z-[2]",
+                      position === "middle" && "-mx-[3px] z-[2]",
+                      position === "end" && "-ml-[3px] mr-1.5 z-[2]"
+                    )}
+                  >
+                    <ResizableTaskBar
+                      task={task} language={language} position={position}
+                      isResizing={resizeState?.taskId === task.id}
+                      isSelected={selectedIds.has(task.id)} selectedIds={selectedIds}
+                      onClick={onTaskClick} onSelect={onSelectTask}
+                      onResizeStart={onResizeStart} onContextMenu={onContextMenu}
+                      canDragTask={canDragTaskFn ? canDragTaskFn(task) : true}
+                      cardStyle={cardStyle}
+                    />
+                  </div>
+                ) : (
+                  <div key={`ph-${idx}`} className={cn(
+                    "mx-1.5 pointer-events-none invisible",
+                    cardStyle === "detailed" ? "min-h-[52px]" : "h-[26px]"
+                  )} />
+                )
+              )}
+
+              {/* 2) Meetings */}
+              {dayMeetings.map((meeting) => (
+                <DraggableMeetingBar
+                  key={meeting.id} meeting={meeting} language={language}
+                  onClick={() => onMeetingClick(meeting.id)}
+                  onContextMenu={onMeetingContextMenu ? (x, y) => onMeetingContextMenu(meeting, x, y) : undefined}
+                />
+              ))}
+
+              {/* 3) Single-day tasks */}
+              {singleDayEntries.map(({ task, position }) =>
+                task && (
+                  <div key={task.id} className="relative mx-1.5">
+                    <ResizableTaskBar
+                      task={task} language={language} position={position}
+                      isResizing={resizeState?.taskId === task.id}
+                      isSelected={selectedIds.has(task.id)} selectedIds={selectedIds}
+                      onClick={onTaskClick} onSelect={onSelectTask}
+                      onResizeStart={onResizeStart} onContextMenu={onContextMenu}
+                      canDragTask={canDragTaskFn ? canDragTaskFn(task) : true}
+                      cardStyle={cardStyle}
+                    />
+                  </div>
+                )
+              )}
+            </>
+          );
+        })()}
 
         {/* Hover add buttons */}
         <div className="flex-1 min-h-[24px] flex items-end justify-center pb-1 gap-1">
