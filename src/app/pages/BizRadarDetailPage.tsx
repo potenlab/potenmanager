@@ -18,7 +18,8 @@ import { TaskCategory } from "../../lib/mockData";
 import { TASK_CATEGORY_CONFIG, findBestAssignee } from "../../lib/jobRoles";
 import { InlineText } from "../components/detail/InlineText";
 import { InlineDropdown } from "../components/detail/InlineDropdown";
-import { PropertyItem } from "../components/detail/PropertyItem";
+import { AutoProperties } from "../components/detail/AutoProperties";
+import type { PropertyFieldConfig } from "../components/detail/PropertyConfig";
 import { DetailPageShell } from "../components/detail/DetailPageShell";
 import { usePortalPosition } from "../hooks/usePortalPosition";
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
@@ -290,22 +291,30 @@ export function BizRadarDetailPage() {
         }
         collapsible={false}
         properties={
-          <>
-            <PropertyItem icon={<Compass size={14} />} label={ko ? '단계' : 'Stage'}>
-              <InlineDropdown
-                value={item.stage}
-                options={['discovered', 'reviewing', 'proposal', 'negotiation', 'won', 'lost'] as BizStage[]}
-                onChange={handleStageChange}
-                renderValue={(v) => {
-                  const cfg = STAGE_CONFIG[v];
-                  return <span className={cn("flex items-center gap-1.5 font-bold", cfg.color)}>{cfg.icon} {ko ? cfg.labelKo : cfg.label}</span>;
-                }}
-                renderOption={(o) => <span className={cn("flex items-center gap-2", STAGE_CONFIG[o].color)}>{STAGE_CONFIG[o].icon} {ko ? STAGE_CONFIG[o].labelKo : STAGE_CONFIG[o].label}</span>}
-              />
-            </PropertyItem>
-
-            <PropertyItem icon={<Tag size={14} />} label={ko ? '유형' : 'Type'}>
-              {isConnection ? (
+          <AutoProperties fields={[
+            {
+              key: "stage",
+              type: "dropdown",
+              icon: <Compass size={14} />,
+              label: ko ? '단계' : 'Stage',
+              value: item.stage,
+              options: ['discovered', 'reviewing', 'proposal', 'negotiation', 'won', 'lost'],
+              onChange: handleStageChange,
+              renderValue: (v: string) => {
+                const cfg = STAGE_CONFIG[v as BizStage];
+                return <span className={cn("flex items-center gap-1.5 font-bold", cfg.color)}>{cfg.icon} {ko ? cfg.labelKo : cfg.label}</span>;
+              },
+              renderOption: (o: string) => {
+                const cfg = STAGE_CONFIG[o as BizStage];
+                return <span className={cn("flex items-center gap-2", cfg.color)}>{cfg.icon} {ko ? cfg.labelKo : cfg.label}</span>;
+              },
+            },
+            {
+              key: "type",
+              type: "custom",
+              icon: <Tag size={14} />,
+              label: ko ? '유형' : 'Type',
+              render: () => isConnection ? (
                 <InlineDropdown
                   value={item.connectionType || 'other'}
                   options={['agent', 'distributor', 'supplier', 'partner', 'client', 'other'] as ConnectionType[]}
@@ -324,88 +333,105 @@ export function BizRadarDetailPage() {
                   renderValue={(v) => <span className={cn("px-2 py-0.5 rounded-md font-bold", TYPE_CONFIG[v].bg, TYPE_CONFIG[v].color)}>{ko ? TYPE_CONFIG[v].labelKo : TYPE_CONFIG[v].label}</span>}
                   renderOption={(o) => <span className={TYPE_CONFIG[o].color}>{ko ? TYPE_CONFIG[o].labelKo : TYPE_CONFIG[o].label}</span>}
                 />
-              )}
-            </PropertyItem>
-
-            <PropertyItem icon={<DollarSign size={14} />} label={ko ? '예상 가치' : 'Value'}>
-              <input
-                value={valueInput}
-                onChange={(e) => setValueInput(e.target.value)}
-                onBlur={handleValueBlur}
-                placeholder={ko ? '예: 50000000' : 'e.g. 50000000'}
-                className="px-2 py-1 rounded-md text-sm bg-transparent hover:bg-gray-100 focus:bg-gray-100 outline-none focus:ring-2 focus:ring-blue-100 transition-colors font-medium text-gray-700 placeholder-gray-300 w-full max-w-[200px]"
-              />
-            </PropertyItem>
-
-            <PropertyItem icon={<Percent size={14} />} label={ko ? '확률' : 'Probability'}>
-              <div className="flex items-center gap-2">
+              ),
+            },
+            {
+              key: "value",
+              type: "custom",
+              icon: <DollarSign size={14} />,
+              label: ko ? '예상 가치' : 'Value',
+              render: () => (
                 <input
-                  type="number" min={0} max={100}
-                  value={probInput}
-                  onChange={(e) => setProbInput(e.target.value)}
-                  onBlur={handleProbBlur}
-                  placeholder="0-100"
-                  className="px-2 py-1 rounded-md text-sm bg-transparent hover:bg-gray-100 focus:bg-gray-100 outline-none focus:ring-2 focus:ring-blue-100 transition-colors font-medium text-gray-700 placeholder-gray-300 w-20"
+                  value={valueInput}
+                  onChange={(e) => setValueInput(e.target.value)}
+                  onBlur={handleValueBlur}
+                  placeholder={ko ? '예: 50000000' : 'e.g. 50000000'}
+                  className="px-2 py-1 rounded-md text-sm bg-transparent hover:bg-gray-100 focus:bg-gray-100 outline-none focus:ring-2 focus:ring-blue-100 transition-colors font-medium text-gray-700 placeholder-gray-300 w-full max-w-[200px]"
                 />
-                <span className="text-xs text-gray-400">%</span>
-                {item.value && item.probability ? (
-                  <span className="text-[10px] text-gray-400 ml-2">
-                    {ko ? '가중 가치' : 'Weighted'}: {formatValue(item.value * item.probability / 100)}
-                  </span>
-                ) : null}
-              </div>
-            </PropertyItem>
-
-            <PropertyItem icon={<Calendar size={14} />} label={ko ? '마감일' : 'Deadline'}>
-              <input
-                type="date"
-                value={deadlineLocal}
-                onChange={(e) => handleDeadlineChange(e.target.value)}
-                className="px-2 py-1 rounded-md text-sm bg-transparent hover:bg-gray-100 focus:bg-gray-100 outline-none focus:ring-2 focus:ring-blue-100 transition-colors font-medium text-gray-700"
-              />
-            </PropertyItem>
-
-            <PropertyItem icon={<UserIcon size={14} />} label={ko ? '담당자' : 'Assignee'}>
-              <AssigneePicker selectedId={item.assigneeId} onChange={handleAssigneeChange} language={language} />
-            </PropertyItem>
-
-            <PropertyItem icon={<Building2 size={14} />} label={ko ? '거래처' : 'Company'}>
-              <input
-                value={item.contactCompany || ''}
-                onChange={(e) => handleContactCompanyChange(e.target.value)}
-                placeholder={ko ? '회사명' : 'Company name'}
-                className="px-2 py-1 rounded-md text-sm bg-transparent hover:bg-gray-100 focus:bg-gray-100 outline-none focus:ring-2 focus:ring-blue-100 transition-colors font-medium text-gray-700 placeholder-gray-300 w-full"
-              />
-            </PropertyItem>
-
-            <PropertyItem icon={<UserIcon size={14} />} label={ko ? '담당자명' : 'Contact'}>
-              <input
-                value={item.contactName || ''}
-                onChange={(e) => handleContactNameChange(e.target.value)}
-                placeholder={ko ? '상대방 담당자' : 'Contact person'}
-                className="px-2 py-1 rounded-md text-sm bg-transparent hover:bg-gray-100 focus:bg-gray-100 outline-none focus:ring-2 focus:ring-blue-100 transition-colors font-medium text-gray-700 placeholder-gray-300 w-full"
-              />
-            </PropertyItem>
-
-            <PropertyItem icon={<Compass size={14} />} label={ko ? '출처' : 'Source'}>
-              <input
-                value={item.source || ''}
-                onChange={(e) => handleSourceChange(e.target.value)}
-                placeholder={ko ? '예: 소개, 웹사이트, 박람회' : 'e.g. Referral, Website'}
-                className="px-2 py-1 rounded-md text-sm bg-transparent hover:bg-gray-100 focus:bg-gray-100 outline-none focus:ring-2 focus:ring-blue-100 transition-colors font-medium text-gray-700 placeholder-gray-300 w-full"
-              />
-            </PropertyItem>
-
-            <PropertyItem icon={<Tag size={14} />} label={ko ? '태그' : 'Tags'}>
-              <input
-                value={tagsInput}
-                onChange={(e) => setTagsInput(e.target.value)}
-                onBlur={handleTagsBlur}
-                placeholder={ko ? '쉼표로 구분' : 'Comma separated'}
-                className="px-2 py-1 rounded-md text-sm bg-transparent hover:bg-gray-100 focus:bg-gray-100 outline-none focus:ring-2 focus:ring-blue-100 transition-colors font-medium text-gray-700 placeholder-gray-300 w-full"
-              />
-            </PropertyItem>
-          </>
+              ),
+            },
+            {
+              key: "probability",
+              type: "custom",
+              icon: <Percent size={14} />,
+              label: ko ? '확률' : 'Probability',
+              render: () => (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number" min={0} max={100}
+                    value={probInput}
+                    onChange={(e) => setProbInput(e.target.value)}
+                    onBlur={handleProbBlur}
+                    placeholder="0-100"
+                    className="px-2 py-1 rounded-md text-sm bg-transparent hover:bg-gray-100 focus:bg-gray-100 outline-none focus:ring-2 focus:ring-blue-100 transition-colors font-medium text-gray-700 placeholder-gray-300 w-20"
+                  />
+                  <span className="text-xs text-gray-400">%</span>
+                  {item.value && item.probability ? (
+                    <span className="text-[10px] text-gray-400 ml-2">
+                      {ko ? '가중 가치' : 'Weighted'}: {formatValue(item.value * item.probability / 100)}
+                    </span>
+                  ) : null}
+                </div>
+              ),
+            },
+            {
+              key: "deadline",
+              type: "date",
+              icon: <Calendar size={14} />,
+              label: ko ? '마감일' : 'Deadline',
+              value: deadlineLocal,
+              onChange: handleDeadlineChange,
+            },
+            {
+              key: "assignee",
+              type: "custom",
+              icon: <UserIcon size={14} />,
+              label: ko ? '담당자' : 'Assignee',
+              render: () => <AssigneePicker selectedId={item.assigneeId} onChange={handleAssigneeChange} language={language} />,
+            },
+            {
+              key: "company",
+              type: "text",
+              icon: <Building2 size={14} />,
+              label: ko ? '거래처' : 'Company',
+              value: item.contactCompany || '',
+              onChange: handleContactCompanyChange,
+              placeholder: ko ? '회사명' : 'Company name',
+            },
+            {
+              key: "contact",
+              type: "text",
+              icon: <UserIcon size={14} />,
+              label: ko ? '담당자명' : 'Contact',
+              value: item.contactName || '',
+              onChange: handleContactNameChange,
+              placeholder: ko ? '상대방 담당자' : 'Contact person',
+            },
+            {
+              key: "source",
+              type: "text",
+              icon: <Compass size={14} />,
+              label: ko ? '출처' : 'Source',
+              value: item.source || '',
+              onChange: handleSourceChange,
+              placeholder: ko ? '예: 소개, 웹사이트, 박람회' : 'e.g. Referral, Website',
+            },
+            {
+              key: "tags",
+              type: "custom",
+              icon: <Tag size={14} />,
+              label: ko ? '태그' : 'Tags',
+              render: () => (
+                <input
+                  value={tagsInput}
+                  onChange={(e) => setTagsInput(e.target.value)}
+                  onBlur={handleTagsBlur}
+                  placeholder={ko ? '쉼표로 구분' : 'Comma separated'}
+                  className="px-2 py-1 rounded-md text-sm bg-transparent hover:bg-gray-100 focus:bg-gray-100 outline-none focus:ring-2 focus:ring-blue-100 transition-colors font-medium text-gray-700 placeholder-gray-300 w-full"
+                />
+              ),
+            },
+          ] as PropertyFieldConfig[]} />
         }
       >
         {/* Action Items */}

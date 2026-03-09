@@ -1,20 +1,19 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router";
-import {
-  Globe, Lock,
-  FolderOpen, Loader2,
-} from "lucide-react";
+import { useState, useRef, useCallback } from "react";
+import { useNavigate, useSearchParams } from "react-router";
+import { Globe, Lock, FolderOpen, Loader2 } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { useLanguage } from "../context/LanguageContext";
 import { useLibrary, LibraryItem } from "../context/LibraryContext";
 import { useTeam } from "../context/TeamContext";
 import { useTrash } from "../context/TrashContext";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
-import { DetailPageShell } from "../components/detail/DetailPageShell";
 import { ARCHIVE_CATEGORIES, isPredefinedCategory } from "./LibraryPage";
 import { InlineText } from "../components/detail/InlineText";
-import { PropertyItem } from "../components/detail/PropertyItem";
+import { AutoProperties } from "../components/detail/AutoProperties";
+import { createDetailPage } from "../components/detail/createDetailPage";
+import type { DetailSectionProps } from "../components/detail/createDetailPage";
+import type { PropertyFieldConfig } from "../components/detail/PropertyConfig";
+import { PAGE_TYPES } from "../components/detail/pageTypes";
 
 const URL_REGEX = /https?:\/\/[^\s<>"')\]]+/;
 
@@ -26,7 +25,6 @@ function getYouTubeVideoId(url: string): string | null {
   } catch { /* ignore */ }
   return null;
 }
-
 
 // ─── Category Select ───────────────────────────────────────────────
 function CategorySelect({ value, onChange, ko }: { value: string; onChange: (v: string) => void; ko: boolean }) {
@@ -64,15 +62,8 @@ function CategorySelect({ value, onChange, ko }: { value: string; onChange: (v: 
           type="text"
           value={customValue}
           onChange={(e) => setCustomValue(e.target.value)}
-          onBlur={(e) => {
-            const v = e.target.value.trim();
-            onChange(v || "");
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              (e.target as HTMLInputElement).blur();
-            }
-          }}
+          onBlur={(e) => onChange(e.target.value.trim() || "")}
+          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
           placeholder={ko ? "직접 입력" : "Custom"}
           className="text-sm px-2 py-1 rounded-md border border-gray-200 outline-none focus:ring-2 focus:ring-blue-100 text-gray-700 w-32"
           autoFocus
@@ -82,60 +73,115 @@ function CategorySelect({ value, onChange, ko }: { value: string; onChange: (v: 
   );
 }
 
-// ─── Main Detail Page ──────────────────────────────────────────────
-export function LibraryDetailPage() {
-  const { itemId } = useParams();
+// ─── Data Hook ─────────────────────────────────────────────────────
+function useLibraryData(id: string | undefined) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { language } = useLanguage();
-  const ko = language === 'ko';
-  const { addItem, updateItem, removeItem, getItem, fetchOgMetadata } = useLibrary();
+  const { addItem, updateItem, removeItem, getItem } = useLibrary();
   const { currentUser } = useTeam();
   const { moveToTrash } = useTrash();
 
-  const isNew = itemId === "new" || !itemId;
-  const existing = isNew ? null : getItem(itemId!);
+  const isNew = id === "new" || !id;
+  const existing = isNew ? null : getItem(id!);
 
-  const [localId, setLocalId] = useState<string | null>(null);
-  useEffect(() => {
-    if (isNew && !localId) {
-      const id = `lib-${Date.now()}`;
+  const [localId, setLocalId] = useState<string | null>(() => {
+    if (isNew) {
+      const newId = `lib-${Date.now()}`;
       const now = new Date().toISOString();
-      const categoryParam = searchParams.get("category") || undefined;
       const newItem: LibraryItem = {
-        id,
+        id: newId,
         title: '',
         type: 'url',
         visibility: 'private',
-        category: categoryParam,
+        category: searchParams.get("category") || undefined,
         ownerId: currentUser.id,
         ownerName: currentUser.name,
         createdAt: now,
         updatedAt: now,
       };
       addItem(newItem);
-      setLocalId(id);
-      navigate(`/library/${id}`, { replace: true });
+      // Navigate will happen in effect
+      setTimeout(() => navigate(`/library/${newId}`, { replace: true }), 0);
+      return newId;
     }
-  }, [isNew, localId]);
+    return null;
+  });
 
   const item = existing || (localId ? getItem(localId) : null);
-
-  const [ogLoading, setOgLoading] = useState(false);
-  const lastFetchedUrlRef = useRef<string>(item?.url || '');
+  const itemId = item?.id || localId || id || "";
 
   const handleUpdate = useCallback((updates: Partial<LibraryItem>) => {
     if (item) updateItem(item.id, updates);
   }, [item, updateItem]);
 
-  // Auto-fetch OG metadata for a URL
+  const handleDelete = useCallback(() => {
+    if (!item) return;
+    if (!confirm('정말 삭제하시겠습니까?')) return;
+    moveToTrash({ id: item.id, type: 'library' as any, title: item.title, data: item, deletedAt: new Date().toISOString() });
+    removeItem(item.id);
+    navigate('/library');
+  }, [item, moveToTrash, removeItem, navigate]);
+
+  return { item, itemId, handleUpdate, handleDelete };
+}
+
+// ─── Section Components ────────────────────────────────────────────
+
+function LibraryTitle({ item, onUpdate, ko }: DetailSectionProps<LibraryItem>) {
+  return (
+    <InlineText
+      value={item.title}
+      onChange={(v) => onUpdate({ title: v })}
+      placeholder={ko ? '제목을 입력하세요' : 'Enter title'}
+      className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight tracking-tight focus:ring-0 focus:bg-transparent hover:bg-transparent border-b-2 border-transparent focus:border-gray-200 rounded-none pb-0.5"
+      as="h1"
+    />
+  );
+}
+
+function LibraryProperties({ item, onUpdate, ko }: DetailSectionProps<LibraryItem>) {
+  return (
+    <AutoProperties fields={[
+      {
+        key: "category",
+        type: "custom",
+        icon: <FolderOpen size={14} />,
+        label: ko ? '카테고리' : 'Category',
+        render: () => (
+          <CategorySelect
+            value={item.category || ''}
+            onChange={(v) => onUpdate({ category: v || undefined })}
+            ko={ko}
+          />
+        ),
+      },
+      {
+        key: "visibility",
+        type: "toggle",
+        icon: item.visibility === 'published' ? <Globe size={14} /> : <Lock size={14} />,
+        label: ko ? '공개' : 'Visibility',
+        value: item.visibility === 'published',
+        onChange: (v) => onUpdate({ visibility: v ? 'published' : 'private' }),
+        onLabel: ko ? '팀에 공유됨' : 'Published to Team',
+        offLabel: ko ? '비공개 (나만 보기)' : 'Private (only you)',
+        onIcon: <Globe size={14} />,
+        offIcon: <Lock size={14} />,
+      },
+    ] as PropertyFieldConfig[]} />
+  );
+}
+
+function LibraryBody({ item, onUpdate, ko, language }: DetailSectionProps<LibraryItem>) {
+  const { fetchOgMetadata } = useLibrary();
+  const [ogLoading, setOgLoading] = useState(false);
+  const lastFetchedUrlRef = useRef<string>(item?.url || '');
+
   const triggerOgFetch = useCallback(async (url: string) => {
     if (!url) return;
     setOgLoading(true);
     const ytId = getYouTubeVideoId(url);
     if (ytId) {
-      const ytThumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
-      handleUpdate({ ogMetadata: { ogImage: ytThumb, ogSiteName: 'YouTube' } });
+      onUpdate({ ogMetadata: { ogImage: `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`, ogSiteName: 'YouTube' } });
     }
     const og = await fetchOgMetadata(url);
     if (og) {
@@ -144,101 +190,27 @@ export function LibraryDetailPage() {
         ogMetadata: { ...og, ogImage: og.ogImage || ytFallback },
       };
       if (!item?.title && og.ogTitle) updates.title = og.ogTitle;
-      handleUpdate(updates);
+      onUpdate(updates);
     }
     setOgLoading(false);
-  }, [item, fetchOgMetadata, handleUpdate]);
+  }, [item, fetchOgMetadata, onUpdate]);
 
-  // Content change handler with URL auto-detection
   const handleContentChange = useCallback((v: string) => {
-    handleUpdate({ description: v || undefined });
-
+    onUpdate({ description: v || undefined });
     const match = v?.match(URL_REGEX);
     if (match) {
       const detectedUrl = match[0];
       if (detectedUrl !== lastFetchedUrlRef.current) {
         lastFetchedUrlRef.current = detectedUrl;
-        handleUpdate({ url: detectedUrl, type: 'url' });
+        onUpdate({ url: detectedUrl, type: 'url' });
         triggerOgFetch(detectedUrl);
       }
     }
-  }, [handleUpdate, triggerOgFetch]);
-
-  const handleDelete = () => {
-    if (!item) return;
-    if (confirm(ko ? '정말 삭제하시겠습니까?' : 'Are you sure you want to delete this item?')) {
-      moveToTrash({ id: item.id, type: 'library' as any, title: item.title, data: item, deletedAt: new Date().toISOString() });
-      removeItem(item.id);
-      navigate('/library');
-    }
-  };
-
-  if (!item) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  }, [onUpdate, triggerOgFetch]);
 
   return (
-    <DetailPageShell
-      shareType="library"
-      itemId={item.id}
-      currentUserId={currentUser.id}
-      backPath="/library"
-      backLabel={ko ? '아카이빙' : 'Archive'}
-      onDelete={handleDelete}
-      title={
-        <InlineText
-          value={item.title}
-          onChange={(v) => handleUpdate({ title: v })}
-          placeholder={ko ? '제목을 입력하세요' : 'Enter title'}
-          className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight tracking-tight focus:ring-0 focus:bg-transparent hover:bg-transparent border-b-2 border-transparent focus:border-gray-200 rounded-none pb-0.5"
-          as="h1"
-        />
-      }
-      properties={
-        <>
-          {/* Category */}
-          <PropertyItem icon={<FolderOpen size={14} />} label={ko ? '카테고리' : 'Category'}>
-            <CategorySelect
-              value={item.category || ''}
-              onChange={(v) => handleUpdate({ category: v || undefined })}
-              ko={ko}
-            />
-          </PropertyItem>
-
-          {/* Visibility toggle */}
-          <PropertyItem icon={item.visibility === 'published' ? <Globe size={14} /> : <Lock size={14} />} label={ko ? '공개' : 'Visibility'}>
-            <button
-              onClick={() => handleUpdate({ visibility: item.visibility === 'published' ? 'private' : 'published' })}
-              className={cn(
-                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
-                item.visibility === 'published'
-                  ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              )}
-            >
-              {item.visibility === 'published' ? <Globe size={14} /> : <Lock size={14} />}
-              {item.visibility === 'published'
-                ? (ko ? '팀에 공유됨' : 'Published to Team')
-                : (ko ? '비공개 (나만 보기)' : 'Private (only you)')
-              }
-            </button>
-          </PropertyItem>
-        </>
-      }
-      collapsedPreview={
-        <span className={cn(
-          "text-[10px] font-bold px-1.5 py-0.5 rounded",
-          item.visibility === 'published' ? "bg-emerald-50 text-emerald-600" : "bg-gray-100 text-gray-500"
-        )}>
-          {item.visibility === 'published' ? (ko ? '공개' : 'Public') : (ko ? '비공개' : 'Private')}
-        </span>
-      }
-    >
-      {/* OG Preview Card (auto-detected URL) */}
+    <>
+      {/* OG Preview Card */}
       {item.url && item.ogMetadata && (item.ogMetadata.ogTitle || item.ogMetadata.ogImage) && (
         <div className="rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm">
           {item.ogMetadata.ogImage && (
@@ -248,9 +220,7 @@ export function LibraryDetailPage() {
           )}
           <div className="p-4">
             {item.ogMetadata.ogSiteName && (
-              <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider mb-1">
-                {item.ogMetadata.ogSiteName}
-              </p>
+              <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider mb-1">{item.ogMetadata.ogSiteName}</p>
             )}
             {item.ogMetadata.ogTitle && (
               <p className="text-sm font-semibold text-gray-900 mb-1">{item.ogMetadata.ogTitle}</p>
@@ -268,7 +238,7 @@ export function LibraryDetailPage() {
         </div>
       )}
 
-      {/* OG loading indicator */}
+      {/* OG loading */}
       {ogLoading && (
         <div className="flex items-center gap-2 text-sm text-blue-500 px-1">
           <Loader2 size={14} className="animate-spin" />
@@ -276,7 +246,7 @@ export function LibraryDetailPage() {
         </div>
       )}
 
-      {/* Content — NotionBlockEditor (paste URL here to auto-detect) */}
+      {/* Content */}
       <div className="min-h-[200px] border-t border-gray-100 pt-5">
         <NotionBlockEditor
           initialContent={item.description || ''}
@@ -285,9 +255,30 @@ export function LibraryDetailPage() {
           parentType="library"
           parentId={item.id}
         />
-
         <UrlPreviewSection content={item.description || ''} language={language} />
       </div>
-    </DetailPageShell>
+    </>
   );
 }
+
+function LibraryCollapsedPreview({ item, ko }: { item: LibraryItem; ko: boolean }) {
+  return (
+    <span className={cn(
+      "text-[10px] font-bold px-1.5 py-0.5 rounded",
+      item.visibility === 'published' ? "bg-emerald-50 text-emerald-600" : "bg-gray-100 text-gray-500"
+    )}>
+      {item.visibility === 'published' ? (ko ? '공개' : 'Public') : (ko ? '비공개' : 'Private')}
+    </span>
+  );
+}
+
+// ─── Export ────────────────────────────────────────────────────────
+
+export const LibraryDetailPage = createDetailPage<LibraryItem>({
+  meta: PAGE_TYPES.library,
+  useData: useLibraryData,
+  TitleComponent: LibraryTitle,
+  PropertiesComponent: LibraryProperties,
+  BodyComponent: LibraryBody,
+  CollapsedPreviewComponent: LibraryCollapsedPreview,
+});

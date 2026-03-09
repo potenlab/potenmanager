@@ -19,6 +19,8 @@ import { TASK_CATEGORY_CONFIG, findBestAssignee } from "../../lib/jobRoles";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
 import { DetailPageShell } from "../components/detail/DetailPageShell";
+import { AutoProperties } from "../components/detail/AutoProperties";
+import type { PropertyFieldConfig } from "../components/detail/PropertyConfig";
 import { NotionDateRangePicker } from "../components/NotionDateRangePicker";
 
 type MeetingStatus = Meeting['status'];
@@ -187,17 +189,6 @@ function AttendeePicker({ selectedIds, onChange, language }: { selectedIds: stri
   );
 }
 
-// ─── Property Row ───────────────────────────────────────────────────
-function PropertyItem({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50/80 transition-colors group">
-      <div className="flex items-center gap-2 w-[110px] shrink-0 text-gray-400 font-medium text-xs">
-        {icon} <span>{label}</span>
-      </div>
-      <div className="flex-1">{children}</div>
-    </div>
-  );
-}
 
 // ─── Meeting Time Input (AM/PM + direct input) ─────────────────────
 function MeetingTimeInput({
@@ -521,72 +512,106 @@ export function MeetingDetailPage() {
       onDelete={handleDelete}
       title={<InlineTitle value={meeting.title} onChange={handleTitleChange} placeholder={ko ? '회의 제목' : 'Meeting Title'} />}
       collapsible={false}
-      properties={<>
-              <PropertyItem icon={<CircleDot size={14} />} label={ko ? '상태' : 'Status'}>
-                <span className={cn("flex items-center gap-1.5 px-2 py-1 text-sm font-bold", STATUS_CONFIG[meeting.status].color)}>
-                  {STATUS_CONFIG[meeting.status].icon} {ko ? STATUS_CONFIG[meeting.status].labelKo : STATUS_CONFIG[meeting.status].label}
-                </span>
-              </PropertyItem>
-
-              <PropertyItem icon={<Video size={14} />} label={ko ? '유형' : 'Type'}>
-                <InlineDropdown
-                  value={meeting.type}
-                  options={['standup', 'planning', 'review', 'brainstorm', 'external', 'event', 'other'] as MeetingType[]}
-                  onChange={handleTypeChange}
-                  renderValue={(v) => <span className={cn("px-2 py-0.5 rounded-md font-bold flex items-center gap-1", TYPE_CONFIG[v].bg, TYPE_CONFIG[v].color)}>{TYPE_CONFIG[v].icon} {ko ? TYPE_CONFIG[v].labelKo : TYPE_CONFIG[v].label}</span>}
-                  renderOption={(o) => <span className={cn("flex items-center gap-1.5", TYPE_CONFIG[o].color)}>{TYPE_CONFIG[o].icon} {ko ? TYPE_CONFIG[o].labelKo : TYPE_CONFIG[o].label}</span>}
+      properties={
+        <AutoProperties fields={[
+          {
+            key: "status",
+            type: "custom",
+            icon: <CircleDot size={14} />,
+            label: ko ? '상태' : 'Status',
+            render: () => (
+              <span className={cn("flex items-center gap-1.5 px-2 py-1 text-sm font-bold", STATUS_CONFIG[meeting.status].color)}>
+                {STATUS_CONFIG[meeting.status].icon} {ko ? STATUS_CONFIG[meeting.status].labelKo : STATUS_CONFIG[meeting.status].label}
+              </span>
+            ),
+          },
+          {
+            key: "type",
+            type: "custom",
+            icon: <Video size={14} />,
+            label: ko ? '유형' : 'Type',
+            render: () => (
+              <InlineDropdown
+                value={meeting.type}
+                options={['standup', 'planning', 'review', 'brainstorm', 'external', 'event', 'other'] as MeetingType[]}
+                onChange={handleTypeChange}
+                renderValue={(v) => <span className={cn("px-2 py-0.5 rounded-md font-bold flex items-center gap-1", TYPE_CONFIG[v].bg, TYPE_CONFIG[v].color)}>{TYPE_CONFIG[v].icon} {ko ? TYPE_CONFIG[v].labelKo : TYPE_CONFIG[v].label}</span>}
+                renderOption={(o) => <span className={cn("flex items-center gap-1.5", TYPE_CONFIG[o].color)}>{TYPE_CONFIG[o].icon} {ko ? TYPE_CONFIG[o].labelKo : TYPE_CONFIG[o].label}</span>}
+              />
+            ),
+          },
+          {
+            key: "datetime",
+            type: "custom",
+            icon: <Calendar size={14} />,
+            label: ko ? '일시' : 'Date & Time',
+            render: () => (
+              <div className="flex items-center gap-3">
+                <NotionDateRangePicker
+                  startDate={meetingDate}
+                  endDate={null}
+                  onChange={(s) => handleDatePickerChange(s)}
+                  language={language}
+                  singleDate
+                  hideTime
                 />
-              </PropertyItem>
-
-              <PropertyItem icon={<Calendar size={14} />} label={ko ? '일시' : 'Date & Time'}>
-                <div className="flex items-center gap-3">
-                  <NotionDateRangePicker
-                    startDate={meetingDate}
-                    endDate={null}
-                    onChange={(s) => handleDatePickerChange(s)}
-                    language={language}
-                    singleDate
-                    hideTime
-                  />
-                  <div className="w-px h-5 bg-gray-200" />
-                  <MeetingTimeInput
-                    hour={meetingDate.getHours()}
-                    minute={meetingDate.getMinutes()}
-                    onChange={handleTimeChange}
-                    language={language}
-                  />
-                </div>
-              </PropertyItem>
-
-              <PropertyItem icon={<Timer size={14} />} label={ko ? '소요시간' : 'Duration'}>
-                <InlineDropdown
-                  value={String(meeting.duration)}
-                  options={DURATION_OPTIONS.map(String)}
-                  onChange={(v) => handleDurationChange(v)}
-                  renderValue={(v) => <span className="font-medium text-gray-700">{Number(v) >= 60 ? `${Number(v) / 60}h` : `${v}min`}</span>}
-                  renderOption={(o) => <span>{Number(o) >= 60 ? `${Number(o) / 60} hour${Number(o) > 60 ? 's' : ''}` : `${o} min`}</span>}
+                <div className="w-px h-5 bg-gray-200" />
+                <MeetingTimeInput
+                  hour={meetingDate.getHours()}
+                  minute={meetingDate.getMinutes()}
+                  onChange={handleTimeChange}
+                  language={language}
                 />
-              </PropertyItem>
-
-              <PropertyItem icon={<MapPin size={14} />} label={ko ? '장소' : 'Location'}>
-                <input
-                  value={locationText}
-                  onChange={(e) => setLocationText(e.target.value)}
-                  onBlur={handleLocationBlur}
-                  onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                  placeholder={ko ? '장소 또는 링크' : 'Room or link'}
-                  className="px-2 py-1 rounded-md text-sm bg-transparent hover:bg-gray-100 focus:bg-gray-100 outline-none focus:ring-2 focus:ring-blue-100 transition-colors font-medium text-gray-700 placeholder-gray-300 w-full"
-                />
-              </PropertyItem>
-
-              <PropertyItem icon={<Users size={14} />} label={ko ? '참석자' : 'Attendees'}>
-                <AttendeePicker selectedIds={meeting.attendeeIds} onChange={handleAttendeeChange} language={language} />
-              </PropertyItem>
-
-              <PropertyItem icon={<UserIcon size={14} />} label={ko ? '주최자' : 'Organizer'}>
-                <span className="px-2 py-1 text-sm font-medium text-gray-700">{getMemberName(meeting.organizerId)}</span>
-              </PropertyItem>
-      </>}
+              </div>
+            ),
+          },
+          {
+            key: "duration",
+            type: "custom",
+            icon: <Timer size={14} />,
+            label: ko ? '소요시간' : 'Duration',
+            render: () => (
+              <InlineDropdown
+                value={String(meeting.duration)}
+                options={DURATION_OPTIONS.map(String)}
+                onChange={(v) => handleDurationChange(v)}
+                renderValue={(v) => <span className="font-medium text-gray-700">{Number(v) >= 60 ? `${Number(v) / 60}h` : `${v}min`}</span>}
+                renderOption={(o) => <span>{Number(o) >= 60 ? `${Number(o) / 60} hour${Number(o) > 60 ? 's' : ''}` : `${o} min`}</span>}
+              />
+            ),
+          },
+          {
+            key: "location",
+            type: "custom",
+            icon: <MapPin size={14} />,
+            label: ko ? '장소' : 'Location',
+            render: () => (
+              <input
+                value={locationText}
+                onChange={(e) => setLocationText(e.target.value)}
+                onBlur={handleLocationBlur}
+                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                placeholder={ko ? '장소 또는 링크' : 'Room or link'}
+                className="px-2 py-1 rounded-md text-sm bg-transparent hover:bg-gray-100 focus:bg-gray-100 outline-none focus:ring-2 focus:ring-blue-100 transition-colors font-medium text-gray-700 placeholder-gray-300 w-full"
+              />
+            ),
+          },
+          {
+            key: "attendees",
+            type: "custom",
+            icon: <Users size={14} />,
+            label: ko ? '참석자' : 'Attendees',
+            render: () => <AttendeePicker selectedIds={meeting.attendeeIds} onChange={handleAttendeeChange} language={language} />,
+          },
+          {
+            key: "organizer",
+            type: "custom",
+            icon: <UserIcon size={14} />,
+            label: ko ? '주최자' : 'Organizer',
+            render: () => <span className="px-2 py-1 text-sm font-medium text-gray-700">{getMemberName(meeting.organizerId)}</span>,
+          },
+        ] as PropertyFieldConfig[]} />
+      }
     >
             {/* Notes — above action items */}
             <div className="min-h-[200px] border-t border-gray-100 pt-5">

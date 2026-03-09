@@ -44,7 +44,8 @@ import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { NotionDateRangePicker } from "../components/NotionDateRangePicker";
 import { InlineText } from "../components/detail/InlineText";
 import { InlineDropdown } from "../components/detail/InlineDropdown";
-import { PropertyItem } from "../components/detail/PropertyItem";
+import { AutoProperties } from "../components/detail/AutoProperties";
+import type { PropertyFieldConfig } from "../components/detail/PropertyConfig";
 import { usePortalPosition } from "../hooks/usePortalPosition";
 import { DetailPageShell } from "../components/detail/DetailPageShell";
 import { AttachmentSection, getAttachmentIcon } from "../components/detail/AttachmentSection";
@@ -509,69 +510,94 @@ export function TaskDetailPage() {
         </div>
       }
       properties={
-        <>
-          <PropertyItem icon={<Clock size={14} />} label={language === "ko" ? "상태" : "Status"}>
-            <InlineDropdown
-              value={status} options={["pending", "in-progress", "delayed", "completed"] as TaskStatus[]}
-              onChange={setStatus} disabled={!canEdit}
-              renderValue={(v) => {
-                const cfg = STATUS_CONFIG[v];
-                return <span className={cn("flex items-center gap-1.5 font-bold", cfg.color)}>{cfg.icon} {language === "ko" ? cfg.labelKo : cfg.label}</span>;
-              }}
-              renderOption={(o) => <span className={cn("flex items-center gap-2", STATUS_CONFIG[o].color)}>{STATUS_CONFIG[o].icon} {language === "ko" ? STATUS_CONFIG[o].labelKo : STATUS_CONFIG[o].label}</span>}
-            />
-          </PropertyItem>
-
-          <PropertyItem icon={<Flag size={14} />} label={language === "ko" ? "우선순위" : "Priority"}>
-            <InlineDropdown
-              value={priority} options={["low", "medium", "high"] as TaskPriority[]}
-              onChange={setPriority} disabled={!canEdit}
-              renderValue={(v) => <span className={cn("px-2 py-0.5 rounded-md font-bold", PRIORITY_CONFIG[v].bg, PRIORITY_CONFIG[v].color)}>{language === "ko" ? PRIORITY_CONFIG[v].labelKo : PRIORITY_CONFIG[v].label}</span>}
-              renderOption={(o) => <span className={PRIORITY_CONFIG[o].color}>{language === "ko" ? PRIORITY_CONFIG[o].labelKo : PRIORITY_CONFIG[o].label}</span>}
-            />
-          </PropertyItem>
-
-          <PropertyItem icon={<Tag size={14} />} label={language === "ko" ? "카테고리" : "Category"}>
-            <InlineDropdown
-              value={category || ''}
-              options={['', ...Object.keys(TASK_CATEGORY_CONFIG)] as string[]}
-              onChange={(v) => setCategory(v ? v as TaskCategory : undefined)}
-              disabled={!canEdit}
-              renderValue={(v) => {
-                if (!v || !TASK_CATEGORY_CONFIG[v as TaskCategory]) return <span className="text-sm text-gray-400">{language === "ko" ? "미설정" : "Not set"}</span>;
-                const cfg = TASK_CATEGORY_CONFIG[v as TaskCategory];
-                return <span className={cn("flex items-center gap-1.5 font-bold text-sm", cfg.color)}>{cfg.icon} {language === "ko" ? cfg.labelKo : cfg.label}</span>;
-              }}
-              renderOption={(o) => {
-                if (!o || !TASK_CATEGORY_CONFIG[o as TaskCategory]) return <span className="text-gray-400">{language === "ko" ? "없음" : "None"}</span>;
-                const cfg = TASK_CATEGORY_CONFIG[o as TaskCategory];
-                return <span className={cn("flex items-center gap-2", cfg.color)}>{cfg.icon} {language === "ko" ? cfg.labelKo : cfg.label}</span>;
-              }}
-            />
-          </PropertyItem>
-
-          <PropertyItem icon={<FolderKanban size={14} />} label={language === "ko" ? "업무 유형" : "Linked Board"}>
-            <LinkedBoardPicker
-              linkedBoard={linkedBoard}
-              linkedCardId={linkedCardId}
-              onChange={(board, cardId) => { setLinkedBoard(board); setLinkedCardId(cardId); }}
-              language={language}
-              disabled={!canEdit}
-            />
-          </PropertyItem>
-
-          <PropertyItem icon={<UserIcon size={14} />} label={language === "ko" ? "참여자" : "Participants"}>
-            <MultiAssigneePicker selectedIds={assigneeIds} onChange={setAssigneeIds} language={language} disabled={!canEdit} />
-          </PropertyItem>
-
-          <PropertyItem icon={<Calendar size={14} />} label={language === "ko" ? "마감기한" : "Deadline"}>
-            <NotionDateRangePicker startDate={dateStart} endDate={dateEnd} onChange={(s, e) => { setDateStart(s); setDateEnd(e); }} language={language} />
-          </PropertyItem>
-
-          <PropertyItem icon={<Timer size={14} />} label={language === "ko" ? "예상 시간" : "Est. Time"}>
-            <EstimatedTimeEditor language={language} value={estTime} onChange={setEstTime} disabled={!canEdit} />
-          </PropertyItem>
-        </>
+        <AutoProperties fields={[
+          {
+            key: "status",
+            type: "dropdown",
+            icon: <Clock size={14} />,
+            label: language === "ko" ? "상태" : "Status",
+            value: status,
+            options: ["pending", "in-progress", "delayed", "completed"],
+            onChange: setStatus,
+            disabled: !canEdit,
+            renderValue: (v: string) => {
+              const cfg = STATUS_CONFIG[v as TaskStatus];
+              return <span className={cn("flex items-center gap-1.5 font-bold", cfg.color)}>{cfg.icon} {language === "ko" ? cfg.labelKo : cfg.label}</span>;
+            },
+            renderOption: (o: string) => {
+              const cfg = STATUS_CONFIG[o as TaskStatus];
+              return <span className={cn("flex items-center gap-2", cfg.color)}>{cfg.icon} {language === "ko" ? cfg.labelKo : cfg.label}</span>;
+            },
+          },
+          {
+            key: "priority",
+            type: "dropdown",
+            icon: <Flag size={14} />,
+            label: language === "ko" ? "우선순위" : "Priority",
+            value: priority,
+            options: ["low", "medium", "high"],
+            onChange: setPriority,
+            disabled: !canEdit,
+            renderValue: (v: string) => <span className={cn("px-2 py-0.5 rounded-md font-bold", PRIORITY_CONFIG[v as TaskPriority].bg, PRIORITY_CONFIG[v as TaskPriority].color)}>{language === "ko" ? PRIORITY_CONFIG[v as TaskPriority].labelKo : PRIORITY_CONFIG[v as TaskPriority].label}</span>,
+            renderOption: (o: string) => <span className={PRIORITY_CONFIG[o as TaskPriority].color}>{language === "ko" ? PRIORITY_CONFIG[o as TaskPriority].labelKo : PRIORITY_CONFIG[o as TaskPriority].label}</span>,
+          },
+          {
+            key: "category",
+            type: "dropdown",
+            icon: <Tag size={14} />,
+            label: language === "ko" ? "카테고리" : "Category",
+            value: category || '',
+            options: ['', ...Object.keys(TASK_CATEGORY_CONFIG)],
+            onChange: (v: string) => setCategory(v ? v as TaskCategory : undefined),
+            disabled: !canEdit,
+            renderValue: (v: string) => {
+              if (!v || !TASK_CATEGORY_CONFIG[v as TaskCategory]) return <span className="text-sm text-gray-400">{language === "ko" ? "미설정" : "Not set"}</span>;
+              const cfg = TASK_CATEGORY_CONFIG[v as TaskCategory];
+              return <span className={cn("flex items-center gap-1.5 font-bold text-sm", cfg.color)}>{cfg.icon} {language === "ko" ? cfg.labelKo : cfg.label}</span>;
+            },
+            renderOption: (o: string) => {
+              if (!o || !TASK_CATEGORY_CONFIG[o as TaskCategory]) return <span className="text-gray-400">{language === "ko" ? "없음" : "None"}</span>;
+              const cfg = TASK_CATEGORY_CONFIG[o as TaskCategory];
+              return <span className={cn("flex items-center gap-2", cfg.color)}>{cfg.icon} {language === "ko" ? cfg.labelKo : cfg.label}</span>;
+            },
+          },
+          {
+            key: "linkedBoard",
+            type: "custom",
+            icon: <FolderKanban size={14} />,
+            label: language === "ko" ? "업무 유형" : "Linked Board",
+            render: () => (
+              <LinkedBoardPicker
+                linkedBoard={linkedBoard}
+                linkedCardId={linkedCardId}
+                onChange={(board, cardId) => { setLinkedBoard(board); setLinkedCardId(cardId); }}
+                language={language}
+                disabled={!canEdit}
+              />
+            ),
+          },
+          {
+            key: "assignees",
+            type: "custom",
+            icon: <UserIcon size={14} />,
+            label: language === "ko" ? "참여자" : "Participants",
+            render: () => <MultiAssigneePicker selectedIds={assigneeIds} onChange={setAssigneeIds} language={language} disabled={!canEdit} />,
+          },
+          {
+            key: "deadline",
+            type: "custom",
+            icon: <Calendar size={14} />,
+            label: language === "ko" ? "마감기한" : "Deadline",
+            render: () => <NotionDateRangePicker startDate={dateStart} endDate={dateEnd} onChange={(s, e) => { setDateStart(s); setDateEnd(e); }} language={language} />,
+          },
+          {
+            key: "estTime",
+            type: "custom",
+            icon: <Timer size={14} />,
+            label: language === "ko" ? "예상 시간" : "Est. Time",
+            render: () => <EstimatedTimeEditor language={language} value={estTime} onChange={setEstTime} disabled={!canEdit} />,
+          },
+        ] as PropertyFieldConfig[]} />
       }
       collapsedPreview={
         <div className="flex items-center gap-1.5">

@@ -13,7 +13,8 @@ import { usePortalPosition } from "../hooks/usePortalPosition";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
 import { InlineText } from "../components/detail/InlineText";
-import { PropertyItem } from "../components/detail/PropertyItem";
+import { AutoProperties } from "../components/detail/AutoProperties";
+import type { PropertyFieldConfig } from "../components/detail/PropertyConfig";
 import { AIStrategyPanel } from "../components/AIStrategyPanel";
 import { DetailPageShell } from "../components/detail/DetailPageShell";
 import {
@@ -258,148 +259,167 @@ export function ProjectDetailPage() {
         </div>
       }
       properties={
-        <>
-          {/* Status — kanban column names */}
-          <PropertyItem icon={<Circle size={14} />} label={ko ? "상태" : "Status"}>
-            <div className="flex flex-wrap gap-1.5">
-              {(() => {
-                const cols = loadColumns("projects");
-                return cols.map((col) => (
-                  <button
-                    key={col.id}
-                    onClick={() => handleUpdate({ status: col.name as any })}
-                    className={cn(
-                      "px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border",
-                      (project.status as any) === col.name
-                        ? "bg-blue-50 text-blue-700 border-blue-200"
-                        : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
-                    )}
-                  >
-                    {col.name}
-                  </button>
-                ));
-              })()}
-            </div>
-          </PropertyItem>
-
-          {/* Category */}
-          <PropertyItem icon={<FolderKanban size={14} />} label={ko ? "카테고리" : "Category"}>
-            <div className="flex flex-wrap gap-1.5">
-              {(Object.keys(PROJECT_CATEGORY_CONFIG) as Project["category"][]).map((k) => {
-                if (!k) return null;
-                const cfg = PROJECT_CATEGORY_CONFIG[k];
-                return (
-                  <button
-                    key={k}
-                    onClick={() => handleUpdate({ category: k })}
-                    className={cn(
-                      "px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border",
-                      project.category === k
-                        ? "bg-blue-50 text-blue-700 border-blue-200"
-                        : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
-                    )}
-                  >
-                    {ko ? cfg.label : cfg.labelEn}
-                  </button>
-                );
-              })}
-            </div>
-          </PropertyItem>
-
-          {/* Date Range (start ~ end in one row) */}
-          <PropertyItem icon={<Calendar size={14} />} label={ko ? "기간" : "Period"}>
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={project.startDate || ""}
-                onChange={(e) => handleUpdate({ startDate: e.target.value || undefined })}
-                className="text-sm px-2 py-1 rounded-md border border-transparent hover:border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700"
+        <AutoProperties fields={[
+          {
+            key: "status",
+            type: "custom",
+            icon: <Circle size={14} />,
+            label: ko ? "상태" : "Status",
+            render: () => (
+              <div className="flex flex-wrap gap-1.5">
+                {(() => {
+                  const cols = loadColumns("projects");
+                  return cols.map((col) => (
+                    <button
+                      key={col.id}
+                      onClick={() => handleUpdate({ status: col.name as any })}
+                      className={cn(
+                        "px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border",
+                        (project.status as any) === col.name
+                          ? "bg-blue-50 text-blue-700 border-blue-200"
+                          : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
+                      )}
+                    >
+                      {col.name}
+                    </button>
+                  ));
+                })()}
+              </div>
+            ),
+          },
+          {
+            key: "category",
+            type: "custom",
+            icon: <FolderKanban size={14} />,
+            label: ko ? "카테고리" : "Category",
+            render: () => (
+              <div className="flex flex-wrap gap-1.5">
+                {(Object.keys(PROJECT_CATEGORY_CONFIG) as Project["category"][]).map((k) => {
+                  if (!k) return null;
+                  const cfg = PROJECT_CATEGORY_CONFIG[k];
+                  return (
+                    <button
+                      key={k}
+                      onClick={() => handleUpdate({ category: k })}
+                      className={cn(
+                        "px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border",
+                        project.category === k
+                          ? "bg-blue-50 text-blue-700 border-blue-200"
+                          : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
+                      )}
+                    >
+                      {ko ? cfg.label : cfg.labelEn}
+                    </button>
+                  );
+                })}
+              </div>
+            ),
+          },
+          {
+            key: "period",
+            type: "custom",
+            icon: <Calendar size={14} />,
+            label: ko ? "기간" : "Period",
+            render: () => (
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={project.startDate || ""}
+                  onChange={(e) => handleUpdate({ startDate: e.target.value || undefined })}
+                  className="text-sm px-2 py-1 rounded-md border border-transparent hover:border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700"
+                />
+                <span className="text-gray-300 text-xs">~</span>
+                <input
+                  type="date"
+                  value={project.endDate || ""}
+                  onChange={(e) => handleUpdate({ endDate: e.target.value || undefined })}
+                  className="text-sm px-2 py-1 rounded-md border border-transparent hover:border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700"
+                />
+              </div>
+            ),
+          },
+          {
+            key: "members",
+            type: "custom",
+            icon: <Users size={14} />,
+            label: ko ? "멤버" : "Members",
+            render: () => (
+              <ProjectMemberPicker
+                selectedIds={project.memberIds}
+                onChange={(ids) => handleUpdate({ memberIds: ids })}
+                language={language}
               />
-              <span className="text-gray-300 text-xs">~</span>
-              <input
-                type="date"
-                value={project.endDate || ""}
-                onChange={(e) => handleUpdate({ endDate: e.target.value || undefined })}
-                className="text-sm px-2 py-1 rounded-md border border-transparent hover:border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700"
-              />
-            </div>
-          </PropertyItem>
-
-          {/* Members — avatar picker */}
-          <PropertyItem icon={<Users size={14} />} label={ko ? "멤버" : "Members"}>
-            <ProjectMemberPicker
-              selectedIds={project.memberIds}
-              onChange={(ids) => handleUpdate({ memberIds: ids })}
-              language={language}
-            />
-          </PropertyItem>
-
-          {/* Client */}
-          <PropertyItem icon={<Building2 size={14} />} label={ko ? "클라이언트" : "Client"}>
-            <input
-              value={project.client || ""}
-              onChange={(e) => handleUpdate({ client: e.target.value })}
-              className="text-sm px-2 py-1 rounded-md border border-transparent hover:border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700"
-              placeholder={ko ? "고객사/클라이언트명" : "Client name"}
-            />
-          </PropertyItem>
-
-          {/* Budget */}
-          <PropertyItem icon={<DollarSign size={14} />} label={ko ? "예산" : "Budget"}>
-            <input
-              value={project.budget || ""}
-              onChange={(e) => handleUpdate({ budget: e.target.value })}
-              className="text-sm px-2 py-1 rounded-md border border-transparent hover:border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700"
-              placeholder={ko ? "예: 2,000만원" : "e.g. $20,000"}
-            />
-          </PropertyItem>
-
-          {/* Links */}
-          <PropertyItem icon={<Link2 size={14} />} label={ko ? "관련 링크" : "Links"}>
-            <div className="space-y-2">
-              {(project.links || []).map((link, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <input
-                    value={link.label}
-                    onChange={(e) => {
-                      const links = [...(project.links || [])];
-                      links[i] = { ...links[i], label: e.target.value };
-                      handleUpdate({ links });
-                    }}
-                    className="text-xs px-2 py-1 rounded-md border border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700 w-24"
-                    placeholder={ko ? "라벨" : "Label"}
-                  />
-                  <input
-                    value={link.url}
-                    onChange={(e) => {
-                      const links = [...(project.links || [])];
-                      links[i] = { ...links[i], url: e.target.value };
-                      handleUpdate({ links });
-                    }}
-                    className="flex-1 text-xs px-2 py-1 rounded-md border border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700 font-mono"
-                    placeholder="https://..."
-                  />
-                  <button
-                    onClick={() => {
-                      const links = (project.links || []).filter((_, j) => j !== i);
-                      handleUpdate({ links });
-                    }}
-                    className="p-1 text-gray-300 hover:text-red-400 transition-colors"
-                  >
-                    <X size={12} />
-                  </button>
-                </div>
-              ))}
-              <button
-                onClick={() => handleUpdate({ links: [...(project.links || []), { label: "", url: "" }] })}
-                className="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-500 transition-colors"
-              >
-                <Plus size={12} />
-                {ko ? "링크 추가" : "Add link"}
-              </button>
-            </div>
-          </PropertyItem>
-        </>
+            ),
+          },
+          {
+            key: "client",
+            type: "text",
+            icon: <Building2 size={14} />,
+            label: ko ? "클라이언트" : "Client",
+            value: project.client || "",
+            onChange: (v) => handleUpdate({ client: v }),
+            placeholder: ko ? "고객사/클라이언트명" : "Client name",
+          },
+          {
+            key: "budget",
+            type: "text",
+            icon: <DollarSign size={14} />,
+            label: ko ? "예산" : "Budget",
+            value: project.budget || "",
+            onChange: (v) => handleUpdate({ budget: v }),
+            placeholder: ko ? "예: 2,000만원" : "e.g. $20,000",
+          },
+          {
+            key: "links",
+            type: "custom",
+            icon: <Link2 size={14} />,
+            label: ko ? "관련 링크" : "Links",
+            render: () => (
+              <div className="space-y-2">
+                {(project.links || []).map((link, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input
+                      value={link.label}
+                      onChange={(e) => {
+                        const links = [...(project.links || [])];
+                        links[i] = { ...links[i], label: e.target.value };
+                        handleUpdate({ links });
+                      }}
+                      className="text-xs px-2 py-1 rounded-md border border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700 w-24"
+                      placeholder={ko ? "라벨" : "Label"}
+                    />
+                    <input
+                      value={link.url}
+                      onChange={(e) => {
+                        const links = [...(project.links || [])];
+                        links[i] = { ...links[i], url: e.target.value };
+                        handleUpdate({ links });
+                      }}
+                      className="flex-1 text-xs px-2 py-1 rounded-md border border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700 font-mono"
+                      placeholder="https://..."
+                    />
+                    <button
+                      onClick={() => {
+                        const links = (project.links || []).filter((_, j) => j !== i);
+                        handleUpdate({ links });
+                      }}
+                      className="p-1 text-gray-300 hover:text-red-400 transition-colors"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  onClick={() => handleUpdate({ links: [...(project.links || []), { label: "", url: "" }] })}
+                  className="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-500 transition-colors"
+                >
+                  <Plus size={12} />
+                  {ko ? "링크 추가" : "Add link"}
+                </button>
+              </div>
+            ),
+          },
+        ] as PropertyFieldConfig[]} />
       }
       collapsible={true}
       collapsedPreview={
