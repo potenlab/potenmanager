@@ -1136,27 +1136,28 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
   const AUTO_SCROLL_INTERVAL = 600; // ms between auto-scroll steps
 
   const formatOptions = language === "ko" ? { locale: ko } : undefined;
+  const weekOpts = { weekStartsOn: 0 as const }; // Always start weeks on Sunday
 
   const days = useMemo(() => {
     if (viewMode === "3week") {
       // 5 weeks total: 1 week before + current week + 3 weeks after (centered on today)
-      const weekStart = startOfWeek(currentDate);
+      const weekStart = startOfWeek(currentDate, weekOpts);
       return eachDayOfInterval({
         start: subWeeks(weekStart, 1),
         end: addDays(addWeeks(weekStart, 4), -1),
       });
     }
     // month view
-    const monthEnd = endOfWeek(endOfMonth(currentDate));
+    const monthEnd = endOfWeek(endOfMonth(currentDate), weekOpts);
     const baseDays = eachDayOfInterval({
-      start: startOfWeek(startOfMonth(currentDate)),
+      start: startOfWeek(startOfMonth(currentDate), weekOpts),
       end: monthEnd,
     });
     if (!isExpanded) return baseDays;
     // Add 2 extra weeks after the last day shown
     const extendedEnd = addDays(monthEnd, 14);
     return eachDayOfInterval({
-      start: startOfWeek(startOfMonth(currentDate)),
+      start: startOfWeek(startOfMonth(currentDate), weekOpts),
       end: extendedEnd,
     });
   }, [viewMode, currentDate, isExpanded]);
@@ -1833,7 +1834,7 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
             </button>
             <span className="font-bold text-gray-900 text-sm sm:text-lg px-1 min-w-fit whitespace-nowrap">
               {viewMode === "3week" ? (() => {
-                const weekStart = startOfWeek(currentDate);
+                const weekStart = startOfWeek(currentDate, weekOpts);
                 const rangeStart = subWeeks(weekStart, 1);
                 const rangeEnd = addDays(addWeeks(weekStart, 4), -1);
                 const startStr = format(rangeStart, language === "ko" ? "M/d" : "MMM d", formatOptions);

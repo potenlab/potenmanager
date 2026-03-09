@@ -224,7 +224,6 @@ function MeetingTimeInput({
 
   const commitTime = (text: string, am: boolean) => {
     const trimmed = text.trim();
-    // Support "4" → 04:00, "10" → 10:00, "430" → 4:30, "4:30" → 4:30
     let h: number, m: number;
     const colonMatch = trimmed.match(/^(\d{1,2}):(\d{2})$/);
     const plainMatch = trimmed.match(/^(\d{1,4})$/);
@@ -233,18 +232,25 @@ function MeetingTimeInput({
       m = parseInt(colonMatch[2], 10);
     } else if (plainMatch) {
       const num = parseInt(plainMatch[1], 10);
-      if (num <= 12) {
-        h = num; m = 0; // "4" → 4:00
+      if (num <= 23) {
+        h = num; m = 0;
       } else if (num >= 100) {
-        h = Math.floor(num / 100); m = num % 100; // "430" → 4:30
+        h = Math.floor(num / 100); m = num % 100;
       } else {
         h = num; m = 0;
       }
     } else {
       return;
     }
-    if (h < 1 || h > 12 || m < 0 || m > 59) return;
-    // Convert 12h to 24h
+    if (m < 0 || m > 59) return;
+    // If 24h format entered (13-23), convert directly
+    if (h >= 13 && h <= 23) {
+      onChange(h, m);
+      return;
+    }
+    if (h === 0) { onChange(0, m); return; }
+    if (h < 1 || h > 12) return;
+    // Convert 12h to 24h using AM/PM toggle
     if (am) {
       h = h === 12 ? 0 : h;
     } else {
