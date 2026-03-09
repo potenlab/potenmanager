@@ -23,10 +23,10 @@ export const MEMBER_COLORS = [
   { id: 'mc6', hex: '#B45309', label: 'Amber', labelKo: '앰버', bg: 'rgba(180,83,9,0.10)', text: '#92400E' },
   { id: 'mc7', hex: '#059669', label: 'Emerald', labelKo: '에메랄드', bg: 'rgba(5,150,105,0.10)', text: '#047857' },
   { id: 'mc8', hex: '#65A30D', label: 'Lime', labelKo: '라임', bg: 'rgba(101,163,13,0.10)', text: '#4D7C0F' },
-  { id: 'mc9', hex: '#7E22CE', label: 'Violet', labelKo: '바이올렛', bg: 'rgba(126,34,206,0.10)', text: '#6B21A8' },
+  { id: 'mc9', hex: '#CA8A04', label: 'Yellow', labelKo: '옐로', bg: 'rgba(202,138,4,0.10)', text: '#A16207' },
   { id: 'mc10', hex: '#BE185D', label: 'Pink', labelKo: '핑크', bg: 'rgba(190,24,93,0.10)', text: '#9D174D' },
   { id: 'mc11', hex: '#1D4ED8', label: 'Blue', labelKo: '블루', bg: 'rgba(29,78,216,0.10)', text: '#1E40AF' },
-  { id: 'mc12', hex: '#9333EA', label: 'Purple', labelKo: '퍼플', bg: 'rgba(147,51,234,0.10)', text: '#7E22CE' },
+  { id: 'mc12', hex: '#D97706', label: 'Gold', labelKo: '골드', bg: 'rgba(217,119,6,0.10)', text: '#B45309' },
 ];
 
 // Mutable map: userId → color hex (backed by localStorage)
