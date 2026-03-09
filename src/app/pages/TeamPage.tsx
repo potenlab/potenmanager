@@ -628,6 +628,7 @@ function TeamMemberCard({
       setUserColor(member.id, hex);
       setMemberColorState(hex);
     }
+    setShowColorPicker(false);
   };
 
   const handleSelectColor = (hex: string) => {
@@ -778,6 +779,7 @@ function TeamMemberCard({
                   onClear={() => {
                     setUserColor(member.id, null);
                     setMemberColorState(null);
+                    setShowColorPicker(false);
                   }}
                   onClose={() => setShowColorPicker(false)}
                 />,
