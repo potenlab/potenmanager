@@ -182,11 +182,11 @@ function TaskCard({
       </div>
 
       {compact ? (
-        /* ── Compact card: priority + title only ── */
-        <div className="flex items-center gap-2 min-w-0">
-          {priorityBadge}
+        /* ── Compact card: priority badge on top, title below ── */
+        <div className="min-w-0">
+          <div className="mb-1">{priorityBadge}</div>
           <h4 className={cn(
-            "font-medium text-sm leading-snug truncate flex-1",
+            "font-medium text-sm leading-snug truncate",
             task.status === 'completed' ? "text-gray-400 line-through" : "text-gray-900"
           )}>{title}</h4>
         </div>
