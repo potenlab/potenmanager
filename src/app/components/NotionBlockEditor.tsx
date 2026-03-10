@@ -495,6 +495,15 @@ export function NotionBlockEditor({
     return () => { setSlashMenu(null); };
   }, []);
 
+  // Ensure there's always a text block after non-text blocks (like Notion)
+  useEffect(() => {
+    if (blocks.length === 0) return;
+    const last = blocks[blocks.length - 1];
+    if (last.type !== "text") {
+      setBlocks((prev) => [...prev, { id: genId(), content: "", type: "text", indent: 0 }]);
+    }
+  }, [blocks]);
+
   // Sync blocks → parent
   const prevTextRef = useRef(seed);
   useEffect(() => {
@@ -1569,18 +1578,26 @@ export function NotionBlockEditor({
               }}
             />
           ) : block.type === "bookmark" ? (
-            <BookmarkBlock
-              block={block}
-              readOnly={readOnly}
-              onDelete={() => deleteBlock(idx)}
-              onSelect={() => {
-                setSelectedIds(new Set([block.id]));
-                lastClickedIdx.current = idx;
-                wrapperRef.current?.focus();
-              }}
-              onDragStart={(e) => handleGripDragStart(e, idx)}
-              onDragEnd={handleBlockDragEnd}
-            />
+            <div onDoubleClick={() => {
+              if (readOnly) return;
+              // Insert empty text block below and focus it
+              const newBlock: Block = { id: genId(), content: "", type: "text", indent: 0 };
+              setBlocks((prev) => { const next = [...prev]; next.splice(idx + 1, 0, newBlock); return next; });
+              pendingFocusIdx.current = idx + 1;
+            }}>
+              <BookmarkBlock
+                block={block}
+                readOnly={readOnly}
+                onDelete={() => deleteBlock(idx)}
+                onSelect={() => {
+                  setSelectedIds(new Set([block.id]));
+                  lastClickedIdx.current = idx;
+                  wrapperRef.current?.focus();
+                }}
+                onDragStart={(e) => handleGripDragStart(e, idx)}
+                onDragEnd={handleBlockDragEnd}
+              />
+            </div>
           ) : (
             <div
               ref={(el) => {

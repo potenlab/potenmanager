@@ -61,7 +61,9 @@ export function useUrlPreviews(content?: string) {
 
   useEffect(() => {
     if (!content) return;
-    const urls = [...new Set(content.match(URL_REGEX) || [])];
+    // Strip [bookmark:url] patterns — those are already rendered by NotionBlockEditor
+    const stripped = content.replace(/\[bookmark:[^\]]+\]/g, '');
+    const urls = [...new Set(stripped.match(URL_REGEX) || [])];
     urls.slice(0, 5).forEach(fetchOg); // max 5 URLs
   }, [content, fetchOg]);
 
