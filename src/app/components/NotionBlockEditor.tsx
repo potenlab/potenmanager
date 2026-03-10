@@ -26,7 +26,7 @@ const BLOCK_TYPE_STYLES: Record<BlockType, string> = {
   divider: "min-h-[1px] py-[3px]",
   page: "min-h-[40px] py-[3px]",
   image: "min-h-[40px] py-[3px]",
-  bookmark: "min-h-[40px] py-[3px]",
+  bookmark: "py-[1px]",
 };
 
 interface SlashMenuItem {
@@ -286,49 +286,19 @@ function BookmarkBlock({ block, readOnly, onDelete, onSelect, onDragStart, onDra
         target="_blank"
         rel="noopener noreferrer"
         draggable={false}
-        className="block flex-1 rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm hover:shadow-md hover:border-gray-300 transition-all"
+        className="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-gray-50/50 hover:bg-gray-100 hover:border-gray-300 transition-all min-w-0"
       >
         {loading ? (
-          <div className="flex items-center gap-2 p-4 text-sm text-gray-400">
-            <Loader2 size={14} className="animate-spin" />
-            <span className="truncate">{block.content}</span>
-          </div>
-        ) : og && (og.ogTitle || og.ogDescription) ? (
-          <div className="flex h-full">
-            <div className="flex-1 min-w-0 p-3.5 flex flex-col justify-between">
-              {og.ogSiteName && (
-                <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider mb-0.5">{og.ogSiteName}</p>
-              )}
-              {og.ogTitle && (
-                <p className="text-[13px] font-semibold text-gray-900 leading-snug line-clamp-2 group-hover/bm:text-blue-600 transition-colors">
-                  {og.ogTitle}
-                </p>
-              )}
-              {og.ogDescription && (
-                <p className="text-[11px] text-gray-500 line-clamp-2 mt-1 leading-relaxed">{og.ogDescription}</p>
-              )}
-              <div className="flex items-center gap-1.5 mt-2 text-[11px] text-gray-400">
-                {og.favicon ? (
-                  <img src={og.favicon} alt="" className="w-3.5 h-3.5 rounded-sm" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                ) : (
-                  <ExternalLink size={11} />
-                )}
-                <span className="truncate">{domain}</span>
-              </div>
-            </div>
-            {og.ogImage && (
-              <div className="w-[140px] shrink-0 bg-gray-100">
-                <img src={og.ogImage} alt="" className="w-full h-full object-cover" />
-              </div>
-            )}
-          </div>
+          <Loader2 size={14} className="animate-spin text-gray-400 shrink-0" />
+        ) : og?.favicon ? (
+          <img src={og.favicon} alt="" className="w-4 h-4 rounded-sm shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
         ) : (
-          <div className="flex items-center gap-2 p-3.5 text-sm">
-            <ExternalLink size={14} className="text-gray-400 shrink-0" />
-            <span className="text-blue-600 truncate hover:underline">{block.content}</span>
-            <span className="text-[11px] text-gray-400 shrink-0 ml-auto">{domain}</span>
-          </div>
+          <ExternalLink size={14} className="text-gray-400 shrink-0" />
         )}
+        <span className="text-sm font-medium text-gray-900 truncate">
+          {og?.ogTitle || block.content}
+        </span>
+        <span className="text-xs text-gray-400 shrink-0 ml-auto">{domain}</span>
       </a>
       {!readOnly && hovered && (
         <button
