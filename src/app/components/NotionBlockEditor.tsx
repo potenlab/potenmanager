@@ -26,7 +26,7 @@ const BLOCK_TYPE_STYLES: Record<BlockType, string> = {
   divider: "min-h-[1px] py-[3px]",
   page: "min-h-[40px] py-[3px]",
   image: "min-h-[40px] py-[3px]",
-  bookmark: "py-[1px]",
+  bookmark: "py-[2px]",
 };
 
 interface SlashMenuItem {
@@ -286,19 +286,38 @@ function BookmarkBlock({ block, readOnly, onDelete, onSelect, onDragStart, onDra
         target="_blank"
         rel="noopener noreferrer"
         draggable={false}
-        className="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-gray-50/50 hover:bg-gray-100 hover:border-gray-300 transition-all min-w-0"
+        className="flex-1 flex rounded-md border border-gray-200 overflow-hidden bg-white hover:bg-gray-50 transition-colors min-w-0"
       >
         {loading ? (
-          <Loader2 size={14} className="animate-spin text-gray-400 shrink-0" />
-        ) : og?.favicon ? (
-          <img src={og.favicon} alt="" className="w-4 h-4 rounded-sm shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+          <div className="flex items-center gap-2 px-3 py-3 text-sm text-gray-400">
+            <Loader2 size={14} className="animate-spin" />
+            <span className="truncate">{block.content}</span>
+          </div>
         ) : (
-          <ExternalLink size={14} className="text-gray-400 shrink-0" />
+          <>
+            <div className="flex-1 min-w-0 px-3.5 py-3 flex flex-col justify-center gap-0.5">
+              <p className="text-sm font-medium text-gray-900 truncate leading-snug">
+                {og?.ogTitle || block.content}
+              </p>
+              {og?.ogDescription && (
+                <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">{og.ogDescription}</p>
+              )}
+              <div className="flex items-center gap-1.5 mt-1 text-xs text-gray-400">
+                {og?.favicon ? (
+                  <img src={og.favicon} alt="" className="w-3.5 h-3.5 rounded-sm shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                ) : (
+                  <ExternalLink size={12} className="shrink-0" />
+                )}
+                <span className="truncate">{block.content}</span>
+              </div>
+            </div>
+            {og?.ogImage && (
+              <div className="w-[120px] shrink-0">
+                <img src={og.ogImage} alt="" className="w-full h-full object-cover" />
+              </div>
+            )}
+          </>
         )}
-        <span className="text-sm font-medium text-gray-900 truncate">
-          {og?.ogTitle || block.content}
-        </span>
-        <span className="text-xs text-gray-400 shrink-0 ml-auto">{domain}</span>
       </a>
       {!readOnly && hovered && (
         <button
