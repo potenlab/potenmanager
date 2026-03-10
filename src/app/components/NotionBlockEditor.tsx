@@ -1352,11 +1352,11 @@ export function NotionBlockEditor({
           onDragOver={(e) => handleBlockDragOver(e, idx)}
           onDrop={(e) => handleBlockDrop(e, idx)}
         >
-          {/* Left handle area — inline, appears on hover */}
+          {/* Left handle area — positioned left of content, doesn't affect text alignment */}
           {!readOnly && (
             <div
               className={cn(
-                "flex items-center gap-0 shrink-0 transition-opacity duration-100 -ml-1 mr-0.5",
+                "absolute right-full flex items-center gap-0 shrink-0 transition-opacity duration-100 mr-0.5",
                 block.type === "h1" ? "pt-[8px]" : block.type === "h2" ? "pt-[6px]" : "pt-[5px]",
                 hoveredIdx === idx || focusedIdx === idx ? "opacity-100" : "opacity-0"
               )}

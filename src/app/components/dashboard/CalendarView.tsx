@@ -65,14 +65,15 @@ const MEETING_DRAG_TYPE = "CALENDAR_MEETING";
 const STATUS_CONFIG: Record<string, { label: string; labelKo: string; icon: React.ReactNode; color: string; bg: string }> = {
   pending: { label: "To Do", labelKo: "할 일", icon: <Circle size={12} />, color: "text-gray-500", bg: "bg-gray-100" },
   "in-progress": { label: "In Progress", labelKo: "진행 중", icon: <CircleDot size={12} />, color: "text-blue-600", bg: "bg-blue-50" },
-  delayed: { label: "Delayed", labelKo: "지연", icon: <Clock size={12} />, color: "text-amber-600", bg: "bg-amber-50" },
+  routine: { label: "Routine", labelKo: "루틴", icon: <Clock size={12} />, color: "text-purple-600", bg: "bg-purple-50" },
   completed: { label: "Done", labelKo: "완료", icon: <CheckCircle2 size={12} />, color: "text-emerald-600", bg: "bg-emerald-50" },
 };
 
 const PRIORITY_CONFIG: Record<string, { label: string; labelKo: string; color: string; dot: string }> = {
   low: { label: "Low", labelKo: "낮음", color: "text-blue-600", dot: "bg-blue-400" },
-  medium: { label: "Medium", labelKo: "보통", color: "text-amber-600", dot: "bg-amber-400" },
+  medium: { label: "Medium", labelKo: "보통", color: "text-green-600", dot: "bg-green-400" },
   high: { label: "High", labelKo: "높음", color: "text-red-600", dot: "bg-red-400" },
+  delayed: { label: "Delayed", labelKo: "지연", color: "text-orange-600", dot: "bg-orange-400" },
 };
 
 const getAssigneeInitials = (id: string, members: { id: string; name: string }[]) => {

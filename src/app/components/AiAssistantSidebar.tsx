@@ -57,7 +57,7 @@ interface ChatMessage {
 
 const PRIORITY_CONFIG: Record<string, { label: string; labelKo: string; color: string; bg: string }> = {
   low: { label: "Low", labelKo: "낮음", color: "text-blue-600", bg: "bg-blue-50" },
-  medium: { label: "Medium", labelKo: "보통", color: "text-amber-600", bg: "bg-amber-50" },
+  medium: { label: "Medium", labelKo: "보통", color: "text-green-600", bg: "bg-green-50" },
   high: { label: "High", labelKo: "높음", color: "text-red-600", bg: "bg-red-50" },
 };
 
@@ -620,7 +620,7 @@ function DecomposeResults({
                 <span className={cn(
                   "text-[9px] font-bold px-1 py-0.5 rounded",
                   s.priority === "high" ? "bg-red-50 text-red-600" :
-                  s.priority === "medium" ? "bg-amber-50 text-amber-600" : "bg-blue-50 text-blue-600"
+                  s.priority === "medium" ? "bg-green-50 text-green-600" : "bg-blue-50 text-blue-600"
                 )}>{s.priority}</span>
               </div>
             </div>

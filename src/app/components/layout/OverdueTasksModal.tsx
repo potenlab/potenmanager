@@ -25,14 +25,14 @@ function getTodayKey() {
 
 const PRIORITY_CONFIG = {
   high: { label: "긴급", color: "text-red-500", bg: "bg-red-50", border: "border-red-200" },
-  medium: { label: "보통", color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200" },
+  medium: { label: "보통", color: "text-green-600", bg: "bg-green-50", border: "border-green-200" },
   low: { label: "낮음", color: "text-gray-500", bg: "bg-gray-50", border: "border-gray-200" },
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
   "pending": { label: "시작 전", color: "text-gray-500", dot: "bg-gray-400" },
   "in-progress": { label: "진행 중", color: "text-blue-600", dot: "bg-blue-500" },
-  "delayed": { label: "지연", color: "text-amber-600", dot: "bg-amber-500" },
+  "routine": { label: "루틴", color: "text-purple-600", dot: "bg-purple-500" },
   "completed": { label: "완료", color: "text-emerald-600", dot: "bg-emerald-500" },
 };
 
@@ -64,7 +64,7 @@ function OverdueTaskRow({ task, onNavigate, members }: OverdueTaskRowProps) {
       className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors group text-left"
     >
       {/* Priority bar */}
-      <div className={cn("shrink-0 w-1.5 h-10 rounded-full", priority === "high" ? "bg-red-300" : priority === "medium" ? "bg-amber-400" : "bg-gray-300")} />
+      <div className={cn("shrink-0 w-1.5 h-10 rounded-full", priority === "high" ? "bg-red-300" : priority === "medium" ? "bg-green-400" : "bg-gray-300")} />
 
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-gray-900 truncate leading-snug">{title}</p>

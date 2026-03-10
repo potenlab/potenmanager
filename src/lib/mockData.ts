@@ -131,7 +131,7 @@ export interface GoalItem {
   titleKo?: string;
   level: GoalLevel;
   progress: number; // 0-100
-  status: 'pending' | 'in-progress' | 'completed' | 'delayed';
+  status: 'pending' | 'in-progress' | 'completed' | 'routine';
   children?: string[];
   parentId?: string;
   dueDate?: Date;
@@ -177,7 +177,7 @@ export function detectAttachmentType(url: string): AttachmentType {
 
 export interface Task extends GoalItem {
   description?: string;
-  priority?: 'low' | 'medium' | 'high';
+  priority?: 'low' | 'medium' | 'high' | 'delayed';
   assigneeIds?: string[];
   colorOverride?: string | null;
   category?: TaskCategory;

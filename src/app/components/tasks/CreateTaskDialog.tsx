@@ -115,9 +115,9 @@ export function CreateTaskDialog({ open, onOpenChange, onSubmit }: CreateTaskDia
                       Low
                     </div>
                   </SelectItem>
-                  <SelectItem value="medium" className="text-amber-600">
+                  <SelectItem value="medium" className="text-green-600">
                     <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                      <span className="w-2 h-2 rounded-full bg-green-500"></span>
                       Medium
                     </div>
                   </SelectItem>

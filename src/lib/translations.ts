@@ -51,7 +51,7 @@ export const translations = {
     // Status
     status_ontrack: "On Track",
     status_atrisk: "At Risk",
-    status_delayed: "Delayed",
+    status_routine: "Routine",
     status_completed: "Completed",
     status_pending: "Pending",
     status_inprogress: "In Progress",
@@ -191,7 +191,7 @@ export const translations = {
     // Status
     status_ontrack: "순항 중",
     status_atrisk: "위험",
-    status_delayed: "지연됨",
+    status_routine: "루틴",
     status_completed: "완료됨",
     status_pending: "대기 중",
     status_inprogress: "진행 중",

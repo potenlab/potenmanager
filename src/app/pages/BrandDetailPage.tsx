@@ -297,11 +297,6 @@ function BrandProperties({ item, onUpdate, ko }: DetailSectionProps<BrandAsset>)
               <>
                 <div className="fixed inset-0 z-[60]" onClick={() => setCategoryDropdownOpen(false)} />
                 <div className="fixed z-[61] bg-white border border-gray-200 rounded-xl shadow-xl py-1 w-48 max-h-64 overflow-y-auto" style={{ left: dropdownPos.left, top: dropdownPos.top }}>
-                  {item.category && (
-                    <button onClick={() => { handleCategoryChange(""); setCategoryDropdownOpen(false); }} className="w-full px-3 py-2 text-xs text-left text-gray-400 hover:bg-gray-50 transition-colors">
-                      {ko ? "선택 해제" : "Clear"}
-                    </button>
-                  )}
                   {categories.map((cat) => (
                     <button
                       key={cat}

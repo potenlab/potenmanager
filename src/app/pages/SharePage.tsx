@@ -13,7 +13,7 @@ import { TASK_CATEGORY_CONFIG } from "../../lib/jobRoles";
 const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }> = {
   pending: { label: "To Do", color: "text-amber-600", bg: "bg-amber-50" },
   "in-progress": { label: "In Progress", color: "text-blue-600", bg: "bg-blue-50" },
-  delayed: { label: "Delayed", color: "text-red-600", bg: "bg-red-50" },
+  routine: { label: "Routine", color: "text-purple-600", bg: "bg-purple-50" },
   completed: { label: "Completed", color: "text-emerald-600", bg: "bg-emerald-50" },
   scheduled: { label: "Scheduled", color: "text-blue-600", bg: "bg-blue-50" },
   cancelled: { label: "Cancelled", color: "text-gray-500", bg: "bg-gray-100" },
@@ -31,7 +31,7 @@ const MEETING_TYPE_LABELS: Record<string, { label: string; color: string }> = {
 
 const PRIORITY_LABELS: Record<string, { label: string; color: string; bg: string }> = {
   low: { label: "Low", color: "text-gray-600", bg: "bg-gray-100" },
-  medium: { label: "Medium", color: "text-amber-600", bg: "bg-amber-50" },
+  medium: { label: "Medium", color: "text-green-600", bg: "bg-green-50" },
   high: { label: "High", color: "text-red-600", bg: "bg-red-50" },
 };
 

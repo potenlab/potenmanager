@@ -36,8 +36,12 @@ import { BrandDetailPage } from "./pages/BrandDetailPage";
 import { SubPageDetailPage } from "./pages/SubPageDetailPage";
 import { ChatPage } from "./pages/ChatPage";
 import { SharePage } from "./pages/SharePage";
+import { DesktopDownloadPage } from "./pages/DesktopDownloadPage";
 
 export const router = createBrowserRouter([
+  // ── Standalone public route (no providers needed) ────
+  { path: "/download", Component: DesktopDownloadPage },
+
   {
     path: "/",
     Component: RootProviders,

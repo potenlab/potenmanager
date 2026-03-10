@@ -621,12 +621,13 @@ function TaskKanbanCard({
     pending: "bg-amber-400",
     "in-progress": "bg-blue-500",
     completed: "bg-emerald-500",
-    delayed: "bg-red-500",
+    routine: "bg-purple-500",
   };
 
   const priorityLabel: Record<string, { text: string; color: string }> = {
     high: { text: ko ? "높음" : "High", color: "text-red-600 bg-red-50" },
-    medium: { text: ko ? "보통" : "Med", color: "text-amber-600 bg-amber-50" },
+    delayed: { text: ko ? "지연" : "Delayed", color: "text-orange-600 bg-orange-50" },
+    medium: { text: ko ? "보통" : "Med", color: "text-green-600 bg-green-50" },
     low: { text: ko ? "낮음" : "Low", color: "text-gray-500 bg-gray-100" },
   };
 

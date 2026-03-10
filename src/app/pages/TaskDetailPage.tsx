@@ -31,6 +31,7 @@ import {
   Upload,
   File as FileIcon,
   FolderKanban,
+  Calculator,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Task, TaskCategory, Attachment } from "../../lib/mockData";
@@ -41,7 +42,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { useTaskContext } from "../context/TaskContext";
 import { usePermission } from "../context/PermissionContext";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
-import { NotionDateRangePicker } from "../components/NotionDateRangePicker";
+import { DateTimeProperty } from "../components/detail/DateTimeProperty";
 import { InlineText } from "../components/detail/InlineText";
 import { InlineDropdown } from "../components/detail/InlineDropdown";
 import { AutoProperties } from "../components/detail/AutoProperties";
@@ -52,20 +53,21 @@ import { AttachmentSection, getAttachmentIcon } from "../components/detail/Attac
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
 import { EmojiPicker } from "../components/EmojiPicker";
 
-type TaskStatus = "pending" | "in-progress" | "completed" | "delayed";
-type TaskPriority = "low" | "medium" | "high";
+type TaskStatus = "pending" | "in-progress" | "completed" | "routine";
+type TaskPriority = "low" | "medium" | "high" | "delayed";
 
 const STATUS_CONFIG: Record<TaskStatus, { label: string; labelKo: string; icon: React.ReactNode; color: string; bg: string }> = {
   pending: { label: "To Do", labelKo: "할 일", icon: <Circle size={14} />, color: "text-gray-500", bg: "bg-gray-100" },
   "in-progress": { label: "In Progress", labelKo: "진행 중", icon: <CircleDot size={14} />, color: "text-blue-600", bg: "bg-blue-50" },
-  delayed: { label: "Delayed", labelKo: "지연", icon: <Clock size={14} />, color: "text-amber-600", bg: "bg-amber-50" },
+  routine: { label: "Routine", labelKo: "루틴", icon: <Clock size={14} />, color: "text-purple-600", bg: "bg-purple-50" },
   completed: { label: "Done", labelKo: "완료", icon: <CheckCircle2 size={14} />, color: "text-emerald-600", bg: "bg-emerald-50" },
 };
 
 const PRIORITY_CONFIG: Record<TaskPriority, { label: string; labelKo: string; color: string; bg: string }> = {
   low: { label: "Low", labelKo: "낮음", color: "text-blue-600", bg: "bg-blue-50" },
-  medium: { label: "Medium", labelKo: "보통", color: "text-amber-600", bg: "bg-amber-50" },
+  medium: { label: "Medium", labelKo: "보통", color: "text-green-600", bg: "bg-green-50" },
   high: { label: "High", labelKo: "높음", color: "text-red-600", bg: "bg-red-50" },
+  delayed: { label: "Delayed", labelKo: "지연", color: "text-orange-600", bg: "bg-orange-50" },
 };
 
 
@@ -522,7 +524,7 @@ export function TaskDetailPage() {
             icon: <Clock size={14} />,
             label: language === "ko" ? "상태" : "Status",
             value: status,
-            options: ["pending", "in-progress", "delayed", "completed"],
+            options: ["pending", "in-progress", "routine", "completed"],
             onChange: setStatus,
             disabled: !canEdit,
             renderValue: (v: string) => {
@@ -540,7 +542,7 @@ export function TaskDetailPage() {
             icon: <Flag size={14} />,
             label: language === "ko" ? "우선순위" : "Priority",
             value: priority,
-            options: ["low", "medium", "high"],
+            options: ["low", "medium", "high", "delayed"],
             onChange: setPriority,
             disabled: !canEdit,
             renderValue: (v: string) => <span className={cn("px-2 py-0.5 rounded-md font-bold", PRIORITY_CONFIG[v as TaskPriority].bg, PRIORITY_CONFIG[v as TaskPriority].color)}>{language === "ko" ? PRIORITY_CONFIG[v as TaskPriority].labelKo : PRIORITY_CONFIG[v as TaskPriority].label}</span>,
@@ -589,11 +591,19 @@ export function TaskDetailPage() {
             render: () => <MultiAssigneePicker selectedIds={assigneeIds} onChange={setAssigneeIds} language={language} disabled={!canEdit} />,
           },
           {
-            key: "deadline",
+            key: "datetime",
             type: "custom",
             icon: <Calendar size={14} />,
-            label: language === "ko" ? "마감기한" : "Deadline",
-            render: () => <NotionDateRangePicker startDate={dateStart} endDate={dateEnd} onChange={(s, e) => { setDateStart(s); setDateEnd(e); }} language={language} />,
+            label: language === "ko" ? "일시" : "Date & Time",
+            render: () => (
+              <DateTimeProperty
+                startDate={dateStart}
+                endDate={dateEnd}
+                onDateChange={(s, e) => { setDateStart(s); setDateEnd(e); }}
+                language={language}
+                defaultShowTime={false}
+              />
+            ),
           },
           {
             key: "estTime",

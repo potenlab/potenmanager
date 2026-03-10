@@ -27,7 +27,7 @@ const LEVEL_CONFIG: Record<string, { label: string; labelKo: string; color: stri
 
 const PRIORITY_CONFIG = {
   high:   { label: "긴급",  labelEn: "High",   color: "text-red-600",   bg: "bg-red-50",   border: "border-red-200" },
-  medium: { label: "보통",  labelEn: "Medium", color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200" },
+  medium: { label: "보통",  labelEn: "Medium", color: "text-green-600", bg: "bg-green-50", border: "border-green-200" },
   low:    { label: "낮음",  labelEn: "Low",    color: "text-gray-500",  bg: "bg-gray-50",  border: "border-gray-200" },
 };
 

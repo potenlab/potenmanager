@@ -87,13 +87,13 @@ const STATUS_CONFIG: Record<
     bg: "bg-blue-50",
     border: "border-blue-200",
   },
-  delayed: {
-    label: "Delayed",
-    labelKo: "지연",
+  routine: {
+    label: "Routine",
+    labelKo: "루틴",
     icon: <Clock size={14} />,
-    color: "text-amber-600",
-    bg: "bg-amber-50",
-    border: "border-amber-200",
+    color: "text-purple-600",
+    bg: "bg-purple-50",
+    border: "border-purple-200",
   },
   completed: {
     label: "Done",
@@ -110,7 +110,7 @@ const PRIORITY_CONFIG: Record<
   { label: string; labelKo: string; color: string; dot: string }
 > = {
   low: { label: "Low", labelKo: "낮음", color: "text-blue-600", dot: "bg-blue-400" },
-  medium: { label: "Medium", labelKo: "보통", color: "text-amber-600", dot: "bg-amber-400" },
+  medium: { label: "Medium", labelKo: "보통", color: "text-green-600", dot: "bg-green-400" },
   high: { label: "High", labelKo: "높음", color: "text-red-600", dot: "bg-red-500" },
 };
 

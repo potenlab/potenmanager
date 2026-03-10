@@ -21,7 +21,7 @@ import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
 import { DetailPageShell } from "../components/detail/DetailPageShell";
 import { AutoProperties } from "../components/detail/AutoProperties";
 import type { PropertyFieldConfig } from "../components/detail/PropertyConfig";
-import { NotionDateRangePicker } from "../components/NotionDateRangePicker";
+import { DateTimeProperty } from "../components/detail/DateTimeProperty";
 
 type MeetingStatus = Meeting['status'];
 type MeetingType = Meeting['type'];
@@ -190,122 +190,6 @@ function AttendeePicker({ selectedIds, onChange, language }: { selectedIds: stri
 }
 
 
-// ─── Meeting Time Input (AM/PM + direct input) ─────────────────────
-function MeetingTimeInput({
-  hour,
-  minute,
-  onChange,
-  language,
-}: {
-  hour: number;
-  minute: number;
-  onChange: (h: number, m: number) => void;
-  language: string;
-}) {
-  const ko = language === "ko";
-  const isAm = hour < 12;
-  const display12h = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-  const [timeText, setTimeText] = useState(
-    `${String(display12h).padStart(2, "0")}:${String(minute).padStart(2, "0")}`
-  );
-
-  // Sync when props change
-  useEffect(() => {
-    const h12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    setTimeText(`${String(h12).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
-  }, [hour, minute]);
-
-  const commitTime = (text: string, am: boolean) => {
-    const trimmed = text.trim();
-    let h: number, m: number;
-    const colonMatch = trimmed.match(/^(\d{1,2}):(\d{2})$/);
-    const plainMatch = trimmed.match(/^(\d{1,4})$/);
-    if (colonMatch) {
-      h = parseInt(colonMatch[1], 10);
-      m = parseInt(colonMatch[2], 10);
-    } else if (plainMatch) {
-      const num = parseInt(plainMatch[1], 10);
-      if (num <= 23) {
-        h = num; m = 0;
-      } else if (num >= 100) {
-        h = Math.floor(num / 100); m = num % 100;
-      } else {
-        h = num; m = 0;
-      }
-    } else {
-      return;
-    }
-    if (m < 0 || m > 59) return;
-    // If 24h format entered (13-23), convert directly
-    if (h >= 13 && h <= 23) {
-      onChange(h, m);
-      return;
-    }
-    if (h === 0) { onChange(0, m); return; }
-    if (h < 1 || h > 12) return;
-    // Convert 12h to 24h using AM/PM toggle
-    if (am) {
-      h = h === 12 ? 0 : h;
-    } else {
-      h = h === 12 ? 12 : h + 12;
-    }
-    onChange(h, m);
-  };
-
-  const toggleAmPm = () => {
-    const newHour = isAm ? hour + 12 : hour - 12;
-    onChange(Math.max(0, Math.min(23, newHour)), minute);
-  };
-
-  return (
-    <div className="flex items-center gap-2">
-      {/* AM/PM toggle */}
-      <div className="flex bg-gray-100 rounded-lg p-0.5">
-        <button
-          onClick={() => { if (!isAm) toggleAmPm(); }}
-          className={cn(
-            "px-2.5 py-1 rounded-md text-xs font-semibold transition-all",
-            isAm ? "bg-white text-blue-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
-          )}
-        >
-          {ko ? "오전" : "AM"}
-        </button>
-        <button
-          onClick={() => { if (isAm) toggleAmPm(); }}
-          className={cn(
-            "px-2.5 py-1 rounded-md text-xs font-semibold transition-all",
-            !isAm ? "bg-white text-blue-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
-          )}
-        >
-          {ko ? "오후" : "PM"}
-        </button>
-      </div>
-
-      {/* Time input */}
-      <input
-        type="text"
-        value={timeText}
-        onChange={(e) => setTimeText(e.target.value)}
-        onBlur={() => {
-          commitTime(timeText, isAm);
-          // Reset to current if invalid
-          const h12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-          setTimeText(`${String(h12).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            commitTime(timeText, isAm);
-            (e.target as HTMLInputElement).blur();
-          }
-        }}
-        className="w-[60px] text-sm font-mono font-semibold text-gray-700 py-1 px-2 border border-gray-200 rounded-lg bg-white text-center focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
-        maxLength={5}
-        placeholder="02:00"
-      />
-    </div>
-  );
-}
-
 // ─── Main Detail Page ───────────────────────────────────────────────
 export function MeetingDetailPage() {
   const { meetingId } = useParams<{ meetingId: string }>();
@@ -437,16 +321,8 @@ export function MeetingDetailPage() {
 
   const handleDatePickerChange = (start: Date | null) => {
     if (start) {
-      const old = new Date(meeting.date);
-      start.setHours(old.getHours(), old.getMinutes(), 0, 0);
       updateMeeting(meeting.id, { date: start.toISOString(), status: autoStatus(start) });
     }
-  };
-
-  const handleTimeChange = (hour: number, minute: number) => {
-    const d = new Date(meeting.date);
-    d.setHours(hour, minute, 0, 0);
-    updateMeeting(meeting.id, { date: d.toISOString() });
   };
 
   const addActionItem = () => {
@@ -546,23 +422,14 @@ export function MeetingDetailPage() {
             icon: <Calendar size={14} />,
             label: ko ? '일시' : 'Date & Time',
             render: () => (
-              <div className="flex items-center gap-3">
-                <NotionDateRangePicker
-                  startDate={meetingDate}
-                  endDate={null}
-                  onChange={(s) => handleDatePickerChange(s)}
-                  language={language}
-                  singleDate
-                  hideTime
-                />
-                <div className="w-px h-5 bg-gray-200" />
-                <MeetingTimeInput
-                  hour={meetingDate.getHours()}
-                  minute={meetingDate.getMinutes()}
-                  onChange={handleTimeChange}
-                  language={language}
-                />
-              </div>
+              <DateTimeProperty
+                startDate={meetingDate}
+                endDate={null}
+                onDateChange={(s) => handleDatePickerChange(s)}
+                language={language}
+                singleDate
+                defaultShowTime
+              />
             ),
           },
           {

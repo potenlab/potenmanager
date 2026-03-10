@@ -22,7 +22,7 @@ import { useNavigate } from "react-router";
 const STATUS_OPTIONS: { value: Task['status']; labelKo: string; labelEn: string; color: string; icon: typeof Circle }[] = [
   { value: 'pending', labelKo: '할 일', labelEn: 'To Do', color: 'text-gray-500', icon: Circle },
   { value: 'in-progress', labelKo: '진행 중', labelEn: 'In Progress', color: 'text-blue-500', icon: Clock },
-  { value: 'delayed', labelKo: '지연', labelEn: 'Delayed', color: 'text-amber-500', icon: AlertTriangleIcon },
+  { value: 'routine', labelKo: '루틴', labelEn: 'Routine', color: 'text-purple-500', icon: AlertTriangleIcon },
   { value: 'completed', labelKo: '완료', labelEn: 'Done', color: 'text-emerald-500', icon: CheckCircle2 },
 ];
 
@@ -50,7 +50,7 @@ export function TaskListView({ tasks, onStatusChange }: TaskListViewProps) {
     switch (status) {
       case 'completed': return <CheckCircle2 size={18} className="text-emerald-500" />;
       case 'in-progress': return <Clock size={18} className="text-blue-500" />;
-      case 'delayed': return <Clock size={18} className="text-amber-500" />;
+      case 'routine': return <Clock size={18} className="text-purple-500" />;
       default: return <Circle size={18} className="text-gray-300 hover:text-gray-400 transition-colors" />;
     }
   };
@@ -58,7 +58,8 @@ export function TaskListView({ tasks, onStatusChange }: TaskListViewProps) {
   const getPriorityColor = (priority?: string) => {
     switch (priority) {
       case 'high': return "bg-red-50 text-red-600 border-red-100";
-      case 'medium': return "bg-amber-50 text-amber-600 border-amber-100";
+      case 'delayed': return "bg-orange-50 text-orange-600 border-orange-100";
+      case 'medium': return "bg-green-50 text-green-600 border-green-100";
       case 'low': return "bg-blue-50 text-blue-600 border-blue-100";
       default: return "bg-gray-50 text-gray-600 border-gray-100";
     }
@@ -174,7 +175,7 @@ export function TaskListView({ tasks, onStatusChange }: TaskListViewProps) {
                         "text-[11px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide border",
                         task.status === 'completed' ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
                         task.status === 'in-progress' ? "bg-blue-50 text-blue-600 border-blue-100" :
-                        task.status === 'delayed' ? "bg-amber-50 text-amber-600 border-amber-100" :
+                        task.status === 'routine' ? "bg-purple-50 text-purple-600 border-purple-100" :
                         "bg-gray-100 text-gray-600 border-gray-200"
                       )}>
                         {task.status}

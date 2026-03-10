@@ -62,6 +62,9 @@ const altKeyRef = { current: false };
 if (typeof window !== 'undefined') {
   window.addEventListener('keydown', (e) => { if (e.key === 'Alt') altKeyRef.current = true; });
   window.addEventListener('keyup', (e) => { if (e.key === 'Alt') altKeyRef.current = false; });
+  // Reset when window loses focus (prevents stuck alt after Alt+Tab)
+  window.addEventListener('blur', () => { altKeyRef.current = false; });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) altKeyRef.current = false; });
 }
 
 // TASK_CATEGORY_CONFIG is now imported from ../../lib/jobRoles
@@ -134,10 +137,11 @@ function TaskCard({
     <span className={cn(
       "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
       task.priority === 'high' ? "bg-red-50 text-red-600 border border-red-100" :
-      task.priority === 'medium' ? "bg-amber-50 text-amber-600 border border-amber-100" :
+      task.priority === 'delayed' ? "bg-orange-50 text-orange-600 border border-orange-100" :
+      task.priority === 'medium' ? "bg-green-50 text-green-600 border border-green-100" :
       "bg-blue-50 text-blue-600 border border-blue-100"
     )}>
-      {task.priority || 'low'}
+      {task.priority === 'delayed' ? (language === 'ko' ? '지연' : 'delayed') : (task.priority || 'low')}
     </span>
   );
 
@@ -434,7 +438,7 @@ function SelectionToolbar({
 
 // ─── Board View ─────────────────────────────────────────────────────
 function BoardView({
-  pendingTasks, inProgressTasks, urgentTasks, delayedTasks, completedTasks,
+  pendingTasks, inProgressTasks, urgentTasks, routineTasks, completedTasks,
   onStatusChange, onAddTask, language,
   addingInColumn, onStartAdd, onCancelAdd,
   cardStyle,
@@ -444,7 +448,7 @@ function BoardView({
   pendingTasks: Task[];
   inProgressTasks: Task[];
   urgentTasks: Task[];
-  delayedTasks: Task[];
+  routineTasks: Task[];
   completedTasks: Task[];
   onStatusChange: (taskIds: string[], newStatus: Task['status'], clone?: boolean) => void;
   onAddTask: (title: string, status: Task['status']) => void;
@@ -568,10 +572,10 @@ function BoardView({
           isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
         />
         <TaskColumn
-          title={language === 'ko' ? "지연" : "Delayed"} count={delayedTasks.length} tasks={delayedTasks}
-          icon={<AlertTriangle size={16} className="text-amber-500" />}
-          onAddTask={onAddTask} status="delayed" onDrop={onStatusChange}
-          isAdding={addingInColumn === 'delayed'} onStartAdd={() => onStartAdd('delayed')} onCancelAdd={onCancelAdd}
+          title={language === 'ko' ? "루틴" : "Routine"} count={routineTasks.length} tasks={routineTasks}
+          icon={<CalendarClock size={16} className="text-purple-500" />}
+          onAddTask={onAddTask} status="routine" onDrop={onStatusChange}
+          isAdding={addingInColumn === 'routine'} onStartAdd={() => onStartAdd('routine')} onCancelAdd={onCancelAdd}
           compact={cardStyle === 'compact'}
           isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu}
         />
@@ -925,17 +929,37 @@ export function TasksPage() {
     return allTasks.filter(myTaskFilter);
   }, [allTasks, myTaskFilter]);
 
-  // Auto-delay: mark overdue tasks as "delayed"
+  // Auto-delay priority: mark overdue tasks with priority "delayed"
   useEffect(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     myTasks.forEach(task => {
-      if (task.status === 'completed' || task.status === 'delayed') return;
+      if (task.status === 'completed' || task.status === 'routine') return;
+      if (task.priority === 'delayed') return;
       if (!task.dueDate) return;
       const due = new Date(task.dueDate);
       due.setHours(0, 0, 0, 0);
       if (due < today) {
-        updateTask(task.id, { status: 'delayed' });
+        updateTask(task.id, { priority: 'delayed' });
+      }
+    });
+  }, [myTasks, updateTask]);
+
+  // Routine daily regeneration: when routine tasks were completed yesterday (or earlier), re-create them as pending today
+  useEffect(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    myTasks.forEach(task => {
+      if (task.status !== 'routine') return;
+      // Skip if already pending/in-progress (not yet done for today)
+      if (task.progress < 100) return;
+      // If completed, check updatedAt — if it was before today, reset for today
+      const updated = task.updatedAt ? new Date(task.updatedAt) : null;
+      if (!updated) return;
+      const updatedDay = new Date(updated);
+      updatedDay.setHours(0, 0, 0, 0);
+      if (updatedDay < today) {
+        updateTask(task.id, { progress: 0, status: 'routine' });
       }
     });
   }, [myTasks, updateTask]);
@@ -959,12 +983,12 @@ export function TasksPage() {
   now.setHours(0, 0, 0, 0);
 
   // ── Status board columns ──
-  const urgentTasks = filteredTasks.filter(task => task.status !== 'completed' && task.status !== 'delayed' && task.priority === 'high');
+  const urgentTasks = filteredTasks.filter(task => task.status !== 'completed' && task.status !== 'routine' && task.priority === 'high');
   const urgentIds = new Set(urgentTasks.map(t => t.id));
 
   const pendingTasks = filteredTasks.filter(task => task.status === 'pending' && !urgentIds.has(task.id));
   const inProgressTasks = filteredTasks.filter(task => task.status === 'in-progress' && !urgentIds.has(task.id));
-  const delayedTasks = filteredTasks.filter(task => task.status === 'delayed');
+  const routineTasks = filteredTasks.filter(task => task.status === 'routine');
   const completedTasks = filteredTasks.filter(task => task.status === 'completed');
 
   // ── Time board columns ──
@@ -1045,8 +1069,11 @@ export function TasksPage() {
     // Reset alt key ref to prevent stuck clone state
     altKeyRef.current = false;
 
+    // Deduplicate task IDs to prevent processing same task multiple times
+    const uniqueIds = [...new Set(taskIds)];
+
     // Skip if all tasks already have the target status (same-column drop)
-    const allSameStatus = taskIds.every(id => {
+    const allSameStatus = uniqueIds.every(id => {
       const t = getTask(id);
       return t && t.status === newStatus;
     });
@@ -1058,7 +1085,7 @@ export function TasksPage() {
     const progress = newStatus === 'completed' ? 100 : newStatus === 'in-progress' ? 50 : 0;
     if (clone) {
       // Alt+drag: duplicate tasks with new status
-      taskIds.forEach(id => {
+      uniqueIds.forEach(id => {
         const original = getTask(id);
         if (!original) return;
         const newId = `t${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
@@ -1075,11 +1102,11 @@ export function TasksPage() {
         addTaskToContext(cloned);
       });
     } else {
-      taskIds.forEach(id => {
+      uniqueIds.forEach(id => {
         const task = getTask(id);
         const updates: Partial<Task> = { status: newStatus, progress };
-        // Moving from delayed to a non-completed column → reset due date to today
-        if (task && task.status === 'delayed' && newStatus !== 'completed' && newStatus !== 'delayed') {
+        // Moving from routine to a non-completed column → reset due date to today
+        if (task && task.status === 'routine' && newStatus !== 'completed' && newStatus !== 'routine') {
           const today = new Date();
           today.setHours(23, 59, 59, 0);
           updates.dueDate = today;
@@ -1102,8 +1129,8 @@ export function TasksPage() {
                   ? `오늘 ${timeBuckets.todayTasks.length} · 내일 ${timeBuckets.tomorrowTasks.length} · 이번 주 ${timeBuckets.thisWeekTasks.length} · 이번 달 ${timeBuckets.thisMonthTasks.length}`
                   : `${timeBuckets.todayTasks.length} today · ${timeBuckets.tomorrowTasks.length} tomorrow · ${timeBuckets.thisWeekTasks.length} this week · ${timeBuckets.thisMonthTasks.length} this month`)
                 : (language === 'ko'
-                  ? `할 일 ${pendingTasks.length} · 진행 중 ${inProgressTasks.length} · 긴급 ${urgentTasks.length} · 지연 ${delayedTasks.length} · 완료 ${completedTasks.length}`
-                  : `${pendingTasks.length} to do · ${inProgressTasks.length} in progress · ${urgentTasks.length} urgent · ${delayedTasks.length} delayed · ${completedTasks.length} done`)}
+                  ? `할 일 ${pendingTasks.length} · 진행 중 ${inProgressTasks.length} · 긴급 ${urgentTasks.length} · 루틴 ${routineTasks.length} · 완료 ${completedTasks.length}`
+                  : `${pendingTasks.length} to do · ${inProgressTasks.length} in progress · ${urgentTasks.length} urgent · ${routineTasks.length} routine · ${completedTasks.length} done`)}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -1248,7 +1275,7 @@ export function TasksPage() {
         <div className="flex-1 overflow-x-auto pb-4">
           {boardMode === 'status' ? (
             <BoardView
-              pendingTasks={pendingTasks} inProgressTasks={inProgressTasks} urgentTasks={urgentTasks} delayedTasks={delayedTasks} completedTasks={completedTasks}
+              pendingTasks={pendingTasks} inProgressTasks={inProgressTasks} urgentTasks={urgentTasks} routineTasks={routineTasks} completedTasks={completedTasks}
               onStatusChange={handleStatusChange} onAddTask={handleAddTask} language={language}
               addingInColumn={addingInColumn} onStartAdd={setAddingInColumn} onCancelAdd={() => setAddingInColumn(null)}
               cardStyle={cardStyle}
