@@ -410,7 +410,7 @@ function BoardView({
   return (
     <div ref={boardRef} className="h-full flex flex-col" onMouseDown={handleBoardMouseDown}>
       <div className="flex flex-col md:flex-row gap-4 md:gap-6 md:min-w-[1000px] h-full">
-        <MeetingColumn title={ko ? "오늘" : "Today"} count={todayMeetings.length} meetings={todayMeetings}
+        <MeetingColumn title={ko ? `오늘 · ${format(new Date(), 'M/d')}` : `Today · ${format(new Date(), 'M/d')}`} count={todayMeetings.length} meetings={todayMeetings}
           icon={<Sun size={16} className="text-amber-500" />} columnKey="today" onDrop={onDrop} onAddMeeting={onAddMeeting}
           isAdding={addingInColumn === 'today'} onStartAdd={() => onStartAdd('today')} onCancelAdd={onCancelAdd}
           isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={onToggleSelect} onCardContextMenu={onCardContextMenu} />
@@ -510,15 +510,22 @@ export function MeetingPage() {
     return result;
   }, [meetings, searchQuery, filterMonth]);
 
+  // Column filtering: past-date meetings visually go to completed (no data mutation)
+  const todayStart = startOfDay(new Date());
+  const tomorrowStart = addDays(todayStart, 1);
+
   const todayMeetings = useMemo(() =>
-    filteredMeetings.filter(m => m.status !== 'completed' && new Date(m.date) < addDays(startOfDay(new Date()), 1))
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()), [filteredMeetings]);
+    filteredMeetings.filter(m => m.status !== 'completed' && m.status !== 'cancelled' && (() => {
+      const d = new Date(m.date);
+      return d >= todayStart && d < tomorrowStart;
+    })())
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()), [filteredMeetings, todayStart, tomorrowStart]);
   const upcomingMeetings = useMemo(() =>
-    filteredMeetings.filter(m => m.status !== 'completed' && new Date(m.date) >= addDays(startOfDay(new Date()), 1))
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()), [filteredMeetings]);
+    filteredMeetings.filter(m => m.status !== 'completed' && m.status !== 'cancelled' && new Date(m.date) >= tomorrowStart)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()), [filteredMeetings, tomorrowStart]);
   const allCompletedMeetings = useMemo(() =>
-    filteredMeetings.filter(m => m.status === 'completed')
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()), [filteredMeetings]);
+    filteredMeetings.filter(m => m.status === 'completed' || m.status === 'cancelled' || new Date(m.date) < todayStart)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()), [filteredMeetings, todayStart]);
 
   const completedMonthOptions = useMemo(() => {
     const s = new Set<string>();
@@ -538,9 +545,9 @@ export function MeetingPage() {
     });
   }, [allCompletedMeetings, completedMonthFilter]);
 
-  const todayCount = meetings.filter(m => m.status !== 'completed' && new Date(m.date) < addDays(startOfDay(new Date()), 1)).length;
-  const upcomingCount = meetings.filter(m => m.status !== 'completed' && new Date(m.date) >= addDays(startOfDay(new Date()), 1)).length;
-  const completedCount = meetings.filter(m => m.status === 'completed').length;
+  const todayCount = meetings.filter(m => m.status !== 'completed' && m.status !== 'cancelled' && (() => { const d = new Date(m.date); return d >= todayStart && d < tomorrowStart; })()).length;
+  const upcomingCount = meetings.filter(m => m.status !== 'completed' && m.status !== 'cancelled' && new Date(m.date) >= tomorrowStart).length;
+  const completedCount = meetings.filter(m => m.status === 'completed' || m.status === 'cancelled' || new Date(m.date) < todayStart).length;
 
   const handleDrop = useCallback((meetingId: string, targetColumn: ColumnKey) => {
     const meeting = getMeeting(meetingId);

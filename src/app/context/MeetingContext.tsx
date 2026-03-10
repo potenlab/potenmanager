@@ -66,7 +66,15 @@ export function MeetingProvider({ children }: { children: ReactNode }) {
       try {
         const serverMeetings = await api.getMeetings();
         if (serverMeetings && serverMeetings.length > 0) {
-          setMeetings(serverMeetings as Meeting[]);
+          // Deduplicate by id (keep latest updatedAt)
+          const map = new Map<string, Meeting>();
+          for (const m of serverMeetings as Meeting[]) {
+            const existing = map.get(m.id);
+            if (!existing || (m.updatedAt && (!existing.updatedAt || m.updatedAt > existing.updatedAt))) {
+              map.set(m.id, m);
+            }
+          }
+          setMeetings(Array.from(map.values()));
         }
         setIsSynced(true);
       } catch (err) {

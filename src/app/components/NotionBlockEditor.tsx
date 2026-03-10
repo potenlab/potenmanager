@@ -223,11 +223,13 @@ function ImageBlock({ block, readOnly, onResize, onDelete, onSelect }: {
 // ─── Bookmark Block Component ─────────────────────────────────────
 const bookmarkCache = new Map<string, { ogTitle?: string; ogDescription?: string; ogImage?: string; ogSiteName?: string; favicon?: string } | null>();
 
-function BookmarkBlock({ block, readOnly, onDelete, onSelect }: {
+function BookmarkBlock({ block, readOnly, onDelete, onSelect, onDragStart, onDragEnd }: {
   block: Block;
   readOnly: boolean;
   onDelete: () => void;
   onSelect: () => void;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragEnd?: () => void;
 }) {
   const [og, setOg] = useState<{ ogTitle?: string; ogDescription?: string; ogImage?: string; ogSiteName?: string; favicon?: string } | null>(
     bookmarkCache.get(block.content) ?? null
@@ -260,18 +262,31 @@ function BookmarkBlock({ block, readOnly, onDelete, onSelect }: {
 
   return (
     <div
-      className="flex-1 relative group/bm"
+      className="flex-1 relative group/bm flex items-stretch"
+      draggable={!readOnly}
+      onDragStart={(e) => {
+        if (readOnly) return;
+        onDragStart?.(e);
+      }}
+      onDragEnd={() => onDragEnd?.()}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={(e) => {
         if (e.shiftKey || e.ctrlKey || e.metaKey) { e.preventDefault(); onSelect(); return; }
       }}
     >
+      {/* Drag handle (visual hint) */}
+      {!readOnly && (
+        <div className="flex items-center justify-center w-7 shrink-0 cursor-grab active:cursor-grabbing opacity-0 group-hover/bm:opacity-100 transition-opacity text-gray-400 hover:text-gray-600">
+          <GripVertical size={14} />
+        </div>
+      )}
       <a
         href={block.content}
         target="_blank"
         rel="noopener noreferrer"
-        className="block rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm hover:shadow-md hover:border-gray-300 transition-all"
+        draggable={false}
+        className="block flex-1 rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm hover:shadow-md hover:border-gray-300 transition-all"
       >
         {loading ? (
           <div className="flex items-center gap-2 p-4 text-sm text-gray-400">
@@ -439,19 +454,38 @@ export function NotionBlockEditor({
     redoStackRef.current = [];
   }, []);
 
+  const syncDomAfterUndoRedo = useCallback((newBlocks: Block[]) => {
+    // Force sync ALL contentEditable elements including the active one
+    requestAnimationFrame(() => {
+      newBlocks.forEach((block) => {
+        if (block.type === "divider" || block.type === "image" || block.type === "bookmark" || block.type === "page") return;
+        const el = blockRefs.current.get(block.id);
+        if (el && !el.querySelector("b, i, u, strong, em")) {
+          if (el.textContent !== block.content) {
+            el.textContent = block.content;
+          }
+        }
+      });
+    });
+  }, []);
+
   const undo = useCallback(() => {
     if (undoStackRef.current.length === 0) return;
     redoStackRef.current.push(blocksRef.current.map(b => ({ ...b })));
-    setBlocks(undoStackRef.current.pop()!);
+    const restored = undoStackRef.current.pop()!;
+    setBlocks(restored);
     setSelectedIds(new Set());
-  }, []);
+    syncDomAfterUndoRedo(restored);
+  }, [syncDomAfterUndoRedo]);
 
   const redo = useCallback(() => {
     if (redoStackRef.current.length === 0) return;
     undoStackRef.current.push(blocksRef.current.map(b => ({ ...b })));
-    setBlocks(redoStackRef.current.pop()!);
+    const restored = redoStackRef.current.pop()!;
+    setBlocks(restored);
     setSelectedIds(new Set());
-  }, []);
+    syncDomAfterUndoRedo(restored);
+  }, [syncDomAfterUndoRedo]);
 
   // Slash menu
   const [slashMenu, setSlashMenu] = useState<{ blockIdx: number; filter: string; selectedIdx: number; pos: { top: number; left: number } } | null>(null);
@@ -757,8 +791,29 @@ export function NotionBlockEditor({
     });
   }, [pushUndo]);
 
+  const pasteGuardRef = useRef(0);
   const handlePaste = useCallback(
     (e: React.ClipboardEvent, idx: number) => {
+      // Prevent double-paste within 100ms
+      const now = Date.now();
+      if (now - pasteGuardRef.current < 100) { e.preventDefault(); return; }
+      pasteGuardRef.current = now;
+
+      // Get text early for URL detection
+      const text = e.clipboardData.getData("text/plain");
+      const trimmedText = (text || "").trim();
+
+      // URL paste → bookmark (highest priority, check before anything else)
+      if (/^https?:\/\/[^\s]+$/.test(trimmedText)) {
+        const block = blocks[idx];
+        if (!block.content.trim() && block.type === "text") {
+          e.preventDefault();
+          pushUndo();
+          setBlocks((prev) => prev.map((b) => b.id === block.id ? { ...b, type: "bookmark" as BlockType, content: trimmedText } : b));
+          return;
+        }
+      }
+
       // Check for image files in clipboard
       const items = e.clipboardData.items;
       for (let i = 0; i < items.length; i++) {
@@ -783,7 +838,8 @@ export function NotionBlockEditor({
 
       e.preventDefault();
       const html = e.clipboardData.getData("text/html");
-      const text = e.clipboardData.getData("text/plain");
+
+      if (!text && !html) return;
 
       if (html) {
         const parsed = parseHtmlToBlocks(html);
@@ -837,17 +893,6 @@ export function NotionBlockEditor({
       }
 
       if (!text) return;
-
-      // Auto-convert URL paste to bookmark block when block is empty
-      const trimmedText = text.trim();
-      if (/^https?:\/\/[^\s]+$/.test(trimmedText)) {
-        const block = blocks[idx];
-        if (!block.content.trim() && block.type === "text") {
-          pushUndo();
-          setBlocks((prev) => prev.map((b) => b.id === block.id ? { ...b, type: "bookmark" as BlockType, content: trimmedText } : b));
-          return;
-        }
-      }
 
       const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
       if (lines.length === 1) {
@@ -915,13 +960,27 @@ export function NotionBlockEditor({
     if (e.key === "z" && (e.ctrlKey || e.metaKey) && !e.shiftKey) { e.preventDefault(); undo(); return; }
     if ((e.key === "y" && (e.ctrlKey || e.metaKey)) || (e.key === "z" && (e.ctrlKey || e.metaKey) && e.shiftKey)) { e.preventDefault(); redo(); return; }
 
-    // Ctrl+A
+    // Ctrl+A: first press selects all text in current block, second press selects all blocks
     if (e.key === "a" && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      setSelectedIds(new Set(blocks.map((b) => b.id)));
-      lastClickedIdx.current = 0;
-      window.getSelection()?.removeAllRanges();
-      wrapperRef.current?.focus();
+      const el = blockRefs.current.get(block.id);
+      const sel = window.getSelection();
+      // Check if all text in current block is already selected
+      const allSelected = sel && el && sel.rangeCount > 0 && (() => {
+        const range = sel.getRangeAt(0);
+        const fullRange = document.createRange();
+        fullRange.selectNodeContents(el);
+        return range.toString() === fullRange.toString() && fullRange.toString().length > 0;
+      })();
+
+      if (allSelected || !block.content.trim()) {
+        // All text selected or empty block → select all blocks
+        e.preventDefault();
+        setSelectedIds(new Set(blocks.map((b) => b.id)));
+        lastClickedIdx.current = 0;
+        window.getSelection()?.removeAllRanges();
+        wrapperRef.current?.focus();
+      }
+      // else: let browser default select all text in current block
       return;
     }
 
@@ -1072,6 +1131,67 @@ export function NotionBlockEditor({
               let node: Node = prevEl;
               let offset = 0;
               const walker = document.createTreeWalker(prevEl, NodeFilter.SHOW_TEXT);
+              let textNode: Text | null;
+              while ((textNode = walker.nextNode() as Text | null)) {
+                if (remaining <= textNode.length) { node = textNode; offset = remaining; break; }
+                remaining -= textNode.length;
+              }
+              range.setStart(node, offset);
+              range.collapse(true);
+              sel?.removeAllRanges();
+              sel?.addRange(range);
+            }
+          });
+        }
+      }
+    }
+
+    // Delete (forward delete) — merge with next block
+    if (e.key === "Delete" && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+      const el = blockRefs.current.get(block.id);
+      const sel = window.getSelection();
+      const atEnd =
+        sel && el
+          ? (() => {
+              const range = sel.getRangeAt(0);
+              const postRange = document.createRange();
+              postRange.selectNodeContents(el);
+              postRange.setStart(range.endContainer, range.endOffset);
+              return postRange.toString().length === 0 && range.collapsed;
+            })()
+          : false;
+
+      if (atEnd && idx < blocks.length - 1) {
+        e.preventDefault();
+        pushUndo();
+        const nextBlock = blocks[idx + 1];
+        // If next block is non-text (divider, image, bookmark, page), just delete it
+        if (["divider", "image", "bookmark", "page"].includes(nextBlock.type)) {
+          setBlocks((prev) => {
+            const next = [...prev];
+            next.splice(idx + 1, 1);
+            return next;
+          });
+        } else {
+          // Merge next block content into current
+          const cursorPos = block.content.length;
+          const mergedContent = block.content + nextBlock.content;
+          setBlocks((prev) => {
+            const next = [...prev];
+            next[idx] = { ...next[idx], content: mergedContent };
+            next.splice(idx + 1, 1);
+            return next;
+          });
+          requestAnimationFrame(() => {
+            const curEl = blockRefs.current.get(block.id);
+            if (curEl) {
+              curEl.focus();
+              const range = document.createRange();
+              const sel = window.getSelection();
+              let remaining = cursorPos;
+              let node: Node = curEl;
+              let offset = 0;
+              const walker = document.createTreeWalker(curEl, NodeFilter.SHOW_TEXT);
               let textNode: Text | null;
               while ((textNode = walker.nextNode() as Text | null)) {
                 if (remaining <= textNode.length) { node = textNode; offset = remaining; break; }
@@ -1449,6 +1569,8 @@ export function NotionBlockEditor({
                 lastClickedIdx.current = idx;
                 wrapperRef.current?.focus();
               }}
+              onDragStart={(e) => handleGripDragStart(e, idx)}
+              onDragEnd={handleBlockDragEnd}
             />
           ) : (
             <div
@@ -1498,6 +1620,12 @@ export function NotionBlockEditor({
                   const el = blockRefs.current.get(block.id);
                   if (el) {
                     const text = readText(el);
+                    // Push undo snapshot during typing (every 1.5s)
+                    const now = Date.now();
+                    if (now - lastUndoPushTime.current > 1500) {
+                      pushUndo();
+                      lastUndoPushTime.current = now;
+                    }
                     if (text.startsWith("/")) {
                       const filter = text.slice(1).split(/\s/)[0] || "";
                       if (!slashMenu) openSlashMenu(idx);
@@ -1587,6 +1715,48 @@ export function NotionBlockEditor({
           )}
         </div>
       ))}
+
+      {/* Bottom drop zone — allows dropping blocks at the end */}
+      {!readOnly && dragBlockIdx !== null && (
+        <div
+          className={cn(
+            "h-16 rounded-lg transition-colors",
+            dropTargetIdx === blocks.length && "border-2 border-dashed border-blue-300 bg-blue-50/30"
+          )}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            setDropTargetIdx(blocks.length);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            if (dragBlockIdx === null) { setDragBlockIdx(null); setDropTargetIdx(null); return; }
+            pushUndo();
+            setBlocks((prev) => {
+              const next = [...prev];
+              const [moved] = next.splice(dragBlockIdx, 1);
+              next.push(moved);
+              return next;
+            });
+            setDragBlockIdx(null);
+            setDropTargetIdx(null);
+          }}
+        />
+      )}
+
+      {/* Click below blocks to focus last block */}
+      {!readOnly && dragBlockIdx === null && (
+        <div
+          className="h-32 cursor-text"
+          onClick={() => {
+            const lastBlock = blocks[blocks.length - 1];
+            if (lastBlock) {
+              const el = blockRefs.current.get(lastBlock.id);
+              if (el) { el.focus(); const r = document.createRange(); r.selectNodeContents(el); r.collapse(false); const s = window.getSelection(); s?.removeAllRanges(); s?.addRange(r); }
+            }
+          }}
+        />
+      )}
 
       {/* Floating formatting toolbar */}
       {toolbar && !readOnly && (
