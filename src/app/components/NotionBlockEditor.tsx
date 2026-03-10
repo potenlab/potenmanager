@@ -804,12 +804,14 @@ export function NotionBlockEditor({
       const trimmedText = (text || "").trim();
 
       // URL paste → bookmark (highest priority, check before anything else)
-      if (/^https?:\/\/[^\s]+$/.test(trimmedText)) {
+      // Strip trailing newlines/whitespace, and if the text is a single URL, convert to bookmark
+      const urlOnly = trimmedText.replace(/[\r\n]+$/, "").trim();
+      if (/^https?:\/\/[^\s]+$/.test(urlOnly)) {
         const block = blocks[idx];
         if (!block.content.trim() && block.type === "text") {
           e.preventDefault();
           pushUndo();
-          setBlocks((prev) => prev.map((b) => b.id === block.id ? { ...b, type: "bookmark" as BlockType, content: trimmedText } : b));
+          setBlocks((prev) => prev.map((b) => b.id === block.id ? { ...b, type: "bookmark" as BlockType, content: urlOnly } : b));
           return;
         }
       }
@@ -895,18 +897,25 @@ export function NotionBlockEditor({
       if (!text) return;
 
       const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
-      if (lines.length === 1) {
-        document.execCommand("insertText", false, text);
+      // Deduplicate consecutive identical URL lines (common copy artifact)
+      const dedupedLines = lines.filter((l, i) => i === 0 || l.trim() !== lines[i - 1].trim());
+      if (dedupedLines.length === 1) {
+        document.execCommand("insertText", false, dedupedLines[0]);
         return;
       }
       const block = blocks[idx];
       const cursorPos = getCursorPos(block.id);
       const before = block.content.slice(0, cursorPos);
       const after = block.content.slice(cursorPos);
-      const newBlocks: Block[] = lines.map((line, i) => {
+      const newBlocks: Block[] = dedupedLines.map((line, i) => {
+        // Auto-detect URL lines as bookmarks
+        const trimLine = line.trim();
+        if (/^https?:\/\/[^\s]+$/.test(trimLine)) {
+          return { id: i === 0 ? block.id : genId(), content: trimLine, type: "bookmark" as BlockType, indent: 0 };
+        }
         const parsed = parseBlockLine(line);
         if (i === 0) return { id: block.id, content: before + parsed.content, type: block.type, indent: block.indent };
-        if (i === lines.length - 1) return { id: genId(), content: parsed.content + after, type: parsed.type, indent: parsed.indent };
+        if (i === dedupedLines.length - 1) return { id: genId(), content: parsed.content + after, type: parsed.type, indent: parsed.indent };
         return { id: genId(), content: parsed.content, type: parsed.type, indent: parsed.indent };
       });
       setBlocks((prev) => {
