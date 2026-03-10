@@ -647,7 +647,7 @@ export function TaskDetailPage() {
           "min-h-[200px] border-t border-gray-100 pt-5 relative transition-colors",
           isDragOver && "bg-blue-50/50 ring-2 ring-blue-200 ring-dashed rounded-xl"
         )}
-        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragOver(true); }}
+        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); if (e.dataTransfer.types.includes("Files")) setIsDragOver(true); }}
         onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragOver(false); }}
         onDrop={(e) => {
           e.preventDefault(); e.stopPropagation(); setIsDragOver(false);

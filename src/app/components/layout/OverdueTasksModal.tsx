@@ -52,9 +52,9 @@ function OverdueTaskRow({ task, onNavigate, members }: OverdueTaskRowProps) {
         locale: language === "ko" ? koLocale : undefined,
       })
     : "";
-  const priority = task.priority ?? "medium";
-  const pCfg = PRIORITY_CONFIG[priority];
-  const sCfg = STATUS_CONFIG[task.status];
+  const priority = task.priority || "medium";
+  const pCfg = PRIORITY_CONFIG[priority as keyof typeof PRIORITY_CONFIG] || PRIORITY_CONFIG.medium;
+  const sCfg = STATUS_CONFIG[task.status] || STATUS_CONFIG["pending"];
 
   return (
     <motion.button

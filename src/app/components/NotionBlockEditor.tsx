@@ -110,12 +110,15 @@ function readText(el: HTMLElement): string {
 }
 
 // ─── Image Block with Resize ───────────────────────────────────────
-function ImageBlock({ block, readOnly, onResize, onDelete, onSelect }: {
+function ImageBlock({ block, readOnly, onResize, onDelete, onSelect, isSelected, onDragStart, onDragEnd }: {
   block: Block;
   readOnly: boolean;
   onResize: (width: number) => void;
   onDelete: () => void;
   onSelect: () => void;
+  isSelected?: boolean;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragEnd?: () => void;
 }) {
   const [isResizing, setIsResizing] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -175,7 +178,7 @@ function ImageBlock({ block, readOnly, onResize, onDelete, onSelect }: {
           alt=""
           className={cn(
             "w-full rounded-lg border transition-all select-none",
-            hovered ? "border-blue-300 shadow-md" : "border-gray-200"
+            isSelected ? "border-blue-400 ring-2 ring-blue-100 shadow-md" : hovered ? "border-blue-300 shadow-md" : "border-gray-200"
           )}
           draggable={false}
         />
@@ -223,11 +226,12 @@ function ImageBlock({ block, readOnly, onResize, onDelete, onSelect }: {
 // ─── Bookmark Block Component ─────────────────────────────────────
 const bookmarkCache = new Map<string, { ogTitle?: string; ogDescription?: string; ogImage?: string; ogSiteName?: string; favicon?: string } | null>();
 
-function BookmarkBlock({ block, readOnly, onDelete, onSelect, onDragStart, onDragEnd }: {
+function BookmarkBlock({ block, readOnly, onDelete, onSelect, isSelected, onDragStart, onDragEnd }: {
   block: Block;
   readOnly: boolean;
   onDelete: () => void;
   onSelect: () => void;
+  isSelected?: boolean;
   onDragStart?: (e: React.DragEvent) => void;
   onDragEnd?: () => void;
 }) {
@@ -263,30 +267,19 @@ function BookmarkBlock({ block, readOnly, onDelete, onSelect, onDragStart, onDra
   return (
     <div
       className="flex-1 relative group/bm flex items-stretch"
-      draggable={!readOnly}
-      onDragStart={(e) => {
-        if (readOnly) return;
-        onDragStart?.(e);
-      }}
-      onDragEnd={() => onDragEnd?.()}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={(e) => {
-        if (e.shiftKey || e.ctrlKey || e.metaKey) { e.preventDefault(); onSelect(); return; }
+        // Click anywhere on bookmark = select it (like Notion)
+        e.stopPropagation();
+        onSelect();
       }}
     >
-      {/* Drag handle (visual hint) */}
-      {!readOnly && (
-        <div className="flex items-center justify-center w-7 shrink-0 cursor-grab active:cursor-grabbing opacity-0 group-hover/bm:opacity-100 transition-opacity text-gray-400 hover:text-gray-600">
-          <GripVertical size={14} />
-        </div>
-      )}
-      <a
-        href={block.content}
-        target="_blank"
-        rel="noopener noreferrer"
-        draggable={false}
-        className="flex-1 flex rounded-md border border-gray-200 overflow-hidden bg-white hover:bg-gray-50 transition-colors min-w-0"
+      <div
+        className={cn(
+          "flex-1 flex rounded-md border overflow-hidden bg-white transition-colors min-w-0 cursor-pointer",
+          isSelected ? "border-blue-400 ring-2 ring-blue-100" : "border-gray-200 hover:bg-gray-50"
+        )}
       >
         {loading ? (
           <div className="flex items-center gap-2 px-3 py-3 text-sm text-gray-400">
@@ -302,23 +295,30 @@ function BookmarkBlock({ block, readOnly, onDelete, onSelect, onDragStart, onDra
               {og?.ogDescription && (
                 <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">{og.ogDescription}</p>
               )}
-              <div className="flex items-center gap-1.5 mt-1 text-xs text-gray-400">
+              <a
+                href={block.content}
+                target="_blank"
+                rel="noopener noreferrer"
+                draggable={false}
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-1.5 mt-1 text-xs text-gray-400 hover:text-blue-500 transition-colors w-fit"
+              >
                 {og?.favicon ? (
                   <img src={og.favicon} alt="" className="w-3.5 h-3.5 rounded-sm shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                 ) : (
                   <ExternalLink size={12} className="shrink-0" />
                 )}
                 <span className="truncate">{block.content}</span>
-              </div>
+              </a>
             </div>
             {og?.ogImage && (
-              <div className="w-[120px] shrink-0">
-                <img src={og.ogImage} alt="" className="w-full h-full object-cover" />
+              <div className="w-[120px] h-[80px] shrink-0 border-l border-gray-100">
+                <img src={og.ogImage} alt="" className="w-full h-full object-cover" draggable={false} onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = "none"; }} />
               </div>
             )}
           </>
         )}
-      </a>
+      </div>
       {!readOnly && hovered && (
         <button
           onClick={(e) => { e.stopPropagation(); e.preventDefault(); onDelete(); }}
@@ -422,6 +422,7 @@ export function NotionBlockEditor({
 
   // Drag-and-drop block reorder state
   const [dragBlockIdx, setDragBlockIdx] = useState<number | null>(null);
+  const dragBlockIdxRef = useRef<number | null>(null);
   const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
 
   // Floating toolbar state
@@ -483,15 +484,6 @@ export function NotionBlockEditor({
   useEffect(() => {
     return () => { setSlashMenu(null); };
   }, []);
-
-  // Ensure there's always a text block after non-text blocks (like Notion)
-  useEffect(() => {
-    if (blocks.length === 0) return;
-    const last = blocks[blocks.length - 1];
-    if (last.type !== "text") {
-      setBlocks((prev) => [...prev, { id: genId(), content: "", type: "text", indent: 0 }]);
-    }
-  }, [blocks]);
 
   // Sync blocks → parent
   const prevTextRef = useRef(seed);
@@ -840,6 +832,45 @@ export function NotionBlockEditor({
       const html = e.clipboardData.getData("text/html");
 
       if (!text && !html) return;
+
+      // Check for our custom block data (lossless copy/paste within editor)
+      const potenMatch = html?.match(/data-poten-blocks="([^"]+)"/);
+      if (potenMatch) {
+        try {
+          const pastedBlocks: { type: BlockType; content: string; indent?: number; imageWidth?: number }[] = JSON.parse(decodeURIComponent(potenMatch[1]));
+          if (pastedBlocks.length > 0) {
+            pushUndo();
+            const block = blocks[idx];
+            const cursorPos = getCursorPos(block.id);
+            const before = block.content.slice(0, cursorPos);
+            const after = block.content.slice(cursorPos);
+            const newBlocks: Block[] = pastedBlocks.map((pb, i) => {
+              const b: Block = { id: i === 0 ? block.id : genId(), content: pb.content, type: pb.type, indent: pb.indent || 0 };
+              if (pb.imageWidth) b.imageWidth = pb.imageWidth;
+              // Merge text at cursor edges
+              if (i === 0 && pb.type === "text" && before) b.content = before + pb.content;
+              if (i === pastedBlocks.length - 1 && pb.type === "text" && after) b.content = pb.content + after;
+              return b;
+            });
+            // If first pasted block is not text but we had text before cursor, keep the before text as a separate block
+            if (pastedBlocks[0].type !== "text" && before) {
+              newBlocks.unshift({ id: block.id, content: before, type: block.type, indent: block.indent });
+              newBlocks[1] = { ...newBlocks[1], id: genId() };
+            }
+            // If last pasted block is not text but we had text after cursor, add after as separate block
+            if (pastedBlocks[pastedBlocks.length - 1].type !== "text" && after) {
+              newBlocks.push({ id: genId(), content: after, type: "text", indent: 0 });
+            }
+            setBlocks((prev) => {
+              const next = [...prev];
+              next.splice(idx, 1, ...newBlocks);
+              return next;
+            });
+            pendingFocusIdx.current = idx + newBlocks.length - 1;
+            return;
+          }
+        } catch { /* fall through to normal paste */ }
+      }
 
       if (html) {
         const parsed = parseHtmlToBlocks(html);
@@ -1301,15 +1332,29 @@ export function NotionBlockEditor({
     // Don't start multi-select drag from inside contenteditable elements
     const target = e.target as HTMLElement;
     const isContentEditable = target.getAttribute("contenteditable") === "true" || target.closest("[contenteditable]");
+    // Don't start multi-select drag from non-text blocks (image, bookmark, divider, page)
+    const blockType = blocksRef.current[idx]?.type;
+    const isNonTextBlock = blockType === "image" || blockType === "bookmark" || blockType === "divider" || blockType === "page";
     if (e.shiftKey && lastClickedIdx.current !== null) {
       e.preventDefault();
       selectRange(lastClickedIdx.current, idx);
       window.getSelection()?.removeAllRanges();
     } else if (!e.shiftKey) {
-      if (selectedIds.size > 0) clearSelection();
       lastClickedIdx.current = idx;
-      // Only start multi-select drag from non-editable areas (e.g., the row container itself)
-      dragStartIdx.current = isContentEditable ? null : idx;
+      if (isNonTextBlock) {
+        // Non-text blocks: select immediately on mousedown (like Notion)
+        const blockId = blocksRef.current[idx]?.id;
+        if (blockId) {
+          setSelectedIds(new Set([blockId]));
+        }
+        // Pre-set drag ref so handleWrapperMouseMove won't start multi-select
+        // (real drag starts in onDragStart; cleared in mouseup if no drag happens)
+        dragBlockIdxRef.current = idx;
+      } else {
+        if (selectedIds.size > 0) clearSelection();
+      }
+      // Allow multi-select drag from text block non-editable areas; non-text blocks use HTML5 drag for reorder
+      dragStartIdx.current = (isContentEditable || isNonTextBlock) ? null : idx;
       isDragging.current = false;
     }
   }, [readOnly, selectedIds, selectRange, clearSelection]);
@@ -1328,10 +1373,129 @@ export function NotionBlockEditor({
     const handleMouseUp = () => {
       if (isDragging.current) isDragging.current = false;
       dragStartIdx.current = null;
+      // Clear pre-set drag ref if no actual HTML5 drag happened (just a click)
+      if (dragBlockIdxRef.current !== null && dragBlockIdx === null) {
+        dragBlockIdxRef.current = null;
+      }
     };
     document.addEventListener("mouseup", handleMouseUp);
     return () => document.removeEventListener("mouseup", handleMouseUp);
+  }, [dragBlockIdx]);
+
+  // Wrapper-level mousedown: start multi-select from empty space / gaps between blocks
+  const handleWrapperMouseDown = useCallback((e: React.MouseEvent) => {
+    if (readOnly) return;
+    const target = e.target as HTMLElement;
+    // Skip if clicking on interactive content (buttons, links, images)
+    if (target.tagName === "BUTTON" || target.tagName === "IMG" || target.closest("button") || target.closest("a")) return;
+
+    // Check if click is in the left/right gutter area (within 48px of wrapper edges)
+    // If so, always start multi-select regardless of block type
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const isInGutter = e.clientX < wrapperRect.left + 48 || e.clientX > wrapperRect.right - 48;
+
+    if (!isInGutter) {
+      // Skip if clicking inside a draggable non-text block (bookmark/image) — let HTML5 drag handle it
+      const closestBlockRow = target.closest("[draggable='true']") as HTMLElement;
+      if (closestBlockRow && closestBlockRow !== wrapperRef.current) return;
+      const isEditable = target.getAttribute("contenteditable") === "true" || target.closest("[contenteditable]");
+      // Allow if clicking on empty contentEditable (empty text block between non-text blocks)
+      if (isEditable) {
+        const editableEl = target.getAttribute("contenteditable") === "true" ? target : target.closest("[contenteditable]") as HTMLElement;
+        if (editableEl && (editableEl.textContent || "").trim().length > 0) return; // Has text content, let normal editing handle it
+      }
+    }
+
+    // Find nearest block by Y position
+    e.preventDefault();
+    clearSelection();
+    const clickY = e.clientY;
+    const children = wrapper.children;
+    let nearestIdx = -1;
+    for (let i = 0; i < children.length && i < blocksRef.current.length; i++) {
+      const rect = children[i].getBoundingClientRect();
+      if (clickY <= rect.bottom) { nearestIdx = i; break; }
+    }
+    // Clicked below all blocks → create new text block at the end
+    if (nearestIdx === -1) {
+      if (isInGutter) return; // Gutter below blocks: do nothing
+      const lastBlock = blocksRef.current[blocksRef.current.length - 1];
+      // If last block is already an empty text block, just focus it
+      if (lastBlock && lastBlock.type === "text" && !lastBlock.content.trim()) {
+        const el = blockRefs.current.get(lastBlock.id);
+        if (el) { el.focus(); return; }
+      }
+      const newId = genId();
+      setBlocks(prev => [...prev, { id: newId, content: "", type: "text" as BlockType, indent: 0 }]);
+      pendingFocusIdx.current = blocksRef.current.length;
+      return;
+    }
+    // If clicking on an empty text block (not in gutter), focus it directly instead of blue selection
+    if (!isInGutter) {
+      const nearestBlock = blocksRef.current[nearestIdx];
+      if (nearestBlock && nearestBlock.type === "text" && !nearestBlock.content.trim()) {
+        const el = blockRefs.current.get(nearestBlock.id);
+        if (el) { el.focus(); return; }
+      }
+    }
+    // Start drag selection
+    const nearestBlock = blocksRef.current[nearestIdx];
+    dragStartIdx.current = nearestIdx;
+    isDragging.current = false;
+    lastClickedIdx.current = nearestIdx;
+    setSelectedIds(new Set([nearestBlock?.id].filter(Boolean)));
+    window.getSelection()?.removeAllRanges();
+    wrapperRef.current?.focus();
+  }, [readOnly, clearSelection]);
+
+  // Helper: find nearest block index from clientY
+  const findNearestBlockIdx = useCallback((clientY: number): number => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return -1;
+    const children = wrapper.children;
+    for (let i = 0; i < children.length && i < blocksRef.current.length; i++) {
+      const rect = children[i].getBoundingClientRect();
+      if (clientY >= rect.top && clientY <= rect.bottom) return i;
+    }
+    // Below all blocks → last block
+    if (blocksRef.current.length > 0) {
+      const lastRect = children[blocksRef.current.length - 1]?.getBoundingClientRect();
+      if (lastRect && clientY > lastRect.bottom) return blocksRef.current.length - 1;
+    }
+    // Above all blocks → first block
+    if (blocksRef.current.length > 0) {
+      const firstRect = children[0]?.getBoundingClientRect();
+      if (firstRect && clientY < firstRect.top) return 0;
+    }
+    return -1;
   }, []);
+
+  // Wrapper-level mouseMove: handle drag from outside + extend selection
+  const handleWrapperMouseMove = useCallback((e: React.MouseEvent) => {
+    if (readOnly || e.buttons !== 1) return;
+    if (dragBlockIdxRef.current !== null) return; // Block reorder drag in progress
+
+    const currentIdx = findNearestBlockIdx(e.clientY);
+    if (currentIdx < 0) return;
+
+    if (dragStartIdx.current === null) {
+      // Mouse entered from outside with button held → start selection
+      dragStartIdx.current = currentIdx;
+      lastClickedIdx.current = currentIdx;
+      setSelectedIds(new Set([blocksRef.current[currentIdx]?.id].filter(Boolean)));
+      window.getSelection()?.removeAllRanges();
+      return;
+    }
+
+    // Extend selection
+    if (currentIdx !== dragStartIdx.current) {
+      isDragging.current = true;
+      selectRange(dragStartIdx.current, currentIdx);
+      window.getSelection()?.removeAllRanges();
+    }
+  }, [readOnly, dragBlockIdx, findNearestBlockIdx, selectRange]);
 
   const deleteSelectedBlocks = useCallback(() => {
     if (selectedIds.size === 0) return;
@@ -1360,13 +1524,14 @@ export function NotionBlockEditor({
   const handleGripDragStart = (e: React.DragEvent, idx: number) => {
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", String(idx));
+    dragBlockIdxRef.current = idx;
     setDragBlockIdx(idx);
     // Prevent text selection during drag
     if (wrapperRef.current) wrapperRef.current.style.userSelect = "none";
   };
 
   const handleBlockDragOver = (e: React.DragEvent, idx: number) => {
-    if (dragBlockIdx === null) return;
+    if (dragBlockIdxRef.current === null) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
     setDropTargetIdx(idx);
@@ -1374,7 +1539,9 @@ export function NotionBlockEditor({
 
   const handleBlockDrop = (e: React.DragEvent, targetIdx: number) => {
     e.preventDefault();
-    if (dragBlockIdx === null || dragBlockIdx === targetIdx) {
+    const fromIdx = dragBlockIdxRef.current;
+    if (fromIdx === null || fromIdx === targetIdx) {
+      dragBlockIdxRef.current = null;
       setDragBlockIdx(null);
       setDropTargetIdx(null);
       return;
@@ -1382,16 +1549,18 @@ export function NotionBlockEditor({
     pushUndo();
     setBlocks((prev) => {
       const next = [...prev];
-      const [moved] = next.splice(dragBlockIdx, 1);
-      const insertIdx = dragBlockIdx < targetIdx ? targetIdx - 1 : targetIdx;
+      const [moved] = next.splice(fromIdx, 1);
+      const insertIdx = fromIdx < targetIdx ? targetIdx - 1 : targetIdx;
       next.splice(insertIdx, 0, moved);
       return next;
     });
+    dragBlockIdxRef.current = null;
     setDragBlockIdx(null);
     setDropTargetIdx(null);
   };
 
   const handleBlockDragEnd = () => {
+    dragBlockIdxRef.current = null;
     setDragBlockIdx(null);
     setDropTargetIdx(null);
     if (wrapperRef.current) wrapperRef.current.style.userSelect = "";
@@ -1402,13 +1571,39 @@ export function NotionBlockEditor({
     if ((e.target as HTMLElement).getAttribute("contenteditable")) return;
     if (e.key === "z" && (e.ctrlKey || e.metaKey) && !e.shiftKey) { e.preventDefault(); undo(); return; }
     if ((e.key === "y" && (e.ctrlKey || e.metaKey)) || (e.key === "z" && (e.ctrlKey || e.metaKey) && e.shiftKey)) { e.preventDefault(); redo(); return; }
-    if (selectedIds.size === 0) return;
+    if (selectedIds.size === 0) {
+      // No selection but focus on wrapper — Enter creates a new text block at the end
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const newId = genId();
+        setBlocks(prev => [...prev, { id: newId, content: "", type: "text" as BlockType, indent: 0 }]);
+        pendingFocusIdx.current = blocksRef.current.length; // will be the new last block
+      }
+      return;
+    }
+    // Enter on selected non-text block: insert text block below and focus it
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      const lastSelectedIdx = blocks.reduce((acc, b, i) => selectedIds.has(b.id) ? i : acc, 0);
+      const newId = genId();
+      const newBlock: Block = { id: newId, content: "", type: "text", indent: 0 };
+      setBlocks(prev => { const next = [...prev]; next.splice(lastSelectedIdx + 1, 0, newBlock); return next; });
+      setSelectedIds(new Set());
+      pendingFocusIdx.current = lastSelectedIdx + 1;
+      return;
+    }
     if (e.key === "a" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); setSelectedIds(new Set(blocks.map(b => b.id))); return; }
     if ((e.key === "c" || e.key === "x") && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       const selected = blocks.filter(b => selectedIds.has(b.id));
-      const plain = selected.map(serializeBlock).join("\n");
-      const html = selected.map((b) => {
+      // For plain text: bookmark → just URL, image → skip (too large)
+      const plain = selected
+        .filter(b => b.type !== "image")
+        .map(b => b.type === "bookmark" ? b.content : serializeBlock(b))
+        .join("\n");
+      // Embed block data as JSON in HTML for lossless paste within our editor
+      const blocksJson = encodeURIComponent(JSON.stringify(selected.map(b => ({ type: b.type, content: b.content, indent: b.indent, imageWidth: b.imageWidth }))));
+      const htmlInner = selected.map((b) => {
         const c = b.content || "";
         switch (b.type) {
           case "h1": return `<h1>${c}</h1>`;
@@ -1417,9 +1612,12 @@ export function NotionBlockEditor({
           case "bullet": return `<ul><li>${c}</li></ul>`;
           case "numbered": return `<ol><li>${c}</li></ol>`;
           case "divider": return `<hr>`;
+          case "bookmark": return `<a href="${c}">${c}</a>`;
+          case "image": return `<img src="${c}" />`;
           default: return `<p>${c}</p>`;
         }
       }).join("\n");
+      const html = `<div data-poten-blocks="${blocksJson}">${htmlInner}</div>`;
       navigator.clipboard.write([
         new ClipboardItem({
           "text/plain": new Blob([plain], { type: "text/plain" }),
@@ -1427,6 +1625,61 @@ export function NotionBlockEditor({
         }),
       ]).catch(() => { navigator.clipboard.writeText(plain); });
       if (e.key === "x") { pushUndo(); deleteSelectedBlocks(); }
+      return;
+    }
+    // Ctrl+V: paste, replacing selected blocks
+    if (e.key === "v" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      navigator.clipboard.read().then(async (items) => {
+        let html = "";
+        let text = "";
+        for (const item of items) {
+          if (item.types.includes("text/html")) {
+            const blob = await item.getType("text/html");
+            html = await blob.text();
+          }
+          if (item.types.includes("text/plain")) {
+            const blob = await item.getType("text/plain");
+            text = await blob.text();
+          }
+        }
+        pushUndo();
+        const firstIdx = blocks.findIndex(b => selectedIds.has(b.id));
+        // Check for our custom block data
+        const potenMatch = html.match(/data-poten-blocks="([^"]+)"/);
+        let newBlocks: Block[] = [];
+        if (potenMatch) {
+          try {
+            const pastedBlocks: { type: BlockType; content: string; indent?: number; imageWidth?: number }[] = JSON.parse(decodeURIComponent(potenMatch[1]));
+            newBlocks = pastedBlocks.map(pb => {
+              const b: Block = { id: genId(), content: pb.content, type: pb.type, indent: pb.indent || 0 };
+              if (pb.imageWidth) b.imageWidth = pb.imageWidth;
+              return b;
+            });
+          } catch { /* fall through */ }
+        }
+        if (newBlocks.length === 0 && text) {
+          const trimmed = text.trim();
+          if (/^https?:\/\/[^\s]+$/.test(trimmed)) {
+            newBlocks = [{ id: genId(), content: trimmed, type: "bookmark", indent: 0 }];
+          } else {
+            newBlocks = text.split(/\r?\n/).filter(l => l.trim()).map(l => {
+              const tl = l.trim();
+              if (/^https?:\/\/[^\s]+$/.test(tl)) return { id: genId(), content: tl, type: "bookmark" as BlockType, indent: 0 };
+              return { id: genId(), content: l, type: "text" as BlockType, indent: 0 };
+            });
+          }
+        }
+        if (newBlocks.length > 0) {
+          setBlocks(prev => {
+            const next = prev.filter(b => !selectedIds.has(b.id));
+            next.splice(Math.min(firstIdx, next.length), 0, ...newBlocks);
+            return next;
+          });
+          setSelectedIds(new Set());
+          pendingFocusIdx.current = firstIdx + newBlocks.length - 1;
+        }
+      }).catch(() => {});
       return;
     }
     if (e.key === "Escape") { e.preventDefault(); setSelectedIds(new Set()); return; }
@@ -1462,7 +1715,7 @@ export function NotionBlockEditor({
 
   // ─── Render ────────────────────────────────────────────────────
   return (
-    <div ref={wrapperRef} className="space-y-0 outline-none" tabIndex={-1} onKeyDown={handleWrapperKeyDown}>
+    <div ref={wrapperRef} className="space-y-0 outline-none pb-8 -mx-12 px-12" tabIndex={-1} onKeyDown={handleWrapperKeyDown} onMouseDown={handleWrapperMouseDown} onMouseMove={handleWrapperMouseMove}>
       {blocks.map((block, idx) => (
         <div
           key={block.id}
@@ -1470,9 +1723,17 @@ export function NotionBlockEditor({
             "group/block relative flex items-start",
             selectedIds.has(block.id) && "bg-blue-50 rounded-[4px]",
             dragBlockIdx === idx && "opacity-40",
-            dropTargetIdx === idx && dragBlockIdx !== null && dragBlockIdx !== idx && "border-t-2 border-blue-400"
+            dropTargetIdx === idx && dragBlockIdx !== null && idx === dragBlockIdx && "before:content-[''] before:absolute before:top-0 before:left-0 before:right-0 before:h-[3px] before:bg-green-300 before:rounded-full before:z-10",
+            dropTargetIdx === idx && dragBlockIdx !== null && idx !== dragBlockIdx && "before:content-[''] before:absolute before:top-0 before:left-0 before:right-0 before:h-[3px] before:bg-blue-300 before:rounded-full before:z-10"
           )}
           style={{ paddingLeft: block.indent * 24 }}
+          draggable={!readOnly && block.type !== "text" && block.type !== "bullet" && block.type !== "numbered" && block.type !== "h1" && block.type !== "h2" && block.type !== "h3" ? true : undefined}
+          onDragStart={(e) => {
+            if (!readOnly && block.type !== "text" && block.type !== "bullet" && block.type !== "numbered" && block.type !== "h1" && block.type !== "h2" && block.type !== "h3") {
+              handleGripDragStart(e, idx);
+            }
+          }}
+          onDragEnd={handleBlockDragEnd}
           onMouseDown={(e) => handleBlockMouseDown(e, idx)}
           onMouseEnter={() => handleBlockMouseEnter(idx)}
           onMouseLeave={() => setHoveredIdx(null)}
@@ -1556,6 +1817,7 @@ export function NotionBlockEditor({
             <ImageBlock
               block={block}
               readOnly={readOnly}
+              isSelected={selectedIds.has(block.id)}
               onResize={(width) => {
                 setBlocks((prev) => prev.map((b) => b.id === block.id ? { ...b, imageWidth: width } : b));
               }}
@@ -1565,6 +1827,8 @@ export function NotionBlockEditor({
                 lastClickedIdx.current = idx;
                 wrapperRef.current?.focus();
               }}
+              onDragStart={(e) => handleGripDragStart(e, idx)}
+              onDragEnd={handleBlockDragEnd}
             />
           ) : block.type === "bookmark" ? (
             <div onDoubleClick={() => {
@@ -1577,6 +1841,7 @@ export function NotionBlockEditor({
               <BookmarkBlock
                 block={block}
                 readOnly={readOnly}
+                isSelected={selectedIds.has(block.id)}
                 onDelete={() => deleteBlock(idx)}
                 onSelect={() => {
                   setSelectedIds(new Set([block.id]));
@@ -1704,9 +1969,9 @@ export function NotionBlockEditor({
               }}
               onPaste={(e) => !readOnly && handlePaste(e, idx)}
               onKeyDown={(e) => !readOnly && handleKeyDown(e, idx)}
-              data-placeholder={idx === 0 && blocks.length === 1 ? placeholder : block.type === "h1" ? (ko ? "제목 1" : "Heading 1") : block.type === "h2" ? (ko ? "제목 2" : "Heading 2") : block.type === "h3" ? (ko ? "제목 3" : "Heading 3") : ""}
+              data-placeholder={idx === 0 && blocks.length === 1 ? placeholder : block.type === "h1" ? (ko ? "제목 1" : "Heading 1") : block.type === "h2" ? (ko ? "제목 2" : "Heading 2") : block.type === "h3" ? (ko ? "제목 3" : "Heading 3") : (block.content === "" && focusedIdx === idx) ? (ko ? "'/' 명령어 입력..." : "Type '/' for commands...") : ""}
               className={cn(
-                "flex-1 outline-none px-1 rounded-[4px]",
+                "flex-1 outline-none px-1 rounded-[4px] break-all [overflow-wrap:anywhere]",
                 BLOCK_TYPE_STYLES[block.type],
                 "empty:before:content-[attr(data-placeholder)] empty:before:text-gray-300 empty:before:pointer-events-none",
                 "transition-colors duration-75",
@@ -1731,33 +1996,45 @@ export function NotionBlockEditor({
         </div>
       ))}
 
-      {/* Bottom drop zone — allows dropping blocks at the end */}
-      {!readOnly && dragBlockIdx !== null && (
-        <div
-          className={cn(
-            "h-16 rounded-lg transition-colors",
-            dropTargetIdx === blocks.length && "border-2 border-dashed border-blue-300 bg-blue-50/30"
-          )}
-          onDragOver={(e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = "move";
-            setDropTargetIdx(blocks.length);
-          }}
-          onDrop={(e) => {
-            e.preventDefault();
-            if (dragBlockIdx === null) { setDragBlockIdx(null); setDropTargetIdx(null); return; }
-            pushUndo();
-            setBlocks((prev) => {
-              const next = [...prev];
-              const [moved] = next.splice(dragBlockIdx, 1);
-              next.push(moved);
-              return next;
-            });
-            setDragBlockIdx(null);
-            setDropTargetIdx(null);
-          }}
-        />
-      )}
+      {/* Virtual drop zones — 5 positions below last block during drag */}
+      {!readOnly && dragBlockIdx !== null && Array.from({ length: 6 }, (_, vi) => {
+        const virtualIdx = blocks.length + vi;
+        const isLastVirtual = vi === 5;
+        return (
+          <div
+            key={`virtual-drop-${vi}`}
+            className={cn(
+              "h-8 relative transition-colors",
+              dropTargetIdx === virtualIdx && !isLastVirtual && "before:content-[''] before:absolute before:top-0 before:left-0 before:right-0 before:h-[3px] before:bg-blue-300 before:rounded-full before:z-10",
+              dropTargetIdx === virtualIdx && isLastVirtual && "before:content-[''] before:absolute before:top-0 before:left-0 before:right-0 before:h-[3px] before:bg-red-300 before:rounded-full before:z-10"
+            )}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = isLastVirtual ? "none" : "move";
+              setDropTargetIdx(virtualIdx);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (isLastVirtual || dragBlockIdx === null) { dragBlockIdxRef.current = null; setDragBlockIdx(null); setDropTargetIdx(null); return; }
+              pushUndo();
+              setBlocks((prev) => {
+                const next = [...prev];
+                const [moved] = next.splice(dragBlockIdx, 1);
+                // Add empty text blocks to fill the gap
+                const emptyCount = vi; // how many empty blocks needed before the moved block
+                for (let i = 0; i < emptyCount; i++) {
+                  next.push({ id: genId(), content: "", type: "text", indent: 0 });
+                }
+                next.push(moved);
+                return next;
+              });
+              dragBlockIdxRef.current = null;
+              setDragBlockIdx(null);
+              setDropTargetIdx(null);
+            }}
+          />
+        );
+      })}
 
       {/* Click below blocks to focus last block */}
       {!readOnly && dragBlockIdx === null && (
