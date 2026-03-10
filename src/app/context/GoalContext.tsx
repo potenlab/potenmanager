@@ -58,13 +58,23 @@ export function GoalProvider({ children }: { children: ReactNode }) {
 
     const init = async () => {
       try {
-        // Wait briefly for TaskContext to potentially finish seeding
-        await new Promise((r) => setTimeout(r, 500));
+        // Wait for orgId + TaskContext seeding
+        const isDemo = localStorage.getItem('poten_demo_mode') === 'true';
+        if (!isDemo) {
+          for (let i = 0; i < 20; i++) {
+            if (localStorage.getItem('poten_active_org_id')) break;
+            await new Promise((r) => setTimeout(r, 150));
+          }
+        }
+        await new Promise((r) => setTimeout(r, 300));
 
         const serverGoals = await api.getGoals();
         if (serverGoals && serverGoals.length > 0) {
-          setAllGoals(serverGoals as GoalItem[]);
-          console.log(`[GoalContext] Loaded ${serverGoals.length} goals from server.`);
+          const filtered = isDemo
+            ? serverGoals
+            : serverGoals.filter((g: any) => !g.id?.startsWith('g-demo-'));
+          setAllGoals(filtered as GoalItem[]);
+          console.log(`[GoalContext] Loaded ${filtered.length} goals from server.`);
         } else {
           console.log("[GoalContext] No goals on server. Starting empty.");
         }

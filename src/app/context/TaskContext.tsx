@@ -59,6 +59,15 @@ export function TaskProvider({ children }: { children: ReactNode }) {
 
     const init = async () => {
       try {
+        // Wait for orgId to be available (InviteContext may not have loaded yet)
+        const isDemo = localStorage.getItem('poten_demo_mode') === 'true';
+        if (!isDemo) {
+          for (let i = 0; i < 20; i++) {
+            if (localStorage.getItem('poten_active_org_id')) break;
+            await new Promise((r) => setTimeout(r, 150));
+          }
+        }
+
         // Check if server has been seeded
         const { seeded } = await api.checkSeeded();
 
@@ -71,8 +80,12 @@ export function TaskProvider({ children }: { children: ReactNode }) {
         // Fetch tasks from server
         const serverTasks = await api.getTasks();
         if (serverTasks && serverTasks.length > 0) {
-          setTasks(serverTasks as Task[]);
-          console.log(`[TaskContext] Loaded ${serverTasks.length} tasks from server.`);
+          // Filter out demo tasks when not in demo mode
+          const filtered = isDemo
+            ? serverTasks
+            : serverTasks.filter((t: any) => !t.id?.startsWith('t-demo-'));
+          setTasks(filtered as Task[]);
+          console.log(`[TaskContext] Loaded ${filtered.length} tasks from server${!isDemo && filtered.length < serverTasks.length ? ` (filtered ${serverTasks.length - filtered.length} demo tasks)` : ''}.`);
         }
         setIsSynced(true);
       } catch (err) {
