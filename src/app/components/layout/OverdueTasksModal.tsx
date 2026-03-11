@@ -9,10 +9,11 @@ import {
   ArrowRight,
   Calendar,
 } from "lucide-react";
-import { Task } from "../../../lib/mockData";
+import { Task, getAllAssigneeIds } from "../../../lib/mockData";
 import { useLanguage } from "../../context/LanguageContext";
 import { useTaskContext } from "../../context/TaskContext";
 import { useTeam } from "../../context/TeamContext";
+import { usePermission } from "../../context/PermissionContext";
 import { differenceInDays, format } from "date-fns";
 import { ko as koLocale } from "date-fns/locale";
 import { cn } from "../../../lib/utils";
@@ -111,10 +112,11 @@ export function OverdueTasksModal() {
   const navigate = useNavigate();
   const { tasks } = useTaskContext();
   const { members } = useTeam();
+  const { currentUser } = usePermission();
   const [isOpen, setIsOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
-  // 미처리 업무: 마감일이 오늘 이전이고 완료되지 않은 태스크
+  // 미처리 업무: 내 업무 중 마감일이 오늘 이전이고 완료되지 않은 태스크
   const overdueTasks = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -122,6 +124,8 @@ export function OverdueTasksModal() {
       .filter((t) => {
         if (t.status === "completed") return false;
         if (!t.dueDate) return false;
+        // 내 업무만
+        if (!getAllAssigneeIds(t).includes(currentUser.id)) return false;
         const due = new Date(t.dueDate);
         due.setHours(0, 0, 0, 0);
         return due < today;
