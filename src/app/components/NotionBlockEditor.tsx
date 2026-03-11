@@ -786,9 +786,21 @@ export function NotionBlockEditor({
         result.push({ type: parentTag === "ol" ? "numbered" : "bullet", content: getTextContent(el) });
         return;
       }
-      if (["p", "div", "blockquote", "section", "article"].includes(tag)) {
+      const BLOCK_TAGS = new Set(["p", "div", "blockquote", "section", "article", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li", "hr"]);
+      if (["p", "blockquote"].includes(tag)) {
         const text = getTextContent(el);
         if (text) result.push({ type: "text", content: text });
+        return;
+      }
+      if (["div", "section", "article"].includes(tag)) {
+        // If contains block-level children, recurse into them
+        const hasBlockChildren = Array.from(el.children).some(c => BLOCK_TAGS.has(c.tagName.toLowerCase()));
+        if (hasBlockChildren) {
+          el.childNodes.forEach(processNode);
+        } else {
+          const text = getTextContent(el);
+          if (text) result.push({ type: "text", content: text });
+        }
         return;
       }
       if (tag === "br") return;
@@ -1236,6 +1248,8 @@ export function NotionBlockEditor({
           requestAnimationFrame(() => {
             const curEl = blockRefs.current.get(block.id);
             if (curEl) {
+              // Manually sync DOM before cursor positioning
+              if (curEl.textContent !== mergedContent) curEl.textContent = mergedContent;
               curEl.focus();
               const range = document.createRange();
               const sel = window.getSelection();
