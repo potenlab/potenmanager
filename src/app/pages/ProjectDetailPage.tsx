@@ -211,8 +211,18 @@ export function ProjectDetailPage() {
 
   if (!project) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      <div className="h-full flex flex-col items-center justify-center gap-4 text-center px-6">
+        <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center text-3xl">🔒</div>
+        <div>
+          <p className="text-lg font-semibold text-gray-800">{ko ? "접근 권한이 없습니다" : "No Access"}</p>
+          <p className="text-sm text-gray-500 mt-1">{ko ? "이 프로젝트를 볼 권한이 없거나 존재하지 않아요." : "You don't have permission to view this project."}</p>
+        </div>
+        <button
+          onClick={() => navigate("/dashboard")}
+          className="px-5 py-2 bg-blue-500 text-white text-sm font-medium rounded-xl hover:bg-blue-600 transition-colors"
+        >
+          {ko ? "홈으로 이동" : "Go to Home"}
+        </button>
       </div>
     );
   }
