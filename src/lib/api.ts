@@ -161,6 +161,19 @@ export const api = {
   getOrgInvites: (orgId: string) =>
     request<any[]>(`/org/${orgId}/invites`),
 
+  // ── Projects & Kanban ──
+  getProjects: () => request<any[]>('/projects'),
+  getProject: (id: string) => request<any>(`/projects/${id}`),
+  createProject: (data: any) => request<any>('/projects', { method: 'POST', body: JSON.stringify(data) }),
+  updateProject: (id: string, data: any) => request<any>(`/projects/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteProject: (id: string) => request<any>(`/projects/${id}`, { method: 'DELETE' }),
+  getKanbanColumns: (board: string) => request<any[]>(`/kanban/${board}/columns`),
+  saveKanbanColumns: (board: string, cols: any[]) => request<any>(`/kanban/${board}/columns`, { method: 'PUT', body: JSON.stringify(cols) }),
+  getKanbanCards: (board: string) => request<any[]>(`/kanban/${board}/cards`),
+  createKanbanCard: (board: string, card: any) => request<any>(`/kanban/${board}/cards`, { method: 'POST', body: JSON.stringify(card) }),
+  updateKanbanCard: (board: string, id: string, data: any) => request<any>(`/kanban/${board}/cards/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteKanbanCard: (board: string, id: string) => request<any>(`/kanban/${board}/cards/${id}`, { method: 'DELETE' }),
+
   // ── Team Board ──
   getTeamBoardItems: (orgId: string) =>
     request<any[]>(`/team-board/${orgId}`),

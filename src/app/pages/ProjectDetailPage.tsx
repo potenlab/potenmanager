@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { cn } from "../../lib/utils";
+import { api } from "../../lib/api";
 import { useLanguage } from "../context/LanguageContext";
 import { usePermission } from "../context/PermissionContext";
 import { usePortalPosition } from "../hooks/usePortalPosition";
@@ -185,14 +186,19 @@ export function ProjectDetailPage() {
         saveProjects(next);
         return next;
       });
+      // Sync to server
+      if (localStorage.getItem('poten_demo_mode') !== 'true') {
+        api.updateProject(currentId, updates).catch(() => {});
+      }
       // Sync fields to kanban card
-      if (updates.logoUrl !== undefined || updates.name !== undefined || updates.description !== undefined) {
+      if (updates.logoUrl !== undefined || updates.name !== undefined || updates.description !== undefined || updates.endDate !== undefined) {
         const allCards = loadCards("projects");
         const card = allCards.find(c => c.id === currentId);
         if (card) {
           if (updates.logoUrl !== undefined) card.logoUrl = updates.logoUrl || undefined;
           if (updates.name !== undefined) card.title = updates.name;
           if (updates.description !== undefined) card.description = updates.description;
+          if (updates.endDate !== undefined) card.dueDate = updates.endDate || undefined;
           saveCards("projects", allCards);
         }
       }
@@ -210,8 +216,18 @@ export function ProjectDetailPage() {
 
   if (!project) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      <div className="h-full flex flex-col items-center justify-center gap-4 text-center px-6">
+        <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center text-3xl">🔒</div>
+        <div>
+          <p className="text-lg font-semibold text-gray-800">{ko ? "접근 권한이 없습니다" : "No Access"}</p>
+          <p className="text-sm text-gray-500 mt-1">{ko ? "이 프로젝트를 볼 권한이 없거나 존재하지 않아요." : "You don't have permission to view this project."}</p>
+        </div>
+        <button
+          onClick={() => navigate("/dashboard")}
+          className="px-5 py-2 bg-blue-500 text-white text-sm font-medium rounded-xl hover:bg-blue-600 transition-colors"
+        >
+          {ko ? "홈으로 이동" : "Go to Home"}
+        </button>
       </div>
     );
   }

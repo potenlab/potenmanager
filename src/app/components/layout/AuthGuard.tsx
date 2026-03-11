@@ -1,4 +1,4 @@
-import { Outlet, Navigate } from 'react-router';
+import { Outlet, Navigate, useLocation } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { Zap } from 'lucide-react';
 
@@ -11,6 +11,7 @@ import { Zap } from 'lucide-react';
  */
 export function AuthGuard() {
   const { user, isLoading } = useAuth();
+  const location = useLocation();
 
   // 개발 모드 우회: Figma Make 환경에서 OAuth 리다이렉트 불가 시 활성화
   const isDevMode = localStorage.getItem('poten_dev_mode') === 'true';
@@ -32,6 +33,7 @@ export function AuthGuard() {
     return <Outlet />;
   }
 
-  // 미인증 → 로그인 페이지
-  return <Navigate to="/login" replace />;
+  // 미인증 → 로그인 페이지 (원래 URL을 redirect 파라미터로 전달)
+  const redirectTo = location.pathname + location.search;
+  return <Navigate to={`/login?redirect=${encodeURIComponent(redirectTo)}`} replace />;
 }

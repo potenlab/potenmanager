@@ -3097,7 +3097,115 @@ app.get("/make-server-f580d5ca/share/check/:type/:itemId", async (c) => {
   }
 });
 
+// ─── Projects (kanban cards + project metadata) ──────────────────────────────
+
+app.get("/make-server-f580d5ca/projects", async (c) => {
+  try {
+    const items = await kv.getByPrefix(pfx(c, "project:"));
+    return c.json(items || []);
+  } catch (e) { return c.json([]); }
+});
+
+app.get("/make-server-f580d5ca/projects/:id", async (c) => {
+  try {
+    const item = await kv.get(pfx(c, `project:${c.req.param("id")}`));
+    if (!item) return c.json({ error: "Not found" }, 404);
+    return c.json(item);
+  } catch (e) { return c.json({ error: String(e) }, 500); }
+});
+
+app.post("/make-server-f580d5ca/projects", async (c) => {
+  try {
+    const body = await c.req.json();
+    const id = body.id || `proj-${Date.now()}`;
+    const item = { ...body, id, updatedAt: new Date().toISOString() };
+    await kv.set(pfx(c, `project:${id}`), item);
+    return c.json(item);
+  } catch (e) { return c.json({ error: String(e) }, 500); }
+});
+
+app.put("/make-server-f580d5ca/projects/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const body = await c.req.json();
+    const existing = await kv.get(pfx(c, `project:${id}`));
+    const updated = { ...(existing || {}), ...body, id, updatedAt: new Date().toISOString() };
+    await kv.set(pfx(c, `project:${id}`), updated);
+    return c.json(updated);
+  } catch (e) { return c.json({ error: String(e) }, 500); }
+});
+
+app.delete("/make-server-f580d5ca/projects/:id", async (c) => {
+  try {
+    await kv.del(pfx(c, `project:${c.req.param("id")}`));
+    return c.json({ success: true });
+  } catch (e) { return c.json({ error: String(e) }, 500); }
+});
+
+// Kanban columns
+app.get("/make-server-f580d5ca/kanban/:board/columns", async (c) => {
+  try {
+    const board = c.req.param("board");
+    const items = await kv.getByPrefix(pfx(c, `kanban:${board}:col:`));
+    return c.json(items || []);
+  } catch (e) { return c.json([]); }
+});
+
+app.put("/make-server-f580d5ca/kanban/:board/columns", async (c) => {
+  try {
+    const board = c.req.param("board");
+    const cols = await c.req.json();
+    // Delete old columns and save new ones
+    const oldKeys = await kv.getByPrefix(pfx(c, `kanban:${board}:col:`));
+    // Save each column
+    for (const col of cols) {
+      await kv.set(pfx(c, `kanban:${board}:col:${col.id}`), col);
+    }
+    return c.json({ success: true });
+  } catch (e) { return c.json({ error: String(e) }, 500); }
+});
+
+// Kanban cards
+app.get("/make-server-f580d5ca/kanban/:board/cards", async (c) => {
+  try {
+    const board = c.req.param("board");
+    const items = await kv.getByPrefix(pfx(c, `kanban:${board}:card:`));
+    return c.json(items || []);
+  } catch (e) { return c.json([]); }
+});
+
+app.post("/make-server-f580d5ca/kanban/:board/cards", async (c) => {
+  try {
+    const board = c.req.param("board");
+    const body = await c.req.json();
+    const id = body.id || `card-${Date.now()}`;
+    const item = { ...body, id, updatedAt: new Date().toISOString() };
+    await kv.set(pfx(c, `kanban:${board}:card:${id}`), item);
+    return c.json(item);
+  } catch (e) { return c.json({ error: String(e) }, 500); }
+});
+
+app.put("/make-server-f580d5ca/kanban/:board/cards/:id", async (c) => {
+  try {
+    const board = c.req.param("board");
+    const id = c.req.param("id");
+    const body = await c.req.json();
+    const existing = await kv.get(pfx(c, `kanban:${board}:card:${id}`));
+    const updated = { ...(existing || {}), ...body, id, updatedAt: new Date().toISOString() };
+    await kv.set(pfx(c, `kanban:${board}:card:${id}`), updated);
+    return c.json(updated);
+  } catch (e) { return c.json({ error: String(e) }, 500); }
+});
+
+app.delete("/make-server-f580d5ca/kanban/:board/cards/:id", async (c) => {
+  try {
+    const board = c.req.param("board");
+    await kv.del(pfx(c, `kanban:${board}:card:${c.req.param("id")}`));
+    return c.json({ success: true });
+  } catch (e) { return c.json({ error: String(e) }, 500); }
+});
+
 // Version check endpoint
-app.get("/make-server-f580d5ca/version", (c) => c.json({ version: "0.5.0", routes: "full" }));
+app.get("/make-server-f580d5ca/version", (c) => c.json({ version: "0.6.0", routes: "full" }));
 
 Deno.serve(app.fetch);

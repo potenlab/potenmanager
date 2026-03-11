@@ -9,10 +9,11 @@ import {
   ArrowRight,
   Calendar,
 } from "lucide-react";
-import { Task } from "../../../lib/mockData";
+import { Task, getAllAssigneeIds } from "../../../lib/mockData";
 import { useLanguage } from "../../context/LanguageContext";
 import { useTaskContext } from "../../context/TaskContext";
 import { useTeam } from "../../context/TeamContext";
+import { usePermission } from "../../context/PermissionContext";
 import { differenceInDays, format } from "date-fns";
 import { ko as koLocale } from "date-fns/locale";
 import { cn } from "../../../lib/utils";
@@ -23,10 +24,11 @@ function getTodayKey() {
   return `poten_overdue_dismissed_${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 }
 
-const PRIORITY_CONFIG = {
+const PRIORITY_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
   high: { label: "긴급", color: "text-red-500", bg: "bg-red-50", border: "border-red-200" },
   medium: { label: "보통", color: "text-green-600", bg: "bg-green-50", border: "border-green-200" },
   low: { label: "낮음", color: "text-gray-500", bg: "bg-gray-50", border: "border-gray-200" },
+  delayed: { label: "지연", color: "text-orange-500", bg: "bg-orange-50", border: "border-orange-200" },
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
@@ -34,6 +36,8 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string 
   "in-progress": { label: "진행 중", color: "text-blue-600", dot: "bg-blue-500" },
   "routine": { label: "루틴", color: "text-purple-600", dot: "bg-purple-500" },
   "completed": { label: "완료", color: "text-emerald-600", dot: "bg-emerald-500" },
+  "cancelled": { label: "취소", color: "text-gray-400", dot: "bg-gray-300" },
+  "on-hold": { label: "보류", color: "text-yellow-600", dot: "bg-yellow-400" },
 };
 
 interface OverdueTaskRowProps {
@@ -52,7 +56,7 @@ function OverdueTaskRow({ task, onNavigate, members }: OverdueTaskRowProps) {
         locale: language === "ko" ? koLocale : undefined,
       })
     : "";
-  const priority = task.priority || "medium";
+  const priority = task.priority ?? "medium";
   const pCfg = PRIORITY_CONFIG[priority as keyof typeof PRIORITY_CONFIG] || PRIORITY_CONFIG.medium;
   const sCfg = STATUS_CONFIG[task.status] || STATUS_CONFIG["pending"];
 
@@ -108,10 +112,11 @@ export function OverdueTasksModal() {
   const navigate = useNavigate();
   const { tasks } = useTaskContext();
   const { members } = useTeam();
+  const { currentUser } = usePermission();
   const [isOpen, setIsOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
-  // 미처리 업무: 마감일이 오늘 이전이고 완료되지 않은 태스크
+  // 미처리 업무: 내 업무 중 마감일이 오늘 이전이고 완료되지 않은 태스크
   const overdueTasks = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -119,6 +124,8 @@ export function OverdueTasksModal() {
       .filter((t) => {
         if (t.status === "completed") return false;
         if (!t.dueDate) return false;
+        // 내 업무만
+        if (!getAllAssigneeIds(t).includes(currentUser.id)) return false;
         const due = new Date(t.dueDate);
         due.setHours(0, 0, 0, 0);
         return due < today;

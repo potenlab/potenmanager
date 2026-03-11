@@ -724,7 +724,7 @@ function TaskQuickViewModal({
 
   const title = language === "ko" ? task.titleKo || task.title : task.title;
   const statusCfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.pending;
-  const priorityCfg = PRIORITY_CONFIG[task.priority || "low"];
+  const priorityCfg = PRIORITY_CONFIG[task.priority || "low"] || PRIORITY_CONFIG["low"];
   const mainId = getMainAssigneeId(task);
   const mainAssignee = mainId ? members.find((m) => m.id === mainId) : null;
   const allIds = getAllAssigneeIds(task);

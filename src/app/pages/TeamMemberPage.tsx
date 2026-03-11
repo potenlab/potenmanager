@@ -112,6 +112,7 @@ const PRIORITY_CONFIG: Record<
   low: { label: "Low", labelKo: "낮음", color: "text-blue-600", dot: "bg-blue-400" },
   medium: { label: "Medium", labelKo: "보통", color: "text-green-600", dot: "bg-green-400" },
   high: { label: "High", labelKo: "높음", color: "text-red-600", dot: "bg-red-500" },
+  delayed: { label: "Delayed", labelKo: "지연", color: "text-orange-600", dot: "bg-orange-400" },
 };
 
 export function TeamMemberPage() {
@@ -785,7 +786,7 @@ function TaskRow({
 }) {
   const title = language === "ko" ? task.titleKo || task.title : task.title;
   const statusCfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.pending;
-  const priorityCfg = PRIORITY_CONFIG[task.priority || "low"];
+  const priorityCfg = PRIORITY_CONFIG[task.priority || "low"] || PRIORITY_CONFIG["low"];
 
   const formatDueDate = () => {
     if (!task.dueDate) return language === "ko" ? "미정" : "No date";

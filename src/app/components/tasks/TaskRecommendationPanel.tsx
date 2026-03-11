@@ -25,10 +25,11 @@ const LEVEL_CONFIG: Record<string, { label: string; labelKo: string; color: stri
   Urgent:  { label: "Urgent",        labelKo: "긴급 미션",   color: "text-red-600",    bg: "bg-red-50 border-red-200",     icon: <AlertTriangle size={11} /> },
 };
 
-const PRIORITY_CONFIG = {
-  high:   { label: "긴급",  labelEn: "High",   color: "text-red-600",   bg: "bg-red-50",   border: "border-red-200" },
-  medium: { label: "보통",  labelEn: "Medium", color: "text-green-600", bg: "bg-green-50", border: "border-green-200" },
-  low:    { label: "낮음",  labelEn: "Low",    color: "text-gray-500",  bg: "bg-gray-50",  border: "border-gray-200" },
+const PRIORITY_CONFIG: Record<string, { label: string; labelEn: string; color: string; bg: string; border: string }> = {
+  high:    { label: "긴급",  labelEn: "High",    color: "text-red-600",    bg: "bg-red-50",    border: "border-red-200" },
+  medium:  { label: "보통",  labelEn: "Medium",  color: "text-green-600",  bg: "bg-green-50",  border: "border-green-200" },
+  low:     { label: "낮음",  labelEn: "Low",     color: "text-gray-500",   bg: "bg-gray-50",   border: "border-gray-200" },
+  delayed: { label: "지연",  labelEn: "Delayed", color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-200" },
 };
 
 // ─── Goal Context Card ───────────────────────────────────────────────────────

@@ -9,6 +9,7 @@ import {
   StickyNote, LayoutGrid, List, AlignJustify, LayoutList,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { api } from "../../lib/api";
 import { useLanguage } from "../context/LanguageContext";
 import { useInvite } from "../context/InviteContext";
 import { TeamBoardSidebar } from "./GoalPage";
@@ -785,7 +786,7 @@ export function ManagementPage() {
   }, []);
   const closeCtxMenu = useCallback(() => setCtxMenu(null), []);
 
-  // Reload data when board changes
+  // Reload data when board changes (local first, then server)
   useEffect(() => {
     setColumns(loadColumns(board));
     setCards(loadCards(board));
@@ -793,9 +794,24 @@ export function ManagementPage() {
     setAddingColumn(false);
     setSelectedIds(new Set());
     setCtxMenu(null);
+    // Fetch from server in background (skip demo)
+    if (localStorage.getItem('poten_demo_mode') !== 'true') {
+      Promise.all([api.getKanbanColumns(board), api.getKanbanCards(board)])
+        .then(([serverCols, serverCards]) => {
+          if (serverCols?.length) {
+            saveColumns(board, serverCols);
+            setColumns(serverCols);
+          }
+          if (serverCards?.length) {
+            saveCards(board, serverCards);
+            setCards(serverCards);
+          }
+        })
+        .catch(() => {}); // fallback to localStorage on error
+    }
   }, [board]);
 
-  // Sync project logoUrls from Project data to kanban cards
+  // Sync project fields (logoUrl, endDate→dueDate) from Project data to kanban cards
   useEffect(() => {
     if (board !== "projects") return;
     const projects = loadProjects();
@@ -803,8 +819,14 @@ export function ManagementPage() {
     let changed = false;
     currentCards.forEach(card => {
       const proj = projects.find(p => p.id === card.id);
-      if (proj && proj.logoUrl !== card.logoUrl) {
+      if (!proj) return;
+      if (proj.logoUrl !== card.logoUrl) {
         card.logoUrl = proj.logoUrl || undefined;
+        changed = true;
+      }
+      const projDueDate = proj.endDate || undefined;
+      if (projDueDate !== card.dueDate) {
+        card.dueDate = projDueDate;
         changed = true;
       }
     });
@@ -816,9 +838,22 @@ export function ManagementPage() {
 
   useEffect(() => { if (addingColumn && newColRef.current) newColRef.current.focus(); }, [addingColumn]);
 
-  // Persist
-  const persistColumns = useCallback((cols: KanbanColumn[]) => { setColumns(cols); saveColumns(board, cols); }, [board]);
-  const persistCards = useCallback((crds: KanbanCard[]) => { setCards(crds); saveCards(board, crds); }, [board]);
+  // Persist (localStorage + server)
+  const persistColumns = useCallback((cols: KanbanColumn[]) => {
+    setColumns(cols);
+    saveColumns(board, cols);
+    if (localStorage.getItem('poten_demo_mode') !== 'true') {
+      api.saveKanbanColumns(board, cols).catch(() => {});
+    }
+  }, [board]);
+  const persistCards = useCallback((crds: KanbanCard[]) => {
+    setCards(crds);
+    saveCards(board, crds);
+    if (localStorage.getItem('poten_demo_mode') !== 'true') {
+      // Sync each card to server (upsert)
+      crds.forEach(card => api.updateKanbanCard(board, card.id, card).catch(() => {}));
+    }
+  }, [board]);
 
   // Column operations
   const handleAddColumn = () => {

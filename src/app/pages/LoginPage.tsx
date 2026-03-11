@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { motion } from 'motion/react';
 import { Zap, FlaskConical, ChevronDown, ChevronUp, Play, Megaphone, Film, Rocket, ShoppingBag, Coffee } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -23,6 +23,8 @@ export function LoginPage() {
   const { user, isLoading, signInWithGoogle, signInWithEmail, signUp } = useAuth();
   const { language } = useLanguage();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get('redirect') || '/dashboard';
   const ko = language === 'ko';
   const [showDevTools, setShowDevTools] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
@@ -92,7 +94,7 @@ export function LoginPage() {
     if (!isLoading && user) {
       const localDone = localStorage.getItem('poten_onboarding_complete');
       if (localDone) {
-        navigate('/dashboard', { replace: true });
+        navigate(redirectTo, { replace: true });
         return;
       }
       // Check KV Store for cross-device sync
@@ -101,8 +103,7 @@ export function LoginPage() {
         if (result.exists && result.data?.completedAt) {
           localStorage.setItem('poten_onboarding_complete', 'true');
           localStorage.setItem('poten_onboarding_data', JSON.stringify(result.data));
-          console.log('[Login] Onboarding data restored from KV Store');
-          navigate('/dashboard', { replace: true });
+          navigate(redirectTo, { replace: true });
         } else {
           navigate('/onboarding', { replace: true });
         }
@@ -110,7 +111,7 @@ export function LoginPage() {
         navigate('/onboarding', { replace: true });
       });
     }
-  }, [user, isLoading, navigate]);
+  }, [user, isLoading, navigate, redirectTo]);
 
   /** Dev mode 진입: localStorage flag 설정 후 온보딩 체크 */
   const enterDevMode = () => {
