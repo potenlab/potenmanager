@@ -20,7 +20,7 @@ import { AIStrategyPanel } from "../components/AIStrategyPanel";
 import { DetailPageShell } from "../components/detail/DetailPageShell";
 import {
   Project, PROJECT_STATUS_CONFIG, PROJECT_COLORS, PROJECT_CATEGORY_CONFIG,
-  loadProjects, saveProjects, loadCards, saveCards, loadColumns,
+  loadProjects, saveProjects, syncProjectsFromServer, loadCards, saveCards, loadColumns,
 } from "./ManagementPage";
 
 // ─── Member Picker (same style as task detail) ─────────────────────
@@ -124,12 +124,23 @@ export function ProjectDetailPage() {
         };
         const next = [...existing, newProj];
         saveProjects(next);
+        if (localStorage.getItem('poten_demo_mode') !== 'true') {
+          api.createProject(newProj).catch(() => {});
+        }
         return next;
       }
     }
     return existing;
   });
   const [localId, setLocalId] = useState<string | null>(null);
+
+  // Sync projects from server on mount
+  useEffect(() => {
+    if (localStorage.getItem('poten_demo_mode') === 'true') return;
+    syncProjectsFromServer().then((merged) => {
+      setProjects(merged);
+    });
+  }, []);
 
   // Create new project on mount if "new"
   useEffect(() => {
@@ -151,6 +162,10 @@ export function ProjectDetailPage() {
         return next;
       });
       setLocalId(id);
+      // Save to server
+      if (localStorage.getItem('poten_demo_mode') !== 'true') {
+        api.createProject(newProj).catch(() => {});
+      }
       navigate(`/projects/${id}`, { replace: true });
     }
   }, [isNew, localId]);
@@ -213,6 +228,9 @@ export function ProjectDetailPage() {
     if (!confirm(ko ? "이 프로젝트를 삭제하시겠습니까?" : "Delete this project?")) return;
     const next = projects.filter((p) => p.id !== project.id);
     saveProjects(next);
+    if (localStorage.getItem('poten_demo_mode') !== 'true') {
+      api.deleteProject(project.id).catch(() => {});
+    }
     navigate("/projects");
   };
 

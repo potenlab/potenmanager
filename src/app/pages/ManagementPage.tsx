@@ -88,6 +88,23 @@ export function loadProjects(): Project[] {
 export function saveProjects(projects: Project[]) {
   localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(projects));
 }
+/** Fetch projects from server and merge with localStorage (server wins on conflict) */
+export async function syncProjectsFromServer(): Promise<Project[]> {
+  const local = loadProjects();
+  try {
+    const server: Project[] = await api.getProjects() || [];
+    if (!server.length) return local;
+    const serverMap = new Map(server.map(p => [p.id, p]));
+    const merged = [...server];
+    for (const lp of local) {
+      if (!serverMap.has(lp.id)) merged.push(lp);
+    }
+    saveProjects(merged);
+    return merged;
+  } catch {
+    return local;
+  }
+}
 export function loadBrandAssets(): BrandAsset[] {
   try {
     const s = localStorage.getItem(STORAGE_KEY_BRAND);
@@ -810,6 +827,13 @@ export function ManagementPage() {
         })
         .catch(() => {}); // fallback to localStorage on error
     }
+  }, [board]);
+
+  // Sync projects from server
+  useEffect(() => {
+    if (board !== "projects") return;
+    if (localStorage.getItem('poten_demo_mode') === 'true') return;
+    syncProjectsFromServer().catch(() => {});
   }, [board]);
 
   // Sync project fields (logoUrl, endDate→dueDate) from Project data to kanban cards
