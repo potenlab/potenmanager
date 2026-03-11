@@ -35,6 +35,8 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string 
   "in-progress": { label: "진행 중", color: "text-blue-600", dot: "bg-blue-500" },
   "routine": { label: "루틴", color: "text-purple-600", dot: "bg-purple-500" },
   "completed": { label: "완료", color: "text-emerald-600", dot: "bg-emerald-500" },
+  "cancelled": { label: "취소", color: "text-gray-400", dot: "bg-gray-300" },
+  "on-hold": { label: "보류", color: "text-yellow-600", dot: "bg-yellow-400" },
 };
 
 interface OverdueTaskRowProps {
@@ -55,7 +57,7 @@ function OverdueTaskRow({ task, onNavigate, members }: OverdueTaskRowProps) {
     : "";
   const priority = task.priority ?? "medium";
   const pCfg = PRIORITY_CONFIG[priority] || PRIORITY_CONFIG["medium"];
-  const sCfg = STATUS_CONFIG[task.status];
+  const sCfg = STATUS_CONFIG[task.status] || STATUS_CONFIG["pending"];
 
   return (
     <motion.button
