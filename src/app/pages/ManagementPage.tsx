@@ -795,7 +795,7 @@ export function ManagementPage() {
     setCtxMenu(null);
   }, [board]);
 
-  // Sync project logoUrls from Project data to kanban cards
+  // Sync project fields (logoUrl, endDate→dueDate) from Project data to kanban cards
   useEffect(() => {
     if (board !== "projects") return;
     const projects = loadProjects();
@@ -803,8 +803,14 @@ export function ManagementPage() {
     let changed = false;
     currentCards.forEach(card => {
       const proj = projects.find(p => p.id === card.id);
-      if (proj && proj.logoUrl !== card.logoUrl) {
+      if (!proj) return;
+      if (proj.logoUrl !== card.logoUrl) {
         card.logoUrl = proj.logoUrl || undefined;
+        changed = true;
+      }
+      const projDueDate = proj.endDate || undefined;
+      if (projDueDate !== card.dueDate) {
+        card.dueDate = projDueDate;
         changed = true;
       }
     });

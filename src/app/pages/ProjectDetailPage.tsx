@@ -186,13 +186,14 @@ export function ProjectDetailPage() {
         return next;
       });
       // Sync fields to kanban card
-      if (updates.logoUrl !== undefined || updates.name !== undefined || updates.description !== undefined) {
+      if (updates.logoUrl !== undefined || updates.name !== undefined || updates.description !== undefined || updates.endDate !== undefined) {
         const allCards = loadCards("projects");
         const card = allCards.find(c => c.id === currentId);
         if (card) {
           if (updates.logoUrl !== undefined) card.logoUrl = updates.logoUrl || undefined;
           if (updates.name !== undefined) card.title = updates.name;
           if (updates.description !== undefined) card.description = updates.description;
+          if (updates.endDate !== undefined) card.dueDate = updates.endDate || undefined;
           saveCards("projects", allCards);
         }
       }
