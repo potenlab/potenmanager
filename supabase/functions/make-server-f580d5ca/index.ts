@@ -1856,9 +1856,16 @@ app.post("/make-server-f580d5ca/library/og", async (c) => {
       if (!ogSiteName) ogSiteName = 'Instagram';
     }
 
-    // General fallback: use <title> tag if no og:title
+    // General fallback: use <title> tag if og:title is missing or too generic (same as site name)
+    const titleTag = getTitleTag();
     if (!ogTitle) {
-      ogTitle = getTitleTag();
+      ogTitle = titleTag;
+    } else if (titleTag && ogSiteName && ogTitle.trim().toLowerCase() === ogSiteName.trim().toLowerCase()) {
+      // og:title is just the site name (e.g. "MSN") — use <title> tag which usually has the real article title
+      ogTitle = titleTag;
+    } else if (titleTag && ogTitle.length <= 5 && titleTag.length > ogTitle.length) {
+      // og:title is suspiciously short (e.g. "MSN") — prefer <title> if it has more info
+      ogTitle = titleTag;
     }
 
     // Strip " - YouTube" suffix from title if present
@@ -1866,9 +1873,48 @@ app.post("/make-server-f580d5ca/library/og", async (c) => {
       ogTitle = ogTitle.replace(/ - YouTube$/, '');
     }
 
-    return c.json({ ogTitle, ogDescription, ogImage, ogSiteName, favicon: new URL('/favicon.ico', url).href });
+    const favicon = new URL('/favicon.ico', url).href;
+
+    // If we got decent OG data, return it
+    const hasGoodTitle = ogTitle && ogTitle.length > 10;
+    if (hasGoodTitle) {
+      return c.json({ ogTitle, ogDescription, ogImage, ogSiteName, favicon });
+    }
+
+    // Fallback: try Microlink API for JS-rendered pages (e.g. MSN)
+    try {
+      const mlRes = await fetch(`https://api.microlink.io?url=${encodeURIComponent(url)}`, {
+        signal: AbortSignal.timeout(8000),
+      });
+      if (mlRes.ok) {
+        const mlData = await mlRes.json();
+        const d = mlData?.data;
+        if (d) {
+          return c.json({
+            ogTitle: d.title || ogTitle,
+            ogDescription: d.description || ogDescription,
+            ogImage: d.image?.url || ogImage,
+            ogSiteName: d.publisher || ogSiteName,
+            favicon: d.logo?.url || favicon,
+          });
+        }
+      }
+    } catch { /* microlink failed, return what we have */ }
+
+    return c.json({ ogTitle, ogDescription, ogImage, ogSiteName, favicon });
   } catch (e) {
     console.log("Error fetching OG metadata:", e);
+    // Last resort: try Microlink even on total failure
+    try {
+      const { url } = await e?.req?.json?.() || {};
+      if (url) {
+        const mlRes = await fetch(`https://api.microlink.io?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(8000) });
+        if (mlRes.ok) {
+          const d = (await mlRes.json())?.data;
+          if (d) return c.json({ ogTitle: d.title, ogDescription: d.description, ogImage: d.image?.url, ogSiteName: d.publisher, favicon: d.logo?.url });
+        }
+      }
+    } catch { /* give up */ }
     return c.json({ ogTitle: undefined, ogDescription: undefined, ogImage: undefined }, 200);
   }
 });

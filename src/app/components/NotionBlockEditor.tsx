@@ -267,7 +267,7 @@ function BookmarkBlock({ block, readOnly, onDelete, onSelect, isSelected, onDrag
 
   return (
     <div
-      className="flex-1 relative group/bm flex items-stretch"
+      className="flex-1 w-full relative group/bm flex items-stretch"
       draggable={!readOnly}
       onDragStart={(e) => {
         if (readOnly) return;
@@ -290,42 +290,44 @@ function BookmarkBlock({ block, readOnly, onDelete, onSelect, isSelected, onDrag
     >
       <div
         className={cn(
-          "flex-1 flex rounded-md border overflow-hidden bg-white transition-colors min-w-0 cursor-pointer",
+          "w-full flex rounded-md border overflow-hidden bg-white transition-colors cursor-pointer",
           isSelected ? "border-blue-400 ring-2 ring-blue-100" : "border-gray-200 hover:bg-gray-50"
         )}
       >
         {loading ? (
-          <div className="flex items-center gap-2 px-3 py-2 text-sm text-gray-400">
+          <div className="flex-1 flex items-center gap-2 px-4 py-3.5 text-sm text-gray-400">
             <Loader2 size={14} className="animate-spin" />
             <span className="truncate">{block.content}</span>
           </div>
         ) : (
           <>
-            <div className="flex-1 min-w-0 px-3 py-2 flex flex-col justify-center gap-0.5">
-              <p className="text-sm font-medium text-gray-900 truncate leading-snug">
-                {og?.ogTitle || block.content}
-              </p>
-              {og?.ogDescription && (
-                <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">{og.ogDescription}</p>
-              )}
+            <div className="flex-1 min-w-0 px-4 py-3.5 flex flex-col justify-between gap-0.5 overflow-hidden">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate leading-snug">
+                  {og?.ogTitle || block.content}
+                </p>
+                {og?.ogDescription && (
+                  <p className="text-xs text-gray-500/80 line-clamp-2 leading-relaxed mt-1">{og.ogDescription}</p>
+                )}
+              </div>
               <a
                 href={block.content}
                 target="_blank"
                 rel="noopener noreferrer"
                 draggable={false}
                 onClick={(e) => e.stopPropagation()}
-                className="flex items-center gap-1.5 mt-1 text-xs text-gray-400 hover:text-blue-500 transition-colors w-fit"
+                className="flex items-center gap-1.5 mt-1.5 text-xs text-gray-400 hover:text-blue-500 transition-colors w-fit"
               >
                 {og?.favicon ? (
                   <img src={og.favicon} alt="" className="w-3.5 h-3.5 rounded-sm shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                 ) : (
                   <ExternalLink size={12} className="shrink-0" />
                 )}
-                <span className="truncate">{block.content}</span>
+                <span className="truncate max-w-[260px]">{domain}</span>
               </a>
             </div>
             {og?.ogImage && (
-              <div className="w-[120px] h-[80px] shrink-0 border-l border-gray-100">
+              <div className="w-[200px] shrink-0 border-l border-gray-100 self-stretch">
                 <img src={og.ogImage} alt="" className="w-full h-full object-cover" draggable={false} onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = "none"; }} />
               </div>
             )}
@@ -840,9 +842,40 @@ export function NotionBlockEditor({
       if (now - pasteGuardRef.current < 100) { e.preventDefault(); return; }
       pasteGuardRef.current = now;
 
-      // Get text early for URL detection
+      // Get text and HTML early
       const text = e.clipboardData.getData("text/plain");
       const trimmedText = (text || "").trim();
+      const htmlEarly = e.clipboardData.getData("text/html");
+
+      // Poten-blocks (lossless copy/paste within editor) — HIGHEST PRIORITY
+      const potenMatchEarly = htmlEarly?.match(/data-poten-blocks="([^"]+)"/);
+      if (potenMatchEarly) {
+        try {
+          const pastedBlocks: { type: BlockType; content: string; indent?: number; imageWidth?: number }[] = JSON.parse(decodeURIComponent(potenMatchEarly[1]));
+          if (pastedBlocks.length > 0) {
+            e.preventDefault();
+            pushUndo();
+            const block = blocks[idx];
+            const isEmptyText = !block.content.trim() && block.type === "text";
+            const newBlocks: Block[] = pastedBlocks.map(pb => {
+              const b: Block = { id: genId(), content: pb.content, type: pb.type, indent: pb.indent || 0 };
+              if (pb.imageWidth) b.imageWidth = pb.imageWidth;
+              return b;
+            });
+            setBlocks((prev) => {
+              const next = [...prev];
+              if (isEmptyText) {
+                next.splice(idx, 1, ...newBlocks);
+              } else {
+                next.splice(idx + 1, 0, ...newBlocks);
+              }
+              return next;
+            });
+            pendingFocusIdx.current = idx + newBlocks.length - (isEmptyText ? 1 : 0);
+            return;
+          }
+        } catch { /* fall through */ }
+      }
 
       // Bookmark block paste — restore serialized [bookmark:URL] directly
       const bookmarkMatch = trimmedText.match(/^\[bookmark:(.+)\]$/);
@@ -863,8 +896,7 @@ export function NotionBlockEditor({
         return;
       }
 
-      // URL paste → bookmark (highest priority, check before anything else)
-      // Strip trailing newlines/whitespace, and if the text is a single URL, convert to bookmark
+      // URL paste → bookmark (only when no poten-blocks data)
       const urlOnly = trimmedText.replace(/[\r\n]+$/, "").trim();
       if (/^https?:\/\/[^\s]+$/.test(urlOnly)) {
         const block = blocks[idx];
@@ -1092,12 +1124,16 @@ export function NotionBlockEditor({
       return;
     }
 
-    // Ctrl+C/X
-    if ((e.key === "c" || e.key === "x") && (e.ctrlKey || e.metaKey) && selectedIds.size > 1) {
+    // Ctrl+C/X — works with 1+ selected blocks (including single bookmark/image)
+    if ((e.key === "c" || e.key === "x") && (e.ctrlKey || e.metaKey) && selectedIds.size >= 1) {
       e.preventDefault();
       const selected = blocks.filter((b) => selectedIds.has(b.id));
-      const plain = selected.map(serializeBlock).join("\n");
-      const html = selected.map((b) => {
+      const plain = selected
+        .filter(b => b.type !== "image")
+        .map(b => b.type === "bookmark" ? b.content : serializeBlock(b))
+        .join("\n");
+      const blocksJson = encodeURIComponent(JSON.stringify(selected.map(b => ({ type: b.type, content: b.content, indent: b.indent, imageWidth: b.imageWidth }))));
+      const htmlInner = selected.map((b) => {
         const c = b.content || "";
         switch (b.type) {
           case "h1": return `<h1>${c}</h1>`;
@@ -1106,10 +1142,12 @@ export function NotionBlockEditor({
           case "bullet": return `<ul><li>${c}</li></ul>`;
           case "numbered": return `<ol><li>${c}</li></ol>`;
           case "divider": return `<hr>`;
-          case "bookmark": return `<!-- bookmark --><p>${c}</p>`;
+          case "bookmark": return `<a href="${c}">${c}</a>`;
+          case "image": return `<img src="${c}" />`;
           default: return `<p>${c}</p>`;
         }
       }).join("\n");
+      const html = `<div data-poten-blocks="${blocksJson}">${htmlInner}</div>`;
       navigator.clipboard.write([
         new ClipboardItem({
           "text/plain": new Blob([plain], { type: "text/plain" }),
@@ -1904,7 +1942,7 @@ export function NotionBlockEditor({
               onDragEnd={handleBlockDragEnd}
             />
           ) : block.type === "bookmark" ? (
-            <div onDoubleClick={() => {
+            <div className="flex-1 min-w-0" onDoubleClick={() => {
               if (readOnly) return;
               // Insert empty text block below and focus it
               const newBlock: Block = { id: genId(), content: "", type: "text", indent: 0 };
