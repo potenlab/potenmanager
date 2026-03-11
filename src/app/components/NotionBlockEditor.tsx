@@ -825,6 +825,25 @@ export function NotionBlockEditor({
       const text = e.clipboardData.getData("text/plain");
       const trimmedText = (text || "").trim();
 
+      // Bookmark block paste — restore serialized [bookmark:URL] directly
+      const bookmarkMatch = trimmedText.match(/^\[bookmark:(.+)\]$/);
+      if (bookmarkMatch) {
+        e.preventDefault();
+        const bookmarkUrl = bookmarkMatch[1];
+        const block = blocks[idx];
+        pushUndo();
+        const newBlock: Block = { id: genId(), type: "bookmark" as BlockType, content: bookmarkUrl, indent: 0 };
+        setBlocks((prev) => {
+          const next = [...prev];
+          const insertAt = block.content.trim() === "" && block.type === "text"
+            ? prev.findIndex(b => b.id === block.id)
+            : prev.findIndex(b => b.id === block.id) + 1;
+          next.splice(insertAt, block.content.trim() === "" && block.type === "text" ? 1 : 0, newBlock);
+          return next;
+        });
+        return;
+      }
+
       // URL paste → bookmark (highest priority, check before anything else)
       // Strip trailing newlines/whitespace, and if the text is a single URL, convert to bookmark
       const urlOnly = trimmedText.replace(/[\r\n]+$/, "").trim();
@@ -1029,6 +1048,7 @@ export function NotionBlockEditor({
           case "bullet": return `<ul><li>${c}</li></ul>`;
           case "numbered": return `<ol><li>${c}</li></ol>`;
           case "divider": return `<hr>`;
+          case "bookmark": return `<!-- bookmark --><p>${c}</p>`;
           default: return `<p>${c}</p>`;
         }
       }).join("\n");
