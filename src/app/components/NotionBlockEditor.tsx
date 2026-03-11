@@ -1755,32 +1755,49 @@ export function NotionBlockEditor({
         </div>
       ))}
 
-      {/* Bottom drop zone — allows dropping blocks at the end */}
+      {/* Bottom virtual drop zones — 5 slots + red limit line */}
       {!readOnly && dragBlockIdx !== null && (
-        <div
-          className={cn(
-            "h-16 rounded-lg transition-colors",
-            dropTargetIdx === blocks.length && "border-2 border-dashed border-blue-300 bg-blue-50/30"
-          )}
-          onDragOver={(e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = "move";
-            setDropTargetIdx(blocks.length);
-          }}
-          onDrop={(e) => {
-            e.preventDefault();
-            if (dragBlockIdx === null) { setDragBlockIdx(null); setDropTargetIdx(null); return; }
-            pushUndo();
-            setBlocks((prev) => {
-              const next = [...prev];
-              const [moved] = next.splice(dragBlockIdx, 1);
-              next.push(moved);
-              return next;
-            });
-            setDragBlockIdx(null);
-            setDropTargetIdx(null);
-          }}
-        />
+        <div className="select-none">
+          {[0, 1, 2, 3, 4].map((offset) => {
+            const virtualIdx = blocks.length + offset;
+            const isActive = dropTargetIdx === virtualIdx;
+            return (
+              <div
+                key={offset}
+                className={cn(
+                  "h-10 mx-1 rounded-lg border-2 border-dashed transition-all duration-100 mb-1",
+                  isActive
+                    ? "border-blue-400 bg-blue-50/40"
+                    : "border-transparent"
+                )}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  setDropTargetIdx(virtualIdx);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (dragBlockIdx === null) { setDragBlockIdx(null); setDropTargetIdx(null); return; }
+                  pushUndo();
+                  setBlocks((prev) => {
+                    const next = [...prev];
+                    const [moved] = next.splice(dragBlockIdx, 1);
+                    next.push(moved);
+                    return next;
+                  });
+                  setDragBlockIdx(null);
+                  setDropTargetIdx(null);
+                }}
+              />
+            );
+          })}
+          {/* Red limit line */}
+          <div className="flex items-center gap-2 px-2 py-1 select-none pointer-events-none">
+            <div className="flex-1 h-0.5 bg-red-300 rounded-full" />
+            <span className="text-[10px] text-red-400 font-medium whitespace-nowrap">이동 범위 끝</span>
+            <div className="flex-1 h-0.5 bg-red-300 rounded-full" />
+          </div>
+        </div>
       )}
 
       {/* Click below blocks to focus last block */}
