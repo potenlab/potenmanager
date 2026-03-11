@@ -98,6 +98,35 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     init();
   }, []);
 
+  // ─── Auto-delay: mark overdue tasks as 'delayed' on load & daily ──
+  useEffect(() => {
+    if (!isSynced) return;
+    const markDelayed = () => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      setTasks((prev) =>
+        prev.map((task) => {
+          if (task.status === 'completed' || task.status === 'routine' || task.status === 'cancelled') return task;
+          if (task.priority === 'delayed') return task;
+          if (!task.dueDate) return task;
+          const due = new Date(task.dueDate);
+          due.setHours(0, 0, 0, 0);
+          if (due < today) {
+            api.updateTask(task.id, { priority: 'delayed' }).catch(() => {});
+            return { ...task, priority: 'delayed' as const };
+          }
+          return task;
+        })
+      );
+    };
+    markDelayed();
+    // Re-check at midnight
+    const now = new Date();
+    const msUntilMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime();
+    const timer = setTimeout(() => { markDelayed(); }, msUntilMidnight);
+    return () => clearTimeout(timer);
+  }, [isSynced]);
+
   // ─── Background sync helper with retry ─────────────────────────
   const syncToServer = useCallback(async (
     action: 'create' | 'update' | 'delete',

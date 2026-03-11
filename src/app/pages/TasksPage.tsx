@@ -929,21 +929,7 @@ export function TasksPage() {
     return allTasks.filter(myTaskFilter);
   }, [allTasks, myTaskFilter]);
 
-  // Auto-delay priority: mark overdue tasks with priority "delayed"
-  useEffect(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    myTasks.forEach(task => {
-      if (task.status === 'completed' || task.status === 'routine') return;
-      if (task.priority === 'delayed') return;
-      if (!task.dueDate) return;
-      const due = new Date(task.dueDate);
-      due.setHours(0, 0, 0, 0);
-      if (due < today) {
-        updateTask(task.id, { priority: 'delayed' });
-      }
-    });
-  }, [myTasks, updateTask]);
+  // Auto-delay handled globally in TaskContext
 
   // Routine daily regeneration: when routine tasks were completed yesterday (or earlier), re-create them as pending today
   useEffect(() => {
