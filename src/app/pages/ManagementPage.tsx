@@ -26,6 +26,7 @@ export interface Project {
   endDate?: string;
   memberIds: string[];
   createdAt: string;
+  createdBy?: string;
   logoUrl?: string;
   client?: string;
   budget?: string;

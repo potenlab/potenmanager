@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
 import {
   ChevronDown,
-  Calendar, Users, Circle, Camera,
+  Calendar, Users, Circle, Camera, UserCircle,
   Building2, DollarSign, FolderKanban, Link2, Plus, X,
 } from "lucide-react";
 import { createPortal } from "react-dom";
@@ -102,7 +102,7 @@ export function ProjectDetailPage() {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const ko = language === "ko";
-  const { currentUser } = usePermission();
+  const { currentUser, members } = usePermission();
 
   const isNew = projectId === "new" || !projectId;
 
@@ -120,6 +120,7 @@ export function ProjectDetailPage() {
           color: kanbanCard.color || PROJECT_COLORS[Math.floor(Math.random() * PROJECT_COLORS.length)],
           memberIds: [],
           createdAt: kanbanCard.createdAt || new Date().toISOString(),
+          createdBy: currentUser?.id,
         };
         const next = [...existing, newProj];
         saveProjects(next);
@@ -142,6 +143,7 @@ export function ProjectDetailPage() {
         color: PROJECT_COLORS[Math.floor(Math.random() * PROJECT_COLORS.length)],
         memberIds: [],
         createdAt: new Date().toISOString(),
+        createdBy: currentUser?.id,
       };
       setProjects((prev) => {
         const next = [...prev, newProj];
@@ -355,6 +357,20 @@ export function ProjectDetailPage() {
                 />
               </div>
             ),
+          },
+          {
+            key: "createdBy",
+            type: "custom",
+            icon: <UserCircle size={14} />,
+            label: ko ? "생성자" : "Created by",
+            render: () => {
+              const creator = members.find(m => m.id === project.createdBy);
+              return (
+                <span className="text-sm text-gray-700">
+                  {creator ? (creator.id === currentUser?.id ? `${creator.name}(${ko ? "나" : "me"})` : creator.name) : (ko ? "미지정" : "Unknown")}
+                </span>
+              );
+            },
           },
           {
             key: "members",
