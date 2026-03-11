@@ -30,6 +30,7 @@ const BLOCK_TYPE_STYLES: Record<BlockType, string> = {
 };
 
 interface SlashMenuItem {
+  group?: string;
   type: BlockType;
   label: string;
   labelKo: string;
@@ -39,16 +40,16 @@ interface SlashMenuItem {
 }
 
 const SLASH_MENU_ITEMS: SlashMenuItem[] = [
-  { type: "text", label: "Text", labelKo: "텍스트", desc: "Plain text", descKo: "일반 텍스트", icon: <Type size={16} /> },
-  { type: "h1", label: "Heading 1", labelKo: "제목 1", desc: "Large heading", descKo: "큰 제목", icon: <Heading1 size={16} /> },
-  { type: "h2", label: "Heading 2", labelKo: "제목 2", desc: "Medium heading", descKo: "중간 제목", icon: <Heading2 size={16} /> },
-  { type: "h3", label: "Heading 3", labelKo: "제목 3", desc: "Small heading", descKo: "작은 제목", icon: <Heading3 size={16} /> },
-  { type: "bullet", label: "Bullet List", labelKo: "글머리 기호", desc: "Bullet point", descKo: "점 목록", icon: <List size={16} /> },
-  { type: "numbered", label: "Numbered List", labelKo: "번호 매기기", desc: "Numbered list", descKo: "순서 목록", icon: <ListOrdered size={16} /> },
-  { type: "divider", label: "Divider", labelKo: "구분선", desc: "Horizontal line", descKo: "가로 구분선", icon: <Minus size={16} /> },
-  { type: "image", label: "Image", labelKo: "이미지", desc: "Upload or paste image", descKo: "이미지 업로드", icon: <ImageIcon size={16} /> },
-  { type: "bookmark", label: "Bookmark", labelKo: "북마크", desc: "Embed a link preview", descKo: "링크 미리보기", icon: <Link2 size={16} /> },
-  { type: "page", label: "Sub Page", labelKo: "하위 페이지", desc: "Embedded page", descKo: "내부 페이지", icon: <FileText size={16} /> },
+  { group: "추천", type: "bookmark", label: "Bookmark", labelKo: "북마크", desc: "Embed a link preview", descKo: "링크 미리보기", icon: <Link2 size={16} /> },
+  { group: "추천", type: "image", label: "Image", labelKo: "이미지", desc: "Upload or paste image", descKo: "이미지 업로드", icon: <ImageIcon size={16} /> },
+  { group: "추천", type: "divider", label: "Divider", labelKo: "구분선", desc: "Horizontal line", descKo: "가로 구분선", icon: <Minus size={16} /> },
+  { group: "기본 블록", type: "text", label: "Text", labelKo: "텍스트", desc: "Plain text", descKo: "일반 텍스트", icon: <Type size={16} /> },
+  { group: "기본 블록", type: "h1", label: "Heading 1", labelKo: "제목 1", desc: "Large heading", descKo: "큰 제목", icon: <Heading1 size={16} /> },
+  { group: "기본 블록", type: "h2", label: "Heading 2", labelKo: "제목 2", desc: "Medium heading", descKo: "중간 제목", icon: <Heading2 size={16} /> },
+  { group: "기본 블록", type: "h3", label: "Heading 3", labelKo: "제목 3", desc: "Small heading", descKo: "작은 제목", icon: <Heading3 size={16} /> },
+  { group: "기본 블록", type: "bullet", label: "Bullet List", labelKo: "글머리 기호", desc: "Bullet point", descKo: "점 목록", icon: <List size={16} /> },
+  { group: "기본 블록", type: "numbered", label: "Numbered List", labelKo: "번호 매기기", desc: "Numbered list", descKo: "순서 목록", icon: <ListOrdered size={16} /> },
+  { group: "기본 블록", type: "page", label: "Sub Page", labelKo: "하위 페이지", desc: "Embedded page", descKo: "내부 페이지", icon: <FileText size={16} /> },
 ];
 
 function serializeBlock(b: Block): string {
@@ -266,6 +267,13 @@ function BookmarkBlock({ block, readOnly, onDelete, onSelect, onDragStart, onDra
       draggable={!readOnly}
       onDragStart={(e) => {
         if (readOnly) return;
+        // Use a clean drag image instead of the browser's default (which darkens the OG image)
+        const ghost = document.createElement('div');
+        ghost.textContent = og?.ogTitle || domain || '북마크';
+        ghost.style.cssText = 'position:fixed;top:-999px;left:-999px;padding:6px 12px;background:#3b82f6;color:#fff;border-radius:6px;font-size:12px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+        document.body.appendChild(ghost);
+        e.dataTransfer.setDragImage(ghost, 0, 0);
+        setTimeout(() => document.body.removeChild(ghost), 0);
         onDragStart?.(e);
       }}
       onDragEnd={() => onDragEnd?.()}
@@ -484,6 +492,17 @@ export function NotionBlockEditor({
     return () => { setSlashMenu(null); };
   }, []);
 
+  // Close slash menu on outside click
+  useEffect(() => {
+    if (!slashMenu) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-slash-menu]')) setSlashMenu(null);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [slashMenu]);
+
   // Ensure there's always a text block after non-text blocks (like Notion)
   useEffect(() => {
     if (blocks.length === 0) return;
@@ -640,11 +659,16 @@ export function NotionBlockEditor({
     const el = blockRefs.current.get(block.id);
     if (!el) return;
     const rect = el.getBoundingClientRect();
+    const menuHeight = 320;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUpward = spaceBelow < menuHeight && rect.top > menuHeight;
     setSlashMenu({
       blockIdx: idx,
       filter: "",
       selectedIdx: 0,
-      pos: { top: rect.bottom + 4, left: rect.left },
+      pos: openUpward
+        ? { top: rect.top - menuHeight - 4, left: rect.left }
+        : { top: rect.bottom + 4, left: rect.left },
     });
   };
 
@@ -1786,34 +1810,45 @@ export function NotionBlockEditor({
       {/* Slash command menu */}
       {slashMenu && filteredSlashItems.length > 0 && createPortal(
         <div
+          data-slash-menu
           className="fixed bg-white border border-gray-200 rounded-xl shadow-xl z-[9999] w-[220px] py-1.5 max-h-[300px] overflow-y-auto"
           style={{ top: slashMenu.pos.top, left: slashMenu.pos.left }}
           onMouseDown={(e) => e.preventDefault()}
         >
-          <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-            {ko ? "블록 유형" : "Block Type"}
+          {filteredSlashItems.map((item, i) => {
+            const prevGroup = i > 0 ? filteredSlashItems[i - 1].group : null;
+            const showGroupHeader = item.group && item.group !== prevGroup;
+            return (
+              <React.Fragment key={item.type}>
+                {showGroupHeader && (
+                  <div className={cn("px-3 text-[11px] font-semibold text-gray-400 tracking-wide", i === 0 ? "pt-2 pb-1" : "pt-3 pb-1 border-t border-gray-100 mt-1")}>
+                    {item.group}
+                  </div>
+                )}
+                <button
+                  onClick={() => selectSlashItem(item)}
+                  className={cn(
+                    "w-full px-3 py-1.5 flex items-center gap-3 text-left transition-colors",
+                    i === slashMenu.selectedIdx ? "bg-blue-50 text-blue-700" : "text-gray-700 hover:bg-gray-50"
+                  )}
+                >
+                  <span className={cn(
+                    "w-7 h-7 rounded-md flex items-center justify-center shrink-0 text-sm font-bold",
+                    i === slashMenu.selectedIdx ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-500"
+                  )}>
+                    {item.icon}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium leading-tight">{ko ? item.labelKo : item.label}</div>
+                  </div>
+                </button>
+              </React.Fragment>
+            );
+          })}
+          <div className="border-t border-gray-100 mt-1 px-3 py-2 flex items-center justify-between text-[11px] text-gray-400">
+            <span>{ko ? "메뉴 닫기" : "Close menu"}</span>
+            <span className="bg-gray-100 rounded px-1.5 py-0.5 font-mono">esc</span>
           </div>
-          {filteredSlashItems.map((item, i) => (
-            <button
-              key={item.type}
-              onClick={() => selectSlashItem(item)}
-              className={cn(
-                "w-full px-3 py-2 flex items-center gap-3 text-left transition-colors",
-                i === slashMenu.selectedIdx ? "bg-blue-50 text-blue-700" : "text-gray-700 hover:bg-gray-50"
-              )}
-            >
-              <span className={cn(
-                "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
-                i === slashMenu.selectedIdx ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-500"
-              )}>
-                {item.icon}
-              </span>
-              <div>
-                <div className="text-sm font-medium">{ko ? item.labelKo : item.label}</div>
-                <div className="text-[10px] text-gray-400">{ko ? item.descKo : item.desc}</div>
-              </div>
-            </button>
-          ))}
         </div>,
         document.body
       )}
