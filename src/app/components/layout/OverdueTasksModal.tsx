@@ -23,10 +23,11 @@ function getTodayKey() {
   return `poten_overdue_dismissed_${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 }
 
-const PRIORITY_CONFIG = {
+const PRIORITY_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
   high: { label: "긴급", color: "text-red-500", bg: "bg-red-50", border: "border-red-200" },
   medium: { label: "보통", color: "text-green-600", bg: "bg-green-50", border: "border-green-200" },
   low: { label: "낮음", color: "text-gray-500", bg: "bg-gray-50", border: "border-gray-200" },
+  delayed: { label: "지연", color: "text-orange-500", bg: "bg-orange-50", border: "border-orange-200" },
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
@@ -53,7 +54,7 @@ function OverdueTaskRow({ task, onNavigate, members }: OverdueTaskRowProps) {
       })
     : "";
   const priority = task.priority ?? "medium";
-  const pCfg = PRIORITY_CONFIG[priority];
+  const pCfg = PRIORITY_CONFIG[priority] || PRIORITY_CONFIG["medium"];
   const sCfg = STATUS_CONFIG[task.status];
 
   return (
