@@ -3143,6 +3143,80 @@ app.get("/make-server-f580d5ca/share/check/:type/:itemId", async (c) => {
   }
 });
 
+// ─── Brand Assets ─────────────────────────────────────────────────────────────
+
+app.get("/make-server-f580d5ca/brand-assets", async (c) => {
+  try {
+    const items = await kv.getByPrefix(pfx(c, "brand:"));
+    return c.json(items || []);
+  } catch (e) { return c.json([]); }
+});
+
+app.post("/make-server-f580d5ca/brand-assets", async (c) => {
+  try {
+    const body = await c.req.json();
+    const id = body.id || `brand-${Date.now()}`;
+    const item = { ...body, id, updatedAt: new Date().toISOString() };
+    await kv.set(pfx(c, `brand:${id}`), item);
+    return c.json(item);
+  } catch (e) { return c.json({ error: String(e) }, 500); }
+});
+
+app.put("/make-server-f580d5ca/brand-assets/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const body = await c.req.json();
+    const existing = await kv.get(pfx(c, `brand:${id}`));
+    const updated = { ...(existing || {}), ...body, id, updatedAt: new Date().toISOString() };
+    await kv.set(pfx(c, `brand:${id}`), updated);
+    return c.json(updated);
+  } catch (e) { return c.json({ error: String(e) }, 500); }
+});
+
+app.delete("/make-server-f580d5ca/brand-assets/:id", async (c) => {
+  try {
+    await kv.del(pfx(c, `brand:${c.req.param("id")}`));
+    return c.json({ success: true });
+  } catch (e) { return c.json({ error: String(e) }, 500); }
+});
+
+// ─── Sub Pages ────────────────────────────────────────────────────────────────
+
+app.get("/make-server-f580d5ca/sub-pages", async (c) => {
+  try {
+    const items = await kv.getByPrefix(pfx(c, "subpage:"));
+    return c.json(items || []);
+  } catch (e) { return c.json([]); }
+});
+
+app.post("/make-server-f580d5ca/sub-pages", async (c) => {
+  try {
+    const body = await c.req.json();
+    const id = body.id || `page-${Date.now()}`;
+    const item = { ...body, id, updatedAt: new Date().toISOString() };
+    await kv.set(pfx(c, `subpage:${id}`), item);
+    return c.json(item);
+  } catch (e) { return c.json({ error: String(e) }, 500); }
+});
+
+app.put("/make-server-f580d5ca/sub-pages/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const body = await c.req.json();
+    const existing = await kv.get(pfx(c, `subpage:${id}`));
+    const updated = { ...(existing || {}), ...body, id, updatedAt: new Date().toISOString() };
+    await kv.set(pfx(c, `subpage:${id}`), updated);
+    return c.json(updated);
+  } catch (e) { return c.json({ error: String(e) }, 500); }
+});
+
+app.delete("/make-server-f580d5ca/sub-pages/:id", async (c) => {
+  try {
+    await kv.del(pfx(c, `subpage:${c.req.param("id")}`));
+    return c.json({ success: true });
+  } catch (e) { return c.json({ error: String(e) }, 500); }
+});
+
 // ─── Projects (kanban cards + project metadata) ──────────────────────────────
 
 app.get("/make-server-f580d5ca/projects", async (c) => {

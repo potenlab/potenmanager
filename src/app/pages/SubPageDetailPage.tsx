@@ -1,11 +1,11 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
 import { InlineText } from "../components/detail/InlineText";
-import { getSubPage, updateSubPage, deleteSubPage, type SubPage } from "../../lib/subPages";
+import { getSubPage, updateSubPage, deleteSubPage, syncSubPagesFromServer, type SubPage } from "../../lib/subPages";
 
 export function SubPageDetailPage() {
   const { pageId } = useParams();
@@ -16,6 +16,16 @@ export function SubPageDetailPage() {
   const [page, setPage] = useState<SubPage | null>(() =>
     pageId ? getSubPage(pageId) ?? null : null
   );
+
+  // Sync from server (in case page was created on another device)
+  useEffect(() => {
+    if (page || !pageId) return;
+    if (localStorage.getItem('poten_demo_mode') === 'true') return;
+    syncSubPagesFromServer().then(() => {
+      const found = getSubPage(pageId);
+      if (found) setPage(found);
+    });
+  }, [pageId]);
 
   const handleUpdate = useCallback(
     (updates: Partial<SubPage>) => {

@@ -114,6 +114,23 @@ export function loadBrandAssets(): BrandAsset[] {
 export function saveBrandAssets(assets: BrandAsset[]) {
   localStorage.setItem(STORAGE_KEY_BRAND, JSON.stringify(assets));
 }
+/** Fetch brand assets from server and merge with localStorage (server wins) */
+export async function syncBrandAssetsFromServer(): Promise<BrandAsset[]> {
+  const local = loadBrandAssets();
+  try {
+    const server: BrandAsset[] = await api.getBrandAssets() || [];
+    if (!server.length) return local;
+    const serverMap = new Map(server.map(a => [a.id, a]));
+    const merged = [...server];
+    for (const la of local) {
+      if (!serverMap.has(la.id)) merged.push(la);
+    }
+    saveBrandAssets(merged);
+    return merged;
+  } catch {
+    return local;
+  }
+}
 
 // ─── Kanban Data Model ──────────────────────────────────────────
 interface KanbanColumn {
@@ -829,11 +846,11 @@ export function ManagementPage() {
     }
   }, [board]);
 
-  // Sync projects from server
+  // Sync projects & brand assets from server
   useEffect(() => {
-    if (board !== "projects") return;
     if (localStorage.getItem('poten_demo_mode') === 'true') return;
-    syncProjectsFromServer().catch(() => {});
+    if (board === "projects") syncProjectsFromServer().catch(() => {});
+    if (board === "branding") syncBrandAssetsFromServer().catch(() => {});
   }, [board]);
 
   // Sync project fields (logoUrl, endDate→dueDate) from Project data to kanban cards

@@ -15,9 +15,10 @@ import type { DetailSectionProps } from "../components/detail/createDetailPage";
 import type { PropertyFieldConfig } from "../components/detail/PropertyConfig";
 import { AIStrategyPanel } from "../components/AIStrategyPanel";
 import { PAGE_TYPES } from "../components/detail/pageTypes";
+import { api } from "../../lib/api";
 import {
   BrandAsset,
-  loadBrandAssets, saveBrandAssets, loadCards, saveCards, loadColumns,
+  loadBrandAssets, saveBrandAssets, syncBrandAssetsFromServer, loadCards, saveCards, loadColumns,
   BRAND_PLATFORMS,
 } from "./ManagementPage";
 
@@ -36,6 +37,8 @@ function loadBrandCategories(): string[] {
 
 // ─── Data Hook ─────────────────────────────────────────────────────
 
+const isDemo = () => localStorage.getItem('poten_demo_mode') === 'true';
+
 function useBrandData(id: string | undefined) {
   const navigate = useNavigate();
   const isNew = id === "new" || !id;
@@ -53,6 +56,7 @@ function useBrandData(id: string | undefined) {
         };
         const next = [...existing, newAsset];
         saveBrandAssets(next);
+        if (!isDemo()) api.createBrandAsset(newAsset).catch(() => {});
         return next;
       }
     }
@@ -60,6 +64,12 @@ function useBrandData(id: string | undefined) {
   });
 
   const [localId, setLocalId] = useState<string | null>(null);
+
+  // Sync from server on mount
+  useEffect(() => {
+    if (isDemo()) return;
+    syncBrandAssetsFromServer().then((merged) => setAssets(merged));
+  }, []);
 
   useEffect(() => {
     if (isNew && !localId) {
@@ -70,6 +80,7 @@ function useBrandData(id: string | undefined) {
         saveBrandAssets(next);
         return next;
       });
+      if (!isDemo()) api.createBrandAsset(newAsset).catch(() => {});
       setLocalId(newId);
       navigate(`/branding/${newId}`, { replace: true });
     }
@@ -86,6 +97,8 @@ function useBrandData(id: string | undefined) {
       saveBrandAssets(next);
       return next;
     });
+    // Sync to server
+    if (!isDemo()) api.updateBrandAsset(currentId, updates).catch(() => {});
     // Sync fields to kanban card
     if (updates.name !== undefined || updates.description !== undefined) {
       const allCards = loadCards("branding");
@@ -103,6 +116,7 @@ function useBrandData(id: string | undefined) {
     if (!confirm("삭제하시겠습니까?")) return;
     const next = assets.filter((a) => a.id !== item.id);
     saveBrandAssets(next);
+    if (!isDemo()) api.deleteBrandAsset(item.id).catch(() => {});
     navigate("/branding");
   }, [item, assets, navigate]);
 

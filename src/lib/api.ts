@@ -161,6 +161,18 @@ export const api = {
   getOrgInvites: (orgId: string) =>
     request<any[]>(`/org/${orgId}/invites`),
 
+  // ── Brand Assets ──
+  getBrandAssets: () => request<any[]>('/brand-assets'),
+  createBrandAsset: (data: any) => request<any>('/brand-assets', { method: 'POST', body: JSON.stringify(data) }),
+  updateBrandAsset: (id: string, data: any) => request<any>(`/brand-assets/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteBrandAsset: (id: string) => request<any>(`/brand-assets/${id}`, { method: 'DELETE' }),
+
+  // ── Sub Pages ──
+  getSubPages: () => request<any[]>('/sub-pages'),
+  createSubPage: (data: any) => request<any>('/sub-pages', { method: 'POST', body: JSON.stringify(data) }),
+  updateSubPage: (id: string, data: any) => request<any>(`/sub-pages/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteSubPage: (id: string) => request<any>(`/sub-pages/${id}`, { method: 'DELETE' }),
+
   // ── Projects & Kanban ──
   getProjects: () => request<any[]>('/projects'),
   getProject: (id: string) => request<any>(`/projects/${id}`),
