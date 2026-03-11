@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { cn } from "../../lib/utils";
+import { api } from "../../lib/api";
 import { useLanguage } from "../context/LanguageContext";
 import { usePermission } from "../context/PermissionContext";
 import { usePortalPosition } from "../hooks/usePortalPosition";
@@ -185,6 +186,10 @@ export function ProjectDetailPage() {
         saveProjects(next);
         return next;
       });
+      // Sync to server
+      if (localStorage.getItem('poten_demo_mode') !== 'true') {
+        api.updateProject(currentId, updates).catch(() => {});
+      }
       // Sync fields to kanban card
       if (updates.logoUrl !== undefined || updates.name !== undefined || updates.description !== undefined || updates.endDate !== undefined) {
         const allCards = loadCards("projects");
