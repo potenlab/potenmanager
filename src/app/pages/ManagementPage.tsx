@@ -862,6 +862,14 @@ export function ManagementPage() {
     currentCards.forEach(card => {
       const proj = projects.find(p => p.id === card.id);
       if (!proj) return;
+      if (proj.name && proj.name !== card.title) {
+        card.title = proj.name;
+        changed = true;
+      }
+      if (proj.description !== undefined && proj.description !== card.description) {
+        card.description = proj.description;
+        changed = true;
+      }
       if (proj.logoUrl !== card.logoUrl) {
         card.logoUrl = proj.logoUrl || undefined;
         changed = true;
