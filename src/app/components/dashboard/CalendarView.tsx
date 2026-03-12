@@ -62,6 +62,13 @@ type ViewMode = "month" | "3week";
 const ITEM_TYPE = "CALENDAR_TASK";
 const MEETING_DRAG_TYPE = "CALENDAR_MEETING";
 
+// Track Alt key for clone-on-drop
+const calAltKeyRef = { current: false };
+if (typeof window !== "undefined") {
+  window.addEventListener("keydown", (e) => { if (e.altKey) calAltKeyRef.current = true; });
+  window.addEventListener("keyup", (e) => { if (!e.altKey) calAltKeyRef.current = false; });
+}
+
 const STATUS_CONFIG: Record<string, { label: string; labelKo: string; icon: React.ReactNode; color: string; bg: string }> = {
   pending: { label: "To Do", labelKo: "할 일", icon: <Circle size={12} />, color: "text-gray-500", bg: "bg-gray-100" },
   "in-progress": { label: "In Progress", labelKo: "진행 중", icon: <CircleDot size={12} />, color: "text-blue-600", bg: "bg-blue-50" },
@@ -1348,7 +1355,28 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
         return;
       }
 
-      if (anchorDelta === 0) return;
+      if (anchorDelta === 0 && !calAltKeyRef.current) return;
+
+      // Alt+drag → clone tasks to new date
+      if (calAltKeyRef.current) {
+        for (const tid of taskIds) {
+          const t = calTasks.find((tk) => tk.id === tid);
+          if (!t) continue;
+          const taskDue = t.dueDate ? new Date(t.dueDate) : null;
+          if (!taskDue) continue;
+          const cloned: Omit<Task, "id"> = {
+            ...t,
+            title: t.title,
+            dueDate: new Date(taskDue.getTime() + anchorDelta),
+            startDate: t.startDate ? new Date(new Date(t.startDate).getTime() + anchorDelta) : undefined,
+            endDate: t.endDate ? new Date(new Date(t.endDate).getTime() + anchorDelta) : undefined,
+          };
+          delete (cloned as any).id;
+          addTaskToContext(cloned as any);
+        }
+        setQuickViewTask(null);
+        return;
+      }
 
       // Different day → move task dates
       for (const tid of taskIds) {
@@ -1365,7 +1393,7 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
       }
       setQuickViewTask(null);
     },
-    [calTasks, updateTask, calOrder]
+    [calTasks, updateTask, addTaskToContext, calOrder]
   );
 
   // Handle drop: update meeting date

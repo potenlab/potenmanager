@@ -180,7 +180,12 @@ function BrandTitle() {
 // ─── Properties ────────────────────────────────────────────────────
 
 function BrandProperties({ item, onUpdate, ko }: DetailSectionProps<BrandAsset>) {
-  const [categories] = useState<string[]>(loadBrandCategories);
+  const [categories, setCategories] = useState<string[]>(loadBrandCategories);
+  // Re-read categories after server sync may have updated localStorage
+  useEffect(() => {
+    const timer = setTimeout(() => setCategories(loadBrandCategories()), 500);
+    return () => clearTimeout(timer);
+  }, []);
   const [platformDropdownOpen, setPlatformDropdownOpen] = useState(false);
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const platformBtnRef = useRef<HTMLButtonElement>(null);
@@ -203,6 +208,10 @@ function BrandProperties({ item, onUpdate, ko }: DetailSectionProps<BrandAsset>)
       card.platform = newPlatform || undefined;
       card.thumbnailUrl = undefined;
       saveCards("branding", allCards);
+      // Sync to server
+      if (localStorage.getItem('poten_demo_mode') !== 'true') {
+        api.updateKanbanCard("branding", card.id, card).catch(() => {});
+      }
     }
   }, [item.id, cardPlatform]);
 
@@ -217,6 +226,10 @@ function BrandProperties({ item, onUpdate, ko }: DetailSectionProps<BrandAsset>)
         card.columnId = targetCol.id;
         card.order = allCards.filter(c => c.columnId === targetCol.id && c.id !== card.id).length;
         saveCards("branding", allCards);
+        // Sync to server
+        if (localStorage.getItem('poten_demo_mode') !== 'true') {
+          api.updateKanbanCard("branding", card.id, card).catch(() => {});
+        }
       }
     }
   }, [item.id, onUpdate]);
