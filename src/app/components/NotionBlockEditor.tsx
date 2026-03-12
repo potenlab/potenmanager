@@ -301,13 +301,13 @@ function BookmarkBlock({ block, readOnly, onDelete, onSelect, isSelected, onDrag
           </div>
         ) : (
           <>
-            <div className="flex-1 min-w-0 px-4 py-3.5 flex flex-col justify-between gap-0.5 overflow-hidden">
+            <div className="flex-1 min-w-0 px-3 py-2.5 flex flex-col justify-between gap-0 overflow-hidden">
               <div className="min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate leading-snug">
+                <p className="text-[13px] font-medium text-gray-900 truncate leading-snug">
                   {og?.ogTitle || block.content}
                 </p>
                 {og?.ogDescription && (
-                  <p className="text-xs text-gray-500/80 line-clamp-2 leading-relaxed mt-1">{og.ogDescription}</p>
+                  <p className="text-xs text-gray-500/80 line-clamp-1 leading-relaxed mt-0.5">{og.ogDescription}</p>
                 )}
               </div>
               <a
@@ -316,7 +316,7 @@ function BookmarkBlock({ block, readOnly, onDelete, onSelect, isSelected, onDrag
                 rel="noopener noreferrer"
                 draggable={false}
                 onClick={(e) => e.stopPropagation()}
-                className="flex items-center gap-1.5 mt-1.5 text-xs text-gray-400 hover:text-blue-500 transition-colors w-fit"
+                className="flex items-center gap-1.5 mt-1 text-xs text-gray-400 hover:text-blue-500 transition-colors w-fit"
               >
                 {og?.favicon ? (
                   <img src={og.favicon} alt="" className="w-3.5 h-3.5 rounded-sm shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
@@ -327,7 +327,7 @@ function BookmarkBlock({ block, readOnly, onDelete, onSelect, isSelected, onDrag
               </a>
             </div>
             {og?.ogImage && (
-              <div className="w-[200px] shrink-0 border-l border-gray-100 self-stretch">
+              <div className="w-[120px] shrink-0 border-l border-gray-100 self-stretch">
                 <img src={og.ogImage} alt="" className="w-full h-full object-cover" draggable={false} onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = "none"; }} />
               </div>
             )}
