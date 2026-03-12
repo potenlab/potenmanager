@@ -110,7 +110,12 @@ function TaskCard({
   const navigate = useNavigate();
   const { members } = usePermission();
   const assignee = members.find(m => m.id === task.assigneeId);
-  const title = language === 'ko' ? task.titleKo || task.title : task.title;
+  const rawTitle = language === 'ko' ? task.titleKo || task.title : task.title;
+  // Clean up block editor markers from title display
+  const title = rawTitle
+    .replace(/\[bookmark:([^\]]*)\]/g, (_: string, url: string) => { try { return new URL(url).hostname.replace('www.', ''); } catch { return url; } })
+    .replace(/\[(img|page):[^\]]*\]/g, '')
+    .trim() || rawTitle;
 
   // When dragging a selected task, drag all selected tasks together
   const dragIds = isSelected ? Array.from(selectedIds) : [task.id];
@@ -228,7 +233,7 @@ function TaskCard({
           )}>{task.emoji && <span className="mr-1">{task.emoji}</span>}{title}</h4>
           {task.description && (
             <p className="text-xs text-gray-500 line-clamp-2 mb-3 break-all overflow-hidden">
-              {task.description.replace(/\[img:[^\]]*\]/g, '').trim() || undefined}
+              {task.description.replace(/\[(img|bookmark|page):[^\]]*\]/g, '').trim() || undefined}
             </p>
           )}
 
