@@ -478,7 +478,7 @@ function DroppableDayCell({
   viewMode: ViewMode;
   language: string;
   selectedIds: Set<string>;
-  onDropTask: (taskIds: string[], newDate: Date, clientY?: number) => void;
+  onDropTask: (taskIds: string[], newDate: Date, clientY?: number, altKey?: boolean) => void;
   onDropMeeting: (meetingId: string, newDate: Date) => void;
   onTaskClick: (task: Task, rect: DOMRect) => void;
   onSelectTask: (taskId: string, multi: boolean) => void;
@@ -505,7 +505,7 @@ function DroppableDayCell({
         } else {
           const ids = item.taskIds && item.taskIds.length > 0 ? item.taskIds : item.taskId ? [item.taskId] : [];
           const clientY = monitor.getClientOffset()?.y;
-          if (ids.length > 0) onDropTask(ids, day, clientY);
+          if (ids.length > 0) onDropTask(ids, day, clientY, calAltKeyRef.current);
         }
       },
       collect: (monitor) => ({
@@ -1309,13 +1309,40 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
 
   // Handle drop: update task dates and persist to server (or reorder within same day)
   const handleDropTask = useCallback(
-    (taskIds: string[], newDate: Date, clientY?: number) => {
-      const anchorTask = calTasks.find((t) => t.id === taskIds[0]);
+    (taskIds: string[], newDate: Date, clientY?: number, altKey?: boolean) => {
+      const isAlt = altKey || calAltKeyRef.current;
+      const anchorTask = allContextTasks.find((t) => t.id === taskIds[0]) || calTasks.find((t) => t.id === taskIds[0]);
       if (!anchorTask) return;
       const range = getTaskDateRange(anchorTask);
       if (!range) return;
       const anchorStart = range.start;
       const anchorDelta = newDate.getTime() - anchorStart.getTime();
+
+      // Alt+drag → clone tasks (works even on same day)
+      if (isAlt) {
+        for (const tid of taskIds) {
+          const t = allContextTasks.find((tk) => tk.id === tid);
+          if (!t) continue;
+          const taskDue = t.dueDate ? new Date(t.dueDate) : null;
+          if (!taskDue) continue;
+          // Find next copy number: "Title" → "Title (1)" → "Title (2)"
+          const baseTitle = t.title.replace(/\s*\(\d+\)$/, '');
+          const existing = allContextTasks.filter(tk => tk.title === baseTitle || tk.title.match(new RegExp(`^${baseTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\(\\d+\\)$`)));
+          const nextNum = existing.length;
+          const cloned: Omit<Task, "id"> = {
+            ...t,
+            title: `${baseTitle} (${nextNum})`,
+            titleKo: t.titleKo ? `${t.titleKo.replace(/\s*\(\d+\)$/, '')} (${nextNum})` : undefined,
+            dueDate: new Date(taskDue.getTime() + anchorDelta),
+            startDate: t.startDate ? new Date(new Date(t.startDate).getTime() + anchorDelta) : undefined,
+            endDate: t.endDate ? new Date(new Date(t.endDate).getTime() + anchorDelta) : undefined,
+          };
+          delete (cloned as any).id;
+          addTaskToContext(cloned as any);
+        }
+        setQuickViewTask(null);
+        return;
+      }
 
       // Same day drop → reorder vertically
       if (anchorDelta === 0 && clientY != null) {
@@ -1355,28 +1382,7 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
         return;
       }
 
-      if (anchorDelta === 0 && !calAltKeyRef.current) return;
-
-      // Alt+drag → clone tasks to new date
-      if (calAltKeyRef.current) {
-        for (const tid of taskIds) {
-          const t = calTasks.find((tk) => tk.id === tid);
-          if (!t) continue;
-          const taskDue = t.dueDate ? new Date(t.dueDate) : null;
-          if (!taskDue) continue;
-          const cloned: Omit<Task, "id"> = {
-            ...t,
-            title: t.title,
-            dueDate: new Date(taskDue.getTime() + anchorDelta),
-            startDate: t.startDate ? new Date(new Date(t.startDate).getTime() + anchorDelta) : undefined,
-            endDate: t.endDate ? new Date(new Date(t.endDate).getTime() + anchorDelta) : undefined,
-          };
-          delete (cloned as any).id;
-          addTaskToContext(cloned as any);
-        }
-        setQuickViewTask(null);
-        return;
-      }
+      if (anchorDelta === 0) return;
 
       // Different day → move task dates
       for (const tid of taskIds) {
@@ -1393,7 +1399,7 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
       }
       setQuickViewTask(null);
     },
-    [calTasks, updateTask, addTaskToContext, calOrder]
+    [calTasks, allContextTasks, updateTask, addTaskToContext, calOrder]
   );
 
   // Handle drop: update meeting date
@@ -1732,14 +1738,19 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
         if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) return;
 
         const selectedTasks = calTasks.filter(t => selectedIds.has(t.id));
-        const hasHighPriority = selectedTasks.some(t => t.priority === "high");
         const count = selectedIds.size;
         const ko = language === "ko";
 
-        if (hasHighPriority) {
+        // Check if any selected tasks belong to other members
+        const othersTasks = selectedTasks.filter(t => t.assigneeId && t.assigneeId !== currentUser.id);
+        if (othersTasks.length > 0) {
+          const ownerNames = [...new Set(othersTasks.map(t => {
+            const m = teamMembers.find(m => m.id === t.assigneeId);
+            return m?.name || (ko ? "다른 팀원" : "other member");
+          }))].join(", ");
           const msg = ko
-            ? `선택된 ${count}개 업무 중 중요도 높음 업무가 포함되어 있습니다. 정말 삭제하시겠습니까?`
-            : `${count} selected task(s) include high priority items. Are you sure you want to delete?`;
+            ? `선택된 ${count}개 업무 중 ${ownerNames}님의 업무가 포함되어 있습니다. 정말 삭제하시겠습니까?`
+            : `${count} selected task(s) include tasks assigned to ${ownerNames}. Are you sure you want to delete?`;
           if (!confirm(msg)) return;
         } else {
           const msg = ko
@@ -2227,6 +2238,12 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
           <button
             className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
             onClick={() => {
+              const ko = language === "ko";
+              if (ctxMenu.task.assigneeId && ctxMenu.task.assigneeId !== currentUser.id) {
+                const owner = teamMembers.find(m => m.id === ctxMenu.task.assigneeId);
+                const name = owner?.name || (ko ? "다른 팀원" : "other member");
+                if (!confirm(ko ? `${name}님의 업무입니다. 정말 삭제하시겠습니까?` : `This task is assigned to ${name}. Are you sure you want to delete?`)) return;
+              }
               removeTask(ctxMenu.task.id);
               setCtxMenu(null);
             }}

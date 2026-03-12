@@ -813,7 +813,7 @@ export function TasksPage() {
   const { tasks: allTasks, updateTask, addTask: addTaskToContext, removeTask, getTask } = useTaskContext();
   const { goals } = useGoalContext();
   const { moveToTrash } = useTrash();
-  const { currentUser } = usePermission();
+  const { currentUser, members: teamMembers } = usePermission();
   const [viewMode, setViewMode] = useState<'board' | 'list' | 'calendar'>(() => {
     try { return (localStorage.getItem('poten_tasks_view') as 'board' | 'list' | 'calendar') || 'board'; } catch { return 'board'; }
   });
@@ -877,6 +877,19 @@ export function TasksPage() {
         const tag = (e.target as HTMLElement)?.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) return;
         e.preventDefault();
+        const ko = language === 'ko';
+        const tasks = Array.from(selectedIds).map(id => getTask(id)).filter(Boolean) as Task[];
+        const othersTasks = tasks.filter(t => t.assigneeId && t.assigneeId !== currentUser.id);
+        if (othersTasks.length > 0) {
+          const ownerNames = [...new Set(othersTasks.map(t => {
+            const m = teamMembers.find(m => m.id === t.assigneeId);
+            return m?.name || (ko ? "다른 팀원" : "other member");
+          }))].join(", ");
+          if (!confirm(ko
+            ? `선택된 ${selectedIds.size}개 업무 중 ${ownerNames}님의 업무가 포함되어 있습니다. 정말 삭제하시겠습니까?`
+            : `${selectedIds.size} selected task(s) include tasks assigned to ${ownerNames}. Delete?`
+          )) return;
+        }
         selectedIds.forEach(id => {
           const task = getTask(id);
           if (task) {
@@ -909,6 +922,19 @@ export function TasksPage() {
   }, [selectedIds, clearSelection, updateTask]);
 
   const handleBulkDelete = useCallback(() => {
+    const ko = language === 'ko';
+    const tasks = Array.from(selectedIds).map(id => getTask(id)).filter(Boolean) as Task[];
+    const othersTasks = tasks.filter(t => t.assigneeId && t.assigneeId !== currentUser.id);
+    if (othersTasks.length > 0) {
+      const ownerNames = [...new Set(othersTasks.map(t => {
+        const m = teamMembers.find(m => m.id === t.assigneeId);
+        return m?.name || (ko ? "다른 팀원" : "other member");
+      }))].join(", ");
+      if (!confirm(ko
+        ? `선택된 ${selectedIds.size}개 업무 중 ${ownerNames}님의 업무가 포함되어 있습니다. 정말 삭제하시겠습니까?`
+        : `${selectedIds.size} selected task(s) include tasks assigned to ${ownerNames}. Delete?`
+      )) return;
+    }
     selectedIds.forEach(id => {
       const task = getTask(id);
       if (task) {
@@ -918,7 +944,7 @@ export function TasksPage() {
       removeTask(id);
     });
     clearSelection();
-  }, [selectedIds, removeTask, getTask, moveToTrash, clearSelection]);
+  }, [selectedIds, removeTask, getTask, moveToTrash, clearSelection, currentUser.id, teamMembers, language]);
 
   // ── Right-click context menu ──
   const navigate = useNavigate();
@@ -1432,7 +1458,13 @@ export function TasksPage() {
             <div className="mx-2 my-0.5 border-t border-gray-100" />
             <button
               onClick={() => {
+                const ko = language === 'ko';
                 const task = getTask(ctxMenu.id);
+                if (task && task.assigneeId && task.assigneeId !== currentUser.id) {
+                  const owner = teamMembers.find(m => m.id === task.assigneeId);
+                  const name = owner?.name || (ko ? "다른 팀원" : "other member");
+                  if (!confirm(ko ? `${name}님의 업무입니다. 정말 삭제하시겠습니까?` : `This task is assigned to ${name}. Are you sure you want to delete?`)) return;
+                }
                 if (task) {
                   const title = task.titleKo || task.title;
                   moveToTrash({ id: task.id, type: 'task', title, data: task, deletedAt: new Date().toISOString() });
