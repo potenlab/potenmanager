@@ -93,11 +93,14 @@ export async function syncProjectsFromServer(): Promise<Project[]> {
   const local = loadProjects();
   try {
     const server: Project[] = await api.getProjects() || [];
-    if (!server.length) return local;
     const serverMap = new Map(server.map(p => [p.id, p]));
     const merged = [...server];
+    // Push local-only projects to server
     for (const lp of local) {
-      if (!serverMap.has(lp.id)) merged.push(lp);
+      if (!serverMap.has(lp.id)) {
+        merged.push(lp);
+        api.createProject(lp).catch(() => {});
+      }
     }
     saveProjects(merged);
     return merged;
@@ -829,18 +832,39 @@ export function ManagementPage() {
     setAddingColumn(false);
     setSelectedIds(new Set());
     setCtxMenu(null);
-    // Fetch from server in background (skip demo)
+    // Fetch from server in background and merge with local (skip demo)
     if (localStorage.getItem('poten_demo_mode') !== 'true') {
       Promise.all([api.getKanbanColumns(board), api.getKanbanCards(board)])
         .then(([serverCols, serverCards]) => {
+          // Columns: server wins, push local-only to server
+          const localCols = loadColumns(board);
           if (serverCols?.length) {
-            saveColumns(board, serverCols);
-            setColumns(serverCols);
+            const serverColMap = new Map(serverCols.map((c: KanbanColumn) => [c.id, c]));
+            const mergedCols = [...serverCols];
+            for (const lc of localCols) {
+              if (!serverColMap.has(lc.id)) mergedCols.push(lc);
+            }
+            saveColumns(board, mergedCols);
+            setColumns(mergedCols);
+            if (mergedCols.length !== serverCols.length) {
+              api.saveKanbanColumns(board, mergedCols).catch(() => {});
+            }
+          } else if (localCols.length) {
+            api.saveKanbanColumns(board, localCols).catch(() => {});
           }
-          if (serverCards?.length) {
-            saveCards(board, serverCards);
-            setCards(serverCards);
+
+          // Cards: merge server + local, push local-only to server
+          const localCards = loadCards(board);
+          const serverCardMap = new Map((serverCards || []).map((c: KanbanCard) => [c.id, c]));
+          const mergedCards = [...(serverCards || [])];
+          for (const lc of localCards) {
+            if (!serverCardMap.has(lc.id)) {
+              mergedCards.push(lc);
+              api.updateKanbanCard(board, lc.id, lc).catch(() => {});
+            }
           }
+          saveCards(board, mergedCards);
+          setCards(mergedCards);
         })
         .catch(() => {}); // fallback to localStorage on error
     }
