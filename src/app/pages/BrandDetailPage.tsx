@@ -4,6 +4,7 @@ import {
   ChevronDown,
   Image as ImageIcon, Camera,
   Link2, Tag, Monitor,
+  LayoutTemplate, Target, BarChart3, PenTool, CalendarDays, Users, Sparkles,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
@@ -179,6 +180,28 @@ function BrandTitle() {
 
 // ─── Properties ────────────────────────────────────────────────────
 
+function BrandSecondaryProperties({ item, onUpdate, ko }: DetailSectionProps<BrandAsset>) {
+  return (
+    <AutoProperties fields={[
+      {
+        key: "url",
+        type: "text",
+        icon: <Link2 size={14} />,
+        label: "URL",
+        value: item.url || "",
+        onChange: (v) => onUpdate({ url: v }),
+        placeholder: "https://...",
+        mono: true,
+        suffix: item.url ? (
+          <a href={item.url.startsWith("http") ? item.url : `https://${item.url}`} target="_blank" rel="noopener noreferrer" className="shrink-0 text-xs text-blue-500 hover:text-blue-700 font-medium">
+            {ko ? "열기" : "Open"}
+          </a>
+        ) : undefined,
+      },
+    ] as PropertyFieldConfig[]} />
+  );
+}
+
 function BrandProperties({ item, onUpdate, ko }: DetailSectionProps<BrandAsset>) {
   const [categories, setCategories] = useState<string[]>(loadBrandCategories);
   // Re-read categories after server sync may have updated localStorage
@@ -342,22 +365,273 @@ function BrandProperties({ item, onUpdate, ko }: DetailSectionProps<BrandAsset>)
           </div>
         ),
       },
-      {
-        key: "url",
-        type: "text",
-        icon: <Link2 size={14} />,
-        label: "URL",
-        value: item.url || "",
-        onChange: (v) => onUpdate({ url: v }),
-        placeholder: "https://...",
-        mono: true,
-        suffix: item.url ? (
-          <a href={item.url.startsWith("http") ? item.url : `https://${item.url}`} target="_blank" rel="noopener noreferrer" className="shrink-0 text-xs text-blue-500 hover:text-blue-700 font-medium">
-            {ko ? "열기" : "Open"}
-          </a>
-        ) : undefined,
-      },
     ] as PropertyFieldConfig[]} />
+  );
+}
+
+// ─── Branding Templates ─────────────────────────────────────────────
+
+interface BrandTemplate {
+  id: string;
+  icon: React.ReactNode;
+  label: string;
+  labelEn: string;
+  desc: string;
+  descEn: string;
+  content: string;
+}
+
+const BRAND_TEMPLATES: BrandTemplate[] = [
+  {
+    id: "strategy",
+    icon: <Target size={20} className="text-blue-500" />,
+    label: "채널 전략",
+    labelEn: "Channel Strategy",
+    desc: "채널 목표, 타겟, 포지셔닝, 톤앤매너",
+    descEn: "Channel goals, target audience, positioning",
+    content: `## 채널 목표
+- 주요 목표:
+- KPI:
+- 타겟 기간:
+---
+## 타겟 오디언스
+- 연령/성별:
+- 관심사:
+- 페인포인트:
+- 우리가 줄 수 있는 가치:
+---
+## 포지셔닝
+- 채널 콘셉트:
+- 차별점:
+- 벤치마킹 채널:
+---
+## 톤앤매너
+- 말투 스타일:
+- 비주얼 무드:
+- 금지 표현:
+---
+## 해시태그 전략
+- 고정 태그:
+- 콘텐츠별 태그:`,
+  },
+  {
+    id: "content-plan",
+    icon: <CalendarDays size={20} className="text-green-500" />,
+    label: "콘텐츠 캘린더",
+    labelEn: "Content Calendar",
+    desc: "주간/월간 콘텐츠 발행 계획",
+    descEn: "Weekly/monthly content publishing plan",
+    content: `## 콘텐츠 캘린더
+### 이번 주
+- 월:
+- 화:
+- 수:
+- 목:
+- 금:
+- 토/일:
+---
+## 콘텐츠 카테고리
+### 카테고리 A —
+- 비중: %
+- 발행 주기:
+### 카테고리 B —
+- 비중: %
+- 발행 주기:
+### 카테고리 C —
+- 비중: %
+- 발행 주기:
+---
+## 콘텐츠 아이디어
+1.
+1.
+1.
+---
+## 시즌/이벤트 일정
+- `,
+  },
+  {
+    id: "analytics",
+    icon: <BarChart3 size={20} className="text-orange-500" />,
+    label: "성과 분석",
+    labelEn: "Performance Analytics",
+    desc: "팔로워, 도달, 인게이지먼트 트래킹",
+    descEn: "Followers, reach, engagement tracking",
+    content: `## 월간 성과 요약
+- 기간:
+- 팔로워 수: → (증감: )
+- 총 게시물 수:
+---
+## 핵심 지표
+### 도달 (Reach)
+- 평균 도달:
+- 최고 도달 게시물:
+### 인게이지먼트
+- 평균 좋아요:
+- 평균 댓글:
+- 평균 저장:
+- 인게이지먼트율: %
+### 전환
+- 프로필 방문:
+- 웹사이트 클릭:
+- DM 문의:
+---
+## Top 3 게시물
+1.
+1.
+1.
+---
+## 인사이트 & 개선점
+- 잘된 점:
+- 개선할 점:
+- 다음 달 액션:`,
+  },
+  {
+    id: "brand-guide",
+    icon: <PenTool size={20} className="text-purple-500" />,
+    label: "브랜드 가이드",
+    labelEn: "Brand Guide",
+    desc: "로고, 컬러, 폰트, 비주얼 가이드라인",
+    descEn: "Logo, color, font, visual guidelines",
+    content: `## 브랜드 아이덴티티
+- 브랜드명:
+- 슬로건:
+- 미션:
+---
+## 로고
+- 메인 로고:
+- 서브 로고:
+- 최소 사이즈:
+- 금지 사항:
+---
+## 컬러 팔레트
+- 메인 컬러: #
+- 서브 컬러: #
+- 액센트 컬러: #
+- 배경 컬러: #
+---
+## 타이포그래피
+- 제목 폰트:
+- 본문 폰트:
+- 강조 폰트:
+---
+## 이미지 스타일
+- 사진 톤:
+- 일러스트 스타일:
+- 필터/보정:
+---
+## 템플릿 에셋
+- 피드 템플릿:
+- 스토리 템플릿:
+- 썸네일 템플릿:`,
+  },
+  {
+    id: "collab",
+    icon: <Users size={20} className="text-pink-500" />,
+    label: "협업 & 광고",
+    labelEn: "Collaboration & Ads",
+    desc: "브랜드 협업, 광고 집행, 인플루언서 관리",
+    descEn: "Brand collab, ad campaigns, influencer mgmt",
+    content: `## 협업 기록
+### 브랜드 A
+- 기간:
+- 내용:
+- 금액:
+- 성과:
+### 브랜드 B
+- 기간:
+- 내용:
+- 금액:
+- 성과:
+---
+## 광고 집행
+### 캠페인 1
+- 플랫폼:
+- 예산:
+- 기간:
+- 목표:
+- 결과:
+---
+## 미디어킷
+- 팔로워 수:
+- 평균 도달:
+- 평균 인게이지먼트:
+- 주요 타겟층:
+- 단가:
+---
+## 컨택 리스트
+- `,
+  },
+  {
+    id: "growth",
+    icon: <Sparkles size={20} className="text-yellow-500" />,
+    label: "성장 전략",
+    labelEn: "Growth Strategy",
+    desc: "팔로워 성장, 바이럴, 커뮤니티 전략",
+    descEn: "Follower growth, viral, community strategy",
+    content: `## 현재 현황
+- 팔로워:
+- 월 평균 성장률:
+- 주력 콘텐츠:
+---
+## 성장 목표
+- 단기 (1개월):
+- 중기 (3개월):
+- 장기 (6개월):
+---
+## 성장 전략
+### 오가닉 성장
+- 콘텐츠 최적화:
+- 해시태그 전략:
+- 게시 시간 최적화:
+- 릴스/숏폼:
+### 크로스 프로모션
+- 협업 채널:
+- 게스트 콘텐츠:
+### 커뮤니티 빌딩
+- 댓글 관리:
+- DM 응대:
+- 이벤트/챌린지:
+---
+## 주간 액션 플랜
+- [ ]
+- [ ]
+- [ ]
+---
+## 실험 & 테스트
+- 테스트 1:
+- 결과:
+- 테스트 2:
+- 결과:`,
+  },
+];
+
+function BrandTemplatePicker({ onSelect, ko }: { onSelect: (content: string) => void; ko: boolean }) {
+  return (
+    <div className="mb-6">
+      <div className="flex items-center gap-2 mb-3">
+        <LayoutTemplate size={16} className="text-gray-400" />
+        <span className="text-sm font-semibold text-gray-500">{ko ? "템플릿으로 시작하기" : "Start with a template"}</span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {BRAND_TEMPLATES.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => onSelect(t.content)}
+            className="flex items-start gap-3 p-3 rounded-xl border border-gray-150 hover:border-blue-300 hover:bg-blue-50/30 transition-all text-left group"
+          >
+            <div className="mt-0.5 shrink-0">{t.icon}</div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-800 group-hover:text-blue-700 transition-colors">
+                {ko ? t.label : t.labelEn}
+              </p>
+              <p className="text-[11px] text-gray-400 mt-0.5 leading-snug line-clamp-2">
+                {ko ? t.desc : t.descEn}
+              </p>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -365,6 +639,7 @@ function BrandProperties({ item, onUpdate, ko }: DetailSectionProps<BrandAsset>)
 
 function BrandBody({ item, onUpdate, ko, language }: DetailSectionProps<BrandAsset>) {
   const [notes, setNotes] = useState(item.description || "");
+  const [editorKey, setEditorKey] = useState(0);
 
   useEffect(() => {
     setNotes(item.description || "");
@@ -373,7 +648,18 @@ function BrandBody({ item, onUpdate, ko, language }: DetailSectionProps<BrandAss
   return (
     <>
       <div className="min-h-[200px] border-t border-gray-100 pt-5">
+        {!notes?.trim() && (
+          <BrandTemplatePicker
+            ko={ko}
+            onSelect={(content) => {
+              setNotes(content);
+              onUpdate({ description: content });
+              setEditorKey((k) => k + 1);
+            }}
+          />
+        )}
         <NotionBlockEditor
+          key={editorKey}
           initialContent={notes}
           onChange={(v) => onUpdate({ description: v || "" })}
           placeholder={ko ? "채널에 대한 메모를 작성하세요..." : "Write notes about this channel..."}
@@ -400,6 +686,7 @@ export const BrandDetailPage = createDetailPage<BrandAsset>({
   TitlePrefixComponent: BrandTitlePrefix,
   TitleComponent: BrandTitle,
   PropertiesComponent: BrandProperties,
+  SecondaryPropertiesComponent: BrandSecondaryProperties,
   BodyComponent: BrandBody,
   getBreadcrumbs: (item, ko) => [{ label: item.name || (ko ? "새 채널" : "New Channel") }],
 });

@@ -44,6 +44,9 @@ export interface DetailPageConfig<TData> {
   /** Properties section — a component that returns AutoProperties or custom JSX */
   PropertiesComponent: React.FC<DetailSectionProps<TData>>;
 
+  /** Secondary properties — collapsed by default (less important fields) */
+  SecondaryPropertiesComponent?: React.FC<DetailSectionProps<TData>>;
+
   /** Main body content */
   BodyComponent: React.FC<DetailSectionProps<TData>>;
 
@@ -82,6 +85,7 @@ export function createDetailPage<TData>(config: DetailPageConfig<TData>): React.
     useData,
     TitleComponent,
     PropertiesComponent,
+    SecondaryPropertiesComponent,
     BodyComponent,
     TitlePrefixComponent,
     getBreadcrumbs,
@@ -123,6 +127,7 @@ export function createDetailPage<TData>(config: DetailPageConfig<TData>): React.
         titlePrefix={TitlePrefixComponent ? <TitlePrefixComponent {...sectionProps} /> : undefined}
         title={<TitleComponent {...sectionProps} />}
         properties={<PropertiesComponent {...sectionProps} />}
+        secondaryProperties={SecondaryPropertiesComponent ? <SecondaryPropertiesComponent {...sectionProps} /> : undefined}
         collapsible={collapsible}
         collapsedPreview={
           CollapsedPreviewComponent ? <CollapsedPreviewComponent item={item} ko={ko} /> : undefined

@@ -15,6 +15,19 @@ import { useInvite } from "../context/InviteContext";
 import { TeamBoardSidebar } from "./GoalPage";
 import { format } from "date-fns";
 
+/** Strip Notion-block markup so card previews show plain text */
+function stripBlockTags(text: string): string {
+  return text
+    .replace(/\[page:[^\]]+\]/g, "")
+    .replace(/\[img:[^\]]+\]/g, "")
+    .replace(/\[bookmark:[^\]]+\]/g, "")
+    .replace(/^#{1,3}\s+/gm, "")
+    .replace(/^---$/gm, "")
+    .replace(/^\s*[-*]\s*\[\s*[xX ]?\]\s*/gm, "- ")
+    .replace(/\n{2,}/g, "\n")
+    .trim();
+}
+
 // ─── Types (exported for detail pages) ───────────────────────────
 export interface Project {
   id: string;
@@ -409,8 +422,8 @@ function MgmtCard({
             })()}
             <h4 className="font-medium text-sm text-gray-900 leading-snug truncate">{card.title || (ko ? "제목 없음" : "Untitled")}</h4>
           </div>
-          {card.description && (
-            <p className="text-xs text-gray-500 line-clamp-2 mb-3">{card.description}</p>
+          {card.description && stripBlockTags(card.description) && (
+            <p className="text-xs text-gray-500 line-clamp-2 mb-3">{stripBlockTags(card.description)}</p>
           )}
 
           <div className="flex items-center justify-between border-t border-gray-50 pt-3 mt-2">
@@ -673,9 +686,9 @@ function MgmtListRow({
       </h4>
 
       {/* Description */}
-      {card.description && (
+      {card.description && stripBlockTags(card.description) && (
         <span className="text-xs text-gray-400 truncate max-w-[200px] hidden md:block">
-          {card.description}
+          {stripBlockTags(card.description)}
         </span>
       )}
 

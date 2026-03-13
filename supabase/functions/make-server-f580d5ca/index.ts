@@ -3253,112 +3253,478 @@ app.delete("/make-server-f580d5ca/sub-pages/:id", async (c) => {
   } catch (e) { return c.json({ error: String(e) }, 500); }
 });
 
-// ─── Projects (kanban cards + project metadata) ──────────────────────────────
+// ─── Projects (relational tables) ────────────────────────────────────────────
+
+// Helper: get Supabase client (service role)
+const db = () => kvClient();
+
+// Migration: create relational tables if not exist
+app.post("/make-server-f580d5ca/migrate-projects-v2", async (c) => {
+  try {
+    const client = db();
+
+    // Create projects table
+    await client.rpc("exec_sql", { sql: `
+      CREATE TABLE IF NOT EXISTS projects (
+        id TEXT PRIMARY KEY,
+        org_id TEXT NOT NULL DEFAULT '',
+        name TEXT NOT NULL DEFAULT '',
+        description TEXT DEFAULT '',
+        status TEXT DEFAULT 'planning',
+        category TEXT,
+        color TEXT,
+        logo_url TEXT,
+        client TEXT,
+        budget TEXT,
+        start_date TEXT,
+        end_date TEXT,
+        member_ids JSONB DEFAULT '[]',
+        links JSONB DEFAULT '[]',
+        created_by TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_projects_org ON projects(org_id);
+    `});
+
+    // Create kanban_columns table
+    await client.rpc("exec_sql", { sql: `
+      CREATE TABLE IF NOT EXISTS kanban_columns (
+        id TEXT NOT NULL,
+        board_type TEXT NOT NULL,
+        org_id TEXT NOT NULL DEFAULT '',
+        name TEXT NOT NULL DEFAULT '',
+        sort_order INT DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (id, board_type, org_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_kanban_cols_board ON kanban_columns(board_type, org_id);
+    `});
+
+    // Create kanban_cards table
+    await client.rpc("exec_sql", { sql: `
+      CREATE TABLE IF NOT EXISTS kanban_cards (
+        id TEXT NOT NULL,
+        board_type TEXT NOT NULL,
+        org_id TEXT NOT NULL DEFAULT '',
+        column_id TEXT NOT NULL DEFAULT '',
+        title TEXT NOT NULL DEFAULT '',
+        description TEXT,
+        due_date TEXT,
+        color TEXT,
+        logo_url TEXT,
+        sort_order INT DEFAULT 0,
+        extra JSONB DEFAULT '{}',
+        created_by TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (id, board_type, org_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_kanban_cards_board ON kanban_cards(board_type, org_id);
+    `});
+
+    // Migrate existing KV data to relational tables
+    let migratedProjects = 0;
+    let migratedCols = 0;
+    let migratedCards = 0;
+
+    // Migrate projects from KV
+    const kvProjects = await kv.getByPrefixWithKeys("project:");
+    for (const { key, value } of kvProjects) {
+      if (!value?.id) continue;
+      const orgId = key.includes(":project:") ? key.split(":project:")[0] : "";
+      const { error } = await client.from("projects").upsert({
+        id: value.id,
+        org_id: orgId,
+        name: value.name || "",
+        description: value.description || "",
+        status: value.status || "planning",
+        category: value.category || null,
+        color: value.color || null,
+        logo_url: value.logoUrl || null,
+        client: value.client || null,
+        budget: value.budget || null,
+        start_date: value.startDate || null,
+        end_date: value.endDate || null,
+        member_ids: value.memberIds || [],
+        links: value.links || [],
+        created_by: value.createdBy || null,
+        created_at: value.createdAt || new Date().toISOString(),
+        updated_at: value.updatedAt || new Date().toISOString(),
+      });
+      if (!error) migratedProjects++;
+    }
+
+    // Migrate kanban columns from KV
+    const kvCols = await kv.getByPrefixWithKeys("kanban:");
+    for (const { key, value } of kvCols) {
+      if (!key.includes(":col:") || !value?.id) continue;
+      // Parse key: orgId:kanban:board:col:id or kanban:board:col:id
+      const parts = key.split(":");
+      const colIdx = parts.indexOf("col");
+      const kanbanIdx = parts.indexOf("kanban");
+      const boardType = parts[kanbanIdx + 1] || "projects";
+      const orgId = kanbanIdx > 0 ? parts.slice(0, kanbanIdx).join(":") : "";
+      const { error } = await client.from("kanban_columns").upsert({
+        id: value.id,
+        board_type: boardType,
+        org_id: orgId,
+        name: value.name || "",
+        sort_order: value.order ?? 0,
+      });
+      if (!error) migratedCols++;
+    }
+
+    // Migrate kanban cards from KV
+    for (const { key, value } of kvCols) {
+      if (!key.includes(":card:") || !value?.id) continue;
+      const parts = key.split(":");
+      const cardIdx = parts.indexOf("card");
+      const kanbanIdx = parts.indexOf("kanban");
+      const boardType = parts[kanbanIdx + 1] || "projects";
+      const orgId = kanbanIdx > 0 ? parts.slice(0, kanbanIdx).join(":") : "";
+      const { id, title, description, columnId, dueDate, color, logoUrl, order, createdBy, createdAt, updatedAt, ...rest } = value;
+      const { error } = await client.from("kanban_cards").upsert({
+        id,
+        board_type: boardType,
+        org_id: orgId,
+        column_id: columnId || "",
+        title: title || "",
+        description: description || null,
+        due_date: dueDate || null,
+        color: color || null,
+        logo_url: logoUrl || null,
+        sort_order: order ?? 0,
+        extra: rest || {},
+        created_by: createdBy || null,
+        created_at: createdAt || new Date().toISOString(),
+        updated_at: updatedAt || new Date().toISOString(),
+      });
+      if (!error) migratedCards++;
+    }
+
+    return c.json({
+      success: true,
+      migrated: { projects: migratedProjects, columns: migratedCols, cards: migratedCards },
+    });
+  } catch (e) {
+    return c.json({ error: String(e) }, 500);
+  }
+});
+
+// Helper: get orgId from query
+const getOrgId = (c: any) => c.req.query("orgId") || "";
+
+// ─── Projects CRUD (relational) ─────────────────────────────────────────────
 
 app.get("/make-server-f580d5ca/projects", async (c) => {
   try {
-    const items = await kv.getByPrefix(pfx(c, "project:"));
-    return c.json(items || []);
-  } catch (e) { return c.json([]); }
+    const orgId = getOrgId(c);
+    const { data, error } = await db().from("projects").select("*").eq("org_id", orgId);
+    if (error) throw error;
+    // Map DB columns back to camelCase for frontend compatibility
+    return c.json((data || []).map(dbToProject));
+  } catch (e) {
+    // Fallback to KV if table doesn't exist yet
+    try {
+      const items = await kv.getByPrefix(pfx(c, "project:"));
+      return c.json(items || []);
+    } catch { return c.json([]); }
+  }
 });
 
 app.get("/make-server-f580d5ca/projects/:id", async (c) => {
   try {
-    const item = await kv.get(pfx(c, `project:${c.req.param("id")}`));
-    if (!item) return c.json({ error: "Not found" }, 404);
-    return c.json(item);
-  } catch (e) { return c.json({ error: String(e) }, 500); }
+    const orgId = getOrgId(c);
+    const { data, error } = await db().from("projects").select("*").eq("id", c.req.param("id")).eq("org_id", orgId).maybeSingle();
+    if (error) throw error;
+    if (!data) return c.json({ error: "Not found" }, 404);
+    return c.json(dbToProject(data));
+  } catch (e) {
+    try {
+      const item = await kv.get(pfx(c, `project:${c.req.param("id")}`));
+      if (!item) return c.json({ error: "Not found" }, 404);
+      return c.json(item);
+    } catch { return c.json({ error: String(e) }, 500); }
+  }
 });
 
 app.post("/make-server-f580d5ca/projects", async (c) => {
   try {
     const body = await c.req.json();
     const id = body.id || `proj-${Date.now()}`;
-    const item = { ...body, id, updatedAt: new Date().toISOString() };
-    await kv.set(pfx(c, `project:${id}`), item);
-    return c.json(item);
-  } catch (e) { return c.json({ error: String(e) }, 500); }
+    const orgId = getOrgId(c);
+    const row = projectToDb({ ...body, id }, orgId);
+    const { data, error } = await db().from("projects").upsert(row).select().single();
+    if (error) throw error;
+    return c.json(dbToProject(data));
+  } catch (e) {
+    // Fallback to KV
+    try {
+      const body = await c.req.json().catch(() => ({}));
+      const id = body.id || `proj-${Date.now()}`;
+      const item = { ...body, id, updatedAt: new Date().toISOString() };
+      await kv.set(pfx(c, `project:${id}`), item);
+      return c.json(item);
+    } catch { return c.json({ error: String(e) }, 500); }
+  }
 });
 
 app.put("/make-server-f580d5ca/projects/:id", async (c) => {
   try {
     const id = c.req.param("id");
     const body = await c.req.json();
-    const existing = await kv.get(pfx(c, `project:${id}`));
-    const updated = { ...(existing || {}), ...body, id, updatedAt: new Date().toISOString() };
-    await kv.set(pfx(c, `project:${id}`), updated);
-    return c.json(updated);
-  } catch (e) { return c.json({ error: String(e) }, 500); }
+    const orgId = getOrgId(c);
+    const updates: Record<string, any> = { updated_at: new Date().toISOString() };
+    if (body.name !== undefined) updates.name = body.name;
+    if (body.description !== undefined) updates.description = body.description;
+    if (body.status !== undefined) updates.status = body.status;
+    if (body.category !== undefined) updates.category = body.category;
+    if (body.color !== undefined) updates.color = body.color;
+    if (body.logoUrl !== undefined) updates.logo_url = body.logoUrl;
+    if (body.client !== undefined) updates.client = body.client;
+    if (body.budget !== undefined) updates.budget = body.budget;
+    if (body.startDate !== undefined) updates.start_date = body.startDate;
+    if (body.endDate !== undefined) updates.end_date = body.endDate;
+    if (body.memberIds !== undefined) updates.member_ids = body.memberIds;
+    if (body.links !== undefined) updates.links = body.links;
+    if (body.createdBy !== undefined) updates.created_by = body.createdBy;
+
+    const { data, error } = await db().from("projects").update(updates).eq("id", id).eq("org_id", orgId).select().maybeSingle();
+    if (error) throw error;
+    if (!data) {
+      // Doesn't exist yet — upsert
+      const row = projectToDb({ ...body, id }, orgId);
+      const { data: d2, error: e2 } = await db().from("projects").upsert(row).select().single();
+      if (e2) throw e2;
+      return c.json(dbToProject(d2));
+    }
+    return c.json(dbToProject(data));
+  } catch (e) {
+    try {
+      const id = c.req.param("id");
+      const body = await c.req.json().catch(() => ({}));
+      const existing = await kv.get(pfx(c, `project:${id}`));
+      const updated = { ...(existing || {}), ...body, id, updatedAt: new Date().toISOString() };
+      await kv.set(pfx(c, `project:${id}`), updated);
+      return c.json(updated);
+    } catch { return c.json({ error: String(e) }, 500); }
+  }
 });
 
 app.delete("/make-server-f580d5ca/projects/:id", async (c) => {
   try {
-    await kv.del(pfx(c, `project:${c.req.param("id")}`));
+    const orgId = getOrgId(c);
+    await db().from("projects").delete().eq("id", c.req.param("id")).eq("org_id", orgId);
     return c.json({ success: true });
-  } catch (e) { return c.json({ error: String(e) }, 500); }
+  } catch (e) {
+    try { await kv.del(pfx(c, `project:${c.req.param("id")}`)); return c.json({ success: true }); }
+    catch { return c.json({ error: String(e) }, 500); }
+  }
 });
 
-// Kanban columns
+// DB ↔ Frontend mapping helpers
+function dbToProject(row: any) {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    status: row.status,
+    category: row.category,
+    color: row.color,
+    logoUrl: row.logo_url,
+    client: row.client,
+    budget: row.budget,
+    startDate: row.start_date,
+    endDate: row.end_date,
+    memberIds: row.member_ids || [],
+    links: row.links || [],
+    createdBy: row.created_by,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+function projectToDb(p: any, orgId: string) {
+  return {
+    id: p.id,
+    org_id: orgId,
+    name: p.name || "",
+    description: p.description || "",
+    status: p.status || "planning",
+    category: p.category || null,
+    color: p.color || null,
+    logo_url: p.logoUrl || null,
+    client: p.client || null,
+    budget: p.budget || null,
+    start_date: p.startDate || null,
+    end_date: p.endDate || null,
+    member_ids: p.memberIds || [],
+    links: p.links || [],
+    created_by: p.createdBy || null,
+    created_at: p.createdAt || new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+}
+
+// ─── Kanban Columns (relational) ────────────────────────────────────────────
+
 app.get("/make-server-f580d5ca/kanban/:board/columns", async (c) => {
   try {
     const board = c.req.param("board");
-    const items = await kv.getByPrefix(pfx(c, `kanban:${board}:col:`));
-    return c.json(items || []);
-  } catch (e) { return c.json([]); }
+    const orgId = getOrgId(c);
+    const { data, error } = await db().from("kanban_columns").select("*").eq("board_type", board).eq("org_id", orgId).order("sort_order");
+    if (error) throw error;
+    return c.json((data || []).map((r: any) => ({ id: r.id, name: r.name, order: r.sort_order })));
+  } catch (e) {
+    try {
+      const items = await kv.getByPrefix(pfx(c, `kanban:${c.req.param("board")}:col:`));
+      return c.json(items || []);
+    } catch { return c.json([]); }
+  }
 });
 
 app.put("/make-server-f580d5ca/kanban/:board/columns", async (c) => {
   try {
     const board = c.req.param("board");
+    const orgId = getOrgId(c);
     const cols = await c.req.json();
-    // Delete old columns and save new ones
-    const oldKeys = await kv.getByPrefix(pfx(c, `kanban:${board}:col:`));
-    // Save each column
-    for (const col of cols) {
-      await kv.set(pfx(c, `kanban:${board}:col:${col.id}`), col);
+    // Upsert all columns
+    const rows = cols.map((col: any, i: number) => ({
+      id: col.id,
+      board_type: board,
+      org_id: orgId,
+      name: col.name || "",
+      sort_order: col.order ?? i,
+    }));
+    const { error } = await db().from("kanban_columns").upsert(rows);
+    if (error) throw error;
+    // Delete columns not in the new list
+    const colIds = cols.map((c: any) => c.id);
+    if (colIds.length) {
+      await db().from("kanban_columns").delete().eq("board_type", board).eq("org_id", orgId).not("id", "in", `(${colIds.join(",")})`);
     }
     return c.json({ success: true });
-  } catch (e) { return c.json({ error: String(e) }, 500); }
+  } catch (e) {
+    try {
+      const board = c.req.param("board");
+      const cols = await c.req.json().catch(() => []);
+      for (const col of cols) await kv.set(pfx(c, `kanban:${board}:col:${col.id}`), col);
+      return c.json({ success: true });
+    } catch { return c.json({ error: String(e) }, 500); }
+  }
 });
 
-// Kanban cards
+// ─── Kanban Cards (relational) ──────────────────────────────────────────────
+
+function dbToCard(row: any) {
+  return {
+    id: row.id,
+    columnId: row.column_id,
+    title: row.title,
+    description: row.description,
+    dueDate: row.due_date,
+    color: row.color,
+    logoUrl: row.logo_url,
+    order: row.sort_order,
+    createdBy: row.created_by,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    ...(row.extra || {}),
+  };
+}
+function cardToDb(card: any, board: string, orgId: string) {
+  const { id, columnId, title, description, dueDate, color, logoUrl, order, createdBy, createdAt, updatedAt, ...rest } = card;
+  return {
+    id,
+    board_type: board,
+    org_id: orgId,
+    column_id: columnId || "",
+    title: title || "",
+    description: description || null,
+    due_date: dueDate || null,
+    color: color || null,
+    logo_url: logoUrl || null,
+    sort_order: order ?? 0,
+    extra: rest || {},
+    created_by: createdBy || null,
+    created_at: createdAt || new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+}
+
 app.get("/make-server-f580d5ca/kanban/:board/cards", async (c) => {
   try {
     const board = c.req.param("board");
-    const items = await kv.getByPrefix(pfx(c, `kanban:${board}:card:`));
-    return c.json(items || []);
-  } catch (e) { return c.json([]); }
+    const orgId = getOrgId(c);
+    const { data, error } = await db().from("kanban_cards").select("*").eq("board_type", board).eq("org_id", orgId).order("sort_order");
+    if (error) throw error;
+    return c.json((data || []).map(dbToCard));
+  } catch (e) {
+    try {
+      const items = await kv.getByPrefix(pfx(c, `kanban:${c.req.param("board")}:card:`));
+      return c.json(items || []);
+    } catch { return c.json([]); }
+  }
 });
 
 app.post("/make-server-f580d5ca/kanban/:board/cards", async (c) => {
   try {
     const board = c.req.param("board");
+    const orgId = getOrgId(c);
     const body = await c.req.json();
     const id = body.id || `card-${Date.now()}`;
-    const item = { ...body, id, updatedAt: new Date().toISOString() };
-    await kv.set(pfx(c, `kanban:${board}:card:${id}`), item);
-    return c.json(item);
-  } catch (e) { return c.json({ error: String(e) }, 500); }
+    const row = cardToDb({ ...body, id }, board, orgId);
+    const { data, error } = await db().from("kanban_cards").upsert(row).select().single();
+    if (error) throw error;
+    return c.json(dbToCard(data));
+  } catch (e) {
+    try {
+      const board = c.req.param("board");
+      const body = await c.req.json().catch(() => ({}));
+      const id = body.id || `card-${Date.now()}`;
+      const item = { ...body, id, updatedAt: new Date().toISOString() };
+      await kv.set(pfx(c, `kanban:${board}:card:${id}`), item);
+      return c.json(item);
+    } catch { return c.json({ error: String(e) }, 500); }
+  }
 });
 
 app.put("/make-server-f580d5ca/kanban/:board/cards/:id", async (c) => {
   try {
     const board = c.req.param("board");
     const id = c.req.param("id");
+    const orgId = getOrgId(c);
     const body = await c.req.json();
-    const existing = await kv.get(pfx(c, `kanban:${board}:card:${id}`));
-    const updated = { ...(existing || {}), ...body, id, updatedAt: new Date().toISOString() };
-    await kv.set(pfx(c, `kanban:${board}:card:${id}`), updated);
-    return c.json(updated);
-  } catch (e) { return c.json({ error: String(e) }, 500); }
+    const row = cardToDb({ ...body, id }, board, orgId);
+    const { data, error } = await db().from("kanban_cards").upsert(row).select().single();
+    if (error) throw error;
+    return c.json(dbToCard(data));
+  } catch (e) {
+    try {
+      const board = c.req.param("board");
+      const id = c.req.param("id");
+      const body = await c.req.json().catch(() => ({}));
+      const existing = await kv.get(pfx(c, `kanban:${board}:card:${id}`));
+      const updated = { ...(existing || {}), ...body, id, updatedAt: new Date().toISOString() };
+      await kv.set(pfx(c, `kanban:${board}:card:${id}`), updated);
+      return c.json(updated);
+    } catch { return c.json({ error: String(e) }, 500); }
+  }
 });
 
 app.delete("/make-server-f580d5ca/kanban/:board/cards/:id", async (c) => {
   try {
     const board = c.req.param("board");
-    await kv.del(pfx(c, `kanban:${board}:card:${c.req.param("id")}`));
+    const orgId = getOrgId(c);
+    await db().from("kanban_cards").delete().eq("id", c.req.param("id")).eq("board_type", board).eq("org_id", orgId);
     return c.json({ success: true });
-  } catch (e) { return c.json({ error: String(e) }, 500); }
+  } catch (e) {
+    try {
+      const board = c.req.param("board");
+      await kv.del(pfx(c, `kanban:${board}:card:${c.req.param("id")}`));
+      return c.json({ success: true });
+    } catch { return c.json({ error: String(e) }, 500); }
+  }
 });
 
 // Version check endpoint

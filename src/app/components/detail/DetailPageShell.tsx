@@ -1,9 +1,10 @@
 import { useState, ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowLeft, Trash2, ChevronDown, LayoutGrid } from "lucide-react";
+import { ArrowLeft, Trash2, ChevronDown, LayoutGrid, Maximize2, Minimize2 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { useLanguage } from "../../context/LanguageContext";
+import { usePagePresence } from "../../context/PresenceContext";
 import { ShareButton } from "./ShareButton";
 
 // ─── Types ──────────────────────────────────────────────────────────
@@ -38,8 +39,10 @@ interface DetailPageShellProps {
   /** Optional content between title and properties (e.g., logo+title row) */
   titlePrefix?: ReactNode;
 
-  /** Properties section content (PropertyItem elements) */
+  /** Primary properties — always visible */
   properties?: ReactNode;
+  /** Secondary properties — collapsed by default with "more" toggle */
+  secondaryProperties?: ReactNode;
   /** Whether properties are collapsible (default: true) */
   collapsible?: boolean;
   /** Collapsed preview badges (shown when collapsed) */
@@ -68,6 +71,7 @@ export function DetailPageShell({
   title,
   titlePrefix,
   properties,
+  secondaryProperties,
   collapsible = true,
   collapsedPreview,
   defaultExpanded = true,
@@ -77,11 +81,20 @@ export function DetailPageShell({
   const navigate = useNavigate();
   const { language } = useLanguage();
   const ko = language === "ko";
-  const [propsExpanded, setPropsExpanded] = useState(defaultExpanded);
+  const [propsExpanded, setPropsExpanded] = useState(secondaryProperties ? false : defaultExpanded);
+  const viewers = usePagePresence(itemId);
+  const [wide, setWide] = useState(() => {
+    try { return localStorage.getItem("poten_detail_wide") === "true"; } catch { return false; }
+  });
+  const toggleWide = () => {
+    const next = !wide;
+    setWide(next);
+    try { localStorage.setItem("poten_detail_wide", String(next)); } catch {}
+  };
 
   return (
     <div className="h-full overflow-y-auto bg-white scrollbar-hide">
-      <div className="max-w-6xl mx-auto py-4 sm:py-7 px-4 sm:px-8 pb-64">
+      <div className={cn("mx-auto py-4 sm:py-7 px-4 sm:px-8 pb-64 transition-all duration-300", wide ? "max-w-full" : "max-w-6xl")}>
 
         {/* ── Navigation + Actions ── */}
         <div className="flex items-center justify-between mb-6">
@@ -111,7 +124,49 @@ export function DetailPageShell({
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
+            {/* Page viewers (Notion-style) */}
+            {viewers.length > 0 && (
+              <div className="flex items-center gap-1 mr-1">
+                <div className="flex -space-x-1.5">
+                  {viewers.slice(0, 4).map((v) => (
+                    <div key={v.userId} className="relative group">
+                      {v.avatar ? (
+                        <img
+                          src={v.avatar}
+                          alt={v.name}
+                          className="w-6 h-6 rounded-full ring-2 ring-white object-cover"
+                        />
+                      ) : (
+                        <div className="w-6 h-6 rounded-full ring-2 ring-white bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-600">
+                          {v.name?.[0] || "?"}
+                        </div>
+                      )}
+                      {/* Online dot */}
+                      <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 ring-2 ring-white" />
+                      {/* Tooltip */}
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-[10px] rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        {v.name} — {ko ? "보는 중" : "viewing"}
+                      </div>
+                    </div>
+                  ))}
+                  {viewers.length > 4 && (
+                    <div className="w-6 h-6 rounded-full ring-2 ring-white bg-gray-100 flex items-center justify-center text-[9px] font-bold text-gray-500">
+                      +{viewers.length - 4}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             {extraActions}
+            {narrow && (
+              <button
+                onClick={toggleWide}
+                className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-all"
+                title={wide ? (ko ? "기본 너비" : "Default width") : (ko ? "넓게 보기" : "Full width")}
+              >
+                {wide ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+              </button>
+            )}
             <ShareButton type={shareType} itemId={itemId} createdBy={currentUserId} />
             {onDelete && (
               <button
@@ -125,7 +180,7 @@ export function DetailPageShell({
         </div>
 
         {/* ── Content ── */}
-        <div className={narrow ? "max-w-3xl" : undefined}>
+        <div className={cn("transition-all duration-300", narrow && !wide ? "max-w-3xl" : undefined)}>
           <div className="space-y-6">
 
             {/* Title prefix (e.g., logo) */}
@@ -134,50 +189,74 @@ export function DetailPageShell({
             {/* Title */}
             {title}
 
-            {/* Properties */}
+            {/* Properties — 2-tier layout */}
             {properties && (
-              collapsible ? (
-                <div className="bg-gray-50/50 rounded-2xl border border-gray-100 overflow-hidden">
-                  <button
-                    onClick={() => setPropsExpanded((p) => !p)}
-                    className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-100/50 transition-colors"
-                  >
-                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
-                      <LayoutGrid size={12} />
-                      {ko ? "속성" : "Properties"}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      {!propsExpanded && collapsedPreview}
+              <div className="bg-gray-50/50 rounded-2xl border border-gray-100 overflow-hidden">
+                {/* Primary properties — always visible */}
+                <div className="divide-y divide-gray-100">
+                  {properties}
+                </div>
+
+                {/* Secondary properties — collapsed by default */}
+                {secondaryProperties && (
+                  <>
+                    <button
+                      onClick={() => setPropsExpanded((p) => !p)}
+                      className="w-full flex items-center justify-between px-4 py-2 border-t border-gray-100 hover:bg-gray-100/50 transition-colors"
+                    >
+                      <span className="text-[11px] font-medium text-gray-400 flex items-center gap-1.5">
+                        {ko ? "더보기" : "More"}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {!propsExpanded && collapsedPreview}
+                        <ChevronDown
+                          size={12}
+                          className={cn(
+                            "text-gray-400 transition-transform duration-200",
+                            propsExpanded && "rotate-180"
+                          )}
+                        />
+                      </div>
+                    </button>
+                    <AnimatePresence initial={false}>
+                      {propsExpanded && (
+                        <motion.div
+                          initial={{ height: 0 }}
+                          animate={{ height: "auto" }}
+                          exit={{ height: 0 }}
+                          transition={{ duration: 0.2, ease: "easeInOut" }}
+                          className="overflow-hidden"
+                        >
+                          <div className="divide-y divide-gray-100 border-t border-gray-100">
+                            {secondaryProperties}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </>
+                )}
+
+                {/* If no secondary properties but collapsible, use old behavior */}
+                {!secondaryProperties && collapsible && (
+                  <>
+                    <button
+                      onClick={() => setPropsExpanded((p) => !p)}
+                      className="w-full flex items-center justify-between px-4 py-2 border-t border-gray-100 hover:bg-gray-100/50 transition-colors"
+                    >
+                      <span className="text-[11px] font-medium text-gray-400">
+                        {propsExpanded ? (ko ? "접기" : "Collapse") : (ko ? "펼치기" : "Expand")}
+                      </span>
                       <ChevronDown
-                        size={14}
+                        size={12}
                         className={cn(
                           "text-gray-400 transition-transform duration-200",
                           propsExpanded && "rotate-180"
                         )}
                       />
-                    </div>
-                  </button>
-                  <AnimatePresence initial={false}>
-                    {propsExpanded && (
-                      <motion.div
-                        initial={{ height: 0 }}
-                        animate={{ height: "auto" }}
-                        exit={{ height: 0 }}
-                        transition={{ duration: 0.2, ease: "easeInOut" }}
-                        className="overflow-hidden"
-                      >
-                        <div className="divide-y divide-gray-100 border-t border-gray-100">
-                          {properties}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              ) : (
-                <div className="bg-gray-50/50 rounded-2xl border border-gray-100 divide-y divide-gray-100 overflow-hidden">
-                  {properties}
-                </div>
-              )
+                    </button>
+                  </>
+                )}
+              </div>
             )}
 
             {/* Body */}

@@ -4,6 +4,7 @@ import {
   ChevronDown,
   Calendar, Users, Circle, Camera, UserCircle,
   Building2, DollarSign, FolderKanban, Link2, Plus, X,
+  FileText, Lightbulb, Megaphone, Code2, Palette, Rocket, LayoutTemplate,
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { cn } from "../../lib/utils";
@@ -97,6 +98,293 @@ function ProjectMemberPicker({
   );
 }
 
+// ─── Project Templates ──────────────────────────────────────────────
+interface ProjectTemplate {
+  id: string;
+  icon: React.ReactNode;
+  label: string;
+  labelEn: string;
+  desc: string;
+  descEn: string;
+  content: string;
+}
+
+const PROJECT_TEMPLATES: ProjectTemplate[] = [
+  {
+    id: "brief",
+    icon: <FileText size={20} className="text-blue-500" />,
+    label: "프로젝트 기획서",
+    labelEn: "Project Brief",
+    desc: "목표, 범위, 일정, 예산 등 기본 기획",
+    descEn: "Goals, scope, timeline, budget overview",
+    content: `## 프로젝트 개요
+- 프로젝트 목적:
+- 핵심 목표:
+- 대상 사용자:
+---
+## 범위 (Scope)
+### 포함
+-
+### 제외
+-
+---
+## 일정 계획
+- 킥오프:
+- 마일스톤 1:
+- 마일스톤 2:
+- 최종 납품:
+---
+## 예산
+- 총 예산:
+- 인건비:
+- 기타 비용:
+---
+## 리스크 & 대응
+- 리스크 1:
+- 대응 방안:
+---
+## 성공 기준
+- `,
+  },
+  {
+    id: "kickoff",
+    icon: <Rocket size={20} className="text-orange-500" />,
+    label: "킥오프 회의록",
+    labelEn: "Kickoff Meeting",
+    desc: "킥오프 미팅 어젠다 및 회의 내용 정리",
+    descEn: "Kickoff meeting agenda and notes",
+    content: `## 킥오프 미팅
+- 일시:
+- 참석자:
+- 장소:
+---
+## 어젠다
+1. 프로젝트 소개 & 배경
+1. 목표 및 기대효과
+1. 역할 분담
+1. 일정 확인
+1. 커뮤니케이션 방법
+1. Q&A
+---
+## 역할 분담
+- PM:
+- 디자인:
+- 개발:
+- QA:
+---
+## 커뮤니케이션
+- 주간 회의:
+- 메신저:
+- 공유 폴더:
+---
+## 회의 내용
+-
+---
+## Action Items
+- [ ]
+- [ ]
+- [ ] `,
+  },
+  {
+    id: "dev",
+    icon: <Code2 size={20} className="text-green-500" />,
+    label: "개발 프로젝트",
+    labelEn: "Development Project",
+    desc: "기술 스택, 아키텍처, 개발 단계 관리",
+    descEn: "Tech stack, architecture, development phases",
+    content: `## 기술 스택
+- Frontend:
+- Backend:
+- DB:
+- 배포:
+---
+## 아키텍처
+-
+---
+## API 설계
+### 엔드포인트
+-
+---
+## 개발 단계
+### Phase 1 — 기본 기능
+- [ ]
+- [ ]
+### Phase 2 — 확장 기능
+- [ ]
+- [ ]
+### Phase 3 — 최적화 & QA
+- [ ]
+- [ ]
+---
+## 테스트 계획
+- 단위 테스트:
+- 통합 테스트:
+- QA 체크리스트:
+---
+## 배포 계획
+- 스테이징:
+- 프로덕션:
+- 롤백 전략:`,
+  },
+  {
+    id: "design",
+    icon: <Palette size={20} className="text-purple-500" />,
+    label: "디자인 프로젝트",
+    labelEn: "Design Project",
+    desc: "디자인 가이드, 에셋 관리, 피드백 트래킹",
+    descEn: "Design guide, assets, feedback tracking",
+    content: `## 디자인 개요
+- 프로젝트 목적:
+- 디자인 방향:
+- 레퍼런스:
+---
+## 브랜드 가이드
+- 메인 컬러:
+- 서브 컬러:
+- 폰트:
+- 톤앤매너:
+---
+## 디자인 에셋
+### 로고
+-
+### 아이콘
+-
+### 이미지
+-
+---
+## 작업 흐름
+1. 리서치 & 벤치마킹
+1. 와이어프레임
+1. 시안 제작
+1. 피드백 반영
+1. 최종 전달
+---
+## 피드백 기록
+### 1차 피드백
+-
+### 2차 피드백
+-
+---
+## 산출물 체크리스트
+- [ ] 디자인 시안
+- [ ] 스타일 가이드
+- [ ] 에셋 전달`,
+  },
+  {
+    id: "marketing",
+    icon: <Megaphone size={20} className="text-pink-500" />,
+    label: "마케팅 캠페인",
+    labelEn: "Marketing Campaign",
+    desc: "캠페인 전략, 채널, KPI, 콘텐츠 계획",
+    descEn: "Campaign strategy, channels, KPIs, content plan",
+    content: `## 캠페인 개요
+- 캠페인명:
+- 목적:
+- 기간:
+- 타겟:
+---
+## 전략
+- 핵심 메시지:
+- 차별점:
+- CTA:
+---
+## 채널 계획
+### 온라인
+- SNS:
+- 블로그:
+- 이메일:
+- 광고:
+### 오프라인
+-
+---
+## 콘텐츠 일정
+- Week 1:
+- Week 2:
+- Week 3:
+- Week 4:
+---
+## KPI & 성과 지표
+- 도달:
+- 클릭:
+- 전환:
+- ROI:
+---
+## 예산 배분
+- 콘텐츠 제작:
+- 광고비:
+- 기타:`,
+  },
+  {
+    id: "idea",
+    icon: <Lightbulb size={20} className="text-yellow-500" />,
+    label: "아이디어 & 리서치",
+    labelEn: "Idea & Research",
+    desc: "아이디어 정리, 시장 조사, 경쟁사 분석",
+    descEn: "Idea notes, market research, competitive analysis",
+    content: `## 아이디어 요약
+- 한 줄 설명:
+- 해결하려는 문제:
+- 제안 솔루션:
+---
+## 시장 조사
+- 시장 규모:
+- 트렌드:
+- 기회 요인:
+---
+## 경쟁사 분석
+### 경쟁사 A
+- 강점:
+- 약점:
+### 경쟁사 B
+- 강점:
+- 약점:
+---
+## 차별화 전략
+-
+---
+## 타당성 검토
+- 기술적 가능성:
+- 시간/비용:
+- 리스크:
+---
+## 다음 단계
+- [ ]
+- [ ]
+- [ ] `,
+  },
+];
+
+function ProjectTemplatePicker({ onSelect, language }: { onSelect: (content: string) => void; language: string }) {
+  const ko = language === "ko";
+  return (
+    <div className="mb-6">
+      <div className="flex items-center gap-2 mb-3">
+        <LayoutTemplate size={16} className="text-gray-400" />
+        <span className="text-sm font-semibold text-gray-500">{ko ? "템플릿으로 시작하기" : "Start with a template"}</span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {PROJECT_TEMPLATES.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => onSelect(t.content)}
+            className="flex items-start gap-3 p-3 rounded-xl border border-gray-150 hover:border-blue-300 hover:bg-blue-50/30 transition-all text-left group"
+          >
+            <div className="mt-0.5 shrink-0">{t.icon}</div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-800 group-hover:text-blue-700 transition-colors">
+                {ko ? t.label : t.labelEn}
+              </p>
+              <p className="text-[11px] text-gray-400 mt-0.5 leading-snug line-clamp-2">
+                {ko ? t.desc : t.descEn}
+              </p>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ProjectDetailPage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
@@ -174,6 +462,7 @@ export function ProjectDetailPage() {
   const project = projects.find((p) => p.id === currentId) || null;
 
   const [notes, setNotes] = useState(project?.description || "");
+  const [editorKey, setEditorKey] = useState(0);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -381,20 +670,6 @@ export function ProjectDetailPage() {
             ),
           },
           {
-            key: "createdBy",
-            type: "custom",
-            icon: <UserCircle size={14} />,
-            label: ko ? "생성자" : "Created by",
-            render: () => {
-              const creator = members.find(m => m.id === project.createdBy);
-              return (
-                <span className="text-sm text-gray-700">
-                  {creator ? (creator.id === currentUser?.id ? `${creator.name}(${ko ? "나" : "me"})` : creator.name) : (ko ? "미지정" : "Unknown")}
-                </span>
-              );
-            },
-          },
-          {
             key: "members",
             type: "custom",
             icon: <Users size={14} />,
@@ -406,6 +681,33 @@ export function ProjectDetailPage() {
                 language={language}
               />
             ),
+          },
+        ] as PropertyFieldConfig[]} />
+      }
+      secondaryProperties={
+        <AutoProperties fields={[
+          {
+            key: "createdBy",
+            type: "custom",
+            icon: <UserCircle size={14} />,
+            label: ko ? "생성자" : "Created by",
+            render: () => {
+              const creator = members.find(m => m.id === project.createdBy);
+              return (
+                <div className="flex items-center gap-2">
+                  {creator?.avatar ? (
+                    <img src={creator.avatar} alt="" className="w-5 h-5 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[9px] font-bold text-gray-500">
+                      {creator?.name?.[0] || "?"}
+                    </div>
+                  )}
+                  <span className="text-sm text-gray-700">
+                    {creator ? (creator.id === currentUser?.id ? `${creator.name}(${ko ? "나" : "me"})` : creator.name) : (ko ? "미지정" : "Unknown")}
+                  </span>
+                </div>
+              );
+            },
           },
           {
             key: "client",
@@ -477,16 +779,21 @@ export function ProjectDetailPage() {
           },
         ] as PropertyFieldConfig[]} />
       }
-      collapsible={true}
-      collapsedPreview={
-        <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded", statusCfg ? cn(statusCfg.bg, statusCfg.color) : "bg-gray-100 text-gray-600")}>
-          {statusLabel}
-        </span>
-      }
     >
       {/* Content — NotionBlockEditor */}
       <div className="min-h-[200px] border-t border-gray-100 pt-5">
+        {!notes?.trim() && (
+          <ProjectTemplatePicker
+            language={language}
+            onSelect={(content) => {
+              setNotes(content);
+              handleUpdate({ description: content });
+              setEditorKey((k) => k + 1);
+            }}
+          />
+        )}
         <NotionBlockEditor
+          key={editorKey}
           initialContent={notes}
           onChange={(v) => handleUpdate({ description: v || "" })}
           placeholder={ko ? "프로젝트에 대한 노트를 작성하세요..." : "Write notes about this project..."}
