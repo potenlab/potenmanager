@@ -2433,6 +2433,42 @@ ${config.focus.map((f: string) => `- ${f}`).join("\n")}
   }
 });
 
+// ─── AI Task Assistant (floating helper) ─────────────────────────────────────
+app.post("/make-server-f580d5ca/ai/task-assistant", async (c) => {
+  try {
+    const { context, messages } = await c.req.json();
+    if (!messages || messages.length === 0) {
+      return c.json({ error: "messages array is required" }, 400);
+    }
+
+    const systemInstruction = `당신은 "포텐 매니저"의 AI 업무 도우미입니다.
+사용자의 현재 업무 상황을 기반으로 도움을 줍니다.
+
+${context ? `[현재 사용자 업무 현황]\n${context}\n` : ""}
+역할:
+- 오늘 집중해야 할 업무를 추천하세요
+- 업무 우선순위를 분석하고 제안하세요
+- 지연된 업무에 대한 해결책을 제시하세요
+- 업무 분배와 일정 관리를 도와주세요
+- 회의 준비사항을 알려주세요
+
+규칙:
+- 한국어로 대화하세요
+- 간결하고 핵심적으로 답변하세요 (너무 길지 않게)
+- 실제 업무 데이터를 기반으로 구체적인 조언을 하세요
+- 업무명을 언급할 때는 큰따옴표로 감싸세요
+- 친근하지만 전문적인 톤을 유지하세요
+- 이모지를 적절히 사용하세요
+- 리스트/번호를 활용해 구조적으로 답변하세요`;
+
+    const reply = await callGeminiChat(systemInstruction, messages, 1500);
+    return c.json({ reply });
+  } catch (e) {
+    console.log("[AI] task-assistant error:", e);
+    return c.json({ error: "Chat failed", message: String(e) }, 500);
+  }
+});
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Demo Account Setup
 // ═══════════════════════════════════════════════════════════════════════════════

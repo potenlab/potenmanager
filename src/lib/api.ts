@@ -294,6 +294,13 @@ export const api = {
     request<{ reply: string }>(
       '/ai/category-chat', { method: 'POST', body: JSON.stringify(data) }
     ),
+  aiTaskAssistant: (data: {
+    context: string;
+    messages: Array<{ role: "user" | "model"; text: string }>;
+  }) =>
+    request<{ reply: string }>(
+      '/ai/task-assistant', { method: 'POST', body: JSON.stringify(data) }
+    ),
 
   // ── Demo ──
   setupDemo: (industry?: string) =>

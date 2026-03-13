@@ -9,6 +9,7 @@ import { Toaster } from "sonner";
 import { useState, useRef, useEffect } from "react";
 import { cn } from "../../../lib/utils";
 import { OverdueTasksModal } from "./OverdueTasksModal";
+import { TaskAssistant } from "./TaskAssistant";
 import { useNotifications } from "../../context/NotificationContext";
 
 export function Layout() {
@@ -136,6 +137,7 @@ export function Layout() {
         </main>
       </div>
       <BottomNav />
+      <TaskAssistant />
     </div>
   );
 }
