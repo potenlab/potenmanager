@@ -9,6 +9,8 @@ interface SidebarContextType {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
   toggleSidebar: () => void;
+  isCollapsed: boolean;
+  toggleCollapse: () => void;
 }
 
 const defaultValue: SidebarContextType = {
@@ -20,6 +22,8 @@ const defaultValue: SidebarContextType = {
   isOpen: false,
   setIsOpen: () => {},
   toggleSidebar: () => {},
+  isCollapsed: false,
+  toggleCollapse: () => {},
 };
 
 const SidebarContext = createContext<SidebarContextType>(defaultValue);
@@ -29,8 +33,18 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   const [isResizing, setIsResizing] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    try { return localStorage.getItem('poten_sidebar_collapsed') === 'true'; } catch { return false; }
+  });
 
   const toggleSidebar = useCallback(() => setIsOpen((prev) => !prev), []);
+  const toggleCollapse = useCallback(() => {
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      try { localStorage.setItem('poten_sidebar_collapsed', String(next)); } catch {}
+      return next;
+    });
+  }, []);
 
   // Detect mobile
   useEffect(() => {
@@ -79,7 +93,7 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   }, [isResizing]);
 
   return (
-    <SidebarContext.Provider value={{ width, setWidth, isResizing, startResizing, isMobile, isOpen, setIsOpen, toggleSidebar }}>
+    <SidebarContext.Provider value={{ width, setWidth, isResizing, startResizing, isMobile, isOpen, setIsOpen, toggleSidebar, isCollapsed, toggleCollapse }}>
       {children}
     </SidebarContext.Provider>
   );

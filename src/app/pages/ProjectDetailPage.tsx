@@ -4,6 +4,7 @@ import {
   ChevronDown,
   Calendar, Users, Circle, Camera, UserCircle,
   Building2, DollarSign, FolderKanban, Link2, Plus, X,
+  Target, UsersRound,
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { cn } from "../../lib/utils";
@@ -330,34 +331,6 @@ export function ProjectDetailPage() {
             ),
           },
           {
-            key: "category",
-            type: "custom",
-            icon: <FolderKanban size={14} />,
-            label: ko ? "카테고리" : "Category",
-            render: () => (
-              <div className="flex flex-wrap gap-1.5">
-                {(Object.keys(PROJECT_CATEGORY_CONFIG) as Project["category"][]).map((k) => {
-                  if (!k) return null;
-                  const cfg = PROJECT_CATEGORY_CONFIG[k];
-                  return (
-                    <button
-                      key={k}
-                      onClick={() => handleUpdate({ category: k })}
-                      className={cn(
-                        "px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border",
-                        project.category === k
-                          ? "bg-blue-50 text-blue-700 border-blue-200"
-                          : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
-                      )}
-                    >
-                      {ko ? cfg.label : cfg.labelEn}
-                    </button>
-                  );
-                })}
-              </div>
-            ),
-          },
-          {
             key: "period",
             type: "custom",
             icon: <Calendar size={14} />,
@@ -407,74 +380,48 @@ export function ProjectDetailPage() {
               />
             ),
           },
-          {
-            key: "client",
-            type: "text",
-            icon: <Building2 size={14} />,
-            label: ko ? "클라이언트" : "Client",
-            value: project.client || "",
-            onChange: (v) => handleUpdate({ client: v }),
-            placeholder: ko ? "고객사/클라이언트명" : "Client name",
-          },
-          {
-            key: "budget",
-            type: "text",
-            icon: <DollarSign size={14} />,
-            label: ko ? "예산" : "Budget",
-            value: project.budget || "",
-            onChange: (v) => handleUpdate({ budget: v }),
-            placeholder: ko ? "예: 2,000만원" : "e.g. $20,000",
-          },
-          {
-            key: "links",
-            type: "custom",
-            icon: <Link2 size={14} />,
-            label: ko ? "관련 링크" : "Links",
-            render: () => (
-              <div className="space-y-2">
-                {(project.links || []).map((link, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <input
-                      value={link.label}
-                      onChange={(e) => {
-                        const links = [...(project.links || [])];
-                        links[i] = { ...links[i], label: e.target.value };
-                        handleUpdate({ links });
-                      }}
-                      className="text-xs px-2 py-1 rounded-md border border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700 w-24"
-                      placeholder={ko ? "라벨" : "Label"}
-                    />
-                    <input
-                      value={link.url}
-                      onChange={(e) => {
-                        const links = [...(project.links || [])];
-                        links[i] = { ...links[i], url: e.target.value };
-                        handleUpdate({ links });
-                      }}
-                      className="flex-1 text-xs px-2 py-1 rounded-md border border-gray-200 bg-transparent outline-none focus:ring-2 focus:ring-blue-100 text-gray-700 font-mono"
-                      placeholder="https://..."
-                    />
-                    <button
-                      onClick={() => {
-                        const links = (project.links || []).filter((_, j) => j !== i);
-                        handleUpdate({ links });
-                      }}
-                      className="p-1 text-gray-300 hover:text-red-400 transition-colors"
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  onClick={() => handleUpdate({ links: [...(project.links || []), { label: "", url: "" }] })}
-                  className="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-500 transition-colors"
-                >
-                  <Plus size={12} />
-                  {ko ? "링크 추가" : "Add link"}
-                </button>
-              </div>
-            ),
-          },
+          // --- 외부 프로젝트 전용 ---
+          ...(project.category === "external" ? [
+            {
+              key: "client",
+              type: "text" as const,
+              icon: <Building2 size={14} />,
+              label: ko ? "클라이언트" : "Client",
+              value: project.client || "",
+              onChange: (v: string) => handleUpdate({ client: v }),
+              placeholder: ko ? "고객사/클라이언트명" : "Client name",
+            },
+            {
+              key: "budget",
+              type: "text" as const,
+              icon: <DollarSign size={14} />,
+              label: ko ? "예산" : "Budget",
+              value: project.budget || "",
+              onChange: (v: string) => handleUpdate({ budget: v }),
+              placeholder: ko ? "예: 2,000만원" : "e.g. $20,000",
+            },
+          ] : []),
+          // --- 내부 프로젝트 전용 (internal 또는 미설정) ---
+          ...((project.category === "internal" || !project.category) ? [
+            {
+              key: "goal",
+              type: "text" as const,
+              icon: <Target size={14} />,
+              label: ko ? "목표/KPI" : "Goal/KPI",
+              value: project.goal || "",
+              onChange: (v: string) => handleUpdate({ goal: v }),
+              placeholder: ko ? "예: MAU 10만 달성" : "e.g. Reach 100k MAU",
+            },
+            {
+              key: "team",
+              type: "text" as const,
+              icon: <UsersRound size={14} />,
+              label: ko ? "담당팀" : "Team",
+              value: project.team || "",
+              onChange: (v: string) => handleUpdate({ team: v }),
+              placeholder: ko ? "예: 프로덕트팀" : "e.g. Product team",
+            },
+          ] : []),
         ] as PropertyFieldConfig[]} />
       }
       collapsible={true}
