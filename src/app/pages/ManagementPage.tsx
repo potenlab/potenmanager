@@ -853,6 +853,12 @@ export function ManagementPage() {
     if (board === "branding") syncBrandAssetsFromServer().catch(() => {});
   }, [board]);
 
+  // Reload cards from localStorage when returning from detail page
+  useEffect(() => {
+    const freshCards = loadCards(board);
+    setCards(freshCards);
+  }, [location.key]);
+
   // Sync project fields (logoUrl, endDate→dueDate) from Project data to kanban cards
   useEffect(() => {
     if (board !== "projects") return;

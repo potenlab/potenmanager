@@ -5,6 +5,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
 import { InlineText } from "../components/detail/InlineText";
+import { EmojiPicker } from "../components/EmojiPicker";
 import { getSubPage, updateSubPage, deleteSubPage, syncSubPagesFromServer, type SubPage } from "../../lib/subPages";
 
 export function SubPageDetailPage() {
@@ -76,15 +77,22 @@ export function SubPageDetailPage() {
               </button>
             </div>
 
-            {/* Title */}
-            <div>
-              <InlineText
-                value={page.title}
-                onChange={(v) => handleUpdate({ title: v })}
-                placeholder={ko ? "제목 없음" : "Untitled"}
-                className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight tracking-tight focus:ring-0 focus:bg-transparent hover:bg-transparent border-b-2 border-transparent focus:border-gray-200 rounded-none pb-0.5"
-                as="h1"
+            {/* Emoji + Title */}
+            <div className="flex items-start gap-3">
+              <EmojiPicker
+                value={page.emoji}
+                onChange={(emoji) => handleUpdate({ emoji })}
+                size="lg"
               />
+              <div className="flex-1 min-w-0">
+                <InlineText
+                  value={page.title}
+                  onChange={(v) => handleUpdate({ title: v })}
+                  placeholder={ko ? "제목 없음" : "Untitled"}
+                  className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight tracking-tight focus:ring-0 focus:bg-transparent hover:bg-transparent border-b-2 border-transparent focus:border-gray-200 rounded-none pb-0.5"
+                  as="h1"
+                />
+              </div>
             </div>
 
             {/* Content */}

@@ -207,7 +207,7 @@ export function ProjectDetailPage() {
       if (localStorage.getItem('poten_demo_mode') !== 'true') {
         api.updateProject(currentId, updates).catch(() => {});
       }
-      // Sync fields to kanban card
+      // Sync fields to kanban card (localStorage + server)
       if (updates.logoUrl !== undefined || updates.name !== undefined || updates.description !== undefined || updates.endDate !== undefined) {
         const allCards = loadCards("projects");
         const card = allCards.find(c => c.id === currentId);
@@ -217,6 +217,10 @@ export function ProjectDetailPage() {
           if (updates.description !== undefined) card.description = updates.description;
           if (updates.endDate !== undefined) card.dueDate = updates.endDate || undefined;
           saveCards("projects", allCards);
+          // Also sync kanban card to server
+          if (localStorage.getItem('poten_demo_mode') !== 'true') {
+            api.updateKanbanCard("projects", card.id, card).catch(() => {});
+          }
         }
       }
     },

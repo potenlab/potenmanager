@@ -4,6 +4,7 @@ export interface SubPage {
   id: string;
   title: string;
   content: string;
+  emoji?: string;
   parentType: string;
   parentId: string;
   createdAt: string;
