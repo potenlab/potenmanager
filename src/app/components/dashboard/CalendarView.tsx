@@ -57,7 +57,7 @@ import { usePermission } from "../../context/PermissionContext";
 import { useDrag, useDrop } from "react-dnd";
 import { createPortal } from "react-dom";
 
-type ViewMode = "month" | "3week";
+type ViewMode = "week" | "month" | "3week";
 
 const ITEM_TYPE = "CALENDAR_TASK";
 const MEETING_DRAG_TYPE = "CALENDAR_MEETING";
@@ -530,9 +530,8 @@ function DroppableDayCell({
       data-date={format(day, "yyyy-MM-dd")}
       onClick={() => { if (selectedIds.size > 0) onDeselectAll(); }}
       className={cn(
-        "border-b border-r border-gray-100 py-1.5 transition-colors flex flex-col gap-0.5 relative group",
+        "border-b border-r border-gray-100 py-1.5 transition-colors flex flex-col gap-0.5 relative group h-full",
         !isCurrentMonth && viewMode === "month" && "bg-gray-50/30 text-gray-400",
-        viewMode === "month" ? "min-h-[130px]" : "min-h-[160px]",
         isOver && canDrop && "bg-blue-50/60 ring-2 ring-inset ring-blue-200",
         !isOver && canDrop && "bg-blue-50/20"
       )}
@@ -1147,6 +1146,13 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
   const weekOpts = { weekStartsOn: 0 as const }; // Always start weeks on Sunday
 
   const days = useMemo(() => {
+    if (viewMode === "week") {
+      const weekStart = startOfWeek(currentDate, weekOpts);
+      return eachDayOfInterval({
+        start: weekStart,
+        end: addDays(weekStart, 6),
+      });
+    }
     if (viewMode === "3week") {
       // 5 weeks total: 1 week before + current week + 3 weeks after (centered on today)
       const weekStart = startOfWeek(currentDate, weekOpts);
@@ -1192,6 +1198,8 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
       viewMode === "month" ? subMonths(prev, 1) : subWeeks(prev, 1)
     );
   }, [viewMode]);
+
+  // Week view shows single week — use same navigation as 3week
 
   // Auto-scroll effect: when direction is set during drag/resize, auto advance
   useEffect(() => {
@@ -1539,8 +1547,9 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
   // ─── Build day → slotted tasks mapping (consistent vertical alignment) ──
   type SlottedEntry = { task: Task | null; position: "single" | "start" | "middle" | "end" };
 
-  const slottedDayTasks = useMemo(() => {
+  const { slottedDayTasks, weekMaxSlots } = useMemo(() => {
     const result = new Map<string, SlottedEntry[]>();
+    const weekSlotCounts: number[] = []; // max slots per week row
 
     // Group visible days into week rows (7 days each)
     const weekRows: Date[][] = [];
@@ -1599,15 +1608,17 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
         });
       }
 
-      // Sort: multi-day first (longer → earlier start), then single-day by calOrder then date
-      // Additionally, tasks with persistent slots come first to reserve their positions
+      // Sort: 1) multi-day (연속 업무) first, 2) single-day by calOrder/date
+      // Meetings render separately below task bars, so naturally appear after tasks
       weekTasks.sort((a, b) => {
-        const aHasSlot = persistentSlots.has(a.task.id) ? 1 : 0;
-        const bHasSlot = persistentSlots.has(b.task.id) ? 1 : 0;
-        if (aHasSlot !== bHasSlot) return bHasSlot - aHasSlot; // persistent first
+        // Multi-day tasks always come first
         if (a.isMultiDay && !b.isMultiDay) return -1;
         if (!a.isMultiDay && b.isMultiDay) return 1;
         if (a.isMultiDay && b.isMultiDay) {
+          // Persistent slots first to keep position across weeks
+          const aHasSlot = persistentSlots.has(a.task.id) ? 1 : 0;
+          const bHasSlot = persistentSlots.has(b.task.id) ? 1 : 0;
+          if (aHasSlot !== bHasSlot) return bHasSlot - aHasSlot;
           const lenDiff = b.dayIndices.length - a.dayIndices.length;
           if (lenDiff !== 0) return lenDiff;
           return a.range.start.getTime() - b.range.start.getTime();
@@ -1659,6 +1670,9 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
         }
       }
 
+      // Track max slots for this week row
+      weekSlotCounts.push(maxSlot + 1);
+
       // Build per-day slotted entries with placeholders
       for (let di = 0; di < weekDays.length; di++) {
         const day = weekDays[di];
@@ -1699,7 +1713,7 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
       }
     }
 
-    return result;
+    return { slottedDayTasks: result, weekMaxSlots: weekSlotCounts };
   }, [days, calTasks, resizeState, calOrder]);
 
   // Find the resizing task for the overlay
@@ -1873,15 +1887,19 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
               <ChevronLeft size={20} />
             </button>
             <span className="font-bold text-gray-900 text-sm sm:text-lg px-1 min-w-fit whitespace-nowrap">
-              {viewMode === "3week" ? (() => {
+              {viewMode === "week" ? (() => {
+                const weekStart = startOfWeek(currentDate, weekOpts);
+                const weekEnd = addDays(weekStart, 6);
+                const startStr = format(weekStart, language === "ko" ? "M/d" : "MMM d", formatOptions);
+                const endStr = format(weekEnd, language === "ko" ? "M/d" : "MMM d", formatOptions);
+                return `${startStr} — ${endStr}`;
+              })() : viewMode === "3week" ? (() => {
                 const weekStart = startOfWeek(currentDate, weekOpts);
                 const rangeStart = subWeeks(weekStart, 1);
                 const rangeEnd = addDays(addWeeks(weekStart, 4), -1);
                 const startStr = format(rangeStart, language === "ko" ? "M/d" : "MMM d", formatOptions);
                 const endStr = format(rangeEnd, language === "ko" ? "M/d" : "MMM d", formatOptions);
-                return language === "ko"
-                  ? `${startStr} — ${endStr}`
-                  : `${startStr} — ${endStr}`;
+                return `${startStr} — ${endStr}`;
               })() : format(
                 currentDate,
                 language === "ko" ? "yyyy년 MMMM" : "MMMM yyyy",
@@ -1926,6 +1944,17 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
 
             {/* View mode toggle */}
             <div className="flex items-center bg-gray-50 rounded-lg p-0.5 border border-gray-200">
+              <button
+                onClick={() => setViewMode("week")}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+                  viewMode === "week"
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-gray-500 hover:text-gray-900"
+                )}
+              >
+                {t("week")}
+              </button>
               <button
                 onClick={() => setViewMode("3week")}
                 className={cn(
@@ -2024,10 +2053,20 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
         <div
           ref={calendarGridRef}
           onMouseDown={handleGridMouseDown}
-          className={cn(
-            "grid grid-cols-7 flex-1 overflow-y-auto overflow-x-hidden min-h-0 relative no-scrollbar select-none",
-            "auto-rows-fr"
-          )}
+          className="grid grid-cols-7 flex-1 overflow-y-auto overflow-x-hidden min-h-0 relative no-scrollbar select-none"
+          style={{
+            gridTemplateRows: (() => {
+              const DEFAULT_SLOTS = 4;
+              const SLOT_HEIGHT = cardStyle === "detailed" ? 54 : 28; // bar + gap
+              const BASE_PADDING = 64; // header + bottom buttons
+              return weekMaxSlots
+                .map(slots => {
+                  const effectiveSlots = Math.max(slots, DEFAULT_SLOTS);
+                  return `minmax(${BASE_PADDING + effectiveSlots * SLOT_HEIGHT}px, auto)`;
+                })
+                .join(" ");
+            })(),
+          }}
         >
           {/* Lasso selection rectangle */}
           {lassoRect && lassoRect.width > 5 && lassoRect.height > 5 && (
