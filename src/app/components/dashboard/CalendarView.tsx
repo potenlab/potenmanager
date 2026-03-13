@@ -22,6 +22,8 @@ import {
   CircleDot,
   Video,
   Palette,
+  ClipboardList,
+
   AlignJustify,
   LayoutList,
 } from "lucide-react";
@@ -249,6 +251,7 @@ function ResizableTaskBar({
   return (
     <div
       ref={ref}
+      data-task-bar
       data-task-id={task.id}
       onClick={handleClick}
       onContextMenu={handleRightClick}
@@ -427,6 +430,7 @@ function DraggableMeetingBar({ meeting, language, onClick, onContextMenu }: {
   return (
     <div
       ref={ref}
+      data-meeting-bar
       onClick={(e) => { e.stopPropagation(); onClick(); }}
       onContextMenu={(e) => {
         if (!onContextMenu) return;
@@ -467,6 +471,7 @@ function DroppableDayCell({
   onMeetingClick,
   onContextMenu,
   onMeetingContextMenu,
+  onCellContextMenu,
   canDragTaskFn,
   cardStyle = "compact",
 }: {
@@ -490,6 +495,7 @@ function DroppableDayCell({
   onMeetingClick: (meetingId: string) => void;
   onContextMenu: (task: Task, x: number, y: number) => void;
   onMeetingContextMenu?: (meeting: Meeting, x: number, y: number) => void;
+  onCellContextMenu?: (day: Date, x: number, y: number) => void;
   canDragTaskFn?: (task: Task) => boolean;
   cardStyle?: CalendarCardStyle;
 }) {
@@ -529,6 +535,13 @@ function DroppableDayCell({
       ref={ref}
       data-date={format(day, "yyyy-MM-dd")}
       onClick={() => { if (selectedIds.size > 0) onDeselectAll(); }}
+      onContextMenu={(e) => {
+        // Only trigger cell context menu if right-clicking on empty area (not on a task/meeting bar)
+        const target = e.target as HTMLElement;
+        if (target.closest('[data-task-bar]') || target.closest('[data-meeting-bar]')) return;
+        e.preventDefault();
+        onCellContextMenu?.(day, e.clientX, e.clientY);
+      }}
       className={cn(
         "border-b border-r border-gray-100 py-1.5 transition-colors flex flex-col gap-0.5 relative group h-full",
         !isCurrentMonth && viewMode === "month" && "bg-gray-50/30 text-gray-400",
@@ -1091,6 +1104,7 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
   const handleContextMenu = useCallback((task: Task, x: number, y: number) => {
     setCtxMenu({ task, x, y });
     setMtgCtxMenu(null);
+    setNewCtxMenu(null);
     setQuickViewTask(null);
   }, []);
 
@@ -1101,18 +1115,24 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
   const handleMeetingContextMenu = useCallback((meeting: Meeting, x: number, y: number) => {
     setMtgCtxMenu({ meeting, x, y });
     setCtxMenu(null);
+    setNewCtxMenu(null);
     setQuickViewTask(null);
   }, []);
 
+  // Context menu state (right-click on empty cell) — new item
+  const [newCtxMenu, setNewCtxMenu] = useState<{ day: Date; x: number; y: number } | null>(null);
+  const newCtxMenuRef = useRef<HTMLDivElement>(null);
+
   // Close context menu on outside click or Escape
   useEffect(() => {
-    if (!ctxMenu && !mtgCtxMenu) return;
+    if (!ctxMenu && !mtgCtxMenu && !newCtxMenu) return;
     const handleClick = (e: MouseEvent) => {
       if (ctxMenu && ctxMenuRef.current && !ctxMenuRef.current.contains(e.target as Node)) setCtxMenu(null);
       if (mtgCtxMenu && mtgCtxMenuRef.current && !mtgCtxMenuRef.current.contains(e.target as Node)) setMtgCtxMenu(null);
+      if (newCtxMenu && newCtxMenuRef.current && !newCtxMenuRef.current.contains(e.target as Node)) setNewCtxMenu(null);
     };
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { setCtxMenu(null); setMtgCtxMenu(null); }
+      if (e.key === "Escape") { setCtxMenu(null); setMtgCtxMenu(null); setNewCtxMenu(null); }
     };
     document.addEventListener("mousedown", handleClick);
     document.addEventListener("keydown", handleKey);
@@ -1120,7 +1140,7 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
       document.removeEventListener("mousedown", handleClick);
       document.removeEventListener("keydown", handleKey);
     };
-  }, [ctxMenu, mtgCtxMenu]);
+  }, [ctxMenu, mtgCtxMenu, newCtxMenu]);
 
   // Resize state
   const [resizeState, setResizeState] = useState<ResizeState | null>(null);
@@ -2162,6 +2182,11 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
                 }}
                 onContextMenu={handleContextMenu}
                 onMeetingContextMenu={handleMeetingContextMenu}
+                onCellContextMenu={(d, x, y) => {
+                  setNewCtxMenu({ day: d, x, y });
+                  setCtxMenu(null);
+                  setMtgCtxMenu(null);
+                }}
                 cardStyle={cardStyle}
                 canDragTaskFn={(task: Task) => {
                   if (canEditAnyCalendar) return true;
@@ -2342,6 +2367,73 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
               </button>
             </>
           )}
+        </div>,
+        document.body
+      )}
+
+      {/* New item right-click context menu (empty cell) */}
+      {newCtxMenu && createPortal(
+        <div
+          ref={newCtxMenuRef}
+          className="fixed z-[10001] bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[180px] animate-in fade-in zoom-in-95 duration-100"
+          style={{ left: newCtxMenu.x, top: newCtxMenu.y }}
+        >
+          <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+            {format(newCtxMenu.day, language === "ko" ? "M월 d일 (eee)" : "MMM d (eee)", language === "ko" ? { locale: ko } : undefined)}
+          </div>
+          <div className="border-t border-gray-100 my-0.5" />
+          <button
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+            onClick={() => {
+              const d = newCtxMenu.day;
+              const newId = `task-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+              addTaskToContext({
+                id: newId,
+                title: "제목없음",
+                titleKo: "제목없음",
+                level: "Day",
+                progress: 0,
+                status: "pending",
+                priority: "medium",
+                dueDate: d,
+                startDate: d,
+                assigneeIds: [currentUser.id],
+              } as Task);
+              setNewCtxMenu(null);
+              navigate(`/tasks/${newId}`);
+            }}
+          >
+            <ClipboardList size={14} className="text-blue-500" />
+            {language === "ko" ? "새 업무 추가" : "New Task"}
+          </button>
+          <button
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-purple-50 transition-colors"
+            onClick={() => {
+              const d = newCtxMenu.day;
+              const id = `mt-${Date.now()}`;
+              const meetingDate = new Date(d);
+              meetingDate.setHours(10, 0, 0, 0);
+              addMeeting({
+                id,
+                title: language === 'ko' ? '제목없음' : 'Untitled',
+                date: meetingDate.toISOString(),
+                duration: 60,
+                type: 'external',
+                status: 'scheduled',
+                attendeeIds: [currentUser.id],
+                organizerId: currentUser.id,
+                notes: '',
+                actionItems: [],
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              });
+              setNewCtxMenu(null);
+              navigate(`/meetings/${id}`);
+            }}
+          >
+            <Video size={14} className="text-purple-500" />
+            {language === "ko" ? "새 회의 추가" : "New Meeting"}
+          </button>
         </div>,
         document.body
       )}
