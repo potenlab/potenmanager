@@ -1,27 +1,68 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   MessageCircle, Send, ArrowLeft, Search, Circle,
+  MoreVertical, UserMinus, Shield, ChevronRight,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
 import { useTeam } from "../context/TeamContext";
+import { usePermission } from "../context/PermissionContext";
+import type { Role } from "../../lib/permissions";
 import { useChat, ChatMessage } from "../context/ChatContext";
 import { usePresence } from "../context/PresenceContext";
 
 export function ChatPage() {
   const { language } = useLanguage();
   const ko = language === "ko";
-  const { currentUser, members } = useTeam();
+  const { currentUser, members, removeMember, updateMember } = useTeam();
+  const { canManage, changeMemberRole, getMemberRole, can } = usePermission();
   const { rooms, currentRoomId, messages, isLoadingMessages, openRoom, closeRoom, startDM, sendMessage, refreshRooms } = useChat();
   const { isOnline } = usePresence();
   const [input, setInput] = useState("");
   const [search, setSearch] = useState("");
   const [chatTab, setChatTab] = useState<'conversations' | 'members'>('conversations');
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [roleSubMenuId, setRoleSubMenuId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const sendingRef = useRef(false);
   const composingRef = useRef(false);
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!menuOpenId) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpenId(null);
+        setRoleSubMenuId(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpenId]);
+
+  const handleRemoveMember = useCallback(async (id: string) => {
+    const name = members.find(m => m.id === id)?.name || "";
+    if (!confirm(ko ? `${name}님을 팀에서 내보내시겠습니까?` : `Remove ${name} from the team?`)) return;
+    await removeMember(id);
+    setMenuOpenId(null);
+  }, [members, removeMember, ko]);
+
+  const handleChangeRole = useCallback((userId: string, role: Role) => {
+    changeMemberRole(userId, role);
+    updateMember(userId, { role });
+    setMenuOpenId(null);
+    setRoleSubMenuId(null);
+  }, [changeMemberRole, updateMember]);
+
+  const ROLE_LABELS: Record<Role, { ko: string; en: string; color: string }> = {
+    owner: { ko: "대표", en: "Owner", color: "text-amber-600" },
+    admin: { ko: "관리자", en: "Admin", color: "text-blue-600" },
+    member: { ko: "팀원", en: "Member", color: "text-gray-600" },
+    viewer: { ko: "뷰어", en: "Viewer", color: "text-gray-400" },
+  };
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -375,33 +416,119 @@ export function ChatPage() {
             <div className="divide-y divide-gray-100">
               {filteredMembers.map((member) => {
                 const online = isOnline(member.id);
+                const memberRole = getMemberRole(member.id);
+                const canManageThis = canManage(member.id);
                 return (
-                  <button
-                    key={member.id}
-                    onClick={() => handleStartDM(member.id)}
-                    className="w-full flex items-center gap-3 px-3 py-3.5 hover:bg-gray-50 transition-colors text-left"
-                  >
-                    <div className="relative shrink-0">
-                      {member.avatar ? (
-                        <img src={member.avatar} alt="" className="w-9 h-9 rounded-full object-cover border border-gray-200" />
-                      ) : (
-                        <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
-                          {member.name[0]}
+                  <div key={member.id} className="relative flex items-center gap-3 px-3 py-3.5 hover:bg-gray-50 transition-colors">
+                    {/* Clickable area for DM */}
+                    <button
+                      onClick={() => handleStartDM(member.id)}
+                      className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                    >
+                      <div className="relative shrink-0">
+                        {member.avatar ? (
+                          <img src={member.avatar} alt="" className="w-9 h-9 rounded-full object-cover border border-gray-200" />
+                        ) : (
+                          <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
+                            {member.name[0]}
+                          </div>
+                        )}
+                        <div className={cn(
+                          "absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white",
+                          online ? "bg-green-500" : "bg-gray-300"
+                        )} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-medium text-gray-700">{member.name}</p>
+                          <span className={cn("text-[10px] font-medium", ROLE_LABELS[memberRole]?.color)}>
+                            {ko ? ROLE_LABELS[memberRole]?.ko : ROLE_LABELS[memberRole]?.en}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-gray-400">
+                          {online ? (ko ? "접속 중" : "Online") : (ko ? "오프라인" : "Offline")}
+                        </p>
+                      </div>
+                    </button>
+
+                    {/* 3-dot menu (only for manageable members) */}
+                    <div className="relative shrink-0" ref={menuOpenId === member.id ? menuRef : undefined}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMenuOpenId(menuOpenId === member.id ? null : member.id);
+                          setRoleSubMenuId(null);
+                        }}
+                        className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
+                      >
+                        <MoreVertical size={16} />
+                      </button>
+
+                      {menuOpenId === member.id && (
+                        <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50">
+                          {/* DM */}
+                          <button
+                            onClick={() => { handleStartDM(member.id); setMenuOpenId(null); }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                          >
+                            <MessageCircle size={14} className="text-gray-400" />
+                            {ko ? "메시지 보내기" : "Send message"}
+                          </button>
+
+                          {/* Role change (only if can manage) */}
+                          {canManageThis && (
+                            <div className="relative">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRoleSubMenuId(roleSubMenuId === member.id ? null : member.id);
+                                }}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                              >
+                                <Shield size={14} className="text-gray-400" />
+                                <span className="flex-1 text-left">{ko ? "권한 변경" : "Change role"}</span>
+                                <ChevronRight size={12} className="text-gray-300" />
+                              </button>
+
+                              {roleSubMenuId === member.id && (
+                                <div className="absolute left-full top-0 ml-1 w-40 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50">
+                                  {(["admin", "member", "viewer"] as Role[]).map(role => (
+                                    <button
+                                      key={role}
+                                      onClick={() => handleChangeRole(member.id, role)}
+                                      className={cn(
+                                        "w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 transition-colors",
+                                        memberRole === role ? "font-bold" : ""
+                                      )}
+                                    >
+                                      <span className={cn("w-1.5 h-1.5 rounded-full", memberRole === role ? "bg-blue-500" : "bg-transparent")} />
+                                      <span className={ROLE_LABELS[role]?.color}>
+                                        {ko ? ROLE_LABELS[role]?.ko : ROLE_LABELS[role]?.en}
+                                      </span>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Remove (only if can manage) */}
+                          {canManageThis && (
+                            <>
+                              <div className="border-t border-gray-100 my-1" />
+                              <button
+                                onClick={() => handleRemoveMember(member.id)}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                              >
+                                <UserMinus size={14} />
+                                {ko ? "팀에서 내보내기" : "Remove from team"}
+                              </button>
+                            </>
+                          )}
                         </div>
                       )}
-                      <div className={cn(
-                        "absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white",
-                        online ? "bg-green-500" : "bg-gray-300"
-                      )} />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-700">{member.name}</p>
-                      <p className="text-[11px] text-gray-400">
-                        {online ? (ko ? "접속 중" : "Online") : (ko ? "오프라인" : "Offline")}
-                      </p>
-                    </div>
-                    <MessageCircle size={16} className="text-gray-300 group-hover:text-blue-400 transition-colors shrink-0" />
-                  </button>
+                  </div>
                 );
               })}
             </div>
