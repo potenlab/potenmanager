@@ -107,8 +107,8 @@ function BizCard({ item, column, isSelecting, isSelected, onToggleSelect, onCont
       </div>
 
       <div className="flex justify-between items-start mb-2">
-        <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider", tc.bg, tc.text)}>
-          {ko ? tc.labelKo : tc.label}
+        <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider", tc?.bg, tc?.text)}>
+          {ko ? tc?.labelKo : tc?.label}
         </span>
         <button onClick={(e) => { e.stopPropagation(); onContextMenu?.(e, item.id); }} className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">
           <MoreHorizontal size={16} />
@@ -341,13 +341,13 @@ function BizListView({ items, onContextMenu }: { items: BizRadarItem[]; onContex
                   {item.contactCompany && <div className="text-[11px] text-gray-400">{item.contactCompany}</div>}
                 </td>
                 <td className="px-4 py-3">
-                  <span className={cn("text-xs font-medium flex items-center gap-1", sc.color)}>
-                    {sc.icon} {ko ? sc.labelKo : sc.label}
+                  <span className={cn("text-xs font-medium flex items-center gap-1", sc?.color)}>
+                    {sc?.icon} {ko ? sc?.labelKo : sc?.label}
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", tc.bg, tc.text)}>
-                    {ko ? tc.labelKo : tc.label}
+                  <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", tc?.bg, tc?.text)}>
+                    {ko ? tc?.labelKo : tc?.label}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-xs font-semibold text-gray-700">{formatValue(item.value)}</td>

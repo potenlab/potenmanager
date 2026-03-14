@@ -299,8 +299,8 @@ export function GoalOverview() {
                       )} />
 
                       <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-                        <span className={cn("text-[8px] font-bold px-1.5 py-0.5 rounded-full border flex items-center gap-0.5 uppercase tracking-wider", catCfg.bg, catCfg.color, catCfg.border)}>
-                          {catCfg.icon}
+                        <span className={cn("text-[8px] font-bold px-1.5 py-0.5 rounded-full border flex items-center gap-0.5 uppercase tracking-wider", catCfg?.bg, catCfg?.color, catCfg?.border)}>
+                          {catCfg?.icon}
                           {language === "ko" ? t(`category_${category}` as any) : category}
                         </span>
                         {daysLeft !== null && (

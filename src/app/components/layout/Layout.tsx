@@ -1,6 +1,6 @@
 import { Outlet, useNavigate, useLocation } from "react-router";
 import { Sidebar } from "./Sidebar";
-import { Bell, ChevronDown, ChevronLeft, ChevronRight, Flag, Plus, Settings, X } from "lucide-react";
+import { Bell, ChevronDown, ChevronLeft, ChevronRight, Flag, Plus, Settings, X, Zap, PanelLeft } from "lucide-react";
 import { BottomNav } from "./BottomNav";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSidebar } from "../../context/SidebarContext";
@@ -165,70 +165,82 @@ export function Layout() {
     }
   };
 
+  const TOP_BAR_H = 38;
+
   return (
-    <div className="flex bg-[#F8F9FA] min-h-screen">
+    <div className="flex flex-col bg-[#F8F9FA] min-h-screen">
       <Toaster position="top-right" expand={false} richColors />
       <OverdueTasksModal />
-      <Sidebar />
-      <div
-        className={cn(
-          "flex-1 w-full min-h-screen flex flex-col transition-[margin-left] duration-75 ease-linear"
-        )}
-        style={isMobile ? undefined : { marginLeft: sidebarWidth }}
-      >
-        {/* Tab Bar */}
-        {!isMobile && (
-          <div className="flex items-center bg-[#F8F9FA] border-b border-gray-200 shrink-0 min-h-[38px]">
-            {tabs.length > 0 && (
-              <button
-                onClick={() => scrollTabs("left")}
-                className="px-1 py-2 text-gray-400 hover:text-gray-600 shrink-0"
-              >
-                <ChevronLeft size={14} />
-              </button>
-            )}
-            <div
-              ref={tabsRef}
-              className="flex-1 flex items-end overflow-x-auto scrollbar-hide gap-0"
+
+      {/* ── Global fixed top bar (spans full width, above sidebar + content) ── */}
+      {!isMobile && (
+        <div className="fixed top-0 left-0 right-0 z-[60] flex items-center bg-[#F8F9FA] border-b border-gray-200 min-h-[38px]">
+          {/* App logo + sidebar toggle — fixed width matching default sidebar */}
+          <div className="flex items-center gap-1 px-2 shrink-0 border-r border-gray-200" style={{ width: 300 }}>
+            <div className="w-6 h-6 bg-blue-600 rounded flex items-center justify-center text-white shrink-0">
+              <Zap size={13} fill="currentColor" />
+            </div>
+            <button
+              onClick={() => {
+                const evt = new CustomEvent("poten_toggle_sidebar");
+                window.dispatchEvent(evt);
+              }}
+              className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-200/60 transition-colors"
+              title={ko ? "사이드바" : "Sidebar"}
             >
-              {tabs.map((tab) => {
-                const isActive = tab.path === currentPath;
-                return (
-                  <button
-                    key={tab.path}
-                    onClick={() => navigate(tab.path)}
-                    onMouseDown={(e) => {
-                      // Middle-click to close
-                      if (e.button === 1) { e.preventDefault(); closeTab(tab.path); }
-                    }}
+              <PanelLeft size={16} />
+            </button>
+          </div>
+          {/* Tabs */}
+          {tabs.length > 0 && (
+            <button
+              onClick={() => scrollTabs("left")}
+              className="px-1 py-2 text-gray-400 hover:text-gray-600 shrink-0"
+            >
+              <ChevronLeft size={14} />
+            </button>
+          )}
+          <div
+            ref={tabsRef}
+            className="flex-1 flex items-end overflow-x-auto scrollbar-hide gap-0"
+          >
+            {tabs.map((tab) => {
+              const isActive = tab.path === currentPath;
+              return (
+                <button
+                  key={tab.path}
+                  onClick={() => navigate(tab.path)}
+                  onMouseDown={(e) => {
+                    if (e.button === 1) { e.preventDefault(); closeTab(tab.path); }
+                  }}
+                  className={cn(
+                    "group relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all duration-150 border-r border-gray-200 max-w-[180px]",
+                    isActive
+                      ? "bg-white text-gray-900 rounded-t-lg border-r-gray-200 shadow-sm -mb-px"
+                      : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                  )}
+                >
+                  <span className="truncate">{tab.label}</span>
+                  <span
+                    onClick={(e) => closeTab(tab.path, e)}
                     className={cn(
-                      "group relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all duration-150 border-r border-gray-200 max-w-[180px]",
-                      isActive
-                        ? "bg-white text-gray-900 rounded-t-lg border-r-gray-200 shadow-sm -mb-px"
-                        : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                      "shrink-0 p-0.5 rounded hover:bg-gray-300 transition-colors",
+                      isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                     )}
                   >
-                    <span className="truncate">{tab.label}</span>
-                    <span
-                      onClick={(e) => closeTab(tab.path, e)}
-                      className={cn(
-                        "shrink-0 p-0.5 rounded hover:bg-gray-300 transition-colors",
-                        isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                      )}
-                    >
-                      <X size={10} />
-                    </span>
-                  </button>
-                );
-              })}
-              <button
-                onClick={addTab}
-                className="px-2 py-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded shrink-0 transition-colors"
-                title={ko ? "현재 페이지를 탭에 추가" : "Pin current page as tab"}
-              >
-                <Plus size={14} />
-              </button>
-            </div>
+                    <X size={10} />
+                  </span>
+                </button>
+              );
+            })}
+            <button
+              onClick={addTab}
+              className="px-2 py-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded shrink-0 transition-colors"
+              title={ko ? "현재 페이지를 탭에 추가" : "Pin current page as tab"}
+            >
+              <Plus size={14} />
+            </button>
+          </div>
             {tabs.length > 0 && (
               <button
                 onClick={() => scrollTabs("right")}
@@ -240,6 +252,15 @@ export function Layout() {
           </div>
         )}
 
+      {/* ── Below top bar: sidebar + content side by side ── */}
+      <div className="flex flex-1" style={!isMobile ? { paddingTop: TOP_BAR_H } : undefined}>
+        <Sidebar />
+        <div
+          className={cn(
+            "flex-1 w-full min-h-screen flex flex-col transition-[margin-left] duration-75 ease-linear"
+          )}
+          style={isMobile ? undefined : { marginLeft: sidebarWidth }}
+        >
         <main ref={mainRef} className="flex-1 p-4 md:p-8 overflow-y-auto overflow-x-hidden bg-white shadow-xl md:rounded-l-[32px] border-l border-gray-100 min-h-screen min-w-0">
           {(() => {
             const basePath = location.pathname.split("/").filter(Boolean)[0] || "dashboard";
@@ -312,6 +333,7 @@ export function Layout() {
             <Outlet />
           </div>
         </main>
+        </div>
       </div>
       <BottomNav />
       <TaskAssistant />

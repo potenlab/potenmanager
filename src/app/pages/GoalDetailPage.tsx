@@ -368,9 +368,9 @@ export function GoalDetailPage() {
                   onChange={handleStatusChange} disabled={!canEdit}
                   renderValue={(v) => {
                     const cfg = STATUS_CONFIG[v];
-                    return <span className={cn("flex items-center gap-1.5 font-bold", cfg.color)}>{cfg.icon} {ko ? cfg.labelKo : cfg.label}</span>;
+                    return <span className={cn("flex items-center gap-1.5 font-bold", cfg?.color)}>{cfg?.icon} {ko ? cfg?.labelKo : cfg?.label}</span>;
                   }}
-                  renderOption={(o) => <span className={cn("flex items-center gap-2", STATUS_CONFIG[o].color)}>{STATUS_CONFIG[o].icon} {ko ? STATUS_CONFIG[o].labelKo : STATUS_CONFIG[o].label}</span>}
+                  renderOption={(o) => <span className={cn("flex items-center gap-2", STATUS_CONFIG[o]?.color)}>{STATUS_CONFIG[o]?.icon} {ko ? STATUS_CONFIG[o]?.labelKo : STATUS_CONFIG[o]?.label}</span>}
                 />
               </PropertyItem>
 

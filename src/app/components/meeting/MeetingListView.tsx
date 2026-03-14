@@ -137,9 +137,9 @@ export function MeetingListView({ meetings, onStatusChange }: Props) {
                     <td className="px-4 py-4">
                       <span className={cn(
                         "text-[11px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide border inline-flex items-center gap-0.5",
-                        tc.bg, tc.text, tc.border
+                        tc?.bg, tc?.text, tc?.border
                       )}>
-                        {tc.icon} {ko ? tc.labelKo : tc.label}
+                        {tc?.icon} {ko ? tc?.labelKo : tc?.label}
                       </span>
                     </td>
                     <td className="px-4 py-4">

@@ -37,6 +37,7 @@ import { SubPageDetailPage } from "./pages/SubPageDetailPage";
 import { ChatPage } from "./pages/ChatPage";
 import { SharePage } from "./pages/SharePage";
 import { DesktopDownloadPage } from "./pages/DesktopDownloadPage";
+import { LeaderBoardPage } from "./pages/LeaderBoardPage";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
 export const router = createBrowserRouter([
@@ -99,6 +100,7 @@ export const router = createBrowserRouter([
               { path: "mypage", Component: MyPage },
               { path: "pages/:pageId", Component: SubPageDetailPage },
               { path: "chat", Component: ChatPage },
+              { path: "leader-board", Component: LeaderBoardPage },
               { path: "trash", Component: TrashPage },
               { path: "*", Component: DashboardPage },
             ],

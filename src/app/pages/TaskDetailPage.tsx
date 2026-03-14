@@ -545,8 +545,8 @@ export function TaskDetailPage() {
             options: ["low", "medium", "high", "delayed"],
             onChange: setPriority,
             disabled: !canEdit,
-            renderValue: (v: string) => <span className={cn("px-2 py-0.5 rounded-md font-bold", PRIORITY_CONFIG[v as TaskPriority].bg, PRIORITY_CONFIG[v as TaskPriority].color)}>{language === "ko" ? PRIORITY_CONFIG[v as TaskPriority].labelKo : PRIORITY_CONFIG[v as TaskPriority].label}</span>,
-            renderOption: (o: string) => <span className={PRIORITY_CONFIG[o as TaskPriority].color}>{language === "ko" ? PRIORITY_CONFIG[o as TaskPriority].labelKo : PRIORITY_CONFIG[o as TaskPriority].label}</span>,
+            renderValue: (v: string) => <span className={cn("px-2 py-0.5 rounded-md font-bold", PRIORITY_CONFIG[v as TaskPriority]?.bg, PRIORITY_CONFIG[v as TaskPriority]?.color)}>{language === "ko" ? PRIORITY_CONFIG[v as TaskPriority]?.labelKo : PRIORITY_CONFIG[v as TaskPriority]?.label}</span>,
+            renderOption: (o: string) => <span className={PRIORITY_CONFIG[o as TaskPriority]?.color}>{language === "ko" ? PRIORITY_CONFIG[o as TaskPriority]?.labelKo : PRIORITY_CONFIG[o as TaskPriority]?.label}</span>,
           },
           {
             key: "category",
@@ -616,16 +616,16 @@ export function TaskDetailPage() {
       }
       collapsedPreview={
         <div className="flex items-center gap-1.5">
-          <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded", STATUS_CONFIG[status].bg, STATUS_CONFIG[status].color)}>
-            {language === 'ko' ? STATUS_CONFIG[status].labelKo : STATUS_CONFIG[status].label}
+          <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded", STATUS_CONFIG[status]?.bg, STATUS_CONFIG[status]?.color)}>
+            {language === 'ko' ? STATUS_CONFIG[status]?.labelKo : STATUS_CONFIG[status]?.label}
           </span>
-          <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded", PRIORITY_CONFIG[priority].bg, PRIORITY_CONFIG[priority].color)}>
-            {language === 'ko' ? PRIORITY_CONFIG[priority].labelKo : PRIORITY_CONFIG[priority].label}
+          <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded", PRIORITY_CONFIG[priority]?.bg, PRIORITY_CONFIG[priority]?.color)}>
+            {language === 'ko' ? PRIORITY_CONFIG[priority]?.labelKo : PRIORITY_CONFIG[priority]?.label}
           </span>
           {category && TASK_CATEGORY_CONFIG[category] && (
-            <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5", TASK_CATEGORY_CONFIG[category].bg, TASK_CATEGORY_CONFIG[category].color)}>
-              {TASK_CATEGORY_CONFIG[category].icon}
-              {language === 'ko' ? TASK_CATEGORY_CONFIG[category].labelKo : TASK_CATEGORY_CONFIG[category].label}
+            <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5", TASK_CATEGORY_CONFIG[category]?.bg, TASK_CATEGORY_CONFIG[category]?.color)}>
+              {TASK_CATEGORY_CONFIG[category]?.icon}
+              {language === 'ko' ? TASK_CATEGORY_CONFIG[category]?.labelKo : TASK_CATEGORY_CONFIG[category]?.label}
             </span>
           )}
         </div>

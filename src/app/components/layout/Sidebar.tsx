@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, ReactNode } from "react";
+import { useState, useCallback, useRef, useEffect, ReactNode } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router";
 import { useDrag, useDrop } from "react-dnd";
 import {
@@ -23,10 +23,10 @@ import {
   ChevronDown,
   ChevronRight,
   Building2,
-  PanelLeftClose,
-  PanelLeftOpen,
+  ChevronsRight,
   SquarePen,
   Plus,
+  Crown,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { getUserColor } from "../../../lib/mockData";
@@ -37,6 +37,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useInvite } from "../../context/InviteContext";
 import { usePresence } from "../../context/PresenceContext";
 import { useChat } from "../../context/ChatContext";
+import { createSubPage } from "../../../lib/subPages";
 
 const APP_VERSION = __APP_VERSION__;
 
@@ -138,7 +139,7 @@ function RailIcon({ to, icon, label, isActive, badge, onClick }: {
 export function Sidebar() {
   const { language, setLanguage, t } = useLanguage();
   const { width, startResizing, isMobile, isOpen, setIsOpen, isCollapsed, toggleCollapse } = useSidebar();
-  const { currentUser, members } = usePermission();
+  const { currentUser, members, can } = usePermission();
   const { signOut } = useAuth();
   const { org, allOrgs, activeOrgId, switchOrg } = useInvite();
   const { isOnline } = usePresence();
@@ -164,6 +165,13 @@ export function Sidebar() {
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingGroupName, setEditingGroupName] = useState('');
   const groupInputRef = useRef<HTMLInputElement>(null);
+
+  // Listen for external toggle event (from Layout top bar)
+  useEffect(() => {
+    const handler = () => toggleCollapse();
+    window.addEventListener("poten_toggle_sidebar", handler);
+    return () => window.removeEventListener("poten_toggle_sidebar", handler);
+  }, [toggleCollapse]);
 
   // Right-click context menu
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; menuId: string; groupId?: string } | null>(null);
@@ -285,24 +293,17 @@ export function Sidebar() {
   // ─── COLLAPSED: Icon Rail ─────────────────────────────────
   if (!isMobile && isCollapsed) {
     return (
-      <aside className="h-screen fixed left-0 top-0 z-50 w-[48px] bg-[#F7F7F5] border-r border-[#E8E8E4] flex flex-col items-center select-none">
-        {/* Logo + Expand (horizontal) */}
-        <div className="pt-3 pb-1 flex items-center gap-1">
+      <aside className="fixed left-0 z-50 w-[48px] bg-[#F7F7F5] border-r border-[#E8E8E4] flex flex-col items-center select-none" style={{ top: 38, height: "calc(100vh - 38px)" }}>
+        {/* Org logo only */}
+        <div className="pt-3 pb-1">
           <button onClick={() => navigate("/organization")} className="hover:opacity-80 transition-opacity shrink-0">
             {org?.logoUrl ? (
-              <img src={org.logoUrl} alt="logo" className="w-5 h-5 rounded object-cover" />
+              <img src={org.logoUrl} alt="logo" className="w-6 h-6 rounded-md object-cover" />
             ) : (
-              <div className="w-5 h-5 bg-blue-600 rounded flex items-center justify-center text-white">
-                <Zap size={10} fill="currentColor" />
+              <div className="w-6 h-6 bg-gray-200 rounded-md flex items-center justify-center text-gray-600 text-[11px] font-bold">
+                {(org?.name || "P").charAt(0).toUpperCase()}
               </div>
             )}
-          </button>
-          <button
-            onClick={toggleCollapse}
-            className="p-0.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-200/60 transition-colors shrink-0"
-            title={ko ? "펼치기" : "Expand"}
-          >
-            <PanelLeftOpen size={12} />
           </button>
         </div>
 
@@ -465,81 +466,67 @@ export function Sidebar() {
 
   return (
     <aside
-      className="bg-[#F7F7F5] border-r border-[#E8E8E4] flex flex-col select-none h-screen fixed left-0 top-0 z-50"
-      style={{ width }}
+      className="bg-[#F7F7F5] border-r border-[#E8E8E4] flex flex-col select-none fixed left-0 z-50"
+      style={{ width, top: 38, height: "calc(100vh - 38px)" }}
     >
-      {/* Header: Notion-style two rows */}
-      <div className="px-3 pt-2.5 pb-1 overflow-x-hidden shrink-0 space-y-1.5">
-        {/* Row 1: App logo + sidebar controls */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <div className="w-5 h-5 bg-blue-600 rounded flex items-center justify-center text-white shrink-0">
-              <Zap size={11} fill="currentColor" />
+      {/* Scrollable area: org info + navigation */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide">
+        {/* Org logo + Org name */}
+        <div className="px-3 pt-3 pb-2">
+          <div className="flex items-center gap-2">
+            <button onClick={() => { navigate("/organization"); closeSidebar(); }} className="shrink-0 hover:opacity-80 transition-opacity">
+              {org?.logoUrl ? (
+                <img src={org.logoUrl} alt="org" className="w-6 h-6 rounded-md object-cover" />
+              ) : (
+                <div className="w-6 h-6 bg-gray-200 rounded-md flex items-center justify-center text-gray-600 text-[11px] font-bold">
+                  {(org?.name || "P").charAt(0).toUpperCase()}
+                </div>
+              )}
+            </button>
+            <div className="flex-1 min-w-0">
+              {org && allOrgs.length > 1 ? (
+                <button onClick={() => setOrgSwitcherOpen(!orgSwitcherOpen)} className="flex items-center gap-1 text-[14px] font-semibold text-gray-800 hover:text-gray-900 transition-colors whitespace-nowrap">
+                  <span className="truncate max-w-[140px]">{org.name}</span>
+                  <ChevronsUpDown size={12} className="text-gray-400 shrink-0" />
+                </button>
+              ) : (
+                <span className="text-[14px] font-semibold text-gray-800 whitespace-nowrap truncate">{org ? org.name : "Poten Manager"}</span>
+              )}
             </div>
-            <span className="text-[11px] font-medium text-gray-400 tracking-wide">POTEN</span>
-          </div>
-          <div className="flex items-center gap-0.5">
             <button
-              onClick={toggleCollapse}
-              className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-200/60 transition-colors"
-              title={ko ? "접기" : "Collapse"}
+              onClick={() => {
+                const page = createSubPage("workspace", "general");
+                navigate(`/pages/${page.id}`);
+              }}
+              className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-200/60 transition-colors shrink-0"
+              title={ko ? "새 페이지" : "New Page"}
             >
-              <PanelLeftClose size={14} />
+              <SquarePen size={13} />
             </button>
           </div>
         </div>
-        {/* Row 2: Org logo + Org name */}
-        <div className="flex items-center gap-2">
-          <button onClick={() => { navigate("/organization"); closeSidebar(); }} className="shrink-0 hover:opacity-80 transition-opacity">
-            {org?.logoUrl ? (
-              <img src={org.logoUrl} alt="org" className="w-6 h-6 rounded-md object-cover" />
-            ) : (
-              <div className="w-6 h-6 bg-gray-200 rounded-md flex items-center justify-center text-gray-600 text-[11px] font-bold">
-                {(org?.name || "P").charAt(0).toUpperCase()}
-              </div>
-            )}
-          </button>
-          <div className="flex-1 min-w-0">
-            {org && allOrgs.length > 1 ? (
-              <button onClick={() => setOrgSwitcherOpen(!orgSwitcherOpen)} className="flex items-center gap-1 text-[14px] font-semibold text-gray-800 hover:text-gray-900 transition-colors whitespace-nowrap">
-                <span className="truncate max-w-[140px]">{org.name}</span>
-                <ChevronsUpDown size={12} className="text-gray-400 shrink-0" />
-              </button>
-            ) : (
-              <span className="text-[14px] font-semibold text-gray-800 whitespace-nowrap truncate">{org ? org.name : "Poten Manager"}</span>
-            )}
-          </div>
-          <button
-            onClick={() => navigate("/organization")}
-            className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-200/60 transition-colors shrink-0"
-            title={ko ? "편집" : "Edit"}
-          >
-            <SquarePen size={13} />
-          </button>
-        </div>
-      </div>
 
-      {/* Organization Switcher */}
-      {orgSwitcherOpen && allOrgs.length > 1 && (
-        <>
-          <div className="fixed inset-0 z-[70]" onClick={() => setOrgSwitcherOpen(false)} />
-          <div className="absolute left-3 right-3 top-[40px] bg-white border border-gray-200 rounded-lg shadow-lg z-[71] py-1 animate-in fade-in slide-in-from-top-1 duration-150">
-            {allOrgs.map((o) => (
-              <button
-                key={o.orgId}
-                onClick={() => { if (o.orgId !== activeOrgId) switchOrg(o.orgId); setOrgSwitcherOpen(false); }}
-                className={cn("w-full flex items-center gap-2 px-3 py-1.5 text-[15px] transition-colors", o.orgId === activeOrgId ? "bg-blue-50 text-blue-600" : "text-gray-600 hover:bg-gray-50")}
-              >
-                <span className="truncate flex-1 text-left">{o.orgName}</span>
-                {o.orgId === activeOrgId && <Check size={13} className="text-blue-600 shrink-0" />}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+        {/* Organization Switcher */}
+        {orgSwitcherOpen && allOrgs.length > 1 && (
+          <>
+            <div className="fixed inset-0 z-[70]" onClick={() => setOrgSwitcherOpen(false)} />
+            <div className="absolute left-3 right-3 top-[72px] bg-white border border-gray-200 rounded-lg shadow-lg z-[71] py-1 animate-in fade-in slide-in-from-top-1 duration-150">
+              {allOrgs.map((o) => (
+                <button
+                  key={o.orgId}
+                  onClick={() => { if (o.orgId !== activeOrgId) switchOrg(o.orgId); setOrgSwitcherOpen(false); }}
+                  className={cn("w-full flex items-center gap-2 px-3 py-1.5 text-[15px] transition-colors", o.orgId === activeOrgId ? "bg-blue-50 text-blue-600" : "text-gray-600 hover:bg-gray-50")}
+                >
+                  <span className="truncate flex-1 text-left">{o.orgName}</span>
+                  {o.orgId === activeOrgId && <Check size={13} className="text-blue-600 shrink-0" />}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
-      {/* Navigation (scrollable) */}
-      <div className="px-2 pt-2 pb-4 overflow-y-auto overflow-x-hidden flex-1 scrollbar-hide">
+        {/* Navigation */}
+        <div className="px-2 pt-1 pb-4">
         <nav className="space-y-0.5">
           {/* Dashboard */}
           <NavLink
@@ -558,6 +545,25 @@ export function Sidebar() {
             <span>{t("dashboard")}</span>
           </NavLink>
 
+          {/* Leader Board — admin only, right below dashboard */}
+          {can("team.editRole") && (
+            <NavLink
+              to="/leader-board"
+              onClick={closeSidebar}
+              className={({ isActive }) =>
+                cn(
+                  "flex items-center gap-2.5 px-2 py-1 rounded-md text-[15px] transition-all duration-100",
+                  isActive
+                    ? "bg-gray-200/70 text-gray-900 font-semibold"
+                    : "text-gray-600 hover:bg-gray-200/50 hover:text-gray-900"
+                )
+              }
+            >
+              <Crown size={16} className="text-amber-500" />
+              <span>{ko ? "리더 게시판" : "Leader Board"}</span>
+            </NavLink>
+          )}
+
           {/* Grouped sections */}
           {DEFAULT_GROUPS.map((group) => {
             const itemOrder = groupOrders[group.id] || group.itemIds;
@@ -572,11 +578,12 @@ export function Sidebar() {
               </div>
             );
           })}
-        </nav>
-      </div>
 
-      {/* Bottom: Profile + Team + Settings */}
-      <div className="px-2 pb-3 pt-0 overflow-hidden shrink-0">
+        </nav>
+        </div>
+
+        {/* Bottom: Profile + Team + Settings */}
+        <div className="px-2 pb-3 pt-0 overflow-hidden">
         <div className="pt-2 border-t border-[#E8E8E4] space-y-0.5">
           {/* User Profile */}
           <div
@@ -662,6 +669,7 @@ export function Sidebar() {
           </div>
 
           <p className="text-[9px] text-gray-300 text-center pt-0.5">v{APP_VERSION}</p>
+        </div>
         </div>
       </div>
 

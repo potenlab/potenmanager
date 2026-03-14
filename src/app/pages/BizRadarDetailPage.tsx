@@ -321,17 +321,17 @@ export function BizRadarDetailPage() {
                   onChange={handleConnectionTypeChange}
                   renderValue={(v) => {
                     const cfg = CONNECTION_TYPE_CONFIG[v];
-                    return <span className={cn("px-2 py-0.5 rounded-md font-bold", cfg.bg, cfg.color)}>{ko ? cfg.labelKo : cfg.label}</span>;
+                    return <span className={cn("px-2 py-0.5 rounded-md font-bold", cfg?.bg, cfg?.color)}>{ko ? cfg?.labelKo : cfg?.label}</span>;
                   }}
-                  renderOption={(o) => <span className={CONNECTION_TYPE_CONFIG[o].color}>{ko ? CONNECTION_TYPE_CONFIG[o].labelKo : CONNECTION_TYPE_CONFIG[o].label}</span>}
+                  renderOption={(o) => <span className={CONNECTION_TYPE_CONFIG[o]?.color}>{ko ? CONNECTION_TYPE_CONFIG[o]?.labelKo : CONNECTION_TYPE_CONFIG[o]?.label}</span>}
                 />
               ) : (
                 <InlineDropdown
                   value={item.type}
                   options={['project', 'funding', 'partnership', 'investment', 'other'] as BizType[]}
                   onChange={handleTypeChange}
-                  renderValue={(v) => <span className={cn("px-2 py-0.5 rounded-md font-bold", TYPE_CONFIG[v].bg, TYPE_CONFIG[v].color)}>{ko ? TYPE_CONFIG[v].labelKo : TYPE_CONFIG[v].label}</span>}
-                  renderOption={(o) => <span className={TYPE_CONFIG[o].color}>{ko ? TYPE_CONFIG[o].labelKo : TYPE_CONFIG[o].label}</span>}
+                  renderValue={(v) => <span className={cn("px-2 py-0.5 rounded-md font-bold", TYPE_CONFIG[v]?.bg, TYPE_CONFIG[v]?.color)}>{ko ? TYPE_CONFIG[v]?.labelKo : TYPE_CONFIG[v]?.label}</span>}
+                  renderOption={(o) => <span className={TYPE_CONFIG[o]?.color}>{ko ? TYPE_CONFIG[o]?.labelKo : TYPE_CONFIG[o]?.label}</span>}
                 />
               ),
             },

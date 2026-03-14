@@ -251,9 +251,9 @@ export function TeamBoardDetailPage() {
                     {!propsExpanded && (
                       <div className="flex items-center gap-1.5">
                         <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5",
-                          TYPE_CONFIG[type].bg, TYPE_CONFIG[type].color)}>
-                          {TYPE_CONFIG[type].icon}
-                          {ko ? TYPE_CONFIG[type].labelKo : TYPE_CONFIG[type].label}
+                          TYPE_CONFIG[type]?.bg, TYPE_CONFIG[type]?.color)}>
+                          {TYPE_CONFIG[type]?.icon}
+                          {ko ? TYPE_CONFIG[type]?.labelKo : TYPE_CONFIG[type]?.label}
                         </span>
                         {pinned && (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 flex items-center gap-0.5">

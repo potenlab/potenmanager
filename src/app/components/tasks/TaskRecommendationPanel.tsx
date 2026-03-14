@@ -41,9 +41,9 @@ function GoalContextCard({ goal, language }: { goal: GoalContext; language: stri
   return (
     <div className={cn("rounded-xl border p-3 bg-white shadow-sm", isUrgent && "ring-1 ring-red-200")}>
       <div className="flex items-start justify-between gap-2 mb-2">
-        <div className={cn("flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border", cfg.bg, cfg.color)}>
-          {cfg.icon}
-          <span className="ml-0.5">{language === "ko" ? cfg.labelKo : cfg.label}</span>
+        <div className={cn("flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border", cfg?.bg, cfg?.color)}>
+          {cfg?.icon}
+          <span className="ml-0.5">{language === "ko" ? cfg?.labelKo : cfg?.label}</span>
         </div>
         <div className={cn("flex items-center gap-1 text-[11px] font-semibold", isUrgent ? "text-red-500" : "text-gray-500")}>
           <Clock size={10} />
@@ -82,7 +82,7 @@ function RecommendationCard({
   const { members } = usePermission();
   const assignee = rec.suggestedAssigneeId ? members.find((m) => m.id === rec.suggestedAssigneeId) : null;
   const levelCfg = LEVEL_CONFIG[rec.goalLevel] ?? LEVEL_CONFIG.Week;
-  const pCfg = PRIORITY_CONFIG[rec.priority];
+  const pCfg = PRIORITY_CONFIG[rec.priority as keyof typeof PRIORITY_CONFIG];
   const title = language === "ko" ? rec.titleKo : rec.title;
   const description = language === "ko" ? rec.descriptionKo : rec.description;
   const reason = language === "ko" ? rec.reasonKo : rec.reason;
@@ -114,13 +114,13 @@ function RecommendationCard({
         <div className="flex items-start justify-between gap-2 mb-2.5">
           <div className="flex flex-wrap items-center gap-1.5">
             {/* Goal level badge */}
-            <span className={cn("flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border", levelCfg.bg, levelCfg.color)}>
-              {levelCfg.icon}
-              <span className="ml-0.5">{language === "ko" ? levelCfg.labelKo : levelCfg.label}</span>
+            <span className={cn("flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border", levelCfg?.bg, levelCfg?.color)}>
+              {levelCfg?.icon}
+              <span className="ml-0.5">{language === "ko" ? levelCfg?.labelKo : levelCfg?.label}</span>
             </span>
             {/* Priority badge */}
-            <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full border", pCfg.bg, pCfg.color, pCfg.border)}>
-              {language === "ko" ? pCfg.label : pCfg.labelEn}
+            <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full border", pCfg?.bg, pCfg?.color, pCfg?.border)}>
+              {language === "ko" ? pCfg?.label : pCfg?.labelEn}
             </span>
           </div>
           {/* Score */}

@@ -74,6 +74,10 @@ export function LoginPage() {
     setDemoLoading(true);
     setSelectedIndustry(industry || null);
     try {
+      // Clear all poten_ localStorage to prevent org data leaking into demo
+      const keysToRemove = Object.keys(localStorage).filter(k => k.startsWith('poten_'));
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+
       await api.setupDemo(industry);
       localStorage.setItem('poten_demo_mode', 'true');
       localStorage.setItem('poten_active_org_id', 'org-demo');

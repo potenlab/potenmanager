@@ -396,8 +396,8 @@ export function MeetingDetailPage() {
             icon: <CircleDot size={14} />,
             label: ko ? '상태' : 'Status',
             render: () => (
-              <span className={cn("flex items-center gap-1.5 px-2 py-1 text-sm font-bold", STATUS_CONFIG[meeting.status].color)}>
-                {STATUS_CONFIG[meeting.status].icon} {ko ? STATUS_CONFIG[meeting.status].labelKo : STATUS_CONFIG[meeting.status].label}
+              <span className={cn("flex items-center gap-1.5 px-2 py-1 text-sm font-bold", STATUS_CONFIG[meeting.status]?.color)}>
+                {STATUS_CONFIG[meeting.status]?.icon} {ko ? STATUS_CONFIG[meeting.status]?.labelKo : STATUS_CONFIG[meeting.status]?.label}
               </span>
             ),
           },
@@ -411,8 +411,8 @@ export function MeetingDetailPage() {
                 value={meeting.type}
                 options={['standup', 'planning', 'review', 'brainstorm', 'external', 'event', 'other'] as MeetingType[]}
                 onChange={handleTypeChange}
-                renderValue={(v) => <span className={cn("px-2 py-0.5 rounded-md font-bold flex items-center gap-1", TYPE_CONFIG[v].bg, TYPE_CONFIG[v].color)}>{TYPE_CONFIG[v].icon} {ko ? TYPE_CONFIG[v].labelKo : TYPE_CONFIG[v].label}</span>}
-                renderOption={(o) => <span className={cn("flex items-center gap-1.5", TYPE_CONFIG[o].color)}>{TYPE_CONFIG[o].icon} {ko ? TYPE_CONFIG[o].labelKo : TYPE_CONFIG[o].label}</span>}
+                renderValue={(v) => <span className={cn("px-2 py-0.5 rounded-md font-bold flex items-center gap-1", TYPE_CONFIG[v]?.bg, TYPE_CONFIG[v]?.color)}>{TYPE_CONFIG[v]?.icon} {ko ? TYPE_CONFIG[v]?.labelKo : TYPE_CONFIG[v]?.label}</span>}
+                renderOption={(o) => <span className={cn("flex items-center gap-1.5", TYPE_CONFIG[o]?.color)}>{TYPE_CONFIG[o]?.icon} {ko ? TYPE_CONFIG[o]?.labelKo : TYPE_CONFIG[o]?.label}</span>}
               />
             ),
           },
