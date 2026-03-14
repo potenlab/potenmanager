@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router";
 import { useDrag, useDrop } from "react-dnd";
 import { AnimatePresence, motion } from "motion/react";
 import {
-  FolderKanban, Palette, Plus, Trash2,
+  FolderKanban, Palette, Crown, Plus, Trash2,
   Calendar as CalendarIcon, MoreHorizontal, X, Check,
   Image as ImageIcon, Globe, Search, Edit3,
   StickyNote, LayoutGrid, List, AlignJustify, LayoutList,
@@ -197,7 +197,7 @@ export function getPlatformInfo(id?: string) {
   return BRAND_PLATFORMS.find(p => p.id === id) || null;
 }
 
-export type BoardType = "projects" | "branding";
+export type BoardType = "projects" | "branding" | "leaderboard";
 
 function storageKey(board: BoardType, suffix: string) {
   return `poten_mgmt_${board}_${suffix}`;
@@ -239,6 +239,19 @@ const DEMO_BRAND_CARDS: KanbanCard[] = [
   { id: "demo-b5", columnId: "col-youtube", title: "제품 소개 채널", description: "튜토리얼 및 기능 소개 영상", platform: "youtube", priority: "high", order: 0, createdAt: "2026-01-10T00:00:00Z" },
 ];
 
+const DEMO_LEADER_COLUMNS: KanbanColumn[] = [
+  { id: "col-announcements", name: "공지사항", order: 0 },
+  { id: "col-discussions", name: "논의사항", order: 1 },
+  { id: "col-decisions", name: "결정사항", order: 2 },
+];
+
+const DEMO_LEADER_CARDS: KanbanCard[] = [
+  { id: "demo-lb1", columnId: "col-announcements", title: "2분기 목표 확정", description: "매출 목표 및 핵심 KPI 최종 결정", priority: "high", color: "#EF4444", order: 0, createdAt: "2026-03-01T00:00:00Z" },
+  { id: "demo-lb2", columnId: "col-announcements", title: "신규 채용 계획", description: "개발팀 2명, 마케팅 1명 채용 예정", priority: "medium", color: "#3B82F6", order: 1, createdAt: "2026-03-05T00:00:00Z" },
+  { id: "demo-lb3", columnId: "col-discussions", title: "리모트 근무 정책 개선", description: "주 2회 출근 → 주 1회로 변경 논의", priority: "medium", color: "#8B5CF6", order: 0, createdAt: "2026-03-08T00:00:00Z" },
+  { id: "demo-lb4", columnId: "col-decisions", title: "디자인 시스템 v2 도입", description: "Figma 컴포넌트 라이브러리 통합 결정", priority: "low", color: "#10B981", order: 0, createdAt: "2026-02-20T00:00:00Z" },
+];
+
 function seedDemoData() {
   if (!isDemo()) return;
   try { if (localStorage.getItem(DEMO_SEED_KEY)) return; } catch {}
@@ -250,6 +263,10 @@ function seedDemoData() {
   // Branding
   localStorage.setItem(storageKey("branding", "columns"), JSON.stringify(DEMO_BRAND_COLUMNS));
   localStorage.setItem(storageKey("branding", "cards"), JSON.stringify(DEMO_BRAND_CARDS));
+
+  // Leader Board
+  localStorage.setItem(storageKey("leaderboard", "columns"), JSON.stringify(DEMO_LEADER_COLUMNS));
+  localStorage.setItem(storageKey("leaderboard", "cards"), JSON.stringify(DEMO_LEADER_CARDS));
 
   localStorage.setItem(DEMO_SEED_KEY, "true");
 }
@@ -269,6 +286,12 @@ export function loadColumns(board: BoardType): KanbanColumn[] {
         { id: "col-planning", name: "기획", order: 0 },
         { id: "col-progress", name: "진행 중", order: 1 },
         { id: "col-done", name: "완료", order: 2 },
+      ]
+    : board === "leaderboard"
+    ? [
+        { id: "col-announcements", name: "공지사항", order: 0 },
+        { id: "col-discussions", name: "논의사항", order: 1 },
+        { id: "col-decisions", name: "결정사항", order: 2 },
       ]
     : [
         { id: "col-design", name: "디자인", order: 0 },
@@ -337,6 +360,8 @@ function MgmtCard({
 
   const detailPath = board === "projects"
     ? `/projects/${card.id}`
+    : board === "leaderboard"
+    ? `/leader-board/${card.id}`
     : `/branding/${card.id}`;
 
   return (
@@ -727,7 +752,7 @@ export function ManagementPage() {
   const { language } = useLanguage();
   const ko = language === "ko";
   const location = useLocation();
-  const board: BoardType = location.pathname.startsWith("/branding") ? "branding" : "projects";
+  const board: BoardType = location.pathname.startsWith("/branding") ? "branding" : location.pathname.startsWith("/leader-board") ? "leaderboard" : "projects";
   const searchParams = new URLSearchParams(location.search);
   const projectFilter = searchParams.get("filter"); // "internal" | "external" | null
   const { org } = useInvite();
@@ -1056,6 +1081,8 @@ export function ManagementPage() {
             <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">
               {board === "projects" ? (
                 <><FolderKanban className="inline-block mr-2 -mt-0.5" size={22} />{projectFilter === "external" ? (ko ? "외부 프로젝트" : "External Projects") : projectFilter === "internal" ? (ko ? "내부 프로젝트" : "Internal Projects") : (ko ? "프로젝트" : "Projects")}</>
+              ) : board === "leaderboard" ? (
+                <><Crown className="inline-block mr-2 -mt-0.5" size={22} />{ko ? "리더 게시판" : "Leader Board"}</>
               ) : (
                 <><Palette className="inline-block mr-2 -mt-0.5" size={22} />{ko ? "브랜딩" : "Branding"}</>
               )}
@@ -1063,6 +1090,8 @@ export function ManagementPage() {
             <p className="text-gray-500 text-xs sm:text-sm">
               {board === "projects"
                 ? (ko ? "칼럼을 자유롭게 커스텀하고 프로젝트를 관리합니다" : "Customize columns and manage projects")
+                : board === "leaderboard"
+                ? (ko ? "관리자 간 공유 게시판입니다" : "Shared board for admins only")
                 : (ko ? "칼럼을 자유롭게 커스텀하고 브랜드 자산을 관리합니다" : "Customize columns and manage brand assets")}
             </p>
           </div>
@@ -1155,7 +1184,7 @@ export function ManagementPage() {
           >
             <button
               onClick={() => {
-                const detailPath = board === "projects" ? `/projects/${ctxMenu.id}` : `/branding/${ctxMenu.id}`;
+                const detailPath = board === "projects" ? `/projects/${ctxMenu.id}` : board === "leaderboard" ? `/leader-board/${ctxMenu.id}` : `/branding/${ctxMenu.id}`;
                 navigate(detailPath);
                 closeCtxMenu();
               }}

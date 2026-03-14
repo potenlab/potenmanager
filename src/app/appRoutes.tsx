@@ -38,6 +38,7 @@ import { ChatPage } from "./pages/ChatPage";
 import { SharePage } from "./pages/SharePage";
 import { DesktopDownloadPage } from "./pages/DesktopDownloadPage";
 import { LeaderBoardPage } from "./pages/LeaderBoardPage";
+import { LeaderBoardDetailPage } from "./pages/LeaderBoardDetailPage";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
 export const router = createBrowserRouter([
@@ -101,6 +102,8 @@ export const router = createBrowserRouter([
               { path: "pages/:pageId", Component: SubPageDetailPage },
               { path: "chat", Component: ChatPage },
               { path: "leader-board", Component: LeaderBoardPage },
+              { path: "leader-board/new", Component: LeaderBoardDetailPage },
+              { path: "leader-board/:itemId", Component: LeaderBoardDetailPage },
               { path: "trash", Component: TrashPage },
               { path: "*", Component: DashboardPage },
             ],
