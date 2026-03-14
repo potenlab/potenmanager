@@ -455,6 +455,32 @@ app.post("/make-server-f580d5ca/team/members", async (c) => {
     const id = body.id || `u-${Date.now()}`;
     const member = { ...body, id, joinedAt: new Date().toISOString() };
     await kv.set(pfx(c, `member:${id}`), member);
+
+    // Also link to org membership so the user can find this org when they log in
+    const orgId = c.req.query("orgId");
+    if (orgId) {
+      const org = await kv.get(`org:${orgId}`) as any;
+      if (org) {
+        const memberIds = org.memberIds || [];
+        if (!memberIds.includes(id)) {
+          memberIds.push(id);
+          await kv.set(`org:${orgId}`, { ...org, memberIds });
+        }
+      }
+      // Create/update user-org mapping
+      const existingUserOrg = await kv.get(`user-org:${id}`) as any;
+      let userOrgs: any[] = [];
+      if (existingUserOrg?.orgs) {
+        userOrgs = existingUserOrg.orgs;
+      } else if (existingUserOrg?.orgId) {
+        userOrgs = [{ orgId: existingUserOrg.orgId, role: existingUserOrg.role, joinedAt: existingUserOrg.joinedAt }];
+      }
+      if (!userOrgs.some((o: any) => o.orgId === orgId)) {
+        userOrgs.push({ orgId, role: member.role || 'member', joinedAt: new Date().toISOString() });
+        await kv.set(`user-org:${id}`, { orgs: userOrgs, activeOrgId: existingUserOrg?.activeOrgId || orgId });
+      }
+    }
+
     return c.json(member);
   } catch (e) {
     console.log("Error creating member:", e);

@@ -17,6 +17,9 @@ import type { PropertyFieldConfig } from "../components/detail/PropertyConfig";
 import { AIStrategyPanel } from "../components/AIStrategyPanel";
 import { PAGE_TYPES } from "../components/detail/pageTypes";
 import { api } from "../../lib/api";
+import { useRealtimeBroadcast } from "../../lib/realtimeSync";
+import { useInvite } from "../context/InviteContext";
+import { useTeam } from "../context/TeamContext";
 import {
   BrandAsset,
   loadBrandAssets, saveBrandAssets, syncBrandAssetsFromServer, loadCards, saveCards, loadColumns,
@@ -42,6 +45,8 @@ const isDemo = () => localStorage.getItem('poten_demo_mode') === 'true';
 
 function useBrandData(id: string | undefined) {
   const navigate = useNavigate();
+  const { org } = useInvite();
+  const { currentUser } = useTeam();
   const isNew = id === "new" || !id;
 
   const [assets, setAssets] = useState<BrandAsset[]>(() => {
@@ -91,6 +96,20 @@ function useBrandData(id: string | undefined) {
   const item = assets.find((a) => a.id === currentId) || null;
   const itemId = currentId || id || "";
 
+  // ── Realtime sync for brand detail ──
+  const rtChannel = org?.id && currentId ? `brand-${currentId}-${org.id}` : null;
+  const broadcast = useRealtimeBroadcast(rtChannel, currentUser.id, {
+    "brand-update": (payload: any) => {
+      if (payload?.updates && payload?.brandId) {
+        setAssets(prev => {
+          const next = prev.map(a => a.id === payload.brandId ? { ...a, ...payload.updates } : a);
+          saveBrandAssets(next);
+          return next;
+        });
+      }
+    },
+  });
+
   const handleUpdate = useCallback((updates: Partial<BrandAsset>) => {
     if (!currentId) return;
     setAssets((prev) => {
@@ -98,6 +117,8 @@ function useBrandData(id: string | undefined) {
       saveBrandAssets(next);
       return next;
     });
+    // Broadcast to other clients
+    broadcast("brand-update", { brandId: currentId, updates });
     // Sync to server
     if (!isDemo()) api.updateBrandAsset(currentId, updates).catch(() => {});
     // Sync fields to kanban card
@@ -110,7 +131,7 @@ function useBrandData(id: string | undefined) {
         saveCards("branding", allCards);
       }
     }
-  }, [currentId]);
+  }, [currentId, broadcast]);
 
   const handleDelete = useCallback(() => {
     if (!item) return;

@@ -192,7 +192,7 @@ export function TeamMemberPage() {
   // Member meetings
   const memberMeetings = useMemo(() => {
     return meetings
-      .filter((m) => m.attendeeIds.includes(memberId ?? "") || m.organizerId === memberId)
+      .filter((m) => (m.attendeeIds ?? []).includes(memberId ?? "") || m.organizerId === memberId)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [meetings, memberId]);
 
@@ -490,15 +490,19 @@ export function TeamMemberPage() {
               </div>
             ) : (
               memberMeetings.slice(0, 10).map((meeting) => {
-                const meetingDate = new Date(meeting.date);
-                const dateStr = format(
-                  meetingDate,
-                  language === "ko" ? "M월 d일 HH:mm" : "MMM d, HH:mm",
-                  language === "ko" ? { locale: ko } : undefined
-                );
-                const durationStr = meeting.duration >= 60
-                  ? `${Math.floor(meeting.duration / 60)}h${meeting.duration % 60 ? ` ${meeting.duration % 60}m` : ""}`
-                  : `${meeting.duration}m`;
+                const meetingDate = meeting.date ? new Date(meeting.date) : new Date();
+                let dateStr = "";
+                try {
+                  dateStr = format(
+                    meetingDate,
+                    language === "ko" ? "M월 d일 HH:mm" : "MMM d, HH:mm",
+                    language === "ko" ? { locale: ko } : undefined
+                  );
+                } catch { dateStr = "-"; }
+                const dur = meeting.duration || 0;
+                const durationStr = dur >= 60
+                  ? `${Math.floor(dur / 60)}h${dur % 60 ? ` ${dur % 60}m` : ""}`
+                  : `${dur}m`;
                 const typeLabels: Record<string, { ko: string; en: string }> = {
                   standup: { ko: "스탠드업", en: "Standup" },
                   planning: { ko: "기획", en: "Planning" },

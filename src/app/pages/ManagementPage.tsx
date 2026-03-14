@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { api } from "../../lib/api";
+import { useRealtimeBroadcast } from "../../lib/realtimeSync";
 import { useLanguage } from "../context/LanguageContext";
 import { useInvite } from "../context/InviteContext";
 import { usePermission } from "../context/PermissionContext";
@@ -960,22 +961,41 @@ export function ManagementPage() {
 
   useEffect(() => { if (addingColumn && newColRef.current) newColRef.current.focus(); }, [addingColumn]);
 
-  // Persist (localStorage + server)
+  // ── Realtime sync via Supabase broadcast ──
+  const rtChannel = org?.id ? `kanban-${board}-${org.id}` : null;
+  const broadcast = useRealtimeBroadcast(rtChannel, currentUser.id, {
+    "cards-update": (payload: any) => {
+      if (payload?.cards) {
+        setCards(payload.cards);
+        saveCards(board, payload.cards);
+      }
+    },
+    "columns-update": (payload: any) => {
+      if (payload?.columns) {
+        setColumns(payload.columns);
+        saveColumns(board, payload.columns);
+      }
+    },
+  });
+
+  // Persist (localStorage + server + broadcast)
   const persistColumns = useCallback((cols: KanbanColumn[]) => {
     setColumns(cols);
     saveColumns(board, cols);
+    broadcast("columns-update", { columns: cols });
     if (localStorage.getItem('poten_demo_mode') !== 'true') {
       api.saveKanbanColumns(board, cols).catch(() => {});
     }
-  }, [board]);
+  }, [board, broadcast]);
   const persistCards = useCallback((crds: KanbanCard[]) => {
     setCards(crds);
     saveCards(board, crds);
+    broadcast("cards-update", { cards: crds });
     if (localStorage.getItem('poten_demo_mode') !== 'true') {
       // Sync each card to server (upsert)
       crds.forEach(card => api.updateKanbanCard(board, card.id, card).catch(() => {}));
     }
-  }, [board]);
+  }, [board, broadcast]);
 
   // Column operations
   const handleAddColumn = () => {

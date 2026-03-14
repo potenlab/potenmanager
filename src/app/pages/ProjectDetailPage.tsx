@@ -10,8 +10,10 @@ import {
 import { createPortal } from "react-dom";
 import { cn } from "../../lib/utils";
 import { api } from "../../lib/api";
+import { useRealtimeBroadcast } from "../../lib/realtimeSync";
 import { useLanguage } from "../context/LanguageContext";
 import { usePermission } from "../context/PermissionContext";
+import { useInvite } from "../context/InviteContext";
 import { usePortalPosition } from "../hooks/usePortalPosition";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
@@ -392,6 +394,7 @@ export function ProjectDetailPage() {
   const { language } = useLanguage();
   const ko = language === "ko";
   const { currentUser, members } = usePermission();
+  const { org } = useInvite();
 
   const isNew = projectId === "new" || !projectId;
 
@@ -422,6 +425,24 @@ export function ProjectDetailPage() {
     return existing;
   });
   const [localId, setLocalId] = useState<string | null>(null);
+
+  // ── Realtime sync for project detail ──
+  const rtChannel = org?.id && currentId ? `project-${currentId}-${org.id}` : null;
+  const broadcast = useRealtimeBroadcast(rtChannel, currentUser.id, {
+    "project-update": (payload: any) => {
+      if (payload?.updates && payload?.projectId) {
+        setProjects(prev => {
+          const next = prev.map(p => p.id === payload.projectId ? { ...p, ...payload.updates } : p);
+          saveProjects(next);
+          return next;
+        });
+        // Sync notes if description changed
+        if (payload.updates.description !== undefined) {
+          setNotes(payload.updates.description);
+        }
+      }
+    },
+  });
 
   // Sync projects from server on mount
   useEffect(() => {
@@ -493,6 +514,8 @@ export function ProjectDetailPage() {
         saveProjects(next);
         return next;
       });
+      // Broadcast to other clients
+      broadcast("project-update", { projectId: currentId, updates });
       // Sync to server
       if (localStorage.getItem('poten_demo_mode') !== 'true') {
         api.updateProject(currentId, updates).catch(() => {});

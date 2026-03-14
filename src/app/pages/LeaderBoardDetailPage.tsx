@@ -2,8 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
 import { Crown, Calendar, Flag, Tag } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { useRealtimeBroadcast } from "../../lib/realtimeSync";
 import { useLanguage } from "../context/LanguageContext";
 import { usePermission } from "../context/PermissionContext";
+import { useInvite } from "../context/InviteContext";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
 import { InlineText } from "../components/detail/InlineText";
@@ -75,6 +77,7 @@ export function LeaderBoardDetailPage() {
   const { language } = useLanguage();
   const ko = language === "ko";
   const { currentUser } = usePermission();
+  const { org } = useInvite();
 
   const isNew = itemId === "new";
 
@@ -120,6 +123,19 @@ export function LeaderBoardDetailPage() {
     }
   }, [isNew]);
 
+  // ── Realtime sync ──
+  const rtChannel = org?.id && item?.id ? `lb-${item.id}-${org.id}` : null;
+  const broadcast = useRealtimeBroadcast(rtChannel, currentUser.id, {
+    "item-update": (payload: any) => {
+      if (payload?.title !== undefined) setTitle(payload.title);
+      if (payload?.content !== undefined) setContent(payload.content);
+      if (payload?.priority !== undefined) setPriority(payload.priority);
+      if (payload?.columnId !== undefined) {
+        setItem(prev => prev ? { ...prev, columnId: payload.columnId } : null);
+      }
+    },
+  });
+
   // Auto-save
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => {
@@ -139,6 +155,9 @@ export function LeaderBoardDetailPage() {
         cards[cardIdx] = { ...cards[cardIdx], title, description: content.slice(0, 200), priority: priority as any };
         saveCards(BOARD, cards);
       }
+
+      // Broadcast changes to other clients
+      broadcast("item-update", { title, content, priority, columnId: item.columnId });
     }, 400);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   }, [title, content, priority, item?.id]);
