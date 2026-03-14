@@ -484,7 +484,7 @@ function DroppableDayCell({
   language: string;
   selectedIds: Set<string>;
   onDropTask: (taskIds: string[], newDate: Date, clientY?: number, altKey?: boolean) => void;
-  onDropMeeting: (meetingId: string, newDate: Date) => void;
+  onDropMeeting: (meetingId: string, newDate: Date, altKey?: boolean) => void;
   onTaskClick: (task: Task, rect: DOMRect) => void;
   onSelectTask: (taskId: string, multi: boolean) => void;
   resizeState: ResizeState | null;
@@ -507,7 +507,7 @@ function DroppableDayCell({
       drop: (item: { taskId?: string; taskIds?: string[]; meetingId?: string }, monitor) => {
         const type = monitor.getItemType();
         if (type === MEETING_DRAG_TYPE && item.meetingId) {
-          onDropMeeting(item.meetingId, day);
+          onDropMeeting(item.meetingId, day, calAltKeyRef.current);
         } else {
           const ids = item.taskIds && item.taskIds.length > 0 ? item.taskIds : item.taskId ? [item.taskId] : [];
           const clientY = monitor.getClientOffset()?.y;
@@ -1357,16 +1357,16 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
           const baseTitle = t.title.replace(/\s*\(\d+\)$/, '');
           const existing = allContextTasks.filter(tk => tk.title === baseTitle || tk.title.match(new RegExp(`^${baseTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\(\\d+\\)$`)));
           const nextNum = existing.length;
-          const cloned: Omit<Task, "id"> = {
+          const cloned: Task = {
             ...t,
+            id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             title: `${baseTitle} (${nextNum})`,
             titleKo: t.titleKo ? `${t.titleKo.replace(/\s*\(\d+\)$/, '')} (${nextNum})` : undefined,
             dueDate: new Date(taskDue.getTime() + anchorDelta),
             startDate: t.startDate ? new Date(new Date(t.startDate).getTime() + anchorDelta) : undefined,
             endDate: t.endDate ? new Date(new Date(t.endDate).getTime() + anchorDelta) : undefined,
           };
-          delete (cloned as any).id;
-          addTaskToContext(cloned as any);
+          addTaskToContext(cloned);
         }
         setQuickViewTask(null);
         return;
@@ -1430,18 +1430,39 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
     [calTasks, allContextTasks, updateTask, addTaskToContext, calOrder]
   );
 
-  // Handle drop: update meeting date
+  // Handle drop: update meeting date (Alt+drag → clone)
   const handleDropMeeting = useCallback(
-    (meetingId: string, newDate: Date) => {
+    (meetingId: string, newDate: Date, altKey?: boolean) => {
+      const isAlt = altKey || calAltKeyRef.current;
       const meeting = meetings.find((m) => m.id === meetingId);
       if (!meeting) return;
       const oldDate = new Date(meeting.date);
       // Preserve time, change only the date
       newDate.setHours(oldDate.getHours(), oldDate.getMinutes(), oldDate.getSeconds(), 0);
+
+      if (isAlt) {
+        // Clone meeting with (N) numbering
+        const baseTitle = meeting.title.replace(/\s*\(\d+\)$/, '');
+        const existing = meetings.filter(m => m.title === baseTitle || m.title.match(new RegExp(`^${baseTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\(\\d+\\)$`)));
+        const nextNum = existing.length;
+        addMeeting({
+          id: `mt-${Date.now()}`,
+          title: `${baseTitle} (${nextNum})`,
+          date: newDate.toISOString(),
+          duration: meeting.duration || 60,
+          type: meeting.type || 'external',
+          status: meeting.status || 'scheduled',
+          participants: meeting.participants ? [...meeting.participants] : [],
+          location: meeting.location,
+          description: meeting.description,
+        });
+        return;
+      }
+
       if (oldDate.getTime() === newDate.getTime()) return;
       updateMeeting(meetingId, { date: newDate.toISOString() });
     },
-    [meetings, updateMeeting]
+    [meetings, updateMeeting, addMeeting]
   );
 
   const handleTaskClick = useCallback((task: Task, rect: DOMRect) => {

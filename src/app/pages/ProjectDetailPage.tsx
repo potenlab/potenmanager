@@ -5,6 +5,7 @@ import {
   Calendar, Users, Circle, Camera, UserCircle,
   Building2, DollarSign, FolderKanban, Link2, Plus, X,
   FileText, Lightbulb, Megaphone, Code2, Palette, Rocket, LayoutTemplate,
+  Target, UsersRound,
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { cn } from "../../lib/utils";
@@ -619,34 +620,6 @@ export function ProjectDetailPage() {
             ),
           },
           {
-            key: "category",
-            type: "custom",
-            icon: <FolderKanban size={14} />,
-            label: ko ? "카테고리" : "Category",
-            render: () => (
-              <div className="flex flex-wrap gap-1.5">
-                {(Object.keys(PROJECT_CATEGORY_CONFIG) as Project["category"][]).map((k) => {
-                  if (!k) return null;
-                  const cfg = PROJECT_CATEGORY_CONFIG[k];
-                  return (
-                    <button
-                      key={k}
-                      onClick={() => handleUpdate({ category: k })}
-                      className={cn(
-                        "px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border",
-                        project.category === k
-                          ? "bg-blue-50 text-blue-700 border-blue-200"
-                          : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
-                      )}
-                    >
-                      {ko ? cfg.label : cfg.labelEn}
-                    </button>
-                  );
-                })}
-              </div>
-            ),
-          },
-          {
             key: "period",
             type: "custom",
             icon: <Calendar size={14} />,
@@ -682,6 +655,48 @@ export function ProjectDetailPage() {
               />
             ),
           },
+          // --- 외부 프로젝트 전용 ---
+          ...(project.category === "external" ? [
+            {
+              key: "client",
+              type: "text" as const,
+              icon: <Building2 size={14} />,
+              label: ko ? "클라이언트" : "Client",
+              value: project.client || "",
+              onChange: (v: string) => handleUpdate({ client: v }),
+              placeholder: ko ? "고객사/클라이언트명" : "Client name",
+            },
+            {
+              key: "budget",
+              type: "text" as const,
+              icon: <DollarSign size={14} />,
+              label: ko ? "예산" : "Budget",
+              value: project.budget || "",
+              onChange: (v: string) => handleUpdate({ budget: v }),
+              placeholder: ko ? "예: 2,000만원" : "e.g. $20,000",
+            },
+          ] : []),
+          // --- 내부 프로젝트 전용 (internal 또는 미설정) ---
+          ...((project.category === "internal" || !project.category) ? [
+            {
+              key: "goal",
+              type: "text" as const,
+              icon: <Target size={14} />,
+              label: ko ? "목표/KPI" : "Goal/KPI",
+              value: project.goal || "",
+              onChange: (v: string) => handleUpdate({ goal: v }),
+              placeholder: ko ? "예: MAU 10만 달성" : "e.g. Reach 100k MAU",
+            },
+            {
+              key: "team",
+              type: "text" as const,
+              icon: <UsersRound size={14} />,
+              label: ko ? "담당팀" : "Team",
+              value: project.team || "",
+              onChange: (v: string) => handleUpdate({ team: v }),
+              placeholder: ko ? "예: 프로덕트팀" : "e.g. Product team",
+            },
+          ] : []),
         ] as PropertyFieldConfig[]} />
       }
       secondaryProperties={
@@ -708,24 +723,6 @@ export function ProjectDetailPage() {
                 </div>
               );
             },
-          },
-          {
-            key: "client",
-            type: "text",
-            icon: <Building2 size={14} />,
-            label: ko ? "클라이언트" : "Client",
-            value: project.client || "",
-            onChange: (v) => handleUpdate({ client: v }),
-            placeholder: ko ? "고객사/클라이언트명" : "Client name",
-          },
-          {
-            key: "budget",
-            type: "text",
-            icon: <DollarSign size={14} />,
-            label: ko ? "예산" : "Budget",
-            value: project.budget || "",
-            onChange: (v) => handleUpdate({ budget: v }),
-            placeholder: ko ? "예: 2,000만원" : "e.g. $20,000",
           },
           {
             key: "links",

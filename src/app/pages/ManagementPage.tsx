@@ -12,6 +12,7 @@ import { cn } from "../../lib/utils";
 import { api } from "../../lib/api";
 import { useLanguage } from "../context/LanguageContext";
 import { useInvite } from "../context/InviteContext";
+import { usePermission } from "../context/PermissionContext";
 import { TeamBoardSidebar } from "./GoalPage";
 import { format } from "date-fns";
 
@@ -43,7 +44,9 @@ export interface Project {
   logoUrl?: string;
   client?: string;
   budget?: string;
-  category?: "internal" | "outsource" | "contract" | "other";
+  category?: string;
+  goal?: string;
+  team?: string;
   links?: { label: string; url: string }[];
 }
 
@@ -71,9 +74,7 @@ export const PROJECT_STATUS_CONFIG = {
 
 export const PROJECT_CATEGORY_CONFIG = {
   internal: { label: "내부 프로젝트", labelEn: "Internal" },
-  outsource: { label: "외주", labelEn: "Outsource" },
-  contract: { label: "수주", labelEn: "Contract" },
-  other: { label: "기타", labelEn: "Other" },
+  external: { label: "외부 프로젝트", labelEn: "External" },
 };
 
 export const PROJECT_COLORS = [
@@ -727,7 +728,10 @@ export function ManagementPage() {
   const ko = language === "ko";
   const location = useLocation();
   const board: BoardType = location.pathname.startsWith("/branding") ? "branding" : "projects";
+  const searchParams = new URLSearchParams(location.search);
+  const projectFilter = searchParams.get("filter"); // "internal" | "external" | null
   const { org } = useInvite();
+  const { currentUser } = usePermission();
   const [showTeamBoard, setShowTeamBoard] = useState(false);
 
   const [columns, setColumns] = useState<KanbanColumn[]>(() => loadColumns(board));
@@ -988,6 +992,26 @@ export function ManagementPage() {
       ...(thumbnailUrl ? { thumbnailUrl } : {}),
     };
     persistCards([...cards, newCard]);
+    // If filtered by category, auto-set category on the new project
+    if (board === "projects" && projectFilter) {
+      const category: string = projectFilter || "default";
+      const projects = loadProjects();
+      const newProject: Project = {
+        id: newCard.id,
+        name: title,
+        description: "",
+        status: "planning",
+        color: "#3B82F6",
+        memberIds: [],
+        createdAt: newCard.createdAt,
+        createdBy: currentUser?.id,
+        category,
+      };
+      saveProjects([...projects, newProject]);
+      if (localStorage.getItem('poten_demo_mode') !== 'true') {
+        api.createProject(newProject).catch(() => {});
+      }
+    }
   };
 
   const handleDeleteCard = (id: string) => {
@@ -1011,10 +1035,17 @@ export function ManagementPage() {
   const sortedColumns = useMemo(() => [...columns].sort((a, b) => a.order - b.order), [columns]);
 
   const filteredCards = useMemo(() => {
-    if (!searchQuery.trim()) return cards;
+    let result = cards;
+    // Filter by project group
+    if (board === "projects" && projectFilter) {
+      const projects = loadProjects();
+      const ids = new Set(projects.filter(p => p.category === projectFilter || (!p.category && projectFilter === "default")).map(p => p.id));
+      result = result.filter(c => ids.has(c.id));
+    }
+    if (!searchQuery.trim()) return result;
     const q = searchQuery.toLowerCase();
-    return cards.filter(c => c.title.toLowerCase().includes(q) || c.description?.toLowerCase().includes(q));
-  }, [cards, searchQuery]);
+    return result.filter(c => c.title.toLowerCase().includes(q) || c.description?.toLowerCase().includes(q));
+  }, [cards, searchQuery, board, projectFilter]);
 
   return (
     <div className="h-full flex flex-col min-w-0 overflow-hidden">
@@ -1024,7 +1055,7 @@ export function ManagementPage() {
           <div>
             <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">
               {board === "projects" ? (
-                <><FolderKanban className="inline-block mr-2 -mt-0.5" size={22} />{ko ? "프로젝트" : "Projects"}</>
+                <><FolderKanban className="inline-block mr-2 -mt-0.5" size={22} />{projectFilter === "external" ? (ko ? "외부 프로젝트" : "External Projects") : projectFilter === "internal" ? (ko ? "내부 프로젝트" : "Internal Projects") : (ko ? "프로젝트" : "Projects")}</>
               ) : (
                 <><Palette className="inline-block mr-2 -mt-0.5" size={22} />{ko ? "브랜딩" : "Branding"}</>
               )}
