@@ -1,6 +1,6 @@
 import { Outlet, useNavigate, useLocation } from "react-router";
 import { Sidebar } from "./Sidebar";
-import { Bell, ChevronDown, ChevronLeft, ChevronRight, Flag, Settings, X } from "lucide-react";
+import { Bell, ChevronDown, ChevronLeft, ChevronRight, Flag, Plus, Settings, X } from "lucide-react";
 import { BottomNav } from "./BottomNav";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSidebar } from "../../context/SidebarContext";
@@ -81,6 +81,15 @@ export function Layout() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [showYearPicker, setShowYearPicker] = useState(false);
   const yearPickerRef = useRef<HTMLDivElement>(null);
+  const [showGoalBanner, setShowGoalBanner] = useState(() => {
+    try { return localStorage.getItem('poten_hide_goal_banner') !== 'true'; } catch { return true; }
+  });
+
+  useEffect(() => {
+    const handler = () => setShowGoalBanner(localStorage.getItem('poten_hide_goal_banner') !== 'true');
+    window.addEventListener('poten_settings_changed', handler);
+    return () => window.removeEventListener('poten_settings_changed', handler);
+  }, []);
   const mainRef = useRef<HTMLElement>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
 
@@ -90,22 +99,19 @@ export function Layout() {
   // Track current path as a tab
   const currentPath = location.pathname + location.search;
 
-  useEffect(() => {
-    // Don't track login/onboarding
+  // Add a new tab for the current page (triggered by + button only)
+  const addTab = useCallback(() => {
     if (location.pathname.startsWith("/login") || location.pathname.startsWith("/onboarding")) return;
-
     setTabs((prev) => {
-      // Already exists? Just keep it (will be highlighted as active)
+      // Already pinned? Don't duplicate
       if (prev.some((t) => t.path === currentPath)) return prev;
-
       const label = getTabLabel(currentPath, ko);
       const next = [...prev, { path: currentPath, label }];
-      // Limit tabs
       const trimmed = next.length > MAX_TABS ? next.slice(next.length - MAX_TABS) : next;
       saveTabs(trimmed);
       return trimmed;
     });
-  }, [currentPath]);
+  }, [currentPath, ko, location.pathname]);
 
   const closeTab = useCallback((path: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -171,14 +177,16 @@ export function Layout() {
         style={isMobile ? undefined : { marginLeft: sidebarWidth }}
       >
         {/* Tab Bar */}
-        {!isMobile && tabs.length > 0 && (
+        {!isMobile && (
           <div className="flex items-center bg-[#F8F9FA] border-b border-gray-200 shrink-0 min-h-[38px]">
-            <button
-              onClick={() => scrollTabs("left")}
-              className="px-1 py-2 text-gray-400 hover:text-gray-600 shrink-0"
-            >
-              <ChevronLeft size={14} />
-            </button>
+            {tabs.length > 0 && (
+              <button
+                onClick={() => scrollTabs("left")}
+                className="px-1 py-2 text-gray-400 hover:text-gray-600 shrink-0"
+              >
+                <ChevronLeft size={14} />
+              </button>
+            )}
             <div
               ref={tabsRef}
               className="flex-1 flex items-end overflow-x-auto scrollbar-hide gap-0"
@@ -213,22 +221,33 @@ export function Layout() {
                   </button>
                 );
               })}
+              <button
+                onClick={addTab}
+                className="px-2 py-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded shrink-0 transition-colors"
+                title={ko ? "현재 페이지를 탭에 추가" : "Pin current page as tab"}
+              >
+                <Plus size={14} />
+              </button>
             </div>
-            <button
-              onClick={() => scrollTabs("right")}
-              className="px-1 py-2 text-gray-400 hover:text-gray-600 shrink-0"
-            >
-              <ChevronRight size={14} />
-            </button>
+            {tabs.length > 0 && (
+              <button
+                onClick={() => scrollTabs("right")}
+                className="px-1 py-2 text-gray-400 hover:text-gray-600 shrink-0"
+              >
+                <ChevronRight size={14} />
+              </button>
+            )}
           </div>
         )}
 
         <main ref={mainRef} className="flex-1 p-4 md:p-8 overflow-y-auto overflow-x-hidden bg-white shadow-xl md:rounded-l-[32px] border-l border-gray-100 min-h-screen min-w-0">
-          {location.pathname === "/mypage" ? null : (
-          <header className={cn(
-            "flex flex-col md:flex-row justify-between md:items-center mb-6 md:mb-8 pb-4 border-b border-gray-100 gap-3 md:gap-4",
-            (location.pathname.split("/").filter(Boolean).length > 1 || location.pathname === "/notifications") && "hidden"
-          )}>
+          {(() => {
+            const basePath = location.pathname.split("/").filter(Boolean)[0] || "dashboard";
+            const showGoalHeader = showGoalBanner && (basePath === "dashboard" || basePath === "organization") && location.pathname.split("/").filter(Boolean).length <= 1;
+            if (!showGoalHeader) return null;
+            return true;
+          })() && (
+          <header className="flex flex-col md:flex-row justify-between md:items-center mb-6 md:mb-8 pb-4 border-b border-gray-100 gap-3 md:gap-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-xl bg-purple-50 border border-purple-100 shrink-0">
                 <Flag size={isMobile ? 16 : 20} className="text-purple-600" />

@@ -1357,16 +1357,16 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
           const baseTitle = t.title.replace(/\s*\(\d+\)$/, '');
           const existing = allContextTasks.filter(tk => tk.title === baseTitle || tk.title.match(new RegExp(`^${baseTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\(\\d+\\)$`)));
           const nextNum = existing.length;
-          const cloned: Omit<Task, "id"> = {
+          const cloned: Task = {
             ...t,
+            id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             title: `${baseTitle} (${nextNum})`,
             titleKo: t.titleKo ? `${t.titleKo.replace(/\s*\(\d+\)$/, '')} (${nextNum})` : undefined,
             dueDate: new Date(taskDue.getTime() + anchorDelta),
             startDate: t.startDate ? new Date(new Date(t.startDate).getTime() + anchorDelta) : undefined,
             endDate: t.endDate ? new Date(new Date(t.endDate).getTime() + anchorDelta) : undefined,
           };
-          delete (cloned as any).id;
-          addTaskToContext(cloned as any);
+          addTaskToContext(cloned);
         }
         setQuickViewTask(null);
         return;

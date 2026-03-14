@@ -24,6 +24,7 @@ import {
   Video,
   Calendar,
   ArrowRight,
+  Settings,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import {
@@ -555,6 +556,43 @@ export function MyPage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Display Settings */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+              <Settings size={16} className="text-gray-400" />
+              {ko ? "환경설정" : "Display Settings"}
+            </h3>
+          </div>
+          <div className="divide-y divide-gray-50">
+            <div className="px-6 py-3.5 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-900">{ko ? "조직 목표 배너" : "Organization Goal Banner"}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{ko ? "대시보드 상단에 연간 목표를 표시합니다" : "Show annual goal on dashboard header"}</p>
+              </div>
+              <button
+                onClick={() => {
+                  const next = localStorage.getItem('poten_hide_goal_banner') === 'true';
+                  if (next) localStorage.removeItem('poten_hide_goal_banner');
+                  else localStorage.setItem('poten_hide_goal_banner', 'true');
+                  window.dispatchEvent(new CustomEvent('poten_settings_changed'));
+                }}
+                className={cn(
+                  "relative w-10 h-5 rounded-full transition-colors",
+                  localStorage.getItem('poten_hide_goal_banner') !== 'true' ? "bg-blue-500" : "bg-gray-300"
+                )}
+              >
+                <span className={cn(
+                  "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform",
+                  localStorage.getItem('poten_hide_goal_banner') !== 'true' ? "left-5.5 translate-x-0" : "left-0.5"
+                )}
+                style={{ left: localStorage.getItem('poten_hide_goal_banner') !== 'true' ? '22px' : '2px' }}
+                />
+              </button>
+            </div>
           </div>
         </div>
 

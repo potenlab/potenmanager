@@ -37,6 +37,7 @@ import { SubPageDetailPage } from "./pages/SubPageDetailPage";
 import { ChatPage } from "./pages/ChatPage";
 import { SharePage } from "./pages/SharePage";
 import { DesktopDownloadPage } from "./pages/DesktopDownloadPage";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 export const router = createBrowserRouter([
   // ── Standalone public route (no providers needed) ────
@@ -45,6 +46,7 @@ export const router = createBrowserRouter([
   {
     path: "/",
     Component: RootProviders,
+    errorElement: <ErrorBoundary />,
     children: [
       // ── Public routes ──────────────────────────────────
       { path: "login", Component: LoginPage },
@@ -61,6 +63,7 @@ export const router = createBrowserRouter([
           {
             path: "",
             Component: Layout,
+            errorElement: <ErrorBoundary />,
             children: [
               { index: true, element: <Navigate to="/dashboard" replace /> },
               { path: "dashboard", Component: DashboardPage },
