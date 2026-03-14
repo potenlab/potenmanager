@@ -4,6 +4,7 @@ import { Bell, ChevronDown, ChevronLeft, ChevronRight, Flag, Plus, Settings, X, 
 import { BottomNav } from "./BottomNav";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSidebar } from "../../context/SidebarContext";
+import { useOrgPath } from "../../hooks/useOrgPath";
 import { useGoalContext } from "../../context/GoalContext";
 import { Toaster } from "sonner";
 import { useState, useRef, useEffect, useCallback } from "react";
@@ -25,7 +26,6 @@ const MAX_TABS = 12;
 function getTabLabel(path: string, ko: boolean): string {
   const base = path.split("?")[0];
   const segments = base.split("/").filter(Boolean);
-  const first = segments[0];
 
   const labelMap: Record<string, [string, string]> = {
     dashboard: ["대시보드", "Dashboard"],
@@ -42,17 +42,23 @@ function getTabLabel(path: string, ko: boolean): string {
     notifications: ["알림", "Notifications"],
     trash: ["휴지통", "Trash"],
     mypage: ["마이페이지", "My Page"],
+    "leader-board": ["리더 게시판", "Leader Board"],
+    pages: ["페이지", "Page"],
+    board: ["게시판", "Board"],
   };
+
+  // Skip the org slug prefix: if first segment isn't a known page, treat it as slug
+  let first = segments[0];
+  if (first && !labelMap[first] && segments.length > 1) {
+    first = segments[1]; // org slug is segments[0], page is segments[1]
+  }
 
   const labels = labelMap[first || "dashboard"];
   let label = labels ? (ko ? labels[0] : labels[1]) : first || "Home";
 
   // Sub-route: append detail hint
-  if (segments.length > 1) {
-    // Filter param
-    if (path.includes("filter=external")) return ko ? "외부 프로젝트" : "External Projects";
-    if (path.includes("filter=internal")) return ko ? "내부 프로젝트" : "Internal Projects";
-  }
+  if (path.includes("filter=external")) return ko ? "외부 프로젝트" : "External Projects";
+  if (path.includes("filter=internal")) return ko ? "내부 프로젝트" : "Internal Projects";
 
   return label;
 }
@@ -77,6 +83,7 @@ export function Layout() {
   const navigate = useNavigate();
   const { unreadCount } = useNotifications();
   const location = useLocation();
+  const p = useOrgPath();
   const ko = language === "ko";
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [showYearPicker, setShowYearPicker] = useState(false);
@@ -124,7 +131,7 @@ export function Layout() {
         const target = next[Math.min(idx, next.length - 1)];
         navigate(target.path);
       } else if (path === currentPath && next.length === 0) {
-        navigate("/dashboard");
+        navigate(p("/dashboard"));
       }
       return next;
     });
@@ -311,14 +318,14 @@ export function Layout() {
                 )}
               </div>
               <button
-                onClick={() => navigate("/organization")}
+                onClick={() => navigate(p("/organization"))}
                 className="p-2.5 rounded-xl hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
                 title={ko ? "조직 설정" : "Organization Settings"}
               >
                 <Settings size={18} />
               </button>
               <button
-                onClick={() => navigate("/notifications")}
+                onClick={() => navigate(p("/notifications"))}
                 className="relative p-2.5 rounded-xl hover:bg-gray-100 text-gray-500 hover:text-blue-600 transition-colors"
               >
                 <Bell size={20} />

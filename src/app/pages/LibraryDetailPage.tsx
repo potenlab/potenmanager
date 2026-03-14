@@ -13,6 +13,7 @@ import { AutoProperties } from "../components/detail/AutoProperties";
 import { createDetailPage } from "../components/detail/createDetailPage";
 import type { DetailSectionProps } from "../components/detail/createDetailPage";
 import type { PropertyFieldConfig } from "../components/detail/PropertyConfig";
+import { useOrgPath } from "../hooks/useOrgPath";
 import { PAGE_TYPES } from "../components/detail/pageTypes";
 
 const URL_REGEX = /https?:\/\/[^\s<>"')\]]+/;
@@ -76,6 +77,7 @@ function CategorySelect({ value, onChange, ko }: { value: string; onChange: (v: 
 // ─── Data Hook ─────────────────────────────────────────────────────
 function useLibraryData(id: string | undefined) {
   const navigate = useNavigate();
+  const p = useOrgPath();
   const [searchParams] = useSearchParams();
   const { addItem, updateItem, removeItem, getItem } = useLibrary();
   const { currentUser } = useTeam();
@@ -101,7 +103,7 @@ function useLibraryData(id: string | undefined) {
       };
       addItem(newItem);
       // Navigate will happen in effect
-      setTimeout(() => navigate(`/library/${newId}`, { replace: true }), 0);
+      setTimeout(() => navigate(p(`/library/${newId}`), { replace: true }), 0);
       return newId;
     }
     return null;
@@ -119,7 +121,7 @@ function useLibraryData(id: string | undefined) {
     if (!confirm('정말 삭제하시겠습니까?')) return;
     moveToTrash({ id: item.id, type: 'library' as any, title: item.title, data: item, deletedAt: new Date().toISOString() });
     removeItem(item.id);
-    navigate('/library');
+    navigate(p('/library'));
   }, [item, moveToTrash, removeItem, navigate]);
 
   return { item, itemId, handleUpdate, handleDelete };

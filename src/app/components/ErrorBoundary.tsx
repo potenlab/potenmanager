@@ -1,9 +1,11 @@
 import { useRouteError, isRouteErrorResponse, useNavigate } from "react-router";
 import { AlertTriangle } from "lucide-react";
+import { useOrgPath } from "../hooks/useOrgPath";
 
 export function ErrorBoundary() {
   const error = useRouteError();
   const navigate = useNavigate();
+  const p = useOrgPath();
 
   let message = "예상치 못한 오류가 발생했습니다.";
 
@@ -38,7 +40,7 @@ export function ErrorBoundary() {
             다시 시도
           </button>
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate(p("/"))}
             className="rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
           >
             홈으로

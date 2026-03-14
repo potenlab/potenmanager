@@ -7,6 +7,7 @@ import { Meeting } from "../../context/MeetingContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useTeam } from "../../context/TeamContext";
 import { useNavigate } from "react-router";
+import { useOrgPath } from "../../hooks/useOrgPath";
 
 const TYPE_COLORS: Record<Meeting['type'], { bg: string; text: string; border: string; label: string; labelKo: string; icon: React.ReactNode }> = {
   standup:    { bg: 'bg-green-50',  text: 'text-green-600',  border: 'border-green-100',  label: 'Standup',    labelKo: '스탠드업',     icon: <Sun size={11} /> },
@@ -27,6 +28,7 @@ export function MeetingListView({ meetings, onStatusChange }: Props) {
   const { language } = useLanguage();
   const ko = language === 'ko';
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { members } = useTeam();
 
   const getStatusInfo = (status: Meeting['status']) => {
@@ -86,7 +88,7 @@ export function MeetingListView({ meetings, onStatusChange }: Props) {
                   <tr
                     key={meeting.id}
                     className="hover:bg-blue-50/30 transition-colors group cursor-pointer"
-                    onClick={() => navigate(`/meetings/${meeting.id}`)}
+                    onClick={() => navigate(p(`/meetings/${meeting.id}`))}
                   >
                     <td className="px-6 py-4 text-sm text-gray-400 font-mono text-center">
                       {String(index + 1).padStart(2, '0')}

@@ -52,6 +52,7 @@ import { DetailPageShell } from "../components/detail/DetailPageShell";
 import { AttachmentSection, getAttachmentIcon } from "../components/detail/AttachmentSection";
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
 import { EmojiPicker } from "../components/EmojiPicker";
+import { useOrgPath } from "../hooks/useOrgPath";
 
 type TaskStatus = "pending" | "in-progress" | "completed" | "routine";
 type TaskPriority = "low" | "medium" | "high" | "delayed";
@@ -267,7 +268,8 @@ function ActivityLogSection({ taskId, language }: { taskId: string; language: st
 function SubTaskSection({ taskId, language, canEdit }: { taskId: string; language: string; canEdit: boolean }) {
   const { tasks, getTask, updateTask } = useTaskContext();
   const navigate = useNavigate();
-  
+  const p = useOrgPath();
+
   // Find sub-tasks: tasks whose parentId matches this taskId
   const subTasks = tasks.filter((t) => t.parentId === taskId);
   // Also check if current task has children IDs and find those
@@ -341,7 +343,7 @@ function SubTaskSection({ taskId, language, canEdit }: { taskId: string; languag
                 {isCompleted && <Check size={12} className="text-white" strokeWidth={3} />}
               </button>
               <button
-                onClick={() => navigate(`/tasks/${sub.id}`)}
+                onClick={() => navigate(p(`/tasks/${sub.id}`))}
                 className={cn(
                   "flex-1 text-left text-sm transition-colors",
                   isCompleted ? "text-gray-400 line-through" : "text-gray-700 hover:text-gray-900"
@@ -374,6 +376,7 @@ interface SubtaskResult { title: string; titleEn: string; estimatedMinutes: numb
 export function TaskDetailPage() {
   const { taskId } = useParams();
   const navigate = useNavigate();
+  const p = useOrgPath();
   const [searchParams] = useSearchParams();
   const { language } = useLanguage();
   const { getTask, addTask, updateTask, removeTask } = useTaskContext();

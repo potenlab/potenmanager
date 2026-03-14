@@ -20,6 +20,7 @@ import { api } from "../../lib/api";
 import { useRealtimeBroadcast } from "../../lib/realtimeSync";
 import { useInvite } from "../context/InviteContext";
 import { useTeam } from "../context/TeamContext";
+import { useOrgPath } from "../hooks/useOrgPath";
 import {
   BrandAsset,
   loadBrandAssets, saveBrandAssets, syncBrandAssetsFromServer, loadCards, saveCards, loadColumns,
@@ -45,6 +46,7 @@ const isDemo = () => localStorage.getItem('poten_demo_mode') === 'true';
 
 function useBrandData(id: string | undefined) {
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { org } = useInvite();
   const { currentUser } = useTeam();
   const isNew = id === "new" || !id;
@@ -88,7 +90,7 @@ function useBrandData(id: string | undefined) {
       });
       if (!isDemo()) api.createBrandAsset(newAsset).catch(() => {});
       setLocalId(newId);
-      navigate(`/branding/${newId}`, { replace: true });
+      navigate(p(`/branding/${newId}`), { replace: true });
     }
   }, [isNew, localId]);
 
@@ -139,7 +141,7 @@ function useBrandData(id: string | undefined) {
     const next = assets.filter((a) => a.id !== item.id);
     saveBrandAssets(next);
     if (!isDemo()) api.deleteBrandAsset(item.id).catch(() => {});
-    navigate("/branding");
+    navigate(p("/branding"));
   }, [item, assets, navigate]);
 
   return { item, itemId, handleUpdate, handleDelete };

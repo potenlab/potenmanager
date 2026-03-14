@@ -57,6 +57,7 @@ import {
   Clock,
   Settings,
 } from "lucide-react";
+import { useOrgPath } from "../hooks/useOrgPath";
 
 type FilterTab = "all" | "in-progress" | "pending" | "completed";
 
@@ -119,6 +120,7 @@ export function TeamMemberPage() {
   const { memberId } = useParams();
   const { language } = useLanguage();
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { can, canManage, getMemberRole, changeMemberRole, members, currentUser } = usePermission();
   const { tasks } = useTaskContext();
   const { meetings } = useMeetingContext();
@@ -218,7 +220,7 @@ export function TeamMemberPage() {
             {language === "ko" ? "멤버를 찾을 수 없습니다" : "Member not found"}
           </h2>
           <button
-            onClick={() => navigate("/team")}
+            onClick={() => navigate(p("/team"))}
             className="mt-4 text-sm text-blue-600 hover:text-blue-700 font-medium"
           >
             {language === "ko" ? "팀 페이지로 돌아가기" : "Back to Team"}
@@ -338,7 +340,7 @@ export function TeamMemberPage() {
               <div className="flex items-center gap-1 shrink-0">
               {isMe && (
                 <button
-                  onClick={() => navigate("/mypage")}
+                  onClick={() => navigate(p("/mypage"))}
                   className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                   title={language === "ko" ? "설정" : "Settings"}
                 >
@@ -364,7 +366,7 @@ export function TeamMemberPage() {
                       memberColor={memberColor}
                       onMyPage={() => {
                         setShowMenu(false);
-                        navigate("/mypage");
+                        navigate(p("/mypage"));
                       }}
                       onChangeRole={() => {
                         setShowMenu(false);
@@ -465,7 +467,7 @@ export function TeamMemberPage() {
                 key={task.id}
                 task={task}
                 language={language}
-                onClick={() => navigate(`/tasks/${task.id}`)}
+                onClick={() => navigate(p(`/tasks/${task.id}`))}
               />
             ))
           )}
@@ -515,7 +517,7 @@ export function TeamMemberPage() {
                 return (
                   <button
                     key={meeting.id}
-                    onClick={() => navigate(`/meetings/${meeting.id}`)}
+                    onClick={() => navigate(p(`/meetings/${meeting.id}`))}
                     className="w-full flex items-center gap-4 p-4 bg-white rounded-xl border border-purple-100 transition-all text-left group hover:shadow-md hover:border-purple-200"
                   >
                     <div className="shrink-0 text-purple-500">
@@ -581,7 +583,7 @@ export function TeamMemberPage() {
             onClose={() => setShowRemoveModal(false)}
             onConfirm={() => {
               setShowRemoveModal(false);
-              navigate("/team");
+              navigate(p("/team"));
             }}
           />,
           document.body

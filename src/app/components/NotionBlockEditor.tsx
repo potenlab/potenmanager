@@ -5,6 +5,7 @@ import { GripVertical, Plus, Trash2, Type, Heading1, Heading2, Heading3, List, L
 import { createPortal } from "react-dom";
 import { createSubPage, getSubPage } from "../../lib/subPages";
 import { api } from "../../lib/api";
+import { useOrgPath } from "../hooks/useOrgPath";
 
 type BlockType = "text" | "h1" | "h2" | "h3" | "bullet" | "numbered" | "divider" | "page" | "image" | "bookmark";
 
@@ -421,6 +422,7 @@ export function NotionBlockEditor({
   parentId?: string;
 }) {
   const navigate = useNavigate();
+  const p = useOrgPath();
   const seed = value ?? initialContent ?? "";
   const [blocks, setBlocks] = useState<Block[]>(() => parseBlocks(seed));
   const [focusedIdx, setFocusedIdx] = useState<number | null>(null);
@@ -1901,7 +1903,7 @@ export function NotionBlockEditor({
                   wrapperRef.current?.focus();
                   return;
                 }
-                navigate(`/pages/${block.content}`);
+                navigate(p(`/pages/${block.content}`));
               }}
               className="flex-1 flex items-center gap-3 px-4 py-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300 transition-all text-left group/page cursor-pointer"
             >

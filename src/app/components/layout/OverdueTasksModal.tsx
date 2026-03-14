@@ -17,6 +17,7 @@ import { usePermission } from "../../context/PermissionContext";
 import { differenceInDays, format } from "date-fns";
 import { ko as koLocale } from "date-fns/locale";
 import { cn } from "../../../lib/utils";
+import { useOrgPath } from "../../hooks/useOrgPath";
 
 // 오늘 날짜 기준 키 (하루 1회 표시)
 function getTodayKey() {
@@ -110,6 +111,7 @@ function OverdueTaskRow({ task, onNavigate, members }: OverdueTaskRowProps) {
 export function OverdueTasksModal() {
   const { language } = useLanguage();
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { tasks } = useTaskContext();
   const { members } = useTeam();
   const { currentUser } = usePermission();
@@ -152,12 +154,12 @@ export function OverdueTasksModal() {
 
   const handleNavigate = (taskId: string) => {
     handleDismiss();
-    navigate(`/tasks/${taskId}`);
+    navigate(p(`/tasks/${taskId}`));
   };
 
   const handleGoToTasks = () => {
     handleDismiss();
-    navigate("/tasks");
+    navigate(p("/tasks"));
   };
 
   if (overdueTasks.length === 0 || dismissed) return null;

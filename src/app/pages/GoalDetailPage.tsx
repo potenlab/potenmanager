@@ -30,6 +30,7 @@ import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
 import { NotionDateRangePicker } from "../components/NotionDateRangePicker";
 import { TaskRecommendationPanel } from "../components/tasks/TaskRecommendationPanel";
 import { useState, useRef, useEffect } from "react";
+import { useOrgPath } from "../hooks/useOrgPath";
 
 type GoalStatus = "pending" | "in-progress" | "completed";
 
@@ -195,6 +196,7 @@ function InlineDropdown<T extends string>({
 export function GoalDetailPage() {
   const { goalId } = useParams();
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { language } = useLanguage();
   const ko = language === "ko";
   const { can } = usePermission();
@@ -287,7 +289,7 @@ export function GoalDetailPage() {
         <div className="text-center">
           <Target size={32} className="text-gray-200 mx-auto mb-3" />
           <p className="text-sm text-gray-400">{ko ? "목표를 찾을 수 없습니다" : "Goal not found"}</p>
-          <button onClick={() => navigate("/organization")} className="mt-3 text-sm text-blue-500 hover:text-blue-700">
+          <button onClick={() => navigate(p("/organization"))} className="mt-3 text-sm text-blue-500 hover:text-blue-700">
             {ko ? "돌아가기" : "Go back"}
           </button>
         </div>
@@ -314,7 +316,7 @@ export function GoalDetailPage() {
         </button>
         <div className="flex items-center justify-between mb-6">
           <nav className="flex items-center gap-1 text-sm">
-            <button onClick={() => navigate("/organization")} className="text-gray-400 hover:text-blue-600 transition-colors font-medium">
+            <button onClick={() => navigate(p("/organization"))} className="text-gray-400 hover:text-blue-600 transition-colors font-medium">
               {ko ? "전략 목표" : "Goals"}
             </button>
             <ChevronRightIcon size={14} className="text-gray-300 shrink-0" />
@@ -333,7 +335,7 @@ export function GoalDetailPage() {
               </button>
             )}
             <button
-              onClick={() => navigate("/strategy/new")}
+              onClick={() => navigate(p("/strategy/new"))}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-xl transition-all border border-blue-200"
             >
               <Sparkles size={14} />

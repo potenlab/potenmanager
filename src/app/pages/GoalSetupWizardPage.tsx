@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router";
+import { useOrgPath } from "../hooks/useOrgPath";
 import { motion, AnimatePresence } from "motion/react";
 import { Check, ArrowRight, ArrowLeft } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -196,6 +197,7 @@ const uid = () => `goal_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 // ═════════════════════════════════════════════════════════════════════
 export default function GoalSetupWizardPage() {
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { language } = useLanguage();
   const { addGoal, removeGoal, goals, urgentGoals } = useGoalContext();
   const ko = language === "ko";
@@ -729,14 +731,14 @@ export default function GoalSetupWizardPage() {
               <div className="mt-8 flex flex-col gap-3 w-full max-w-xs">
                 <motion.button
                   whileTap={{ scale: 0.97 }}
-                  onClick={() => navigate("/organization")}
+                  onClick={() => navigate(p("/organization"))}
                   className="w-full py-4 rounded-2xl text-base font-semibold bg-black text-white dark:bg-white dark:text-black hover:opacity-90 transition-opacity"
                 >
                   {ko ? "내 조직으로 돌아가기" : "Go to my goals"}
                 </motion.button>
                 <motion.button
                   whileTap={{ scale: 0.97 }}
-                  onClick={() => navigate("/")}
+                  onClick={() => navigate(p("/"))}
                   className="w-full py-4 rounded-2xl text-base font-semibold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                 >
                   {ko ? "대시보드로 이동" : "Go to Dashboard"}

@@ -2,11 +2,13 @@ import { createContext, useContext, useState, useCallback, useEffect, useRef, Re
 import { api } from "../../lib/api";
 import { useTeam } from "./TeamContext";
 import { notificationBus } from "../../lib/notificationEvents";
+import { generateSlug } from "../hooks/useOrgPath";
 
 // ─── Types ──────────────────────────────────────────────────────────
 export interface Organization {
   id: string;
   name: string;
+  slug?: string;
   logoUrl?: string;
   ownerId: string;
   ownerName?: string;
@@ -43,6 +45,7 @@ export interface JoinRequest {
 export interface OrgSummary {
   orgId: string;
   orgName: string;
+  slug?: string;
   logoUrl?: string;
   role: string;
 }
@@ -114,10 +117,21 @@ export function InviteProvider({ children }: { children: ReactNode }) {
       try {
         const result = await api.getUserOrg(currentUser.id);
         if (result.org) {
+          // Auto-generate slug if missing
+          if (!result.org.slug && result.org.name) {
+            result.org.slug = generateSlug(result.org.name);
+          }
           setOrg(result.org);
-          console.log(`[InviteContext] User belongs to org: ${result.org.name}`);
+          try { localStorage.setItem("poten_org_slug", result.org.slug || "org"); } catch {}
+          console.log(`[InviteContext] User belongs to org: ${result.org.name} (slug: ${result.org.slug})`);
         }
-        if (result.allOrgs) setAllOrgs(result.allOrgs);
+        if (result.allOrgs) {
+          // Auto-generate slugs for all orgs
+          result.allOrgs.forEach((o: any) => {
+            if (!o.slug && o.orgName) o.slug = generateSlug(o.orgName);
+          });
+          setAllOrgs(result.allOrgs);
+        }
         if (result.activeOrgId) setActiveOrgId(result.activeOrgId);
       } catch (err) {
         console.error("[InviteContext] Failed to fetch user org:", err);
@@ -133,9 +147,11 @@ export function InviteProvider({ children }: { children: ReactNode }) {
     try {
       const result = await api.switchActiveOrg(currentUser.id, orgId);
       if (result.org) {
+        if (!result.org.slug && result.org.name) result.org.slug = generateSlug(result.org.name);
         setOrg(result.org);
         setActiveOrgId(orgId);
-        console.log(`[InviteContext] Switched to org: ${result.org.name}`);
+        try { localStorage.setItem("poten_org_slug", result.org.slug || "org"); } catch {}
+        console.log(`[InviteContext] Switched to org: ${result.org.name} (slug: ${result.org.slug})`);
         await refreshMembers();
       }
     } catch (err) {
@@ -146,13 +162,17 @@ export function InviteProvider({ children }: { children: ReactNode }) {
   // ── Create Organization ───────────────────────────────────────────
   const createOrgFn = useCallback(async (name: string): Promise<Organization | null> => {
     try {
+      const slug = generateSlug(name);
       const newOrg = await api.createOrg({
         name,
+        slug,
         ownerId: currentUser.id,
         ownerName: currentUser.name,
       });
+      if (!newOrg.slug) newOrg.slug = slug;
       setOrg(newOrg);
       setActiveOrgId(newOrg.id);
+      try { localStorage.setItem("poten_org_slug", newOrg.slug); } catch {}
       setAllOrgs(prev => [...prev, { orgId: newOrg.id, orgName: newOrg.name, role: 'owner' }]);
       console.log(`[InviteContext] Created org: ${name}`);
       return newOrg;

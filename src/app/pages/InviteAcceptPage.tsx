@@ -132,7 +132,7 @@ export function InviteAcceptPage() {
         setTimeout(() => {
           const onboardingDone = localStorage.getItem('poten_onboarding_complete');
           if (onboardingDone) {
-            navigate('/dashboard', { replace: true });
+            navigate('/', { replace: true }); // OrgRootRedirect handles slug
           } else {
             // Tell onboarding the user already joined an org via invite
             localStorage.setItem('poten_invite_joined', JSON.stringify({

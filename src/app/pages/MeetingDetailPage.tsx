@@ -22,6 +22,7 @@ import { DetailPageShell } from "../components/detail/DetailPageShell";
 import { AutoProperties } from "../components/detail/AutoProperties";
 import type { PropertyFieldConfig } from "../components/detail/PropertyConfig";
 import { DateTimeProperty } from "../components/detail/DateTimeProperty";
+import { useOrgPath } from "../hooks/useOrgPath";
 
 type MeetingStatus = Meeting['status'];
 type MeetingType = Meeting['type'];
@@ -194,6 +195,7 @@ function AttendeePicker({ selectedIds, onChange, language }: { selectedIds: stri
 export function MeetingDetailPage() {
   const { meetingId } = useParams<{ meetingId: string }>();
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { language } = useLanguage();
   const ko = language === 'ko';
   const { getMeeting, addMeeting, updateMeeting, removeMeeting, fetchMeetingById, isLoading } = useMeetingContext();
@@ -240,7 +242,7 @@ export function MeetingDetailPage() {
         updatedAt: now.toISOString(),
       };
       addMeeting(newMeeting);
-      navigate(`/meetings/${id}`, { replace: true });
+      navigate(p(`/meetings/${id}`), { replace: true });
     }
   }, [meetingId]);
 
@@ -287,7 +289,7 @@ export function MeetingDetailPage() {
       <div className="h-full flex flex-col items-center justify-center gap-4 text-gray-400">
         <Video size={40} className="text-gray-300" />
         <p>{ko ? '회의를 찾을 수 없습니다' : 'Meeting not found'}</p>
-        <button onClick={() => navigate('/meetings')} className="text-sm text-blue-600 hover:underline">
+        <button onClick={() => navigate(p('/meetings'))} className="text-sm text-blue-600 hover:underline">
           {ko ? '회의 목록으로' : 'Back to meetings'}
         </button>
       </div>
@@ -372,7 +374,7 @@ export function MeetingDetailPage() {
     if (!confirm(ko ? '이 회의를 삭제하시겠습니까?' : 'Delete this meeting?')) return;
     moveToTrash({ id: meeting.id, type: 'meeting', title: meeting.title, data: meeting, deletedAt: new Date().toISOString() });
     removeMeeting(meeting.id);
-    navigate('/meetings');
+    navigate(p('/meetings'));
   };
 
   const meetingDate = new Date(meeting.date);
@@ -548,7 +550,7 @@ export function MeetingDetailPage() {
                         )}
                         {item.assigneeId && <span className="text-[10px] text-gray-400">{getMemberName(item.assigneeId)}</span>}
                         {item.linkedTaskId ? (
-                          <button onClick={() => navigate(`/tasks/${item.linkedTaskId}`)} className="text-[10px] text-blue-500 hover:text-blue-700 flex items-center gap-0.5 hover:underline transition-colors"><Check size={9} /> {ko ? '태스크 보기' : 'View task'}</button>
+                          <button onClick={() => navigate(p(`/tasks/${item.linkedTaskId}`))} className="text-[10px] text-blue-500 hover:text-blue-700 flex items-center gap-0.5 hover:underline transition-colors"><Check size={9} /> {ko ? '태스크 보기' : 'View task'}</button>
                         ) : (
                           <button onClick={() => convertToTask(item)} className="text-[10px] text-gray-400 hover:text-blue-500 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                             <ArrowRightCircle size={10} /> {ko ? '태스크로 변환' : 'Convert to task'}

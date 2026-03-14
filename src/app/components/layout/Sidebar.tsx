@@ -38,6 +38,7 @@ import { useInvite } from "../../context/InviteContext";
 import { usePresence } from "../../context/PresenceContext";
 import { useChat } from "../../context/ChatContext";
 import { createSubPage } from "../../../lib/subPages";
+import { useOrgPath } from "../../hooks/useOrgPath";
 
 const APP_VERSION = __APP_VERSION__;
 
@@ -146,6 +147,7 @@ export function Sidebar() {
   const { totalUnread, startDM, openRoom } = useChat();
   const navigate = useNavigate();
   const location = useLocation();
+  const p = useOrgPath();
   const ko = language === "ko";
   const [orgSwitcherOpen, setOrgSwitcherOpen] = useState(false);
   const [teamExpanded, setTeamExpanded] = useState(() => {
@@ -228,16 +230,16 @@ export function Sidebar() {
   }, []);
 
   const navItemMap: Record<string, { to: string; icon: ReactNode; label: string }> = {
-    dashboard: { to: "/dashboard", icon: <LayoutDashboard size={16} />, label: t("dashboard") },
-    tasks: { to: "/tasks", icon: <CheckSquare size={16} />, label: t("my_tasks") },
-    calendar: { to: "/calendar", icon: <Calendar size={16} />, label: t("calendar") },
-    library: { to: "/library", icon: <BookMarked size={16} />, label: ko ? "아카이빙" : "Archive" },
-    projects: { to: "/projects", icon: <FolderKanban size={16} />, label: ko ? "프로젝트" : "Projects" },
-    branding: { to: "/branding", icon: <Palette size={16} />, label: ko ? "브랜딩" : "Branding" },
-    meetings: { to: "/meetings", icon: <Video size={16} />, label: ko ? "회의/미팅" : "Meetings" },
-    radar: { to: "/radar", icon: <Radar size={16} />, label: ko ? "비즈 레이더" : "Biz Radar" },
-    chat: { to: "/chat", icon: <MessageCircle size={16} />, label: ko ? "채팅" : "Chat" },
-    team: { to: "/team", icon: <Users size={16} />, label: ko ? "팀" : "Team" },
+    dashboard: { to: p("/dashboard"), icon: <LayoutDashboard size={16} />, label: t("dashboard") },
+    tasks: { to: p("/tasks"), icon: <CheckSquare size={16} />, label: t("my_tasks") },
+    calendar: { to: p("/calendar"), icon: <Calendar size={16} />, label: ko ? "캘린더" : "Calendar" },
+    library: { to: p("/library"), icon: <BookMarked size={16} />, label: ko ? "아카이빙" : "Archive" },
+    projects: { to: p("/projects"), icon: <FolderKanban size={16} />, label: ko ? "프로젝트" : "Projects" },
+    branding: { to: p("/branding"), icon: <Palette size={16} />, label: ko ? "브랜딩" : "Branding" },
+    meetings: { to: p("/meetings"), icon: <Video size={16} />, label: ko ? "회의/미팅" : "Meetings" },
+    radar: { to: p("/radar"), icon: <Radar size={16} />, label: ko ? "비즈 레이더" : "Biz Radar" },
+    chat: { to: p("/chat"), icon: <MessageCircle size={16} />, label: ko ? "채팅" : "Chat" },
+    team: { to: p("/team"), icon: <Users size={16} />, label: ko ? "팀" : "Team" },
   };
 
   const closeSidebar = () => { if (isMobile) setIsOpen(false); };
@@ -250,35 +252,35 @@ export function Sidebar() {
       items.push({ label: ko ? '링크 복사' : 'Copy link', action: () => { navigator.clipboard.writeText(window.location.origin + navItem.to); } });
     }
     if (menuId === 'projects') {
-      items.push({ label: ko ? '프로젝트 추가' : 'Add project', action: () => { navigate('/projects'); setTimeout(() => document.querySelector<HTMLButtonElement>('[data-add-card]')?.click(), 100); } });
+      items.push({ label: ko ? '프로젝트 추가' : 'Add project', action: () => { navigate(p('/projects')); setTimeout(() => document.querySelector<HTMLButtonElement>('[data-add-card]')?.click(), 100); } });
       items.push({ label: ko ? '그룹 추가' : 'Add group', action: addProjectGroup });
     }
     if (menuId === 'project-group' && groupId) {
       const pg = projectGroups.find(g => g.id === groupId);
       items.push({ label: ko ? '이름 변경' : 'Rename', action: () => { setEditingGroupId(groupId); setEditingGroupName(pg?.name || ''); } });
-      items.push({ label: ko ? '프로젝트 추가' : 'Add project', action: () => { navigate(`/projects?filter=${encodeURIComponent(groupId)}`); setTimeout(() => document.querySelector<HTMLButtonElement>('[data-add-card]')?.click(), 100); } });
+      items.push({ label: ko ? '프로젝트 추가' : 'Add project', action: () => { navigate(p(`/projects?filter=${encodeURIComponent(groupId)}`)); setTimeout(() => document.querySelector<HTMLButtonElement>('[data-add-card]')?.click(), 100); } });
       if (projectGroups.length > 1) {
         items.push({ label: ko ? '그룹 삭제' : 'Delete group', action: () => removeProjectGroup(groupId), danger: true });
       }
     }
     if (menuId === 'tasks') {
-      items.push({ label: ko ? '업무 추가' : 'Add task', action: () => navigate('/tasks') });
+      items.push({ label: ko ? '업무 추가' : 'Add task', action: () => navigate(p('/tasks')) });
     }
     if (menuId === 'calendar') {
-      items.push({ label: ko ? '일정 추가' : 'Add event', action: () => navigate('/calendar') });
+      items.push({ label: ko ? '일정 추가' : 'Add event', action: () => navigate(p('/calendar')) });
     }
     if (menuId === 'meetings') {
-      items.push({ label: ko ? '회의 추가' : 'Add meeting', action: () => navigate('/meetings') });
+      items.push({ label: ko ? '회의 추가' : 'Add meeting', action: () => navigate(p('/meetings')) });
     }
     if (menuId === 'branding') {
-      items.push({ label: ko ? '에셋 추가' : 'Add asset', action: () => navigate('/branding') });
+      items.push({ label: ko ? '에셋 추가' : 'Add asset', action: () => navigate(p('/branding')) });
     }
     if (menuId === 'team-member' && groupId) {
-      items.push({ label: ko ? '프로필 보기' : 'View profile', action: () => navigate(`/team/${groupId}`) });
-      items.push({ label: ko ? '메시지 보내기' : 'Send message', action: () => { startDM(groupId); navigate('/chat'); } });
+      items.push({ label: ko ? '프로필 보기' : 'View profile', action: () => navigate(p(`/team/${groupId}`)) });
+      items.push({ label: ko ? '메시지 보내기' : 'Send message', action: () => { startDM(groupId); navigate(p('/chat')); } });
     }
     return items;
-  }, [ko, navItemMap, navigate, addProjectGroup, projectGroups, removeProjectGroup, startDM]);
+  }, [ko, p, navItemMap, navigate, addProjectGroup, projectGroups, removeProjectGroup, startDM]);
 
   const isNavActive = (to: string) => {
     const base = to.split("?")[0];
@@ -296,7 +298,7 @@ export function Sidebar() {
       <aside className="fixed left-0 z-50 w-[48px] bg-[#F7F7F5] border-r border-[#E8E8E4] flex flex-col items-center select-none" style={{ top: 38, height: "calc(100vh - 38px)" }}>
         {/* Org logo only */}
         <div className="pt-3 pb-1">
-          <button onClick={() => navigate("/organization")} className="hover:opacity-80 transition-opacity shrink-0">
+          <button onClick={() => navigate(p("/organization"))} className="hover:opacity-80 transition-opacity shrink-0">
             {org?.logoUrl ? (
               <img src={org.logoUrl} alt="logo" className="w-6 h-6 rounded-md object-cover" />
             ) : (
@@ -324,7 +326,7 @@ export function Sidebar() {
 
         {/* Bottom: Profile */}
         <div className="pb-3 pt-2 flex flex-col items-center border-t border-[#E8E8E4]">
-          <button onClick={() => navigate(`/team/${currentUser.id}`)} className="mt-1.5 hover:opacity-80 transition-opacity" title={currentUser.name}>
+          <button onClick={() => navigate(p(`/team/${currentUser.id}`))} className="mt-1.5 hover:opacity-80 transition-opacity" title={currentUser.name}>
             <img src={currentUser.avatar} alt={currentUser.name} className="w-6 h-6 rounded-full object-cover border border-gray-200" />
           </button>
         </div>
@@ -474,7 +476,7 @@ export function Sidebar() {
         {/* Org logo + Org name */}
         <div className="px-3 pt-3 pb-2">
           <div className="flex items-center gap-2">
-            <button onClick={() => { navigate("/organization"); closeSidebar(); }} className="shrink-0 hover:opacity-80 transition-opacity">
+            <button onClick={() => { navigate(p("/organization")); closeSidebar(); }} className="shrink-0 hover:opacity-80 transition-opacity">
               {org?.logoUrl ? (
                 <img src={org.logoUrl} alt="org" className="w-6 h-6 rounded-md object-cover" />
               ) : (
@@ -496,7 +498,7 @@ export function Sidebar() {
             <button
               onClick={() => {
                 const page = createSubPage("workspace", "general");
-                navigate(`/pages/${page.id}`);
+                navigate(p(`/pages/${page.id}`));
               }}
               className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-200/60 transition-colors shrink-0"
               title={ko ? "새 페이지" : "New Page"}
@@ -587,7 +589,7 @@ export function Sidebar() {
         <div className="pt-2 border-t border-[#E8E8E4] space-y-0.5">
           {/* User Profile */}
           <div
-            onClick={() => { navigate(`/team/${currentUser.id}`); closeSidebar(); }}
+            onClick={() => { navigate(p(`/team/${currentUser.id}`)); closeSidebar(); }}
             className="flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-gray-200/50 cursor-pointer transition-colors"
           >
             <img src={currentUser.avatar} alt={currentUser.name} className="w-5 h-5 rounded-full object-cover border border-gray-200 shrink-0" />
@@ -619,7 +621,7 @@ export function Sidebar() {
                         closeSidebar();
                         const roomId = await startDM(member.id);
                         openRoom(roomId);
-                        navigate("/chat");
+                        navigate(p("/chat"));
                       }}
                       onContextMenu={(e) => handleContextMenu(e, 'team-member', member.id)}
                       className="w-full flex items-center gap-2 px-2 py-1 rounded-md text-[14px] transition-all group/member text-gray-500 hover:bg-gray-200/40 hover:text-gray-700"
@@ -651,7 +653,7 @@ export function Sidebar() {
               </button>
             </div>
             <div className="flex-1" />
-            <button onClick={() => { navigate("/trash"); closeSidebar(); }} className="p-1.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-200/50 transition-colors" title={ko ? "휴지통" : "Trash"}>
+            <button onClick={() => { navigate(p("/trash")); closeSidebar(); }} className="p-1.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-200/50 transition-colors" title={ko ? "휴지통" : "Trash"}>
               <Trash2 size={13} />
             </button>
             <button

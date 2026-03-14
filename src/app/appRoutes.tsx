@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from "react-router";
 import { Layout } from "./components/layout/Layout";
 import { RootProviders } from "./components/layout/RootProviders";
 import { AuthGuard } from "./components/layout/AuthGuard";
+import { OrgSlugGuard, OrgRootRedirect } from "./components/layout/OrgSlugGuard";
 import { LoginPage } from "./pages/LoginPage";
 import { AuthCallbackPage } from "./pages/AuthCallbackPage";
 import { DashboardPage } from "./pages/DashboardPage";
@@ -41,6 +42,49 @@ import { LeaderBoardPage } from "./pages/LeaderBoardPage";
 import { LeaderBoardDetailPage } from "./pages/LeaderBoardDetailPage";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
+/** All app pages – shared between the /:orgSlug layout and the legacy fallback */
+const APP_PAGES = [
+  { index: true, element: <Navigate to="dashboard" replace /> },
+  { path: "dashboard", Component: DashboardPage },
+  { path: "tasks", Component: TasksPage },
+  { path: "tasks/:taskId", Component: TaskDetailPage },
+  { path: "calendar", Component: CalendarPage },
+  { path: "projects", Component: ManagementPage },
+  { path: "projects/:projectId", Component: ProjectDetailPage },
+  { path: "branding", Component: ManagementPage },
+  { path: "branding/:brandId", Component: BrandDetailPage },
+  { path: "organization", Component: GoalPage },
+  { path: "organization/info", Component: OrgSettingsPage },
+  { path: "organization/vision", Component: GoalPage },
+  { path: "organization/setup", Component: GoalSetupWizardPage },
+  { path: "organization/edit", Component: GoalEditPage },
+  { path: "organization/:goalId", Component: GoalDetailPage },
+  { path: "strategy", Component: GoalsPage },
+  { path: "strategy/new", Component: StrategyCreationPage },
+  { path: "meetings", Component: MeetingPage },
+  { path: "meetings/:meetingId", Component: MeetingDetailPage },
+  { path: "radar", Component: BizRadarPage },
+  { path: "radar/new", Component: BizRadarDetailPage },
+  { path: "radar/:itemId", Component: BizRadarDetailPage },
+  { path: "library", Component: LibraryPage },
+  { path: "library/new", Component: LibraryDetailPage },
+  { path: "library/:itemId", Component: LibraryDetailPage },
+  { path: "board/new", Component: TeamBoardDetailPage },
+  { path: "board/:itemId", Component: TeamBoardDetailPage },
+  { path: "team", Component: TeamPage },
+  { path: "team/permissions", Component: PermissionsPage },
+  { path: "team/:memberId", Component: TeamMemberPage },
+  { path: "notifications", Component: NotificationsPage },
+  { path: "mypage", Component: MyPage },
+  { path: "pages/:pageId", Component: SubPageDetailPage },
+  { path: "chat", Component: ChatPage },
+  { path: "leader-board", Component: LeaderBoardPage },
+  { path: "leader-board/new", Component: LeaderBoardDetailPage },
+  { path: "leader-board/:itemId", Component: LeaderBoardDetailPage },
+  { path: "trash", Component: TrashPage },
+  { path: "*", Component: DashboardPage },
+];
+
 export const router = createBrowserRouter([
   // ── Standalone public route (no providers needed) ────
   { path: "/download", Component: DesktopDownloadPage },
@@ -62,51 +106,28 @@ export const router = createBrowserRouter([
         path: "",
         Component: AuthGuard,
         children: [
+          // ── Org-scoped routes: /:orgSlug/... ──────────
+          {
+            path: ":orgSlug",
+            Component: OrgSlugGuard,
+            children: [
+              {
+                path: "",
+                Component: Layout,
+                errorElement: <ErrorBoundary />,
+                children: APP_PAGES,
+              },
+            ],
+          },
+          // ── Root redirect: / → /:orgSlug/dashboard ────
+          { index: true, Component: OrgRootRedirect },
+          // ── Legacy fallback: /dashboard → /:orgSlug/dashboard
+          // This catches old URLs without org slug and redirects
           {
             path: "",
             Component: Layout,
             errorElement: <ErrorBoundary />,
-            children: [
-              { index: true, element: <Navigate to="/dashboard" replace /> },
-              { path: "dashboard", Component: DashboardPage },
-              { path: "tasks", Component: TasksPage },
-              { path: "tasks/:taskId", Component: TaskDetailPage },
-              { path: "calendar", Component: CalendarPage },
-              { path: "projects", Component: ManagementPage },
-              { path: "projects/:projectId", Component: ProjectDetailPage },
-              { path: "branding", Component: ManagementPage },
-              { path: "branding/:brandId", Component: BrandDetailPage },
-              { path: "organization", Component: GoalPage },
-              { path: "organization/info", Component: OrgSettingsPage },
-              { path: "organization/vision", Component: GoalPage },
-              { path: "organization/setup", Component: GoalSetupWizardPage },
-              { path: "organization/edit", Component: GoalEditPage },
-              { path: "organization/:goalId", Component: GoalDetailPage },
-              { path: "strategy", Component: GoalsPage },
-              { path: "strategy/new", Component: StrategyCreationPage },
-              { path: "meetings", Component: MeetingPage },
-              { path: "meetings/:meetingId", Component: MeetingDetailPage },
-              { path: "radar", Component: BizRadarPage },
-              { path: "radar/new", Component: BizRadarDetailPage },
-              { path: "radar/:itemId", Component: BizRadarDetailPage },
-              { path: "library", Component: LibraryPage },
-              { path: "library/new", Component: LibraryDetailPage },
-              { path: "library/:itemId", Component: LibraryDetailPage },
-              { path: "board/new", Component: TeamBoardDetailPage },
-              { path: "board/:itemId", Component: TeamBoardDetailPage },
-              { path: "team", Component: TeamPage },
-              { path: "team/permissions", Component: PermissionsPage },
-              { path: "team/:memberId", Component: TeamMemberPage },
-              { path: "notifications", Component: NotificationsPage },
-              { path: "mypage", Component: MyPage },
-              { path: "pages/:pageId", Component: SubPageDetailPage },
-              { path: "chat", Component: ChatPage },
-              { path: "leader-board", Component: LeaderBoardPage },
-              { path: "leader-board/new", Component: LeaderBoardDetailPage },
-              { path: "leader-board/:itemId", Component: LeaderBoardDetailPage },
-              { path: "trash", Component: TrashPage },
-              { path: "*", Component: DashboardPage },
-            ],
+            children: APP_PAGES,
           },
         ],
       },

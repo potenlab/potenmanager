@@ -17,6 +17,7 @@ import {
 import { cn } from "../../../lib/utils";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSidebar } from "../../context/SidebarContext";
+import { useOrgPath } from "../../hooks/useOrgPath";
 
 const APP_VERSION = __APP_VERSION__;
 
@@ -39,46 +40,47 @@ export function BottomNav() {
   const navigate = useNavigate();
   const location = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
+  const op = useOrgPath();
   const ko = language === "ko";
 
   if (!isMobile) return null;
 
   const tabs: TabItem[] = [
     {
-      to: "/tasks",
+      to: op("/tasks"),
       icon: <CheckSquare size={20} />,
       label: ko ? "업무" : "Tasks",
-      match: (p) => p.startsWith("/tasks"),
+      match: (path) => path.includes("/tasks"),
     },
     {
-      to: "/",
+      to: op("/dashboard"),
       icon: <LayoutDashboard size={20} />,
       label: ko ? "홈" : "Home",
-      match: (p) => p === "/",
+      match: (path) => path.includes("/dashboard") || path.split("/").filter(Boolean).length <= 1,
     },
     {
-      to: "/calendar",
+      to: op("/calendar"),
       icon: <Calendar size={20} />,
       label: ko ? "캘린더" : "Calendar",
-      match: (p) => p.startsWith("/calendar"),
+      match: (path) => path.includes("/calendar"),
     },
     {
-      to: "/team",
+      to: op("/team"),
       icon: <Users size={20} />,
       label: ko ? "팀" : "Team",
-      match: (p) => p.startsWith("/team"),
+      match: (path) => path.includes("/team"),
     },
   ];
 
   const moreItems: MoreItem[] = [
-    { to: "/chat", icon: <MessageCircle size={20} />, label: ko ? "채팅" : "Chat" },
-    { to: "/projects", icon: <Building2 size={20} />, label: ko ? "프로젝트" : "Projects" },
-    { to: "/branding", icon: <Building2 size={20} />, label: ko ? "브랜딩" : "Branding" },
-    { to: "/meetings", icon: <Video size={20} />, label: ko ? "회의/미팅" : "Meetings" },
-    { to: "/radar", icon: <Radar size={20} />, label: ko ? "비즈 레이더" : "Biz Radar" },
-    { to: "/library", icon: <BookMarked size={20} />, label: ko ? "아카이빙" : "Archive" },
-    { to: "/mypage", icon: <User size={20} />, label: ko ? "마이페이지" : "My Page" },
-    { to: "/trash", icon: <Trash2 size={20} />, label: ko ? "휴지통" : "Trash" },
+    { to: op("/chat"), icon: <MessageCircle size={20} />, label: ko ? "채팅" : "Chat" },
+    { to: op("/projects"), icon: <Building2 size={20} />, label: ko ? "프로젝트" : "Projects" },
+    { to: op("/branding"), icon: <Building2 size={20} />, label: ko ? "브랜딩" : "Branding" },
+    { to: op("/meetings"), icon: <Video size={20} />, label: ko ? "회의/미팅" : "Meetings" },
+    { to: op("/radar"), icon: <Radar size={20} />, label: ko ? "비즈 레이더" : "Biz Radar" },
+    { to: op("/library"), icon: <BookMarked size={20} />, label: ko ? "아카이빙" : "Archive" },
+    { to: op("/mypage"), icon: <User size={20} />, label: ko ? "마이페이지" : "My Page" },
+    { to: op("/trash"), icon: <Trash2 size={20} />, label: ko ? "휴지통" : "Trash" },
   ];
 
   // Check if current path is in "more" items (to highlight ··· tab)

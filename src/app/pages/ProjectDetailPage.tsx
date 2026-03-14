@@ -22,6 +22,7 @@ import { AutoProperties } from "../components/detail/AutoProperties";
 import type { PropertyFieldConfig } from "../components/detail/PropertyConfig";
 import { AIStrategyPanel } from "../components/AIStrategyPanel";
 import { DetailPageShell } from "../components/detail/DetailPageShell";
+import { useOrgPath } from "../hooks/useOrgPath";
 import {
   Project, PROJECT_STATUS_CONFIG, PROJECT_COLORS, PROJECT_CATEGORY_CONFIG,
   loadProjects, saveProjects, syncProjectsFromServer, loadCards, saveCards, loadColumns,
@@ -391,6 +392,7 @@ function ProjectTemplatePicker({ onSelect, language }: { onSelect: (content: str
 export function ProjectDetailPage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { language } = useLanguage();
   const ko = language === "ko";
   const { currentUser, members } = usePermission();
@@ -476,7 +478,7 @@ export function ProjectDetailPage() {
       if (localStorage.getItem('poten_demo_mode') !== 'true') {
         api.createProject(newProj).catch(() => {});
       }
-      navigate(`/projects/${id}`, { replace: true });
+      navigate(p(`/projects/${id}`), { replace: true });
     }
   }, [isNew, localId]);
 
@@ -548,7 +550,7 @@ export function ProjectDetailPage() {
     if (localStorage.getItem('poten_demo_mode') !== 'true') {
       api.deleteProject(project.id).catch(() => {});
     }
-    navigate("/projects");
+    navigate(p("/projects"));
   };
 
   if (!project) {
@@ -560,7 +562,7 @@ export function ProjectDetailPage() {
           <p className="text-sm text-gray-500 mt-1">{ko ? "이 프로젝트를 볼 권한이 없거나 존재하지 않아요." : "You don't have permission to view this project."}</p>
         </div>
         <button
-          onClick={() => navigate("/dashboard")}
+          onClick={() => navigate(p("/dashboard"))}
           className="px-5 py-2 bg-blue-500 text-white text-sm font-medium rounded-xl hover:bg-blue-600 transition-colors"
         >
           {ko ? "홈으로 이동" : "Go to Home"}

@@ -33,6 +33,7 @@ import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useDrag, useDrop } from "react-dnd";
 import { format, isToday, isTomorrow, startOfWeek, endOfWeek, isWithinInterval } from "date-fns";
+import { useOrgPath } from "../hooks/useOrgPath";
 
 const TEAM_TASK_DRAG = "TEAM_TASK_CARD";
 const TEAM_COLUMN_DRAG = "TEAM_COLUMN";
@@ -51,6 +52,7 @@ export function TeamPage() {
   const { t, language } = useLanguage();
   const ko = language === 'ko';
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { members, currentUser } = usePermission();
   const { tasks, updateTask } = useTaskContext();
   const { org, isLoading: orgLoading, joinRequests, pendingCount, approveRequest, rejectRequest } = useInvite();
@@ -101,7 +103,7 @@ export function TeamPage() {
           <div className="flex items-center gap-2">
             <PermissionGate permission="team.editRole">
               <button
-                onClick={() => navigate("/team/permissions")}
+                onClick={() => navigate(p("/team/permissions"))}
                 className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm"
               >
                 <Shield size={15} />
@@ -213,7 +215,7 @@ export function TeamPage() {
                 key={member.id}
                 member={member}
                 stats={memberStats[member.id]}
-                onViewTasks={() => navigate(`/team/${member.id}`)}
+                onViewTasks={() => navigate(p(`/team/${member.id}`))}
                 currentUser={currentUser}
               />
             ))}
@@ -221,7 +223,7 @@ export function TeamPage() {
             {/* Invite / Create Org Card */}
             {!org && !orgLoading ? (
               <div
-                onClick={() => navigate("/organization")}
+                onClick={() => navigate(p("/organization"))}
                 className="flex flex-col items-center justify-center p-8 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer group h-full min-h-[280px]"
               >
                 <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
@@ -634,7 +636,7 @@ function TaskKanbanCard({
   return (
     <div
       ref={dragRef as any}
-      onClick={() => navigate(`/tasks/${task.id}`)}
+      onClick={() => navigate(p(`/tasks/${task.id}`))}
       className={cn(
         "bg-white rounded-xl border border-gray-100 p-3 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-blue-200 transition-all group",
         isDragging && "opacity-40 shadow-lg"

@@ -11,6 +11,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { useLibrary, LibraryItem } from "../context/LibraryContext";
 import { useTeam } from "../context/TeamContext";
 import { useTrash } from "../context/TrashContext";
+import { useOrgPath } from "../hooks/useOrgPath";
 
 const LIBRARY_DRAG_TYPE = "LIBRARY_CARD";
 const LIBRARY_COL_DRAG = "LIBRARY_COL";
@@ -314,6 +315,7 @@ function KanbanColumn({
 // ─── Main Page ───────────────────────────────────────────────────
 export function LibraryPage() {
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { language } = useLanguage();
   const ko = language === "ko";
   const {
@@ -817,8 +819,8 @@ export function LibraryPage() {
                 title={col.label}
                 categoryKey={col.key}
                 items={columnItems[col.key] || []}
-                onCardClick={(id) => navigate(`/library/${id}`)}
-                onAddItem={() => navigate(`/library/new?category=${col.key === "__uncategorized__" ? "" : col.key}`)}
+                onCardClick={(id) => navigate(p(`/library/${id}`))}
+                onAddItem={() => navigate(p(`/library/new?category=${col.key === "__uncategorized__" ? "" : col.key}`))}
                 onQuickAdd={handleQuickAdd}
                 isOwnerFn={isOwnerFn}
                 onContextMenu={handleCardContextMenu}
@@ -849,7 +851,7 @@ export function LibraryPage() {
                 return (
                   <div
                     key={item.id}
-                    onClick={() => navigate(`/library/${item.id}`)}
+                    onClick={() => navigate(p(`/library/${item.id}`))}
                     onContextMenu={(e) => { e.preventDefault(); handleCardContextMenu(e, item.id); }}
                     className="bg-white rounded-xl border border-gray-100 hover:border-gray-300 hover:shadow-md cursor-pointer transition-all group overflow-hidden"
                   >
@@ -891,7 +893,7 @@ export function LibraryPage() {
             )}
             {/* Add new item card */}
             <div
-              onClick={() => navigate("/library/new")}
+              onClick={() => navigate(p("/library/new"))}
               className="bg-white rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 cursor-pointer transition-all group overflow-hidden"
             >
               <div className="aspect-square flex flex-col items-center justify-center gap-2">
@@ -916,7 +918,7 @@ export function LibraryPage() {
                 return (
                   <div
                     key={item.id}
-                    onClick={() => navigate(`/library/${item.id}`)}
+                    onClick={() => navigate(p(`/library/${item.id}`))}
                     onContextMenu={(e) => { e.preventDefault(); handleCardContextMenu(e, item.id); }}
                     className="flex items-center gap-3 px-3 py-2.5 bg-white rounded-xl border border-gray-100 hover:border-gray-300 hover:shadow-sm cursor-pointer transition-all group"
                   >
@@ -960,7 +962,7 @@ export function LibraryPage() {
             )}
             {/* Add new item row */}
             <div
-              onClick={() => navigate("/library/new")}
+              onClick={() => navigate(p("/library/new"))}
               className="flex items-center gap-3 px-3 py-2.5 bg-white rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 cursor-pointer transition-all group"
             >
               <div className="w-10 h-10 rounded-lg border border-dashed border-gray-200 group-hover:border-blue-300 flex items-center justify-center shrink-0">
@@ -991,7 +993,7 @@ export function LibraryPage() {
             style={{ left: ctxMenu.x, top: ctxMenu.y }}
           >
             <button
-              onClick={() => { navigate(`/library/${ctxMenu.id}`); closeCtxMenu(); }}
+              onClick={() => { navigate(p(`/library/${ctxMenu.id}`)); closeCtxMenu(); }}
               className="w-full px-3 py-2 text-xs text-left text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
             >
               <Pencil size={13} /> {ko ? '수정' : 'Edit'}

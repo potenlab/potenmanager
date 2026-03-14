@@ -48,6 +48,7 @@ import { differenceInDays, format } from "date-fns";
 import { TaskListView } from "../components/tasks/TaskListView";
 import { useTrash } from "../context/TrashContext";
 import { loadCards as loadMgmtCards } from "./ManagementPage";
+import { useOrgPath } from "../hooks/useOrgPath";
 
 const DRAG_TYPE = "TASK_CARD";
 
@@ -108,6 +109,7 @@ function TaskCard({
 }) {
   const { language } = useLanguage();
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { members } = usePermission();
   const assignee = members.find(m => m.id === task.assigneeId);
   const rawTitle = language === 'ko' ? task.titleKo || task.title : task.title;
@@ -134,7 +136,7 @@ function TaskCard({
     if (isSelecting) {
       onToggleSelect(task.id);
     } else {
-      navigate(`/tasks/${task.id}`);
+      navigate(p(`/tasks/${task.id}`));
     }
   };
 
@@ -948,6 +950,7 @@ export function TasksPage() {
 
   // ── Right-click context menu ──
   const navigate = useNavigate();
+  const p = useOrgPath();
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const handleCardContextMenu = useCallback((e: React.MouseEvent, id: string) => {
     setCtxMenu({ x: e.clientX, y: e.clientY, id });
@@ -1432,7 +1435,7 @@ export function TasksPage() {
           </div>
           <div className="px-4 py-2 border-t border-purple-100 bg-purple-50/40">
             <button
-              onClick={() => { setShowStrategy(false); navigate('/dashboard'); }}
+              onClick={() => { setShowStrategy(false); navigate(p('/dashboard')); }}
               className="w-full text-[10px] text-purple-500 hover:text-purple-700 font-medium transition-colors text-center"
             >
               {language === 'ko' ? '대시보드에서 전체 보기 →' : 'View all in Dashboard →'}
@@ -1450,7 +1453,7 @@ export function TasksPage() {
             style={{ left: ctxMenu.x, top: ctxMenu.y }}
           >
             <button
-              onClick={() => { navigate(`/tasks/${ctxMenu.id}`); closeCtxMenu(); }}
+              onClick={() => { navigate(p(`/tasks/${ctxMenu.id}`)); closeCtxMenu(); }}
               className="w-full px-3 py-2 text-xs text-left text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
             >
               <Pencil size={13} /> {language === 'ko' ? '수정' : 'Edit'}

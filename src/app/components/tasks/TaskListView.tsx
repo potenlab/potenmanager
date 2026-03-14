@@ -18,6 +18,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { usePermission } from "../../context/PermissionContext";
 import { format } from "date-fns";
 import { useNavigate } from "react-router";
+import { useOrgPath } from "../../hooks/useOrgPath";
 
 const STATUS_OPTIONS: { value: Task['status']; labelKo: string; labelEn: string; color: string; icon: typeof Circle }[] = [
   { value: 'pending', labelKo: '할 일', labelEn: 'To Do', color: 'text-gray-500', icon: Circle },
@@ -34,6 +35,7 @@ interface TaskListViewProps {
 export function TaskListView({ tasks, onStatusChange }: TaskListViewProps) {
   const { language, t } = useLanguage();
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { members } = usePermission();
   const [openStatusId, setOpenStatusId] = useState<string | null>(null);
   const statusRef = useRef<HTMLDivElement>(null);
@@ -112,7 +114,7 @@ export function TaskListView({ tasks, onStatusChange }: TaskListViewProps) {
                   <tr 
                     key={task.id} 
                     className="hover:bg-blue-50/30 transition-colors group cursor-pointer"
-                    onClick={() => navigate(`/tasks/${task.id}`)}
+                    onClick={() => navigate(p(`/tasks/${task.id}`))}
                   >
                     <td className="px-6 py-4 text-sm text-gray-400 font-mono text-center">
                       {String(index + 1).padStart(2, '0')}

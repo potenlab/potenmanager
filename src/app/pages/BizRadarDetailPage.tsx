@@ -23,6 +23,7 @@ import type { PropertyFieldConfig } from "../components/detail/PropertyConfig";
 import { DetailPageShell } from "../components/detail/DetailPageShell";
 import { usePortalPosition } from "../hooks/usePortalPosition";
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
+import { useOrgPath } from "../hooks/useOrgPath";
 
 const STAGE_CONFIG: Record<BizStage, { label: string; labelKo: string; icon: React.ReactNode; color: string }> = {
   discovered: { label: "Discovered", labelKo: "발굴", icon: <Compass size={14} />, color: "text-purple-600" },
@@ -117,6 +118,7 @@ export function BizRadarDetailPage() {
   const { itemId } = useParams<{ itemId: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { language } = useLanguage();
   const ko = language === 'ko';
   const { getItem, addItem, updateItem, removeItem } = useBizRadar();
@@ -146,7 +148,7 @@ export function BizRadarDetailPage() {
         updatedAt: now,
       };
       addItem(newItem);
-      navigate(`/radar/${id}`, { replace: true });
+      navigate(p(`/radar/${id}`), { replace: true });
     }
   }, [itemId]);
 
@@ -174,7 +176,7 @@ export function BizRadarDetailPage() {
       <div className="h-full flex flex-col items-center justify-center gap-4 text-gray-400">
         <Compass size={40} className="text-gray-300" />
         <p>{ko ? '기회를 찾을 수 없습니다' : 'Opportunity not found'}</p>
-        <button onClick={() => navigate('/radar')} className="text-sm text-blue-600 hover:underline">
+        <button onClick={() => navigate(p('/radar'))} className="text-sm text-blue-600 hover:underline">
           {ko ? '비즈 레이더로' : 'Back to Biz Radar'}
         </button>
       </div>
@@ -259,7 +261,7 @@ export function BizRadarDetailPage() {
     if (!confirm(ko ? '이 기회를 삭제하시겠습니까?' : 'Delete this opportunity?')) return;
     moveToTrash({ id: item.id, type: 'radar', title: item.title, data: item, deletedAt: new Date().toISOString() });
     removeItem(item.id);
-    navigate('/radar');
+    navigate(p('/radar'));
   };
 
   const deadlineLocal = item.deadline ? new Date(item.deadline).toISOString().slice(0, 10) : '';

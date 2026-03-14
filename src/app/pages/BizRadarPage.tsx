@@ -15,6 +15,7 @@ import { useBizRadar, BizRadarItem, BizStage, BizType, BizCategory, ConnectionTy
 import { useTeam } from "../context/TeamContext";
 import { useTrash } from "../context/TrashContext";
 import { api } from "../../lib/api";
+import { useOrgPath } from "../hooks/useOrgPath";
 
 const DRAG_TYPE = "BIZ_CARD";
 
@@ -64,6 +65,7 @@ function BizCard({ item, column, isSelecting, isSelected, onToggleSelect, onCont
   const { language } = useLanguage();
   const ko = language === 'ko';
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { members } = useTeam();
   const tc = item.category === 'connection' && item.connectionType
     ? CONNECTION_TYPE_COLORS[item.connectionType]
@@ -81,7 +83,7 @@ function BizCard({ item, column, isSelecting, isSelected, onToggleSelect, onCont
   const handleClick = () => {
     if (isDragging) return;
     if (isSelecting) onToggleSelect(item.id);
-    else navigate(`/radar/${item.id}`);
+    else navigate(p(`/radar/${item.id}`));
   };
 
   return (
@@ -308,6 +310,7 @@ function BizListView({ items, onContextMenu }: { items: BizRadarItem[]; onContex
   const { language } = useLanguage();
   const ko = language === 'ko';
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { members } = useTeam();
 
   return (
@@ -332,7 +335,7 @@ function BizListView({ items, onContextMenu }: { items: BizRadarItem[]; onContex
               : TYPE_COLORS[item.type];
             const assignee = item.assigneeId ? members.find(m => m.id === item.assigneeId) : null;
             return (
-              <tr key={item.id} onClick={() => navigate(`/radar/${item.id}`)}
+              <tr key={item.id} onClick={() => navigate(p(`/radar/${item.id}`))}
                 onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, item.id); }}
                 className="border-b border-gray-50 hover:bg-blue-50/30 cursor-pointer transition-colors">
                 <td className="px-4 py-3 text-gray-400 text-xs">{i + 1}</td>
@@ -379,6 +382,7 @@ export function BizRadarPage() {
   const { language } = useLanguage();
   const ko = language === 'ko';
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { items, addItem, updateItem, removeItem, getItem, isLoading } = useBizRadar();
   const { moveToTrash } = useTrash();
   const { currentUser } = useTeam();
@@ -552,7 +556,7 @@ export function BizRadarPage() {
       createdAt: now,
       updatedAt: now,
     });
-    navigate(`/radar/${id}`);
+    navigate(p(`/radar/${id}`));
   }, [addItem, currentUser.id, navigate]);
 
   // ── Right-click context menu ──
@@ -663,7 +667,7 @@ export function BizRadarPage() {
       });
       setCrawlUrl('');
       setShowUrlInput(false);
-      navigate(`/radar/${id}`);
+      navigate(p(`/radar/${id}`));
     } catch {
       // fallback: create item with URL as title
       const now = new Date().toISOString();
@@ -683,7 +687,7 @@ export function BizRadarPage() {
       });
       setCrawlUrl('');
       setShowUrlInput(false);
-      navigate(`/radar/${id}`);
+      navigate(p(`/radar/${id}`));
     } finally {
       setCrawlLoading(false);
     }
@@ -726,7 +730,7 @@ export function BizRadarPage() {
               )}>
               <Globe size={16} /> {ko ? 'URL 가져오기' : 'Import URL'}
             </button>
-            <button onClick={() => navigate(`/radar/new?category=${activeCategory}`)}
+            <button onClick={() => navigate(p(`/radar/new?category=${activeCategory}`))}
               className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm shadow-blue-200">
               <Plus size={16} /> {ko ? '기회찾기' : 'Find Opportunity'}
             </button>
@@ -1373,7 +1377,7 @@ export function BizRadarPage() {
             style={{ left: ctxMenu.x, top: ctxMenu.y }}
           >
             <button
-              onClick={() => { navigate(`/radar/${ctxMenu.id}`); closeCtxMenu(); }}
+              onClick={() => { navigate(p(`/radar/${ctxMenu.id}`)); closeCtxMenu(); }}
               className="w-full px-3 py-2 text-xs text-left text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
             >
               <Pencil size={13} /> {ko ? '수정' : 'Edit'}

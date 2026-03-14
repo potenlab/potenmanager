@@ -30,6 +30,7 @@ import { InlineDropdown } from "../components/detail/InlineDropdown";
 import { PropertyItem } from "../components/detail/PropertyItem";
 import { AttachmentSection, getAttachmentIcon } from "../components/detail/AttachmentSection";
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
+import { useOrgPath } from "../hooks/useOrgPath";
 
 // ─── Types ───────────────────────────────────────────────────────────
 type BoardItemType = "memo" | "notice" | "idea" | "request";
@@ -59,6 +60,7 @@ const TYPE_CONFIG: Record<BoardItemType, { label: string; labelKo: string; icon:
 export function TeamBoardDetailPage() {
   const { itemId } = useParams<{ itemId: string }>();
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { language } = useLanguage();
   const ko = language === 'ko';
   const { org } = useInvite();
@@ -103,7 +105,7 @@ export function TeamBoardDetailPage() {
         setTitle('');
         setType(created.type || 'memo');
         setLoading(false);
-        navigate(`/board/${created.id}`, { replace: true });
+        navigate(p(`/board/${created.id}`), { replace: true });
       }).catch(() => setLoading(false));
     }
   }, [isNew, orgId]);
@@ -183,7 +185,7 @@ export function TeamBoardDetailPage() {
     if (orgId && item?.id) {
       api.deleteTeamBoardItem(orgId, item.id);
     }
-    navigate('/organization');
+    navigate(p('/organization'));
   };
 
   if (loading) {
@@ -199,7 +201,7 @@ export function TeamBoardDetailPage() {
       <div className="h-full flex flex-col items-center justify-center gap-4 text-gray-400">
         <StickyNote size={40} />
         <p className="text-sm">{ko ? '항목을 찾을 수 없습니다' : 'Item not found'}</p>
-        <button onClick={() => navigate('/organization')} className="text-sm text-blue-500 hover:underline">
+        <button onClick={() => navigate(p('/organization'))} className="text-sm text-blue-500 hover:underline">
           {ko ? '돌아가기' : 'Go back'}
         </button>
       </div>
@@ -212,7 +214,7 @@ export function TeamBoardDetailPage() {
 
         {/* Navigation & Header */}
         <div className="flex items-center justify-between mb-6">
-          <button onClick={() => navigate('/organization')}
+          <button onClick={() => navigate(p('/organization'))}
             className="flex items-center gap-2 text-gray-400 hover:text-gray-900 transition-colors text-sm group">
             <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
             {ko ? '돌아가기' : 'Back'}

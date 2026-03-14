@@ -13,6 +13,7 @@ import { useTeam } from "../context/TeamContext";
 import { MeetingListView } from "../components/meeting/MeetingListView";
 import { isToday, format, addDays, startOfDay } from "date-fns";
 import { useTrash } from "../context/TrashContext";
+import { useOrgPath } from "../hooks/useOrgPath";
 
 const DRAG_TYPE = "MEETING_CARD";
 type ColumnKey = 'today' | 'upcoming' | 'completed';
@@ -38,6 +39,7 @@ function MeetingCard({ meeting, column, isSelecting, isSelected, onToggleSelect,
   const { language } = useLanguage();
   const ko = language === 'ko';
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { members } = useTeam();
   const tc = TYPE_COLORS[meeting.type];
   const meetingDate = new Date(meeting.date);
@@ -53,7 +55,7 @@ function MeetingCard({ meeting, column, isSelecting, isSelected, onToggleSelect,
   const handleClick = () => {
     if (isDragging) return;
     if (isSelecting) onToggleSelect(meeting.id);
-    else navigate(`/meetings/${meeting.id}`);
+    else navigate(p(`/meetings/${meeting.id}`));
   };
 
   return (
@@ -438,6 +440,7 @@ export function MeetingPage() {
   const { language } = useLanguage();
   const ko = language === 'ko';
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { meetings, addMeeting, updateMeeting, removeMeeting, getMeeting, isLoading } = useMeetingContext();
   const { moveToTrash } = useTrash();
   const { currentUser } = useTeam();
@@ -615,7 +618,7 @@ export function MeetingPage() {
                 : `${todayCount} today · ${upcomingCount} upcoming · ${completedCount} completed`}
             </p>
           </div>
-          <button onClick={() => navigate('/meetings/new')}
+          <button onClick={() => navigate(p('/meetings/new'))}
             className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm shadow-blue-200">
             <Plus size={16} /> {ko ? '새 회의' : 'New Meeting'}
           </button>
@@ -718,7 +721,7 @@ export function MeetingPage() {
             style={{ left: ctxMenu.x, top: ctxMenu.y }}
           >
             <button
-              onClick={() => { navigate(`/meetings/${ctxMenu.id}`); closeCtxMenu(); }}
+              onClick={() => { navigate(p(`/meetings/${ctxMenu.id}`)); closeCtxMenu(); }}
               className="w-full px-3 py-2 text-xs text-left text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
             >
               <Pencil size={13} /> {ko ? '수정' : 'Edit'}

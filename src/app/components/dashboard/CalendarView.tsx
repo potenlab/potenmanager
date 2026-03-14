@@ -58,6 +58,7 @@ import { useMeetingContext, Meeting } from "../../context/MeetingContext";
 import { usePermission } from "../../context/PermissionContext";
 import { useDrag, useDrop } from "react-dnd";
 import { createPortal } from "react-dom";
+import { useOrgPath } from "../../hooks/useOrgPath";
 
 type ViewMode = "week" | "month" | "3week";
 
@@ -1057,6 +1058,7 @@ function QuickAddPopover({
 export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => boolean } = {}) {
   const { language, t } = useLanguage();
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { tasks: allContextTasks, addTask: addTaskToContext, updateTask, removeTask } = useTaskContext();
   const calTasks = useMemo(() => taskFilter ? allContextTasks.filter(taskFilter) : allContextTasks, [allContextTasks, taskFilter]);
   const { meetings, addMeeting, updateMeeting, removeMeeting } = useMeetingContext();
@@ -1472,7 +1474,7 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
 
   const handleExpandToPage = useCallback(() => {
     if (quickViewTask) {
-      navigate(`/tasks/${quickViewTask.id}`);
+      navigate(p(`/tasks/${quickViewTask.id}`));
     }
   }, [quickViewTask, navigate]);
 
@@ -2175,7 +2177,7 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
                     startDate: d,
                     assigneeIds: [currentUser.id],
                   } as Task);
-                  navigate(`/tasks/${newId}`);
+                  navigate(p(`/tasks/${newId}`));
                 }}
                 onAddMeeting={(d) => {
                   const id = `mt-${Date.now()}`;
@@ -2195,11 +2197,11 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
                   });
-                  navigate(`/meetings/${id}`);
+                  navigate(p(`/meetings/${id}`));
                 }}
                 onDeselectAll={onDeselectAll}
                 onMeetingClick={(meetingId) => {
-                  navigate(`/meetings/${meetingId}`);
+                  navigate(p(`/meetings/${meetingId}`));
                 }}
                 onContextMenu={handleContextMenu}
                 onMeetingContextMenu={handleMeetingContextMenu}
@@ -2296,7 +2298,7 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
           <button
             className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
             onClick={() => {
-              navigate(`/tasks/${ctxMenu.task.id}`);
+              navigate(p(`/tasks/${ctxMenu.task.id}`));
               setCtxMenu(null);
             }}
           >
@@ -2350,7 +2352,7 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
           <button
             className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
             onClick={() => {
-              navigate(`/meetings/${mtgCtxMenu.meeting.id}`);
+              navigate(p(`/meetings/${mtgCtxMenu.meeting.id}`));
               setMtgCtxMenu(null);
             }}
           >
@@ -2421,7 +2423,7 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
                 assigneeIds: [currentUser.id],
               } as Task);
               setNewCtxMenu(null);
-              navigate(`/tasks/${newId}`);
+              navigate(p(`/tasks/${newId}`));
             }}
           >
             <ClipboardList size={14} className="text-blue-500" />
@@ -2449,7 +2451,7 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
                 updatedAt: new Date().toISOString(),
               });
               setNewCtxMenu(null);
-              navigate(`/meetings/${id}`);
+              navigate(p(`/meetings/${id}`));
             }}
           >
             <Video size={14} className="text-purple-500" />

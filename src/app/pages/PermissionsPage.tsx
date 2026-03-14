@@ -28,12 +28,14 @@ import {
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { createPortal } from "react-dom";
+import { useOrgPath } from "../hooks/useOrgPath";
 
 type Tab = "roles" | "members" | "audit";
 
 export function PermissionsPage() {
   const { language } = useLanguage();
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { can, members, auditLog, changeMemberRole, getMemberRole, canManage, currentUser } = usePermission();
   const [activeTab, setActiveTab] = useState<Tab>("roles");
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
@@ -55,7 +57,7 @@ export function PermissionsPage() {
       {/* Header */}
       <header className="mb-6 md:mb-8">
         <button
-          onClick={() => navigate("/team")}
+          onClick={() => navigate(p("/team"))}
           className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 mb-4 transition-colors"
         >
           <ArrowLeft size={16} />

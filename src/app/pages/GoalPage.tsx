@@ -37,6 +37,7 @@ import { PermissionGate } from "../components/layout/PermissionGate";
 import { StrategyTabContent } from "./GoalsPage";
 import type { GoalItem } from "../../lib/mockData";
 import { api } from "../../lib/api";
+import { useOrgPath } from "../hooks/useOrgPath";
 
 // ── Category definitions (shared with edit page) ──────────────────
 interface CategoryDef {
@@ -97,6 +98,7 @@ function GoalCardRow({
   ko: boolean; canEdit: boolean; onDelete: () => void;
 }) {
   const navigate = useNavigate();
+  const p = useOrgPath();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -113,7 +115,7 @@ function GoalCardRow({
 
   return (
     <div
-      onClick={() => navigate(`/organization/${goal.id}`)}
+      onClick={() => navigate(p(`/organization/${goal.id}`))}
       className="flex items-center gap-3 px-3 py-3 rounded-xl bg-gray-50 hover:bg-blue-50 transition-colors group cursor-pointer"
     >
       <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider shrink-0", badgeColor)}>
@@ -134,7 +136,7 @@ function GoalCardRow({
           {menuOpen && (
             <div className="absolute right-0 top-7 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-28 animate-in fade-in slide-in-from-top-1 duration-150">
               <button
-                onClick={(e) => { e.stopPropagation(); setMenuOpen(false); navigate(`/organization/${goal.id}`); }}
+                onClick={(e) => { e.stopPropagation(); setMenuOpen(false); navigate(p(`/organization/${goal.id}`)); }}
                 className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
               >
                 <Edit3 size={12} /> {ko ? "수정" : "Edit"}
@@ -158,6 +160,7 @@ export function GoalPage() {
   const { language } = useLanguage();
   const ko = language === "ko";
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { org, createOrg, isLoading } = useInvite();
   const { currentUser, members } = usePermission();
   const { goals, urgentGoals, allGoals, addGoal, updateGoal, removeGoal } = useGoalContext();
@@ -351,7 +354,7 @@ export function GoalPage() {
     setCreating(true);
     const newOrg = await createOrg(name.trim());
     setCreating(false);
-    if (newOrg) navigate("/organization/setup");
+    if (newOrg) navigate(p("/organization/setup"));
   };
 
   const handleSoloStart = () => {
@@ -628,21 +631,21 @@ export function GoalPage() {
           {showSettingsMenu && (
             <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
               <button
-                onClick={() => { navigate("/organization/info"); setShowSettingsMenu(false); }}
+                onClick={() => { navigate(p("/organization/info")); setShowSettingsMenu(false); }}
                 className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 <Building2 size={15} className="text-gray-400" />
                 {ko ? "조직 정보" : "Organization Info"}
               </button>
               <button
-                onClick={() => { navigate("/organization/vision"); setShowSettingsMenu(false); }}
+                onClick={() => { navigate(p("/organization/vision")); setShowSettingsMenu(false); }}
                 className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 <Edit3 size={15} className="text-gray-400" />
                 {ko ? "비전 편집" : "Edit Vision"}
               </button>
               <button
-                onClick={() => { navigate("/organization/setup"); setShowSettingsMenu(false); }}
+                onClick={() => { navigate(p("/organization/setup")); setShowSettingsMenu(false); }}
                 className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 <Target size={15} className="text-gray-400" />
@@ -760,7 +763,7 @@ export function GoalPage() {
                           </span>
                         </p>
                         <button
-                          onClick={() => navigate("/organization/setup")}
+                          onClick={() => navigate(p("/organization/setup"))}
                           className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg text-[11px] font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-sm"
                         >
                           <Sparkles size={12} />
@@ -1456,6 +1459,7 @@ interface BoardItem {
 
 export function TeamBoardSidebar({ orgId }: { orgId: string }) {
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { language } = useLanguage();
   const ko = language === 'ko';
   const { currentUser } = usePermission();
@@ -1595,7 +1599,7 @@ export function TeamBoardSidebar({ orgId }: { orgId: string }) {
                   </div>
                 </div>
               ) : (
-                <div key={item.id} onClick={() => navigate(`/board/${item.id}`)}
+                <div key={item.id} onClick={() => navigate(p(`/board/${item.id}`))}
                   className="bg-white p-4 rounded-xl border shadow-sm hover:shadow-md transition-all group relative cursor-pointer border-gray-100">
                   <div className="flex items-start gap-2 mb-1">
                     <h4 className="font-medium text-sm text-gray-900 leading-snug flex-1 min-w-0">{item.title}</h4>

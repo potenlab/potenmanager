@@ -21,6 +21,7 @@ import {
   NotificationType,
   NotificationPriority,
 } from "../context/NotificationContext";
+import { useOrgPath } from "../hooks/useOrgPath";
 
 type FilterTab = "all" | "unread" | "goal" | "task" | "team" | "system";
 
@@ -81,6 +82,7 @@ function groupByDate(
 export function NotificationsPage() {
   const { language } = useLanguage();
   const navigate = useNavigate();
+  const p = useOrgPath();
   const {
     notifications,
     unreadCount,
@@ -111,7 +113,7 @@ export function NotificationsPage() {
   const handleClick = (notification: AppNotification) => {
     markAsRead(notification.id);
     if (notification.actionUrl) {
-      navigate(notification.actionUrl);
+      navigate(p(notification.actionUrl));
     }
   };
 

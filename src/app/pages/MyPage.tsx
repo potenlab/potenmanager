@@ -44,6 +44,7 @@ import { useInvite } from "../context/InviteContext";
 import { useTaskContext } from "../context/TaskContext";
 import { useMeetingContext } from "../context/MeetingContext";
 import { api } from "../../lib/api";
+import { useOrgPath } from "../hooks/useOrgPath";
 
 interface ProfileField {
   key: string;
@@ -57,6 +58,7 @@ interface ProfileField {
 export function MyPage() {
   const { language, t } = useLanguage();
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { currentUser, members, updateMember } = useTeam();
   const { user: authUser, signOut } = useAuth();
   const { org } = useInvite();
@@ -212,7 +214,7 @@ export function MyPage() {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate("/");
+    navigate(p("/"));
   };
 
   return (
@@ -414,7 +416,7 @@ export function MyPage() {
                   </div>
                 </div>
                 <button
-                  onClick={() => navigate("/organization")}
+                  onClick={() => navigate(p("/organization"))}
                   className="text-xs text-blue-600 hover:text-blue-700 font-medium px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
                 >
                   {language === "ko" ? "보기" : "View"}
@@ -426,7 +428,7 @@ export function MyPage() {
                   {language === "ko" ? "소속된 조직이 없습니다" : "No organization"}
                 </p>
                 <button
-                  onClick={() => navigate("/organization")}
+                  onClick={() => navigate(p("/organization"))}
                   className="text-xs text-blue-600 hover:text-blue-700 font-medium px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
                 >
                   {language === "ko" ? "가입하기" : "Join"}
@@ -600,7 +602,7 @@ export function MyPage() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
             <h3
-              onClick={() => navigate("/tasks")}
+              onClick={() => navigate(p("/tasks"))}
               className="text-sm font-bold text-gray-900 flex items-center gap-2 cursor-pointer hover:text-blue-600 transition-colors"
             >
               <CheckSquare size={16} className="text-gray-400" />
@@ -621,7 +623,7 @@ export function MyPage() {
               myTasks.map(task => (
                 <div
                   key={task.id}
-                  onClick={() => navigate(`/tasks/${task.id}`)}
+                  onClick={() => navigate(p(`/tasks/${task.id}`))}
                   className="px-6 py-3 flex items-center gap-3 hover:bg-gray-50/50 transition-colors cursor-pointer"
                 >
                   <span className="shrink-0">
@@ -645,7 +647,7 @@ export function MyPage() {
           </div>
           {myTaskStats.total > 5 && (
             <div className="px-6 py-3 border-t border-gray-100">
-              <button onClick={() => navigate("/tasks")} className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
+              <button onClick={() => navigate(p("/tasks"))} className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
                 {ko ? "전체 보기" : "View all"} ({myTaskStats.total})
                 <ArrowRight size={12} />
               </button>
@@ -657,13 +659,13 @@ export function MyPage() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
             <h3
-              onClick={() => navigate("/meetings")}
+              onClick={() => navigate(p("/meetings"))}
               className="text-sm font-bold text-gray-900 flex items-center gap-2 cursor-pointer hover:text-blue-600 transition-colors"
             >
               <Video size={16} className="text-gray-400" />
               {ko ? "내 회의" : "My Meetings"}
             </h3>
-            <button onClick={() => navigate("/meetings")} className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
+            <button onClick={() => navigate(p("/meetings"))} className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
               {ko ? "전체 보기" : "View all"}
               <ArrowRight size={12} />
             </button>
@@ -686,7 +688,7 @@ export function MyPage() {
                 return (
                   <div
                     key={meeting.id}
-                    onClick={() => navigate(`/meetings/${meeting.id}`)}
+                    onClick={() => navigate(p(`/meetings/${meeting.id}`))}
                     className="px-6 py-3 flex items-center gap-3 hover:bg-gray-50/50 transition-colors cursor-pointer"
                   >
                     <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center shrink-0">

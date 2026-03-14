@@ -240,7 +240,7 @@ export function OnboardingPage() {
   };
 
   const enterDashboard = () => {
-    navigate('/dashboard', { replace: true });
+    navigate('/', { replace: true }); // OrgRootRedirect will prefix with org slug
   };
 
   // ── AI Welcome Screen ──────────────────────────────────

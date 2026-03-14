@@ -13,6 +13,7 @@ import { AutoProperties } from "../components/detail/AutoProperties";
 import type { PropertyFieldConfig } from "../components/detail/PropertyConfig";
 import { DetailPageShell } from "../components/detail/DetailPageShell";
 import { loadCards, saveCards, loadColumns, type KanbanCard } from "./ManagementPage";
+import { useOrgPath } from "../hooks/useOrgPath";
 
 const BOARD = "leaderboard" as const;
 
@@ -74,6 +75,7 @@ function getOrCreateItem(id: string): LeaderBoardItem | null {
 export function LeaderBoardDetailPage() {
   const { itemId } = useParams<{ itemId: string }>();
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { language } = useLanguage();
   const ko = language === "ko";
   const { currentUser } = usePermission();
@@ -119,7 +121,7 @@ export function LeaderBoardDetailPage() {
       };
       saveItems([...loadItems(), newItem]);
       setItem(newItem);
-      navigate(`/leader-board/${newCard.id}`, { replace: true });
+      navigate(p(`/leader-board/${newCard.id}`), { replace: true });
     }
   }, [isNew]);
 
@@ -169,7 +171,7 @@ export function LeaderBoardDetailPage() {
       saveItems(loadItems().filter(i => i.id !== item.id));
       saveCards(BOARD, loadCards(BOARD).filter(c => c.id !== item.id));
     }
-    navigate("/leader-board");
+    navigate(p("/leader-board"));
   };
 
   if (!item && !isNew) {
@@ -177,7 +179,7 @@ export function LeaderBoardDetailPage() {
       <div className="h-full flex flex-col items-center justify-center gap-4 text-gray-400">
         <Crown size={40} />
         <p className="text-sm">{ko ? "항목을 찾을 수 없습니다" : "Item not found"}</p>
-        <button onClick={() => navigate("/leader-board")} className="text-sm text-blue-500 hover:underline">
+        <button onClick={() => navigate(p("/leader-board"))} className="text-sm text-blue-500 hover:underline">
           {ko ? "돌아가기" : "Go back"}
         </button>
       </div>

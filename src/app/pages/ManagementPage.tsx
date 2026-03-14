@@ -16,6 +16,7 @@ import { useInvite } from "../context/InviteContext";
 import { usePermission } from "../context/PermissionContext";
 import { TeamBoardSidebar } from "./GoalPage";
 import { format } from "date-fns";
+import { useOrgPath } from "../hooks/useOrgPath";
 
 /** Strip Notion-block markup so card previews show plain text */
 function stripBlockTags(text: string): string {
@@ -338,6 +339,7 @@ function MgmtCard({
   onContextMenu?: (e: React.MouseEvent, id: string) => void;
 }) {
   const navigate = useNavigate();
+  const p = useOrgPath();
   const ref = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -370,7 +372,7 @@ function MgmtCard({
       ref={ref}
       data-mgmt-card
       data-card-id={card.id}
-      onClick={() => navigate(detailPath)}
+      onClick={() => navigate(p(detailPath))}
       onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, card.id); }}
       className={cn(
         "bg-white rounded-xl border shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group relative",
@@ -421,7 +423,7 @@ function MgmtCard({
               <div className="absolute right-0 top-7 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-36"
                 onMouseLeave={() => setMenuOpen(false)}>
                 <button
-                  onClick={(e) => { e.stopPropagation(); setMenuOpen(false); navigate(detailPath); }}
+                  onClick={(e) => { e.stopPropagation(); setMenuOpen(false); navigate(p(detailPath)); }}
                   className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-1.5"
                 >
                   <Edit3 size={10} /> {ko ? "수정" : "Edit"}
@@ -692,13 +694,14 @@ function MgmtListRow({
   onContextMenu?: (e: React.MouseEvent, id: string) => void;
 }) {
   const navigate = useNavigate();
+  const p = useOrgPath();
   const detailPath = board === "projects" ? `/projects/${card.id}` : `/branding/${card.id}`;
 
   return (
     <div
       data-mgmt-card
       data-card-id={card.id}
-      onClick={() => navigate(detailPath)}
+      onClick={() => navigate(p(detailPath))}
       onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, card.id); }}
       className={cn(
         "flex items-center gap-3 px-4 py-3 bg-white border rounded-xl hover:shadow-md hover:border-gray-200 transition-all cursor-pointer group",
@@ -781,6 +784,7 @@ export function ManagementPage() {
   };
   const newColRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  const p = useOrgPath();
 
   // ── Multi-select & rubber band ──
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -1205,7 +1209,7 @@ export function ManagementPage() {
             <button
               onClick={() => {
                 const detailPath = board === "projects" ? `/projects/${ctxMenu.id}` : board === "leaderboard" ? `/leader-board/${ctxMenu.id}` : `/branding/${ctxMenu.id}`;
-                navigate(detailPath);
+                navigate(p(detailPath));
                 closeCtxMenu();
               }}
               className="w-full px-3 py-2 text-xs text-left text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"

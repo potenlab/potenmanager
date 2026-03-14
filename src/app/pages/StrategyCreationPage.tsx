@@ -27,6 +27,7 @@ import { cn } from "../../lib/utils";
 import { useTeam } from "../context/TeamContext";
 import { api } from "../../lib/api";
 import { toast } from "sonner";
+import { useOrgPath } from "../hooks/useOrgPath";
 
 // ─── Types ─────────────────────────────────────────────────────────────
 type Role = "ai" | "user";
@@ -452,6 +453,7 @@ ${(strategy.milestones || []).map(m => `- ${m.targetDate}: ${m.title} (기준: $
 // ─── Main Page ──────────────────────────────────────────────────────────
 export function StrategyCreationPage() {
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { currentUser } = useTeam();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -625,7 +627,7 @@ export function StrategyCreationPage() {
   };
 
   const handleSaveStrategy = () => {
-    navigate("/organization");
+    navigate(p("/organization"));
   };
 
   const progress = isComplete ? 100 : Math.round((currentStep / STEPS.length) * 100);
@@ -636,7 +638,7 @@ export function StrategyCreationPage() {
       {/* ── Header ── */}
       <div className="shrink-0 flex items-center gap-4 pb-5 border-b border-gray-100">
         <button
-          onClick={() => navigate("/organization")}
+          onClick={() => navigate(p("/organization"))}
           className="p-2 rounded-xl hover:bg-gray-100 text-gray-500 transition-colors"
         >
           <ArrowLeft size={20} />

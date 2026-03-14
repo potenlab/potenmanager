@@ -6,6 +6,7 @@ import { cn } from "../../../lib/utils";
 import { useLanguage } from "../../context/LanguageContext";
 import { usePagePresence } from "../../context/PresenceContext";
 import { ShareButton } from "./ShareButton";
+import { useOrgPath } from "../../hooks/useOrgPath";
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -79,6 +80,7 @@ export function DetailPageShell({
   narrow = true,
 }: DetailPageShellProps) {
   const navigate = useNavigate();
+  const p = useOrgPath();
   const { language } = useLanguage();
   const ko = language === "ko";
   const [propsExpanded, setPropsExpanded] = useState(secondaryProperties ? false : defaultExpanded);
@@ -100,7 +102,7 @@ export function DetailPageShell({
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-1.5 text-sm text-gray-400 min-w-0">
             <button
-              onClick={() => navigate(backPath)}
+              onClick={() => navigate(p(backPath))}
               className="flex items-center gap-1.5 text-gray-400 hover:text-gray-900 transition-colors shrink-0 group"
             >
               <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
@@ -111,7 +113,7 @@ export function DetailPageShell({
                 <span className="text-gray-300">/</span>
                 {bc.path ? (
                   <button
-                    onClick={() => navigate(bc.path!)}
+                    onClick={() => navigate(p(bc.path!))}
                     className="hover:text-gray-900 transition-colors truncate max-w-[200px]"
                   >
                     {bc.label}
