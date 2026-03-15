@@ -186,11 +186,13 @@ export function InviteProvider({ children }: { children: ReactNode }) {
   const updateOrgNameFn = useCallback(async (name: string): Promise<boolean> => {
     if (!org) return false;
     try {
-      const updated = await api.updateOrg(org.id, { name });
+      const slug = generateSlug(name);
+      const updated = await api.updateOrg(org.id, { name, slug });
       if (updated) {
-        setOrg((prev) => prev ? { ...prev, name } : prev);
-        setAllOrgs((prev) => prev.map((o) => o.orgId === org.id ? { ...o, orgName: name } : o));
-        console.log(`[InviteContext] Updated org name to: ${name}`);
+        setOrg((prev) => prev ? { ...prev, name, slug } : prev);
+        setAllOrgs((prev) => prev.map((o) => o.orgId === org.id ? { ...o, orgName: name, slug } : o));
+        try { localStorage.setItem("poten_org_slug", slug); } catch {}
+        console.log(`[InviteContext] Updated org name to: ${name} (slug: ${slug})`);
       }
       return true;
     } catch (err) {

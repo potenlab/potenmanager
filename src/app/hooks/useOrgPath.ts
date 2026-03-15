@@ -7,7 +7,7 @@ export function generateSlug(name: string): string {
     .toLowerCase()
     .trim()
     .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9가-힣\-]/g, "")
+    .replace(/[^a-z0-9\-]/g, "")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 40) || "org";

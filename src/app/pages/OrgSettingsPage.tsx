@@ -10,6 +10,7 @@ import {
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
 import { useInvite } from "../context/InviteContext";
+import { generateSlug } from "../hooks/useOrgPath";
 import { usePermission } from "../context/PermissionContext";
 import { hasPermission, type Role } from "../../lib/permissions";
 
@@ -210,6 +211,18 @@ export function OrgSettingsPage() {
           value={org.name}
           placeholder={ko ? "조직 이름을 입력하세요" : "Enter organization name"}
           onSave={(v) => { if (v) { updateOrgName(v); flashSaved(); } }}
+          disabled={!canEdit}
+        />
+        <InlineField
+          label={ko ? "URL 슬러그 (영문)" : "URL Slug (English)"}
+          value={org.slug || generateSlug(org.name)}
+          placeholder={ko ? "예: potenlab" : "e.g. potenlab"}
+          onSave={(v) => {
+            const slug = generateSlug(v || org.name);
+            updateOrgField("slug", slug);
+            try { localStorage.setItem("poten_org_slug", slug); } catch {}
+            flashSaved();
+          }}
           disabled={!canEdit}
         />
         <InlineField
