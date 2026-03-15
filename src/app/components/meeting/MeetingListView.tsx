@@ -158,7 +158,7 @@ export function MeetingListView({ meetings, onStatusChange }: Props) {
                     </td>
                     <td className="px-4 py-4">
                       <div className="flex -space-x-1.5">
-                        {meeting.attendeeIds.slice(0, 3).map(id => {
+                        {(meeting.attendeeIds || []).slice(0, 3).map(id => {
                           const avatar = getMemberAvatar(id);
                           return avatar ? (
                             <img key={id} src={avatar} alt="" className="w-6 h-6 rounded-full border-2 border-white" />
@@ -168,9 +168,9 @@ export function MeetingListView({ meetings, onStatusChange }: Props) {
                             </div>
                           );
                         })}
-                        {meeting.attendeeIds.length > 3 && (
+                        {(meeting.attendeeIds || []).length > 3 && (
                           <div className="w-6 h-6 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-[9px] font-semibold text-gray-500">
-                            +{meeting.attendeeIds.length - 3}
+                            +{(meeting.attendeeIds || []).length - 3}
                           </div>
                         )}
                       </div>

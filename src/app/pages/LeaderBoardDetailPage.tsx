@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
-import { Crown, Calendar, Flag, Tag } from "lucide-react";
+import { Crown, Calendar, Flag, Tag, Sparkles, Plus, Loader2, CheckCircle } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useRealtimeBroadcast } from "../../lib/realtimeSync";
 import { useLanguage } from "../context/LanguageContext";
@@ -14,6 +14,7 @@ import type { PropertyFieldConfig } from "../components/detail/PropertyConfig";
 import { DetailPageShell } from "../components/detail/DetailPageShell";
 import { loadCards, saveCards, loadColumns, type KanbanCard } from "./ManagementPage";
 import { useOrgPath } from "../hooks/useOrgPath";
+import { api } from "../../lib/api";
 
 const BOARD = "leaderboard" as const;
 
@@ -185,6 +186,43 @@ export function LeaderBoardDetailPage() {
       </div>
     );
   }
+
+  // AI Task Suggestion
+  const [aiTasks, setAiTasks] = useState<Array<{ title: string; description: string; priority: string; estimatedMinutes: number; category: string }>>([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiCreated, setAiCreated] = useState<Set<number>>(new Set());
+
+  const handleAiSuggest = async () => {
+    if (!title && !content) return;
+    setAiLoading(true);
+    setAiCreated(new Set());
+    try {
+      const res = await api.aiSuggestTasks({ title, content });
+      setAiTasks(res.tasks || []);
+    } catch (e) {
+      console.error("AI suggest failed:", e);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleCreateTask = (task: typeof aiTasks[0], idx: number) => {
+    const taskCards = loadCards("tasks");
+    const taskColumns = loadColumns("tasks");
+    const firstCol = taskColumns[0]?.id || "col-todo";
+    const newCard: KanbanCard = {
+      id: `card-${Date.now()}-${idx}`,
+      columnId: firstCol,
+      title: task.title,
+      description: task.description,
+      priority: task.priority as any,
+      order: taskCards.filter(c => c.columnId === firstCol).length,
+      createdAt: new Date().toISOString(),
+      assigneeId: currentUser.id,
+    };
+    saveCards("tasks", [...taskCards, newCard]);
+    setAiCreated(prev => new Set(prev).add(idx));
+  };
 
   const propertyFields: PropertyFieldConfig[] = [
     {

@@ -17,6 +17,7 @@ import {
   Clock,
   Loader2,
   LayoutGrid,
+  LayoutList,
   Calendar as CalendarIcon,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -57,6 +58,10 @@ export function TeamPage() {
   const { tasks, updateTask } = useTaskContext();
   const { org, isLoading: orgLoading, joinRequests, pendingCount, approveRequest, rejectRequest } = useInvite();
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [memberView, setMemberView] = useState<"list" | "grid">(() => {
+    try { return (localStorage.getItem('poten_team_member_view') as "list" | "grid") || "list"; } catch { return "list"; }
+  });
+  const toggleMemberView = (v: "list" | "grid") => { setMemberView(v); localStorage.setItem('poten_team_member_view', v); };
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [activeTab, _setTeamTab] = useState<"members" | "tasks">(() => {
     try { return (localStorage.getItem('poten_team_tab') as "members" | "tasks") || "members"; } catch { return "members"; }
@@ -124,31 +129,43 @@ export function TeamPage() {
       </header>
 
       {/* ── Tab Bar ─────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1 -mt-2 mb-4 bg-gray-100 rounded-xl p-1 w-fit shrink-0">
-        <button
-          onClick={() => setActiveTab("members")}
-          className={cn(
-            "px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2",
-            activeTab === "members"
-              ? "bg-white text-gray-900 shadow-sm"
-              : "text-gray-500 hover:text-gray-700"
-          )}
-        >
-          <Users size={15} />
-          {ko ? "멤버" : "Members"}
-        </button>
-        <button
-          onClick={() => setActiveTab("tasks")}
-          className={cn(
-            "px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2",
-            activeTab === "tasks"
-              ? "bg-white text-gray-900 shadow-sm"
-              : "text-gray-500 hover:text-gray-700"
-          )}
-        >
-          <LayoutGrid size={15} />
-          {ko ? "업무 현황" : "Task Board"}
-        </button>
+      <div className="flex items-center gap-3 -mt-2 mb-4">
+        <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 w-fit shrink-0">
+          <button
+            onClick={() => setActiveTab("members")}
+            className={cn(
+              "px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2",
+              activeTab === "members"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            )}
+          >
+            <Users size={15} />
+            {ko ? "멤버" : "Members"}
+          </button>
+          <button
+            onClick={() => setActiveTab("tasks")}
+            className={cn(
+              "px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2",
+              activeTab === "tasks"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            )}
+          >
+            <LayoutGrid size={15} />
+            {ko ? "업무 현황" : "Task Board"}
+          </button>
+        </div>
+        {activeTab === "members" && (
+          <div className="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5">
+            <button onClick={() => toggleMemberView("list")} className={cn("p-1.5 rounded", memberView === "list" ? "bg-white shadow-sm text-gray-900" : "text-gray-400 hover:text-gray-600")} title={ko ? "리스트" : "List"}>
+              <LayoutList size={15} />
+            </button>
+            <button onClick={() => toggleMemberView("grid")} className={cn("p-1.5 rounded", memberView === "grid" ? "bg-white shadow-sm text-gray-900" : "text-gray-400 hover:text-gray-600")} title={ko ? "카드" : "Grid"}>
+              <LayoutGrid size={15} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── Pending Join Requests ────────────────────────────────── */}
@@ -209,50 +226,123 @@ export function TeamPage() {
 
       {activeTab === "members" ? (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {[...members].sort((a, b) => a.id === currentUser.id ? -1 : b.id === currentUser.id ? 1 : 0).map((member) => (
-              <TeamMemberCard
-                key={member.id}
-                member={member}
-                stats={memberStats[member.id]}
-                onViewTasks={() => navigate(p(`/team/${member.id}`))}
-                currentUser={currentUser}
-              />
-            ))}
-
-            {/* Invite / Create Org Card */}
-            {!org && !orgLoading ? (
-              <div
-                onClick={() => navigate(p("/organization"))}
-                className="flex flex-col items-center justify-center p-8 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer group h-full min-h-[280px]"
-              >
-                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                  <Users size={32} className="text-blue-500" />
-                </div>
-                <h3 className="font-medium text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
-                  {ko ? "조직을 먼저 생성하세요" : "Create an Organization First"}
-                </h3>
-                <p className="text-sm text-gray-500 text-center px-4">
-                  {ko ? "내 조직 페이지에서 조직을 생성하세요." : "Go to My Organization page to create one."}
-                </p>
-              </div>
-            ) : org ? (
-              <button
-                onClick={() => setIsInviteDialogOpen(true)}
-                className="flex flex-col items-center justify-center p-8 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl hover:border-blue-400 hover:bg-blue-50 transition-all group h-full min-h-[280px]"
-              >
-                <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
-                  <Plus size={32} className="text-gray-400 group-hover:text-blue-500 transition-colors" />
-                </div>
-                <h3 className="font-medium text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
+          {memberView === "list" ? (
+            /* ── List View ── */
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-100 text-xs text-gray-500 font-medium">
+                    <th className="text-left px-4 py-2.5">{ko ? "이름" : "Name"}</th>
+                    <th className="text-left px-4 py-2.5">{ko ? "이메일" : "Email"}</th>
+                    <th className="text-left px-4 py-2.5">{ko ? "역할" : "Role"}</th>
+                    <th className="text-center px-4 py-2.5">{ko ? "완료" : "Done"}</th>
+                    <th className="text-center px-4 py-2.5">{ko ? "진행중" : "In Progress"}</th>
+                    <th className="text-center px-4 py-2.5">{ko ? "대기" : "Pending"}</th>
+                    <th className="text-right px-4 py-2.5"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...members].sort((a, b) => a.id === currentUser.id ? -1 : b.id === currentUser.id ? 1 : 0).map((member) => {
+                    const stats = memberStats[member.id] || { completed: 0, inProgress: 0, pending: 0, total: 0 };
+                    const roleInfo = getRoleInfo(member.role as Role);
+                    return (
+                      <tr
+                        key={member.id}
+                        onClick={() => navigate(p(`/team/${member.id}`))}
+                        className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors"
+                      >
+                        <td className="px-4 py-3 flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 shrink-0">
+                            {member.profileImage ? (
+                              <img src={member.profileImage} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-sm font-bold text-white bg-gradient-to-br from-blue-400 to-indigo-500">
+                                {member.name?.[0] || "?"}
+                              </div>
+                            )}
+                          </div>
+                          <span className="text-sm font-medium text-gray-900">
+                            {member.name}
+                            {member.id === currentUser.id && <span className="text-xs text-gray-400 ml-1">({ko ? "나" : "Me"})</span>}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{member.email}</td>
+                        <td className="px-4 py-3">
+                          <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full", roleInfo.color, roleInfo.bg)}>
+                            {ko ? roleInfo.labelKo : roleInfo.label}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center text-sm text-green-600 font-medium">{stats.completed}</td>
+                        <td className="px-4 py-3 text-center text-sm text-blue-600 font-medium">{stats.inProgress}</td>
+                        <td className="px-4 py-3 text-center text-sm text-gray-500 font-medium">{stats.pending}</td>
+                        <td className="px-4 py-3 text-right">
+                          <ArrowRight size={14} className="text-gray-400" />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {/* Invite row */}
+              {org && (
+                <button
+                  onClick={() => setIsInviteDialogOpen(true)}
+                  className="w-full px-4 py-3 flex items-center gap-3 text-sm text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center">
+                    <Plus size={14} />
+                  </div>
                   {ko ? "새 멤버 초대하기" : "Invite New Member"}
-                </h3>
-                <p className="text-sm text-gray-500 text-center px-4">
-                  {ko ? "초대 코드를 생성해 팀원을 초대하세요." : "Generate an invite code to add team members."}
-                </p>
-              </button>
-            ) : null}
-          </div>
+                </button>
+              )}
+            </div>
+          ) : (
+            /* ── Grid View ── */
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {[...members].sort((a, b) => a.id === currentUser.id ? -1 : b.id === currentUser.id ? 1 : 0).map((member) => (
+                <TeamMemberCard
+                  key={member.id}
+                  member={member}
+                  stats={memberStats[member.id]}
+                  onViewTasks={() => navigate(p(`/team/${member.id}`))}
+                  currentUser={currentUser}
+                />
+              ))}
+
+              {/* Invite / Create Org Card */}
+              {!org && !orgLoading ? (
+                <div
+                  onClick={() => navigate(p("/organization"))}
+                  className="flex flex-col items-center justify-center p-8 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer group h-full min-h-[280px]"
+                >
+                  <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <Users size={32} className="text-blue-500" />
+                  </div>
+                  <h3 className="font-medium text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
+                    {ko ? "조직을 먼저 생성하세요" : "Create an Organization First"}
+                  </h3>
+                  <p className="text-sm text-gray-500 text-center px-4">
+                    {ko ? "내 조직 페이지에서 조직을 생성하세요." : "Go to My Organization page to create one."}
+                  </p>
+                </div>
+              ) : org ? (
+                <button
+                  onClick={() => setIsInviteDialogOpen(true)}
+                  className="flex flex-col items-center justify-center p-8 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl hover:border-blue-400 hover:bg-blue-50 transition-all group h-full min-h-[280px]"
+                >
+                  <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
+                    <Plus size={32} className="text-gray-400 group-hover:text-blue-500 transition-colors" />
+                  </div>
+                  <h3 className="font-medium text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
+                    {ko ? "새 멤버 초대하기" : "Invite New Member"}
+                  </h3>
+                  <p className="text-sm text-gray-500 text-center px-4">
+                    {ko ? "초대 코드를 생성해 팀원을 초대하세요." : "Generate an invite code to add team members."}
+                  </p>
+                </button>
+              ) : null}
+            </div>
+          )}
         </>
       ) : (
         <TeamTaskBoard

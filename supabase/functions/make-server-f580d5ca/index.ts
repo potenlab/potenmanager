@@ -2495,6 +2495,103 @@ ${context ? `[현재 사용자 업무 현황]\n${context}\n` : ""}
   }
 });
 
+// ─── AI Suggest Tasks (from post/article content) ────────────────────────────
+app.post("/make-server-f580d5ca/ai/suggest-tasks", async (c) => {
+  try {
+    const { content, title, context } = await c.req.json();
+    if (!content && !title) return c.json({ error: "content or title required" }, 400);
+
+    const prompt = `당신은 프로젝트 관리 AI입니다.
+다음 글/게시물 내용을 분석하고, 실행 가능한 태스크(업무)를 3~5개 제안하세요.
+
+${title ? `[제목] ${title}` : ""}
+[내용] ${content || ""}
+${context ? `[추가 컨텍스트] ${context}` : ""}
+
+각 태스크는 다음 JSON 형식으로 반환하세요:
+[
+  {
+    "title": "태스크 제목 (구체적이고 실행 가능한)",
+    "description": "간단한 설명 (1~2문장)",
+    "priority": "high" | "medium" | "low",
+    "estimatedMinutes": 예상 소요시간(분),
+    "category": "sales" | "content_writing" | "content_video" | "marketing" | "development" | "design" | "planning" | "operations" | "learning"
+  }
+]
+
+규칙:
+- 태스크는 구체적이고 바로 실행 가능해야 합니다
+- 한국어로 작성하세요
+- 우선순위는 글의 맥락에 맞게 설정하세요
+- 카테고리는 내용에 가장 적합한 것으로 선택하세요`;
+
+    const result = await callGemini(prompt, 2048);
+    return c.json({ tasks: Array.isArray(result) ? result : result.tasks || [] });
+  } catch (e) {
+    console.log("[AI] suggest-tasks error:", e);
+    return c.json({ error: "Suggest failed", message: String(e) }, 500);
+  }
+});
+
+// ─── AI Generate Content (write content for tasks) ───────────────────────────
+app.post("/make-server-f580d5ca/ai/generate-content", async (c) => {
+  try {
+    const { taskTitle, contentType, tone, additionalInfo, existingContent } = await c.req.json();
+    if (!taskTitle) return c.json({ error: "taskTitle required" }, 400);
+
+    const typeLabels: Record<string, string> = {
+      youtube_script: "유튜브 영상 대본",
+      blog_post: "블로그 글",
+      proposal: "기획서/제안서",
+      report: "보고서",
+      email: "이메일",
+      social_media: "SNS 게시글",
+      meeting_agenda: "회의 안건",
+      press_release: "보도자료",
+      general: "일반 문서",
+    };
+
+    const toneLabels: Record<string, string> = {
+      professional: "전문적",
+      casual: "캐주얼",
+      formal: "격식체",
+      friendly: "친근한",
+    };
+
+    const typeLabel = typeLabels[contentType] || contentType || "일반 문서";
+    const toneLabel = toneLabels[tone] || tone || "전문적";
+
+    const prompt = `당신은 전문 콘텐츠 작성 AI입니다.
+다음 정보를 바탕으로 "${typeLabel}"을(를) 작성해주세요.
+
+[업무/주제] ${taskTitle}
+[문서 유형] ${typeLabel}
+[톤앤매너] ${toneLabel}
+${additionalInfo ? `[추가 요청사항] ${additionalInfo}` : ""}
+${existingContent ? `[기존 내용 참고]\n${existingContent}` : ""}
+
+규칙:
+- 한국어로 작성하세요
+- ${typeLabel}에 맞는 구조와 형식을 사용하세요
+- 마크다운 형식으로 작성하세요 (제목, 소제목, 리스트 등)
+- 실제로 사용 가능한 수준의 완성도로 작성하세요
+- 너무 길지 않게, 핵심에 집중하세요
+
+JSON 형식으로 반환하세요:
+{
+  "content": "작성된 전체 내용 (마크다운)",
+  "summary": "한 줄 요약",
+  "wordCount": 대략적인 글자 수
+}`;
+
+    const result = await callGemini(prompt, 4096);
+    return c.json(result);
+  } catch (e) {
+    console.log("[AI] generate-content error:", e);
+    return c.json({ error: "Content generation failed", message: String(e) }, 500);
+  }
+});
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Demo Account Setup
 // ═══════════════════════════════════════════════════════════════════════════════

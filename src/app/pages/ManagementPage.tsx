@@ -6,7 +6,7 @@ import {
   FolderKanban, Palette, Crown, Plus, Trash2,
   Calendar as CalendarIcon, MoreHorizontal, X, Check,
   Image as ImageIcon, Globe, Search, Edit3,
-  StickyNote, LayoutGrid, List, AlignJustify, LayoutList,
+  StickyNote, LayoutGrid, List, AlignJustify, LayoutList, UserPlus,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { api } from "../../lib/api";
@@ -20,15 +20,19 @@ import { useOrgPath } from "../hooks/useOrgPath";
 
 /** Strip Notion-block markup so card previews show plain text */
 function stripBlockTags(text: string): string {
-  return text
+  const cleaned = text
     .replace(/\[page:[^\]]+\]/g, "")
     .replace(/\[img:[^\]]+\]/g, "")
     .replace(/\[bookmark:[^\]]+\]/g, "")
     .replace(/^#{1,3}\s+/gm, "")
     .replace(/^---$/gm, "")
     .replace(/^\s*[-*]\s*\[\s*[xX ]?\]\s*/gm, "- ")
+    .replace(/^\d+\.\s*/gm, "")
     .replace(/\n{2,}/g, "\n")
     .trim();
+  // Return first non-empty line only
+  const firstLine = cleaned.split("\n").find(l => l.trim());
+  return firstLine?.trim() || "";
 }
 
 // ─── Types (exported for detail pages) ───────────────────────────
@@ -452,7 +456,7 @@ function MgmtCard({
             <h4 className="font-medium text-sm text-gray-900 leading-snug truncate">{card.title || (ko ? "제목 없음" : "Untitled")}</h4>
           </div>
           {card.description && stripBlockTags(card.description) && (
-            <p className="text-xs text-gray-500 line-clamp-2 mb-3">{stripBlockTags(card.description)}</p>
+            <p className="text-xs text-gray-500 line-clamp-1 mb-3">{stripBlockTags(card.description)}</p>
           )}
 
           <div className="flex items-center justify-between border-t border-gray-50 pt-3 mt-2">
@@ -760,7 +764,7 @@ export function ManagementPage() {
   const searchParams = new URLSearchParams(location.search);
   const projectFilter = searchParams.get("filter"); // "internal" | "external" | null
   const { org } = useInvite();
-  const { currentUser } = usePermission();
+  const { currentUser, members } = usePermission();
   const [showTeamBoard, setShowTeamBoard] = useState(false);
 
   const [columns, setColumns] = useState<KanbanColumn[]>(() => loadColumns(board));
@@ -1134,6 +1138,50 @@ export function ManagementPage() {
             </button>
           )}
         </div>
+
+        {/* Member Avatars for LeaderBoard */}
+        {board === "leaderboard" && members.length === 0 && (
+          <div className="flex items-center gap-2 -mt-1 mb-2">
+            <div className="flex items-center -space-x-2">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="w-7 h-7 rounded-full border-2 border-white bg-gray-200 animate-pulse shrink-0" />
+              ))}
+            </div>
+            <div className="w-20 h-3 bg-gray-200 rounded animate-pulse" />
+          </div>
+        )}
+        {board === "leaderboard" && members.length > 0 && (
+          <div className="flex items-center gap-2 -mt-1 mb-2">
+            <div className="flex items-center -space-x-2">
+              {members.slice(0, 8).map((m) => (
+                <div key={m.id} className="w-7 h-7 rounded-full border-2 border-white overflow-hidden shrink-0" title={m.name}>
+                  {m.profileImage ? (
+                    <img src={m.profileImage} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-white bg-gradient-to-br from-blue-400 to-indigo-500">
+                      {m.name?.[0] || "?"}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {members.length > 8 && (
+                <div className="w-7 h-7 rounded-full border-2 border-white bg-gray-100 flex items-center justify-center text-[10px] text-gray-500 font-medium shrink-0">
+                  +{members.length - 8}
+                </div>
+              )}
+            </div>
+            <span className="text-xs text-gray-400">{members.length}{ko ? "명 참여 중" : " members"}</span>
+            {org && (
+              <button
+                onClick={() => navigate("/team")}
+                className="flex items-center gap-1 px-2 py-1 text-xs text-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+              >
+                <UserPlus size={12} />
+                {ko ? "초대" : "Invite"}
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center">
           <div className="flex-1 sm:max-w-md">
