@@ -1116,6 +1116,16 @@ export function ManagementPage() {
         </div>
 
         {/* Member Avatars for LeaderBoard */}
+        {board === "leaderboard" && members.length === 0 && (
+          <div className="flex items-center gap-2 -mt-1 mb-2">
+            <div className="flex items-center -space-x-2">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="w-7 h-7 rounded-full border-2 border-white bg-gray-200 animate-pulse shrink-0" />
+              ))}
+            </div>
+            <div className="w-20 h-3 bg-gray-200 rounded animate-pulse" />
+          </div>
+        )}
         {board === "leaderboard" && members.length > 0 && (
           <div className="flex items-center gap-2 -mt-1 mb-2">
             <div className="flex items-center -space-x-2">
