@@ -416,10 +416,10 @@ export function TaskDetailPage() {
   const [attachments, setAttachments] = useState<Attachment[]>(task?.attachments || []);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const ko = language === "ko";
 
   const handleFileDrop = useCallback(async (files: FileList) => {
     const MAX_SIZE = 5 * 1024 * 1024; // 5MB
-    const ko = language === "ko";
     const toUpload = Array.from(files).filter((file) => {
       if (file.size > MAX_SIZE) {
         alert(ko ? `${file.name}: 5MB 이하 파일만 첨부 가능합니다` : `${file.name}: Max 5MB`);
