@@ -760,7 +760,7 @@ export function ManagementPage() {
   const { language } = useLanguage();
   const ko = language === "ko";
   const location = useLocation();
-  const board: BoardType = location.pathname.startsWith("/branding") ? "branding" : location.pathname.startsWith("/leader-board") ? "leaderboard" : "projects";
+  const board: BoardType = location.pathname.includes("/branding") ? "branding" : location.pathname.includes("/leader-board") ? "leaderboard" : "projects";
   const searchParams = new URLSearchParams(location.search);
   const projectFilter = searchParams.get("filter"); // "internal" | "external" | null
   const { org } = useInvite();
