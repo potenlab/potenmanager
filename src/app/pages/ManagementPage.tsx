@@ -18,15 +18,19 @@ import { format } from "date-fns";
 
 /** Strip Notion-block markup so card previews show plain text */
 function stripBlockTags(text: string): string {
-  return text
+  const cleaned = text
     .replace(/\[page:[^\]]+\]/g, "")
     .replace(/\[img:[^\]]+\]/g, "")
     .replace(/\[bookmark:[^\]]+\]/g, "")
     .replace(/^#{1,3}\s+/gm, "")
     .replace(/^---$/gm, "")
     .replace(/^\s*[-*]\s*\[\s*[xX ]?\]\s*/gm, "- ")
+    .replace(/^\d+\.\s*/gm, "")
     .replace(/\n{2,}/g, "\n")
     .trim();
+  // Return first non-empty line only
+  const firstLine = cleaned.split("\n").find(l => l.trim());
+  return firstLine?.trim() || "";
 }
 
 // ─── Types (exported for detail pages) ───────────────────────────
@@ -449,7 +453,7 @@ function MgmtCard({
             <h4 className="font-medium text-sm text-gray-900 leading-snug truncate">{card.title || (ko ? "제목 없음" : "Untitled")}</h4>
           </div>
           {card.description && stripBlockTags(card.description) && (
-            <p className="text-xs text-gray-500 line-clamp-2 mb-3">{stripBlockTags(card.description)}</p>
+            <p className="text-xs text-gray-500 line-clamp-1 mb-3">{stripBlockTags(card.description)}</p>
           )}
 
           <div className="flex items-center justify-between border-t border-gray-50 pt-3 mt-2">

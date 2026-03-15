@@ -32,6 +32,7 @@ import {
   File as FileIcon,
   FolderKanban,
   Calculator,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Task, TaskCategory, Attachment } from "../../lib/mockData";
@@ -404,6 +405,8 @@ export function TaskDetailPage() {
       : null
   );
   const [estTime, setEstTime] = useState(task?.estimatedTime || 0);
+  const [aiWriting, setAiWriting] = useState(false);
+  const [showAiMenu, setShowAiMenu] = useState(false);
   const [category, setCategory] = useState<TaskCategory | undefined>(
     task?.category && TASK_CATEGORY_CONFIG[task.category] ? task.category : undefined
   );
@@ -662,6 +665,57 @@ export function TaskDetailPage() {
                 ? (language === "ko" ? "업로드 중..." : "Uploading...")
                 : (language === "ko" ? "파일을 놓아주세요 (최대 5MB)" : "Drop files here (max 5MB)")}
             </div>
+          </div>
+        )}
+        {/* AI Content Writer */}
+        {canEdit && (
+          <div className="relative mb-2">
+            <button
+              onClick={() => setShowAiMenu(!showAiMenu)}
+              disabled={aiWriting}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-violet-600 bg-violet-50 hover:bg-violet-100 rounded-md transition-colors"
+            >
+              {aiWriting ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+              {ko ? "AI 작성" : "AI Write"}
+            </button>
+            {showAiMenu && (
+              <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 w-[180px] py-1">
+                {[
+                  { type: "youtube_script", label: "유튜브 대본" },
+                  { type: "blog_post", label: "블로그 글" },
+                  { type: "proposal", label: "기획서" },
+                  { type: "report", label: "보고서" },
+                  { type: "email", label: "이메일" },
+                  { type: "social_media", label: "SNS 게시글" },
+                  { type: "meeting_agenda", label: "회의 안건" },
+                  { type: "general", label: "일반 문서" },
+                ].map(({ type, label }) => (
+                  <button
+                    key={type}
+                    onClick={async () => {
+                      setShowAiMenu(false);
+                      if (!title) return;
+                      setAiWriting(true);
+                      try {
+                        const res = await api.aiGenerateContent({
+                          taskTitle: title,
+                          contentType: type,
+                          existingContent: description || undefined,
+                        });
+                        if (res.content) setDescription(res.content);
+                      } catch (e) {
+                        console.error("AI write failed:", e);
+                      } finally {
+                        setAiWriting(false);
+                      }
+                    }}
+                    className="w-full px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
         <NotionBlockEditor

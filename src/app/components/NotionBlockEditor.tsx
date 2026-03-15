@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, KeyboardEvent } from "react";
 import { useNavigate } from "react-router";
 import { cn } from "../../lib/utils";
-import { GripVertical, Plus, Trash2, Type, Heading1, Heading2, Heading3, List, ListOrdered, Minus, FileText, ArrowRight, Bold, Italic, Underline, Image as ImageIcon, Link2, ExternalLink, Loader2 } from "lucide-react";
+import { GripVertical, Plus, Trash2, Type, Heading1, Heading2, Heading3, List, ListOrdered, Minus, FileText, ArrowRight, Bold, Italic, Underline, Strikethrough, Code, Image as ImageIcon, Link2, ExternalLink, Loader2, Highlighter, Palette } from "lucide-react";
 import { createPortal } from "react-dom";
 import { createSubPage, getSubPage } from "../../lib/subPages";
 import { api } from "../../lib/api";
@@ -347,54 +347,107 @@ function BookmarkBlock({ block, readOnly, onDelete, onSelect, isSelected, onDrag
 }
 
 // ─── Floating Toolbar Component ────────────────────────────────────
-function FloatingToolbar({ pos, onFormat, onToggleList, activeFormats }: {
+const HIGHLIGHT_COLORS = [
+  { name: "노랑", color: "#fef08a" },
+  { name: "초록", color: "#bbf7d0" },
+  { name: "파랑", color: "#bfdbfe" },
+  { name: "분홍", color: "#fbcfe8" },
+  { name: "보라", color: "#ddd6fe" },
+  { name: "주황", color: "#fed7aa" },
+];
+
+const TEXT_COLORS = [
+  { name: "기본", color: "inherit" },
+  { name: "빨강", color: "#dc2626" },
+  { name: "파랑", color: "#2563eb" },
+  { name: "초록", color: "#16a34a" },
+  { name: "보라", color: "#9333ea" },
+  { name: "주황", color: "#ea580c" },
+  { name: "회색", color: "#6b7280" },
+];
+
+function FloatingToolbar({ pos, onFormat, onToggleList, onLink, activeFormats }: {
   pos: { top: number; left: number };
-  onFormat: (cmd: string) => void;
+  onFormat: (cmd: string, value?: string) => void;
   onToggleList: (type: "bullet" | "numbered") => void;
-  activeFormats: { bold: boolean; italic: boolean; underline: boolean };
+  onLink: () => void;
+  activeFormats: { bold: boolean; italic: boolean; underline: boolean; strikethrough: boolean };
 }) {
+  const [showColors, setShowColors] = useState<"text" | "highlight" | null>(null);
+  const btnClass = (active?: boolean) => cn("p-1.5 rounded transition-colors", active ? "bg-gray-200 text-gray-900" : "hover:bg-gray-100 text-gray-500 hover:text-gray-700");
+
   return createPortal(
     <div
-      className="fixed z-[10000] flex items-center gap-0.5 bg-white border border-gray-200 rounded-lg shadow-xl px-1.5 py-1 animate-in fade-in slide-in-from-bottom-1 duration-150"
+      className="fixed z-[10000] bg-white border border-gray-200 rounded-lg shadow-xl animate-in fade-in slide-in-from-bottom-1 duration-150"
       style={{ top: pos.top, left: pos.left }}
       onMouseDown={(e) => e.preventDefault()}
     >
-      <button
-        onClick={() => onToggleList("numbered")}
-        className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
-        title="Numbered List"
-      >
-        <ListOrdered size={16} />
-      </button>
-      <button
-        onClick={() => onToggleList("bullet")}
-        className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
-        title="Bullet List"
-      >
-        <List size={16} />
-      </button>
-      <div className="w-px h-5 bg-gray-200 mx-0.5" />
-      <button
-        onClick={() => onFormat("bold")}
-        className={cn("p-1.5 rounded transition-colors", activeFormats.bold ? "bg-gray-200 text-gray-900" : "hover:bg-gray-100 text-gray-500 hover:text-gray-700")}
-        title="Bold (Ctrl+B)"
-      >
-        <Bold size={16} />
-      </button>
-      <button
-        onClick={() => onFormat("italic")}
-        className={cn("p-1.5 rounded transition-colors", activeFormats.italic ? "bg-gray-200 text-gray-900" : "hover:bg-gray-100 text-gray-500 hover:text-gray-700")}
-        title="Italic (Ctrl+I)"
-      >
-        <Italic size={16} />
-      </button>
-      <button
-        onClick={() => onFormat("underline")}
-        className={cn("p-1.5 rounded transition-colors", activeFormats.underline ? "bg-gray-200 text-gray-900" : "hover:bg-gray-100 text-gray-500 hover:text-gray-700")}
-        title="Underline (Ctrl+U)"
-      >
-        <Underline size={16} />
-      </button>
+      <div className="flex items-center gap-0.5 px-1.5 py-1">
+        {/* Block type */}
+        <button onClick={() => onToggleList("numbered")} className={btnClass()} title="번호 목록">
+          <ListOrdered size={16} />
+        </button>
+        <button onClick={() => onToggleList("bullet")} className={btnClass()} title="글머리 기호">
+          <List size={16} />
+        </button>
+        <div className="w-px h-5 bg-gray-200 mx-0.5" />
+        {/* Text format */}
+        <button onClick={() => onFormat("bold")} className={btnClass(activeFormats.bold)} title="굵게 (Ctrl+B)">
+          <Bold size={16} />
+        </button>
+        <button onClick={() => onFormat("italic")} className={btnClass(activeFormats.italic)} title="기울임 (Ctrl+I)">
+          <Italic size={16} />
+        </button>
+        <button onClick={() => onFormat("underline")} className={btnClass(activeFormats.underline)} title="밑줄 (Ctrl+U)">
+          <Underline size={16} />
+        </button>
+        <button onClick={() => onFormat("strikethrough")} className={btnClass(activeFormats.strikethrough)} title="취소선">
+          <Strikethrough size={16} />
+        </button>
+        <button onClick={() => onFormat("insertHTML", "<code style='background:#f3f4f6;padding:1px 4px;border-radius:3px;font-size:0.9em;color:#e11d48'>")} className={btnClass()} title="코드">
+          <Code size={16} />
+        </button>
+        <div className="w-px h-5 bg-gray-200 mx-0.5" />
+        {/* Link */}
+        <button onClick={onLink} className={btnClass()} title="링크 (Ctrl+K)">
+          <Link2 size={16} />
+        </button>
+        {/* Colors */}
+        <button onClick={() => setShowColors(showColors === "text" ? null : "text")} className={btnClass(showColors === "text")} title="글자 색">
+          <Palette size={16} />
+        </button>
+        <button onClick={() => setShowColors(showColors === "highlight" ? null : "highlight")} className={btnClass(showColors === "highlight")} title="형광펜">
+          <Highlighter size={16} />
+        </button>
+      </div>
+      {/* Color picker dropdown */}
+      {showColors && (
+        <div className="flex items-center gap-1 px-2 py-1.5 border-t border-gray-100">
+          {(showColors === "text" ? TEXT_COLORS : HIGHLIGHT_COLORS).map((c) => (
+            <button
+              key={c.color}
+              onClick={() => {
+                if (showColors === "text") {
+                  onFormat("foreColor", c.color === "inherit" ? "#000000" : c.color);
+                } else {
+                  onFormat("hiliteColor", c.color);
+                }
+                setShowColors(null);
+              }}
+              className="w-6 h-6 rounded-full border border-gray-200 hover:scale-110 transition-transform"
+              style={{ backgroundColor: c.color === "inherit" ? "#000" : c.color }}
+              title={c.name}
+            />
+          ))}
+          {showColors === "highlight" && (
+            <button
+              onClick={() => { onFormat("removeFormat"); setShowColors(null); }}
+              className="text-xs text-gray-400 hover:text-gray-600 ml-1"
+              title="제거"
+            >✕</button>
+          )}
+        </div>
+      )}
     </div>,
     document.body
   );
@@ -442,7 +495,7 @@ export function NotionBlockEditor({
 
   // Floating toolbar state
   const [toolbar, setToolbar] = useState<{ top: number; left: number; blockIdx: number } | null>(null);
-  const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false, underline: false });
+  const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false, underline: false, strikethrough: false });
 
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -625,6 +678,7 @@ export function NotionBlockEditor({
       bold: document.queryCommandState("bold"),
       italic: document.queryCommandState("italic"),
       underline: document.queryCommandState("underline"),
+      strikethrough: document.queryCommandState("strikethrough"),
     });
   }, [readOnly, blocks]);
 
@@ -633,16 +687,27 @@ export function NotionBlockEditor({
     return () => document.removeEventListener("selectionchange", checkSelection);
   }, [checkSelection]);
 
-  const handleFormat = useCallback((cmd: string) => {
-    document.execCommand(cmd, false);
+  const handleFormat = useCallback((cmd: string, value?: string) => {
+    document.execCommand(cmd, false, value);
     // Update active format state
     requestAnimationFrame(() => {
       setActiveFormats({
         bold: document.queryCommandState("bold"),
         italic: document.queryCommandState("italic"),
         underline: document.queryCommandState("underline"),
+        strikethrough: document.queryCommandState("strikethrough"),
       });
     });
+  }, []);
+
+  const handleLink = useCallback(() => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) return;
+    const existing = document.queryCommandValue("createLink");
+    const url = prompt("URL 입력", existing || "https://");
+    if (url) {
+      document.execCommand("createLink", false, url);
+    }
   }, []);
 
   const handleToggleList = useCallback((type: "bullet" | "numbered") => {
@@ -1076,6 +1141,7 @@ export function NotionBlockEditor({
       if (e.key === "b") { e.preventDefault(); document.execCommand("bold", false); return; }
       if (e.key === "i") { e.preventDefault(); document.execCommand("italic", false); return; }
       if (e.key === "u") { e.preventDefault(); document.execCommand("underline", false); return; }
+      if (e.key === "k") { e.preventDefault(); handleLink(); return; }
     }
 
     // Tab: indent / Shift+Tab: outdent
@@ -1190,6 +1256,44 @@ export function NotionBlockEditor({
         }
       });
       return;
+    }
+
+    // Space: auto-convert markdown shortcuts (- → bullet, 1. → numbered, #/##/### → heading)
+    if (e.key === " " && block.type === "text") {
+      const el = blockRefs.current.get(block.id);
+      const text = el?.textContent || "";
+      const cursorPos = getCursorPos(block.id);
+      const beforeCursor = text.slice(0, cursorPos);
+
+      let newType: BlockType | null = null;
+      let stripLen = 0;
+      if (beforeCursor === "-") { newType = "bullet"; stripLen = 1; }
+      else if (beforeCursor === "*") { newType = "bullet"; stripLen = 1; }
+      else if (/^\d+\.$/.test(beforeCursor)) { newType = "numbered"; stripLen = beforeCursor.length; }
+      else if (beforeCursor === "#") { newType = "h1"; stripLen = 1; }
+      else if (beforeCursor === "##") { newType = "h2"; stripLen = 2; }
+      else if (beforeCursor === "###") { newType = "h3"; stripLen = 3; }
+
+      if (newType) {
+        e.preventDefault();
+        pushUndo();
+        const remaining = text.slice(stripLen).trimStart();
+        setBlocks((prev) => prev.map((b) => b.id === block.id ? { ...b, type: newType!, content: remaining } : b));
+        requestAnimationFrame(() => {
+          const el2 = blockRefs.current.get(block.id);
+          if (el2) {
+            el2.textContent = remaining;
+            const range = document.createRange();
+            const sel = window.getSelection();
+            if (el2.childNodes.length > 0) range.setStartAfter(el2.lastChild!);
+            else range.setStart(el2, 0);
+            range.collapse(true);
+            sel?.removeAllRanges();
+            sel?.addRange(range);
+          }
+        });
+        return;
+      }
     }
 
     // Enter
@@ -1620,15 +1724,24 @@ export function NotionBlockEditor({
     clearSelection();
   }, [selectedIds, blocks, clearSelection]);
 
-  // Numbered list index
-  const getNumberedIndex = (idx: number): number => {
+  // Numbered list index — indent 0: 1,2,3  indent 1: a,b,c  indent 2: i,ii,iii
+  const getNumberedLabel = (idx: number): string => {
     let count = 1;
-    const indent = blocks[idx].indent;
+    const block = blocks[idx];
+    const indent = block.indent;
     for (let i = idx - 1; i >= 0; i--) {
       if (blocks[i].type === "numbered" && blocks[i].indent === indent) count++;
-      else break;
+      else if (blocks[i].indent < indent) break; // stop at parent
+      else if (blocks[i].type !== "numbered" && blocks[i].indent === indent) break;
     }
-    return count;
+    if (indent === 0) return String(count);
+    if (indent === 1) return String.fromCharCode(96 + count); // a,b,c
+    if (indent === 2) {
+      // roman numerals for indent 2
+      const roman = ["i","ii","iii","iv","v","vi","vii","viii","ix","x"];
+      return roman[count - 1] || String(count);
+    }
+    return String(count);
   };
 
   // ─── Block Drag & Drop ─────────────────────────────────────────
@@ -1885,8 +1998,8 @@ export function NotionBlockEditor({
             <span className="shrink-0 w-6 text-center text-gray-400 leading-relaxed py-[3px] select-none">•</span>
           )}
           {block.type === "numbered" && (
-            <span className="shrink-0 w-6 text-center text-gray-400 leading-relaxed py-[3px] text-[13px] select-none font-medium">
-              {getNumberedIndex(idx)}.
+            <span className="shrink-0 w-6 text-center text-gray-900 leading-relaxed py-[3px] text-[13px] select-none font-medium">
+              {getNumberedLabel(idx)}.
             </span>
           )}
 
@@ -2174,6 +2287,7 @@ export function NotionBlockEditor({
           pos={toolbar}
           onFormat={handleFormat}
           onToggleList={handleToggleList}
+          onLink={handleLink}
           activeFormats={activeFormats}
         />
       )}
@@ -2182,7 +2296,7 @@ export function NotionBlockEditor({
       {slashMenu && filteredSlashItems.length > 0 && createPortal(
         <div
           data-slash-menu
-          className="fixed bg-white border border-gray-200 rounded-xl shadow-xl z-[9999] w-[220px] py-1.5 max-h-[300px] overflow-y-auto"
+          className="fixed bg-white border border-gray-200 rounded-xl shadow-xl z-[9999] w-[240px] py-1 max-h-[400px] overflow-y-auto"
           style={{ top: slashMenu.pos.top, left: slashMenu.pos.left }}
           onMouseDown={(e) => e.preventDefault()}
         >
@@ -2192,31 +2306,32 @@ export function NotionBlockEditor({
             return (
               <React.Fragment key={item.type}>
                 {showGroupHeader && (
-                  <div className={cn("px-3 text-[11px] font-semibold text-gray-400 tracking-wide", i === 0 ? "pt-2 pb-1" : "pt-3 pb-1 border-t border-gray-100 mt-1")}>
+                  <div className={cn("px-2.5 text-[10px] font-semibold text-gray-400 tracking-wide uppercase", i === 0 ? "pt-1.5 pb-0.5" : "pt-2 pb-0.5 border-t border-gray-100 mt-0.5")}>
                     {item.group}
                   </div>
                 )}
                 <button
                   onClick={() => selectSlashItem(item)}
                   className={cn(
-                    "w-full px-3 py-1.5 flex items-center gap-3 text-left transition-colors",
+                    "w-full px-2.5 py-1 flex items-center gap-2.5 text-left transition-colors",
                     i === slashMenu.selectedIdx ? "bg-blue-50 text-blue-700" : "text-gray-700 hover:bg-gray-50"
                   )}
                 >
                   <span className={cn(
-                    "w-7 h-7 rounded-md flex items-center justify-center shrink-0 text-sm font-bold",
+                    "w-6 h-6 rounded flex items-center justify-center shrink-0",
                     i === slashMenu.selectedIdx ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-500"
                   )}>
                     {item.icon}
                   </span>
                   <div className="min-w-0">
-                    <div className="text-sm font-medium leading-tight">{ko ? item.labelKo : item.label}</div>
+                    <div className="text-[13px] font-medium leading-tight">{ko ? item.labelKo : item.label}</div>
+                    <div className="text-[10px] text-gray-400 leading-tight">{ko ? item.descKo : item.desc}</div>
                   </div>
                 </button>
               </React.Fragment>
             );
           })}
-          <div className="border-t border-gray-100 mt-1 px-3 py-2 flex items-center justify-between text-[11px] text-gray-400">
+          <div className="border-t border-gray-100 mt-0.5 px-2.5 py-1.5 flex items-center justify-between text-[10px] text-gray-400">
             <span>{ko ? "메뉴 닫기" : "Close menu"}</span>
             <span className="bg-gray-100 rounded px-1.5 py-0.5 font-mono">esc</span>
           </div>

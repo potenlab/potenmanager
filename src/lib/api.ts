@@ -302,6 +302,18 @@ export const api = {
       '/ai/task-assistant', { method: 'POST', body: JSON.stringify(data) }
     ),
 
+  // AI suggest tasks from content
+  aiSuggestTasks: (data: { content: string; title?: string; context?: string }) =>
+    request<{ tasks: Array<{ title: string; description: string; priority: string; estimatedMinutes: number; category: string }> }>(
+      '/ai/suggest-tasks', { method: 'POST', body: JSON.stringify(data) }
+    ),
+
+  // AI generate content
+  aiGenerateContent: (data: { taskTitle: string; contentType?: string; tone?: string; additionalInfo?: string; existingContent?: string }) =>
+    request<{ content: string; summary: string; wordCount: number }>(
+      '/ai/generate-content', { method: 'POST', body: JSON.stringify(data) }
+    ),
+
   // ── Demo ──
   setupDemo: (industry?: string) =>
     request<{ success: boolean; userId: string }>(`/demo/setup${industry ? `?industry=${industry}` : ''}`, { method: 'POST' }),
