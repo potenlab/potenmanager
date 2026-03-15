@@ -300,53 +300,6 @@ export function LeaderBoardDetailPage() {
         />
       </div>
       <UrlPreviewSection text={content} />
-
-      {/* AI Task Suggestion */}
-      <div className="mt-6 border-t border-gray-100 pt-4">
-        <button
-          onClick={handleAiSuggest}
-          disabled={aiLoading || (!title && !content)}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-500 to-indigo-500 text-white rounded-lg text-sm font-medium hover:from-violet-600 hover:to-indigo-600 disabled:opacity-50 transition-all shadow-sm"
-        >
-          {aiLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-          {ko ? "AI 업무 제안" : "AI Task Suggestions"}
-        </button>
-
-        {aiTasks.length > 0 && (
-          <div className="mt-3 space-y-2">
-            <p className="text-xs text-gray-500 font-medium">{ko ? "💡 이런 업무는 어때요?" : "💡 How about these tasks?"}</p>
-            {aiTasks.map((task, i) => (
-              <div key={i} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100 hover:border-indigo-200 transition-colors">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-900">{task.title}</span>
-                    <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded",
-                      task.priority === "high" ? "bg-red-50 text-red-600" :
-                      task.priority === "medium" ? "bg-amber-50 text-amber-600" : "bg-green-50 text-green-600"
-                    )}>
-                      {task.priority === "high" ? "높음" : task.priority === "medium" ? "보통" : "낮음"}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-0.5">{task.description}</p>
-                  <span className="text-[10px] text-gray-400 mt-1">⏱ {task.estimatedMinutes}분</span>
-                </div>
-                {aiCreated.has(i) ? (
-                  <span className="flex items-center gap-1 text-xs text-green-600 shrink-0">
-                    <CheckCircle size={14} /> {ko ? "생성됨" : "Created"}
-                  </span>
-                ) : (
-                  <button
-                    onClick={() => handleCreateTask(task, i)}
-                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-md shrink-0 transition-colors"
-                  >
-                    <Plus size={12} /> {ko ? "업무 생성" : "Create"}
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </DetailPageShell>
   );
 }
