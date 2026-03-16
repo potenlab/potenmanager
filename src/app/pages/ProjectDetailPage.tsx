@@ -427,6 +427,7 @@ export function ProjectDetailPage() {
     return existing;
   });
   const [localId, setLocalId] = useState<string | null>(null);
+  const currentId = isNew ? localId : projectId;
 
   // ── Realtime sync for project detail ──
   const rtChannel = org?.id && currentId ? `project-${currentId}-${org.id}` : null;
@@ -482,7 +483,6 @@ export function ProjectDetailPage() {
     }
   }, [isNew, localId]);
 
-  const currentId = isNew ? localId : projectId;
   const project = projects.find((p) => p.id === currentId) || null;
 
   const [notes, setNotes] = useState(project?.description || "");
