@@ -201,6 +201,25 @@ export function OrgSettingsPage() {
         </div>
       </div>
 
+      {/* Slug Warning Banner */}
+      {(!org.slug || org.slug === "org") && canEdit && (
+        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+          <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center shrink-0 mt-0.5">
+            <Building2 size={16} className="text-amber-600" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-amber-900 mb-1">
+              {ko ? "URL 슬러그를 설정해주세요" : "Please set your URL slug"}
+            </p>
+            <p className="text-xs text-amber-700">
+              {ko
+                ? "현재 기본값(org)이 사용 중입니다. 영문 슬러그를 설정하면 URL이 깔끔해지고, 다른 조직과 구분됩니다. 예: potenlab → /potenlab/dashboard"
+                : "Currently using default (org). Set an English slug for cleaner URLs and to distinguish from other orgs. e.g. potenlab → /potenlab/dashboard"}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Divider */}
       <div className="border-t border-gray-100 mb-6" />
 
@@ -222,6 +241,8 @@ export function OrgSettingsPage() {
             updateOrgField("slug", slug);
             try { localStorage.setItem("poten_org_slug", slug); } catch {}
             flashSaved();
+            // Redirect to new slug URL
+            setTimeout(() => navigate(`/${slug}/org-settings`, { replace: true }), 300);
           }}
           disabled={!canEdit}
         />

@@ -120,6 +120,9 @@ export function InviteProvider({ children }: { children: ReactNode }) {
           // Auto-generate slug if missing
           if (!result.org.slug && result.org.name) {
             result.org.slug = generateSlug(result.org.name);
+            // If slug is just "org" (e.g. Korean-only name), persist it to server
+            // so the org has a slug at all. User can update later in settings.
+            api.updateOrg(result.org.id, { slug: result.org.slug }).catch(() => {});
           }
           setOrg(result.org);
           try { localStorage.setItem("poten_org_slug", result.org.slug || "org"); } catch {}
