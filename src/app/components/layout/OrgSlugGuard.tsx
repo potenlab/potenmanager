@@ -23,7 +23,7 @@ export function OrgSlugGuard() {
 
     // Find org by slug
     const target = allOrgs.find(
-      (o) => (o.slug || generateSlug(o.orgName)) === orgSlug
+      (o) => (o.slug || generateSlug(o.orgName, o.orgId)) === orgSlug
     );
     if (target && target.orgId !== org.id) {
       switchingRef.current = true;
@@ -41,7 +41,7 @@ export function OrgSlugGuard() {
 
   // If slug doesn't match any known org, redirect to active org
   if (orgSlug !== activeSlug) {
-    const knownSlugs = allOrgs.map((o) => o.slug || generateSlug(o.orgName));
+    const knownSlugs = allOrgs.map((o) => o.slug || generateSlug(o.orgName, o.orgId));
     if (!knownSlugs.includes(orgSlug || "")) {
       return <Navigate to={`/${activeSlug}/dashboard`} replace />;
     }
