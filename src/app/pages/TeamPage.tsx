@@ -30,6 +30,7 @@ import { PermissionGate } from "../components/layout/PermissionGate";
 import { useTaskContext } from "../context/TaskContext";
 import { InviteMemberDialog } from "../components/team/InviteMemberDialog";
 import { useInvite } from "../context/InviteContext";
+import { useTeam } from "../context/TeamContext";
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useDrag, useDrop } from "react-dnd";
@@ -57,7 +58,9 @@ export function TeamPage() {
   const { members, currentUser } = usePermission();
   const { tasks, updateTask } = useTaskContext();
   const { org, isLoading: orgLoading, joinRequests, pendingCount, approveRequest, rejectRequest } = useInvite();
+  const { removeMember } = useTeam();
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [kickTarget, setKickTarget] = useState<User | null>(null);
   const [memberView, setMemberView] = useState<"list" | "grid">(() => {
     try { return (localStorage.getItem('poten_team_member_view') as "list" | "grid") || "list"; } catch { return "list"; }
   });
@@ -249,7 +252,7 @@ export function TeamPage() {
                       <tr
                         key={member.id}
                         onClick={() => navigate(p(`/team/${member.id}`))}
-                        className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors"
+                        className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors group"
                       >
                         <td className="px-4 py-3 flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 shrink-0">
@@ -276,7 +279,18 @@ export function TeamPage() {
                         <td className="px-4 py-3 text-center text-sm text-blue-600 font-medium">{stats.inProgress}</td>
                         <td className="px-4 py-3 text-center text-sm text-gray-500 font-medium">{stats.pending}</td>
                         <td className="px-4 py-3 text-right">
-                          <ArrowRight size={14} className="text-gray-400" />
+                          <div className="flex items-center justify-end gap-2">
+                            {member.id !== currentUser.id && member.role !== "owner" && (currentUser.role === "owner" || currentUser.role === "admin") && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setKickTarget(member); }}
+                                className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                title={ko ? "내보내기" : "Remove"}
+                              >
+                                <X size={14} />
+                              </button>
+                            )}
+                            <ArrowRight size={14} className="text-gray-400" />
+                          </div>
                         </td>
                       </tr>
                     );
@@ -306,6 +320,11 @@ export function TeamPage() {
                   stats={memberStats[member.id]}
                   onViewTasks={() => navigate(p(`/team/${member.id}`))}
                   currentUser={currentUser}
+                  onKick={
+                    member.id !== currentUser.id && member.role !== "owner" && (currentUser.role === "owner" || currentUser.role === "admin")
+                      ? () => setKickTarget(member)
+                      : undefined
+                  }
                 />
               ))}
 
@@ -353,6 +372,47 @@ export function TeamPage() {
           ko={ko}
           navigate={navigate}
         />
+      )}
+
+      {/* ── Kick Confirmation Modal ── */}
+      {kickTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setKickTarget(null)}>
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <AlertTriangle size={20} className="text-red-500" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-gray-900">
+                  {ko ? "멤버 내보내기" : "Remove Member"}
+                </h3>
+                <p className="text-sm text-gray-500">
+                  {ko ? `${kickTarget.name}님을 팀에서 내보내시겠습니까?` : `Remove ${kickTarget.name} from the team?`}
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-gray-400 mb-5">
+              {ko ? "내보내면 해당 멤버의 모든 업무 배정이 해제됩니다." : "This will unassign all tasks from this member."}
+            </p>
+            <div className="flex items-center gap-2 justify-end">
+              <button
+                onClick={() => setKickTarget(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+              >
+                {ko ? "취소" : "Cancel"}
+              </button>
+              <button
+                onClick={async () => {
+                  await removeMember(kickTarget.id);
+                  setKickTarget(null);
+                }}
+                className="px-4 py-2 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 rounded-xl transition-colors"
+              >
+                {ko ? "내보내기" : "Remove"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <InviteMemberDialog
@@ -766,11 +826,13 @@ function TeamMemberCard({
   stats,
   onViewTasks,
   currentUser,
+  onKick,
 }: {
   member: User;
   stats: { completed: number; inProgress: number; pending: number; total: number };
   onViewTasks: () => void;
   currentUser: User;
+  onKick?: () => void;
 }) {
   const { language } = useLanguage();
   const [memberColor, setMemberColorState] = useState<string | null>(() => getUserColor(member.id));
@@ -841,6 +903,16 @@ function TeamMemberCard({
       onClick={onViewTasks}
       className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all p-6 flex flex-col items-center relative group cursor-pointer hover:border-blue-200"
     >
+      {/* Kick button */}
+      {onKick && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onKick(); }}
+          className="absolute top-3 right-3 p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+          title={language === "ko" ? "내보내기" : "Remove"}
+        >
+          <X size={16} />
+        </button>
+      )}
       {/* Avatar with color ring */}
       <div className="relative mb-4">
         <div
