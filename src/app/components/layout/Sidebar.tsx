@@ -398,7 +398,7 @@ export function Sidebar() {
                         className={() =>
                           cn(
                             "flex-1 flex items-center gap-2 px-2 py-1 rounded-md text-[14px] transition-all",
-                            location.pathname === "/projects" && location.search.includes(`filter=${pg.id}`)
+                            location.pathname.includes("/projects") && location.search.includes(`filter=${pg.id}`)
                               ? "bg-gray-200/70 text-gray-900 font-semibold"
                               : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
                           )
@@ -532,7 +532,7 @@ export function Sidebar() {
         <nav className="space-y-0.5">
           {/* Dashboard */}
           <NavLink
-            to="/dashboard"
+            to={p("/dashboard")}
             onClick={closeSidebar}
             className={({ isActive }) =>
               cn(
@@ -550,7 +550,7 @@ export function Sidebar() {
           {/* Leader Board — admin only, right below dashboard */}
           {can("team.editRole") && (
             <NavLink
-              to="/leader-board"
+              to={p("/leader-board")}
               onClick={closeSidebar}
               className={({ isActive }) =>
                 cn(

@@ -231,7 +231,7 @@ export function TeamPage() {
         <>
           {memberView === "list" ? (
             /* ── List View ── */
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-100 text-xs text-gray-500 font-medium">
@@ -283,7 +283,7 @@ export function TeamPage() {
                             {member.id !== currentUser.id && member.role !== "owner" && (currentUser.role === "owner" || currentUser.role === "admin") && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); setKickTarget(member); }}
-                                className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors md:opacity-0 md:group-hover:opacity-100"
                                 title={ko ? "내보내기" : "Remove"}
                               >
                                 <X size={14} />
@@ -377,7 +377,7 @@ export function TeamPage() {
       {/* ── Kick Confirmation Modal ── */}
       {kickTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setKickTarget(null)}>
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-[calc(100vw-32px)] max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
                 <AlertTriangle size={20} className="text-red-500" />
@@ -907,7 +907,7 @@ function TeamMemberCard({
       {onKick && (
         <button
           onClick={(e) => { e.stopPropagation(); onKick(); }}
-          className="absolute top-3 right-3 p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+          className="absolute top-3 right-3 p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all md:opacity-0 md:group-hover:opacity-100"
           title={language === "ko" ? "내보내기" : "Remove"}
         >
           <X size={16} />
