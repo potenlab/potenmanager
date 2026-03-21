@@ -1842,6 +1842,15 @@ app.post("/make-server-f580d5ca/library/og", async (c) => {
     clearTimeout(timeout);
     const html = await res.text();
 
+    // Decode HTML entities (&#xNNNN; &#NNN; &amp; &lt; etc.)
+    const decodeHtmlEntities = (s: string): string => {
+      return s
+        .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+        .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
+        .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&nbsp;/g, ' ');
+    };
+
     const getMetaContent = (property: string): string | undefined => {
       const regex = new RegExp(
         `<meta[^>]*(?:property|name)=["']${property}["'][^>]*content=["']([^"']*)["']` +
@@ -1849,12 +1858,14 @@ app.post("/make-server-f580d5ca/library/og", async (c) => {
         'i'
       );
       const match = html.match(regex);
-      return match?.[1] || match?.[2] || undefined;
+      const raw = match?.[1] || match?.[2] || undefined;
+      return raw ? decodeHtmlEntities(raw) : undefined;
     };
 
     const getTitleTag = (): string | undefined => {
       const m = html.match(/<title[^>]*>([^<]*)<\/title>/i);
-      return m?.[1]?.trim() || undefined;
+      const raw = m?.[1]?.trim() || undefined;
+      return raw ? decodeHtmlEntities(raw) : undefined;
     };
 
     let ogTitle = getMetaContent('og:title') || getMetaContent('twitter:title');

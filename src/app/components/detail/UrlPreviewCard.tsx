@@ -79,36 +79,31 @@ export function UrlPreviewCard({ url, data, onRemove }: { url: string; data: OgD
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="block rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm hover:shadow-md hover:border-gray-300 transition-all group"
+      className="block rounded-lg border border-gray-200 overflow-hidden bg-white hover:bg-gray-50 transition-colors group"
     >
-      <div className="flex h-full">
-        {/* Text content */}
-        <div className="flex-1 min-w-0 p-3.5 flex flex-col justify-between">
-          {data.ogSiteName && (
-            <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider mb-0.5">
-              {data.ogSiteName}
-            </p>
-          )}
+      <div className="flex h-[108px]">
+        {/* Text content — Notion style */}
+        <div className="flex-1 min-w-0 p-3 flex flex-col overflow-hidden">
           {data.ogTitle && (
-            <p className="text-[13px] font-semibold text-gray-900 leading-snug line-clamp-2 group-hover:text-blue-600 transition-colors">
+            <p className="text-[13px] font-medium text-gray-900 leading-snug line-clamp-2">
               {data.ogTitle}
             </p>
           )}
           {data.ogDescription && (
-            <p className="text-[11px] text-gray-500 line-clamp-2 mt-1 leading-relaxed">{data.ogDescription}</p>
+            <p className="text-[12px] text-gray-500 line-clamp-2 mt-1 leading-relaxed">{data.ogDescription}</p>
           )}
-          <div className="flex items-center gap-1.5 mt-2 text-[11px] text-gray-400">
+          <div className="flex items-center gap-1.5 mt-auto text-[12px] text-gray-400">
             {data.favicon ? (
-              <img src={data.favicon} alt="" className="w-3.5 h-3.5 rounded-sm" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              <img src={data.favicon} alt="" className="w-4 h-4 rounded-sm shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             ) : (
-              <ExternalLink size={11} />
+              <ExternalLink size={12} />
             )}
-            <span className="truncate">{domain}</span>
+            <span className="truncate">{url}</span>
           </div>
         </div>
-        {/* OG image */}
+        {/* OG image — right side like Notion */}
         {data.ogImage && (
-          <div className="w-[140px] shrink-0 bg-gray-100">
+          <div className="w-[160px] shrink-0 border-l border-gray-200">
             <img src={data.ogImage} alt="" className="w-full h-full object-cover" />
           </div>
         )}

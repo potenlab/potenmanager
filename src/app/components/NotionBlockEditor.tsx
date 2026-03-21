@@ -302,33 +302,31 @@ function BookmarkBlock({ block, readOnly, onDelete, onSelect, isSelected, onDrag
           </div>
         ) : (
           <>
-            <div className="flex-1 min-w-0 px-3 py-2.5 flex flex-col justify-between gap-0 overflow-hidden">
-              <div className="min-w-0">
-                <p className="text-[13px] font-medium text-gray-900 truncate leading-snug">
-                  {og?.ogTitle || block.content}
-                </p>
-                {og?.ogDescription && (
-                  <p className="text-xs text-gray-500/80 line-clamp-1 leading-relaxed mt-0.5">{og.ogDescription}</p>
-                )}
-              </div>
+            <div className="flex-1 min-w-0 p-3 flex flex-col overflow-hidden">
+              <p className="text-[13px] font-medium text-gray-900 line-clamp-2 leading-snug">
+                {og?.ogTitle || block.content}
+              </p>
+              {og?.ogDescription && (
+                <p className="text-[12px] text-gray-500 line-clamp-2 mt-1 leading-relaxed">{og.ogDescription}</p>
+              )}
               <a
                 href={block.content}
                 target="_blank"
                 rel="noopener noreferrer"
                 draggable={false}
                 onClick={(e) => e.stopPropagation()}
-                className="flex items-center gap-1.5 mt-1 text-xs text-gray-400 hover:text-blue-500 transition-colors w-fit"
+                className="flex items-center gap-1.5 mt-auto text-[12px] text-gray-400 hover:text-blue-500 transition-colors w-fit"
               >
                 {og?.favicon ? (
-                  <img src={og.favicon} alt="" className="w-3.5 h-3.5 rounded-sm shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  <img src={og.favicon} alt="" className="w-4 h-4 rounded-sm shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                 ) : (
                   <ExternalLink size={12} className="shrink-0" />
                 )}
-                <span className="truncate max-w-[260px]">{domain}</span>
+                <span className="truncate max-w-[300px]">{block.content}</span>
               </a>
             </div>
             {og?.ogImage && (
-              <div className="w-[120px] shrink-0 border-l border-gray-100 self-stretch">
+              <div className="w-[160px] shrink-0 border-l border-gray-200 self-stretch">
                 <img src={og.ogImage} alt="" className="w-full h-full object-cover" draggable={false} onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = "none"; }} />
               </div>
             )}
