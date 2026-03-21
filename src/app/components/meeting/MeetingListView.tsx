@@ -48,22 +48,22 @@ export function MeetingListView({ meetings, onStatusChange }: Props) {
           <thead>
             <tr className="bg-gray-50/50 border-b border-gray-100">
               <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider w-12 text-center">#</th>
-              <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[250px]">
+              <th className="px-4 sm:px-6 py-3 sm:py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[140px] sm:min-w-[250px]">
                 {ko ? '회의명' : 'Meeting'}
               </th>
-              <th className="px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <th className="px-3 sm:px-4 py-3 sm:py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 {ko ? '상태' : 'Status'}
               </th>
-              <th className="px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <th className="hidden sm:table-cell px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 {ko ? '유형' : 'Type'}
               </th>
-              <th className="px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <th className="hidden sm:table-cell px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 {ko ? '일시' : 'Date & Time'}
               </th>
-              <th className="px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <th className="hidden md:table-cell px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 {ko ? '참석자' : 'Attendees'}
               </th>
-              <th className="px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <th className="hidden md:table-cell px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 {ko ? '액션' : 'Actions'}
               </th>
               <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider w-12"></th>
@@ -93,8 +93,8 @@ export function MeetingListView({ meetings, onStatusChange }: Props) {
                     <td className="px-6 py-4 text-sm text-gray-400 font-mono text-center">
                       {String(index + 1).padStart(2, '0')}
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
+                    <td className="px-4 sm:px-6 py-3 sm:py-4">
+                      <div className="flex items-center gap-2 sm:gap-3">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -136,7 +136,7 @@ export function MeetingListView({ meetings, onStatusChange }: Props) {
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="hidden sm:table-cell px-4 py-4">
                       <span className={cn(
                         "text-[11px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide border inline-flex items-center gap-0.5",
                         tc?.bg, tc?.text, tc?.border
@@ -144,7 +144,7 @@ export function MeetingListView({ meetings, onStatusChange }: Props) {
                         {tc?.icon} {ko ? tc?.labelKo : tc?.label}
                       </span>
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="hidden sm:table-cell px-4 py-4">
                       <div className="flex flex-col gap-0.5">
                         <span className="text-xs text-gray-600 font-medium flex items-center gap-1">
                           <Calendar size={11} />
@@ -156,7 +156,7 @@ export function MeetingListView({ meetings, onStatusChange }: Props) {
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="hidden md:table-cell px-4 py-4">
                       <div className="flex -space-x-1.5">
                         {(meeting.attendeeIds || []).slice(0, 3).map(id => {
                           const avatar = getMemberAvatar(id);
@@ -175,7 +175,7 @@ export function MeetingListView({ meetings, onStatusChange }: Props) {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="hidden md:table-cell px-4 py-4">
                       {meeting.actionItems.length > 0 ? (
                         <span className="text-xs text-gray-500 font-medium">
                           {meeting.actionItems.filter(a => a.done).length}/{meeting.actionItems.length}

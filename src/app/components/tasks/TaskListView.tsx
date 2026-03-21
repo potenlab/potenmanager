@@ -76,22 +76,22 @@ export function TaskListView({ tasks, onStatusChange }: TaskListViewProps) {
               <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider w-12 text-center">
                 #
               </th>
-              <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[300px]">
+              <th className="px-4 sm:px-6 py-3 sm:py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[160px] sm:min-w-[300px]">
                 {language === 'ko' ? "업무명" : "Task Name"}
               </th>
-              <th className="px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <th className="px-3 sm:px-4 py-3 sm:py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 {language === 'ko' ? "상태" : "Status"}
               </th>
-              <th className="px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <th className="hidden sm:table-cell px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 {language === 'ko' ? "우선순위" : "Priority"}
               </th>
-              <th className="px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <th className="hidden md:table-cell px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 {language === 'ko' ? "카테고리" : "Category"}
               </th>
-              <th className="px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <th className="hidden md:table-cell px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 {language === 'ko' ? "참여자" : "Participant"}
               </th>
-              <th className="px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <th className="hidden sm:table-cell px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 {language === 'ko' ? "마감일" : "Due Date"}
               </th>
               <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider w-12"></th>
@@ -119,8 +119,8 @@ export function TaskListView({ tasks, onStatusChange }: TaskListViewProps) {
                     <td className="px-6 py-4 text-sm text-gray-400 font-mono text-center">
                       {String(index + 1).padStart(2, '0')}
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
+                    <td className="px-4 sm:px-6 py-3 sm:py-4">
+                      <div className="flex items-center gap-2 sm:gap-3">
                         <div className="relative shrink-0" ref={openStatusId === task.id ? statusRef : undefined}>
                           <button
                             onClick={(e) => {
@@ -183,7 +183,7 @@ export function TaskListView({ tasks, onStatusChange }: TaskListViewProps) {
                         {task.status}
                       </span>
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="hidden sm:table-cell px-4 py-4">
                       <span className={cn(
                         "text-[11px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide border",
                         getPriorityColor(task.priority)
@@ -191,7 +191,7 @@ export function TaskListView({ tasks, onStatusChange }: TaskListViewProps) {
                         {task.priority || 'low'}
                       </span>
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="hidden md:table-cell px-4 py-4">
                       {task.category && TASK_CATEGORY_CONFIG[task.category] ? (() => {
                         const catCfg = TASK_CATEGORY_CONFIG[task.category];
                         return (
@@ -207,13 +207,13 @@ export function TaskListView({ tasks, onStatusChange }: TaskListViewProps) {
                         <span className="text-xs text-gray-300">-</span>
                       )}
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="hidden md:table-cell px-4 py-4">
                       {assignee ? (
                         <div className="flex items-center gap-2">
-                          <img 
-                            src={assignee.avatar} 
-                            alt={assignee.name} 
-                            className="w-6 h-6 rounded-full object-cover border border-gray-100" 
+                          <img
+                            src={assignee.avatar}
+                            alt={assignee.name}
+                            className="w-6 h-6 rounded-full object-cover border border-gray-100"
                           />
                           <span className="text-xs text-gray-600 font-medium">{assignee.name}</span>
                         </div>
@@ -224,7 +224,7 @@ export function TaskListView({ tasks, onStatusChange }: TaskListViewProps) {
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="hidden sm:table-cell px-4 py-4">
                       {task.dueDate ? (
                         <div className={cn(
                           "flex items-center gap-1.5 text-xs font-medium",

@@ -772,7 +772,7 @@ function TaskQuickViewModal({
       <div className="absolute inset-0" />
       <div
         ref={modalRef}
-        className="fixed w-[340px] bg-white rounded-xl shadow-2xl border border-gray-200 z-[9999] animate-in fade-in zoom-in-95 duration-150"
+        className="fixed w-[calc(100vw-2rem)] sm:w-[340px] max-w-[340px] bg-white rounded-xl shadow-2xl border border-gray-200 z-[9999] animate-in fade-in zoom-in-95 duration-150"
         style={{ top: pos.top, left: pos.left }}
       >
         <div className="flex items-start justify-between p-4 pb-2">
@@ -1031,7 +1031,7 @@ function QuickAddPopover({
     <div className="fixed inset-0 z-[9998]">
       <div
         ref={popoverRef}
-        className="fixed w-[280px] bg-white rounded-xl shadow-2xl border border-gray-200 z-[9999] animate-in fade-in zoom-in-95 duration-150 overflow-hidden"
+        className="fixed w-[calc(100vw-2rem)] sm:w-[280px] max-w-[280px] bg-white rounded-xl shadow-2xl border border-gray-200 z-[9999] animate-in fade-in zoom-in-95 duration-150 overflow-hidden"
         style={{ top: pos.top, left: pos.left }}
       >
         <div className="px-3 pt-3 pb-1.5 flex items-center gap-2">
@@ -2292,7 +2292,7 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
       {ctxMenu && createPortal(
         <div
           ref={ctxMenuRef}
-          className="fixed z-[10001] bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[160px] animate-in fade-in zoom-in-95 duration-100"
+          className="fixed z-[10001] bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[140px] sm:min-w-[160px] max-w-[calc(100vw-1rem)] animate-in fade-in zoom-in-95 duration-100"
           style={{ left: ctxMenu.x, top: ctxMenu.y }}
         >
           <button
@@ -2346,7 +2346,7 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
       {mtgCtxMenu && createPortal(
         <div
           ref={mtgCtxMenuRef}
-          className="fixed z-[10001] bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[160px] animate-in fade-in zoom-in-95 duration-100"
+          className="fixed z-[10001] bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[140px] sm:min-w-[160px] max-w-[calc(100vw-1rem)] animate-in fade-in zoom-in-95 duration-100"
           style={{ left: mtgCtxMenu.x, top: mtgCtxMenu.y }}
         >
           <button
@@ -2398,7 +2398,7 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
       {newCtxMenu && createPortal(
         <div
           ref={newCtxMenuRef}
-          className="fixed z-[10001] bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[180px] animate-in fade-in zoom-in-95 duration-100"
+          className="fixed z-[10001] bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[160px] sm:min-w-[180px] max-w-[calc(100vw-1rem)] animate-in fade-in zoom-in-95 duration-100"
           style={{ left: newCtxMenu.x, top: newCtxMenu.y }}
         >
           <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
