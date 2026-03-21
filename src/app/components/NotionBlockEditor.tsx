@@ -483,6 +483,7 @@ export function NotionBlockEditor({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const lastClickedIdx = useRef<number | null>(null);
   const dragStartIdx = useRef<number | null>(null);
+  const mouseDownBlockIdx = useRef<number | null>(null); // track which block mousedown started in (even contentEditable)
   const isDragging = useRef(false);
   const blockRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const pendingFocusIdx = useRef<number | null>(null);
@@ -1558,6 +1559,7 @@ export function NotionBlockEditor({
       window.getSelection()?.removeAllRanges();
     } else if (!e.shiftKey) {
       lastClickedIdx.current = idx;
+      mouseDownBlockIdx.current = idx; // Always track origin block for cross-block drag detection
       if (isNonTextBlock) {
         // Non-text blocks: select immediately on mousedown (like Notion)
         const blockId = blocksRef.current[idx]?.id;
@@ -1579,10 +1581,18 @@ export function NotionBlockEditor({
   const handleBlockMouseEnter = useCallback((idx: number) => {
     if (readOnly) return;
     setHoveredIdx(idx);
-    if (dragStartIdx.current !== null && dragStartIdx.current !== idx) {
+    // If drag started in a contentEditable block (dragStartIdx is null but mouseDownBlockIdx is set),
+    // and mouse moved to a different block → switch to block selection (like Notion)
+    const originIdx = dragStartIdx.current ?? mouseDownBlockIdx.current;
+    if (originIdx !== null && originIdx !== idx) {
+      // Promote to block selection
+      if (dragStartIdx.current === null) dragStartIdx.current = originIdx;
       isDragging.current = true;
       selectRange(dragStartIdx.current, idx);
       window.getSelection()?.removeAllRanges();
+      // Blur any focused contentEditable to prevent text cursor remaining
+      const active = document.activeElement as HTMLElement;
+      if (active?.getAttribute("contenteditable") === "true") active.blur();
     }
   }, [readOnly, selectRange]);
 
@@ -1590,6 +1600,7 @@ export function NotionBlockEditor({
     const handleMouseUp = () => {
       if (isDragging.current) isDragging.current = false;
       dragStartIdx.current = null;
+      mouseDownBlockIdx.current = null;
       // Clear pre-set drag ref if no actual HTML5 drag happened (just a click)
       if (dragBlockIdxRef.current !== null && dragBlockIdx === null) {
         dragBlockIdxRef.current = null;
@@ -1697,20 +1708,25 @@ export function NotionBlockEditor({
     const currentIdx = findNearestBlockIdx(e.clientY);
     if (currentIdx < 0) return;
 
-    if (dragStartIdx.current === null) {
+    const originIdx = dragStartIdx.current ?? mouseDownBlockIdx.current;
+    if (originIdx === null) {
       // Mouse entered from outside with button held → start selection
       dragStartIdx.current = currentIdx;
+      mouseDownBlockIdx.current = currentIdx;
       lastClickedIdx.current = currentIdx;
       setSelectedIds(new Set([blocksRef.current[currentIdx]?.id].filter(Boolean)));
       window.getSelection()?.removeAllRanges();
       return;
     }
 
-    // Extend selection
-    if (currentIdx !== dragStartIdx.current) {
+    // Extend selection — promote contentEditable drag to block selection if crossing blocks
+    if (currentIdx !== originIdx) {
+      if (dragStartIdx.current === null) dragStartIdx.current = originIdx;
       isDragging.current = true;
       selectRange(dragStartIdx.current, currentIdx);
       window.getSelection()?.removeAllRanges();
+      const active = document.activeElement as HTMLElement;
+      if (active?.getAttribute("contenteditable") === "true") active.blur();
     }
   }, [readOnly, dragBlockIdx, findNearestBlockIdx, selectRange]);
 
