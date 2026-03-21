@@ -571,7 +571,7 @@ function MgmtColumn({
     <div
       ref={colRef}
       className={cn(
-        "w-[300px] shrink-0 flex flex-col rounded-2xl border p-4 transition-all duration-200 h-full",
+        "w-[260px] sm:w-[300px] shrink-0 flex flex-col rounded-2xl border p-3 sm:p-4 transition-all duration-200 h-full",
         colDragging ? "opacity-40 ring-2 ring-blue-200" : "bg-gray-50/50 border-gray-100"
       )}
     >
@@ -1315,7 +1315,7 @@ export function ManagementPage() {
 
             {/* Add Column */}
             {addingColumn ? (
-              <div className="min-w-[280px] shrink-0 bg-gray-50 rounded-2xl border border-gray-200 p-4 h-fit">
+              <div className="min-w-[240px] sm:min-w-[280px] shrink-0 bg-gray-50 rounded-2xl border border-gray-200 p-3 sm:p-4 h-fit">
                 <input
                   ref={newColRef}
                   value={newColName}
@@ -1340,7 +1340,7 @@ export function ManagementPage() {
             ) : (
               <button
                 onClick={() => setAddingColumn(true)}
-                className="min-w-[280px] shrink-0 py-8 rounded-2xl border-2 border-dashed border-gray-200 hover:border-blue-300 text-gray-400 hover:text-blue-500 text-sm font-medium transition-all flex items-center justify-center gap-2 h-fit"
+                className="min-w-[240px] sm:min-w-[280px] shrink-0 py-8 rounded-2xl border-2 border-dashed border-gray-200 hover:border-blue-300 text-gray-400 hover:text-blue-500 text-sm font-medium transition-all flex items-center justify-center gap-2 h-fit"
               >
                 <Plus size={16} />
                 {ko ? "칼럼 추가" : "Add Column"}

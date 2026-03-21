@@ -118,7 +118,7 @@ export function ShareButton({ type, itemId, createdBy }: ShareButtonProps) {
       {open && createPortal(
         <div
           ref={popRef}
-          className="fixed z-[9999] w-[320px] bg-white rounded-2xl border border-gray-200 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150"
+          className="fixed z-[9999] w-[calc(100vw-2rem)] sm:w-[320px] max-w-[320px] bg-white rounded-2xl border border-gray-200 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150"
           style={{ top: pos.top, left: pos.left }}
           onClick={(e) => e.stopPropagation()}
         >

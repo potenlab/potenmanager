@@ -51,7 +51,7 @@ export function InlineDropdown<T extends string>({
       {open && pos && createPortal(
         <div
           ref={popupRef}
-          className="fixed bg-white border border-gray-200 rounded-xl shadow-lg z-[9999] min-w-[160px] py-1"
+          className="fixed bg-white border border-gray-200 rounded-xl shadow-lg z-[9999] min-w-[140px] sm:min-w-[160px] max-w-[calc(100vw-1rem)] py-1"
           style={{ top: pos.top, left: pos.left }}
         >
           {options.map((opt) => (

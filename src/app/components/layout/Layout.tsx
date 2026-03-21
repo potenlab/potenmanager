@@ -336,7 +336,7 @@ export function Layout() {
             </div>
           </header>
           )}
-          <div className="animate-fade-in pb-40">
+          <div className="animate-fade-in pb-20 md:pb-8">
             <Outlet />
           </div>
         </main>

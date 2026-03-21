@@ -98,7 +98,7 @@ export function EmojiPicker({ value, onChange, size = "lg" }: EmojiPickerProps) 
       {open && pos && createPortal(
         <div
           ref={popupRef}
-          className="fixed bg-white border border-gray-200 rounded-2xl shadow-2xl z-[9999] w-[340px] overflow-hidden"
+          className="fixed bg-white border border-gray-200 rounded-2xl shadow-2xl z-[9999] w-[calc(100vw-2rem)] sm:w-[340px] max-w-[340px] overflow-hidden"
           style={{ top: pos.top, left: pos.left }}
         >
           {/* Header */}
