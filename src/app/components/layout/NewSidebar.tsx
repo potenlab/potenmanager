@@ -401,7 +401,7 @@ export function NewSidebar() {
           {ko ? "설정" : "Settings"}
         </NavLink>
         <button
-          onClick={signOut}
+          onClick={async () => { await signOut(); navigate("/login"); }}
           className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-all"
         >
           <LogOut size={16} />
