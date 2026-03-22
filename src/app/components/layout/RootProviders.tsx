@@ -14,6 +14,7 @@ import { LibraryProvider } from "../../context/LibraryContext";
 import { TrashProvider } from "../../context/TrashContext";
 import { PresenceProvider } from "../../context/PresenceContext";
 import { ChatProvider } from "../../context/ChatContext";
+import { WorkspaceProvider } from "../../context/WorkspaceContext";
 
 /**
  * RootProviders - Centralized context providers for the application.
@@ -25,6 +26,7 @@ export function RootProviders() {
     <AuthProvider>
       <LanguageProvider>
         <SidebarProvider>
+          <WorkspaceProvider>
           <TeamProvider>
             <TaskProvider>
               <GoalProvider>
@@ -50,6 +52,7 @@ export function RootProviders() {
               </GoalProvider>
             </TaskProvider>
           </TeamProvider>
+        </WorkspaceProvider>
         </SidebarProvider>
       </LanguageProvider>
     </AuthProvider>

@@ -1,5 +1,5 @@
 import { Outlet, useNavigate, useLocation } from "react-router";
-import { Sidebar } from "./Sidebar";
+import { NewSidebar } from "./NewSidebar";
 import { Bell, ChevronDown, ChevronLeft, ChevronRight, Flag, Plus, Settings, X, Zap, PanelLeft } from "lucide-react";
 import { BottomNav } from "./BottomNav";
 import { useLanguage } from "../../context/LanguageContext";
@@ -183,7 +183,7 @@ export function Layout() {
       {!isMobile && (
         <div className="fixed top-0 left-0 right-0 z-[60] flex items-center bg-[#F8F9FA] border-b border-gray-200 min-h-[38px]">
           {/* App logo + sidebar toggle — fixed width matching default sidebar */}
-          <div className="flex items-center gap-1 px-2 shrink-0 border-r border-gray-200" style={{ width: 300 }}>
+          <div className="flex items-center gap-1 px-2 shrink-0 border-r border-gray-200" style={{ width: 260 }}>
             <div className="w-6 h-6 bg-blue-600 rounded flex items-center justify-center text-white shrink-0">
               <Zap size={13} fill="currentColor" />
             </div>
@@ -261,12 +261,12 @@ export function Layout() {
 
       {/* ── Below top bar: sidebar + content side by side ── */}
       <div className="flex flex-1" style={!isMobile ? { paddingTop: TOP_BAR_H } : undefined}>
-        <Sidebar />
+        <NewSidebar />
         <div
           className={cn(
             "flex-1 w-full min-h-screen flex flex-col transition-[margin-left] duration-75 ease-linear"
           )}
-          style={isMobile ? undefined : { marginLeft: sidebarWidth }}
+          style={isMobile ? undefined : { marginLeft: 260 }}
         >
         <main ref={mainRef} className="flex-1 p-4 md:p-8 overflow-y-auto overflow-x-hidden bg-white shadow-xl md:rounded-l-[32px] border-l border-gray-100 min-h-screen min-w-0">
           {(() => {

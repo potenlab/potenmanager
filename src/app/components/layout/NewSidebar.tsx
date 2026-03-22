@@ -16,7 +16,7 @@ import {
 import { cn } from "../../../lib/utils";
 import { useWorkspace } from "../../context/WorkspaceContext";
 import { useLanguage } from "../../context/LanguageContext";
-import { useAuth } from "../../hooks/useAuth";
+import { useAuth } from "../../context/AuthContext";
 import { useSidebar } from "../../context/SidebarContext";
 
 interface NavItem {

@@ -106,7 +106,14 @@ export const router = createBrowserRouter([
         path: "",
         Component: AuthGuard,
         children: [
-          // ── Org-scoped routes: /:orgSlug/... ──────────
+          // ── Direct routes (no org slug needed — personal + org) ──
+          {
+            path: "",
+            Component: Layout,
+            errorElement: <ErrorBoundary />,
+            children: APP_PAGES,
+          },
+          // ── Legacy org-scoped routes: /:orgSlug/... (redirect to direct) ──
           {
             path: ":orgSlug",
             Component: OrgSlugGuard,
@@ -118,16 +125,6 @@ export const router = createBrowserRouter([
                 children: APP_PAGES,
               },
             ],
-          },
-          // ── Root redirect: / → /:orgSlug/dashboard ────
-          { index: true, Component: OrgRootRedirect },
-          // ── Legacy fallback: /dashboard → /:orgSlug/dashboard
-          // This catches old URLs without org slug and redirects
-          {
-            path: "",
-            Component: Layout,
-            errorElement: <ErrorBoundary />,
-            children: APP_PAGES,
           },
         ],
       },
