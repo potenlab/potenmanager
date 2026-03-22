@@ -36,6 +36,9 @@ function getActiveOrgId(): string {
 }
 
 async function getUid(): Promise<string> {
+  // Try session first (faster), then getUser
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.user?.id) return session.user.id;
   const { data } = await supabase.auth.getUser();
   return data.user?.id || '';
 }
@@ -76,6 +79,7 @@ export const api = {
   getTasks: async () => {
     const orgId = getActiveOrgId();
     const uid = await getUid();
+    if (!uid) return []; // Not logged in yet
     let query = supabase.from('pm_tasks').select('*');
     if (orgId) {
       query = query.eq('org_id', orgId);
@@ -305,6 +309,7 @@ export const api = {
   getProjects: async () => {
     const orgId = getActiveOrgId();
     const uid = await getUid();
+    if (!uid) return [];
     let query = supabase.from('pm_projects').select('*');
     if (orgId) query = query.eq('org_id', orgId);
     else query = query.eq('owner_id', uid).is('org_id', null);
@@ -458,6 +463,7 @@ export const api = {
   getLibraryItems: async () => {
     const orgId = getActiveOrgId();
     const uid = await getUid();
+    if (!uid) return [];
     let query = supabase.from('pm_library').select('*');
     if (orgId) query = query.eq('org_id', orgId);
     else query = query.eq('owner_id', uid).is('org_id', null);
