@@ -1594,6 +1594,9 @@ export function NotionBlockEditor({
       // Blur any focused contentEditable to prevent text cursor remaining
       const active = document.activeElement as HTMLElement;
       if (active?.getAttribute("contenteditable") === "true") active.blur();
+      // Hide rubber band once blocks are selected
+      setRubberBand(null);
+      rubberBandStart.current = null;
     }
   }, [readOnly, selectRange]);
 
@@ -1746,6 +1749,9 @@ export function NotionBlockEditor({
       window.getSelection()?.removeAllRanges();
       const active = document.activeElement as HTMLElement;
       if (active?.getAttribute("contenteditable") === "true") active.blur();
+      // Hide rubber band once blocks are being selected (block highlights are enough)
+      setRubberBand(null);
+      rubberBandStart.current = null;
     }
   }, [readOnly, dragBlockIdx, findNearestBlockIdx, selectRange]);
 
@@ -1994,7 +2000,7 @@ export function NotionBlockEditor({
           key={block.id}
           className={cn(
             "group/block relative flex items-start",
-            selectedIds.has(block.id) && "bg-blue-50 rounded-[4px]",
+            selectedIds.has(block.id) && "bg-blue-100/50 rounded-[4px]",
             dragBlockIdx === idx && "opacity-40",
             dropTargetIdx === idx && dragBlockIdx !== null && idx === dragBlockIdx && "before:content-[''] before:absolute before:top-0 before:left-0 before:right-0 before:h-[3px] before:bg-green-300 before:rounded-full before:z-10",
             dropTargetIdx === idx && dragBlockIdx !== null && idx !== dragBlockIdx && "before:content-[''] before:absolute before:top-0 before:left-0 before:right-0 before:h-[3px] before:bg-blue-300 before:rounded-full before:z-10"
