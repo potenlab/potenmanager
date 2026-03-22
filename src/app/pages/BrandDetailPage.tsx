@@ -712,4 +712,5 @@ export const BrandDetailPage = createDetailPage<BrandAsset>({
   SecondaryPropertiesComponent: BrandSecondaryProperties,
   BodyComponent: BrandBody,
   getBreadcrumbs: (item, ko) => [{ label: item.name || (ko ? "새 채널" : "New Channel") }],
+  collapsible: true,
 });

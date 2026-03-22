@@ -389,7 +389,8 @@ export function MeetingDetailPage() {
       backLabel={ko ? '회의 목록' : 'Meetings'}
       onDelete={handleDelete}
       title={<InlineTitle value={meeting.title} onChange={handleTitleChange} placeholder={ko ? '회의 제목' : 'Meeting Title'} />}
-      collapsible={false}
+      collapsible={true}
+      defaultExpanded={true}
       properties={
         <AutoProperties fields={[
           {

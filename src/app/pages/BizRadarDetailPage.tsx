@@ -291,7 +291,8 @@ export function BizRadarDetailPage() {
             className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight tracking-tight focus:ring-0 focus:bg-transparent hover:bg-transparent border-b-2 border-transparent focus:border-gray-200 rounded-none pb-0.5"
             as="h1" />
         }
-        collapsible={false}
+        collapsible={true}
+        defaultExpanded={true}
         properties={
           <AutoProperties fields={[
             {

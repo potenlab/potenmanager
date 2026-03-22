@@ -583,6 +583,8 @@ export function ProjectDetailPage() {
       backLabel={ko ? "프로젝트" : "Projects"}
       breadcrumbs={[{ label: project.name || (ko ? "새 프로젝트" : "New Project") }]}
       onDelete={handleDelete}
+      collapsible={true}
+      defaultExpanded={true}
       title={
         <div className="flex items-start gap-4">
           <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />

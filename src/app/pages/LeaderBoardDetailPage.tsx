@@ -303,6 +303,8 @@ export function LeaderBoardDetailPage() {
           as="h1"
         />
       }
+      collapsible={true}
+      defaultExpanded={true}
       properties={<AutoProperties fields={propertyFields} />}
       collapsedPreview={
         priority && PRIORITY_CONFIG[priority] ? (

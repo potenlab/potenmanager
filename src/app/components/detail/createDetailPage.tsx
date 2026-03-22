@@ -62,7 +62,7 @@ export interface DetailPageConfig<TData> {
   /** Optional: extra action buttons */
   ExtraActionsComponent?: React.FC<{ item: TData }>;
 
-  /** Whether properties are collapsible (default: true) */
+  /** Whether properties are collapsible (default: true for consistency with TaskDetailPage) */
   collapsible?: boolean;
 
   /** Whether to use narrow width (default: true) */
@@ -128,7 +128,8 @@ export function createDetailPage<TData>(config: DetailPageConfig<TData>): React.
         title={<TitleComponent {...sectionProps} />}
         properties={<PropertiesComponent {...sectionProps} />}
         secondaryProperties={SecondaryPropertiesComponent ? <SecondaryPropertiesComponent {...sectionProps} /> : undefined}
-        collapsible={collapsible}
+        collapsible={collapsible !== false}
+        defaultExpanded={true}
         collapsedPreview={
           CollapsedPreviewComponent ? <CollapsedPreviewComponent item={item} ko={ko} /> : undefined
         }
