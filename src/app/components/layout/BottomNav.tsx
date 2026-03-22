@@ -78,7 +78,7 @@ export function BottomNav() {
     { to: op("/branding"), icon: <Building2 size={20} />, label: ko ? "브랜딩" : "Branding" },
     { to: op("/meetings"), icon: <Video size={20} />, label: ko ? "회의/미팅" : "Meetings" },
     { to: op("/radar"), icon: <Radar size={20} />, label: ko ? "비즈 레이더" : "Biz Radar" },
-    { to: op("/library"), icon: <BookMarked size={20} />, label: ko ? "아카이빙" : "Archive" },
+    { to: op("/library"), icon: <BookMarked size={20} />, label: ko ? "자료실" : "Library" },
     { to: op("/mypage"), icon: <User size={20} />, label: ko ? "마이페이지" : "My Page" },
     { to: op("/trash"), icon: <Trash2 size={20} />, label: ko ? "휴지통" : "Trash" },
   ];

@@ -31,7 +31,7 @@ function getTabLabel(path: string, ko: boolean): string {
     dashboard: ["대시보드", "Dashboard"],
     tasks: ["업무", "Tasks"],
     calendar: ["캘린더", "Calendar"],
-    library: ["아카이빙", "Archive"],
+    library: ["자료실", "Library"],
     projects: ["프로젝트", "Projects"],
     branding: ["브랜딩", "Branding"],
     meetings: ["회의/미팅", "Meetings"],

@@ -585,7 +585,7 @@ export function LibraryPage() {
         <div className="mb-4">
           <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">
             <Archive className="inline-block mr-2 -mt-0.5" size={22} />
-            {ko ? "아카이빙" : "Archive"}
+            {ko ? "자료실" : "Library"}
           </h1>
           <p className="text-gray-500 text-xs sm:text-sm">
             {ko

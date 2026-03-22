@@ -47,7 +47,7 @@ export const PAGE_TYPES: Record<string, PageTypeMeta> = {
   library: {
     shareType: "library",
     backPath: "/library",
-    backLabel: { ko: "아카이빙", en: "Archive" },
+    backLabel: { ko: "자료실", en: "Library" },
     paramName: "itemId",
     routePath: "library/:itemId",
   },

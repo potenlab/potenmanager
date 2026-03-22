@@ -53,10 +53,35 @@ interface NavGroup {
 }
 
 const DEFAULT_GROUPS: NavGroup[] = [
-  { id: "work", labelKo: "업무", labelEn: "Work", itemIds: ["tasks", "calendar", "library"] },
-  { id: "org", labelKo: "관리", labelEn: "Management", itemIds: ["projects", "branding", "team"] },
+  { id: "work", labelKo: "업무", labelEn: "Work", itemIds: ["tasks", "calendar"] },
+  { id: "content", labelKo: "콘텐츠", labelEn: "Content", itemIds: ["projects", "branding", "library"] },
   { id: "tools", labelKo: "도구", labelEn: "Tools", itemIds: ["chat", "meetings", "radar"] },
+  { id: "people", labelKo: "팀", labelEn: "Team", itemIds: ["team"] },
 ];
+
+// Submenu definitions for expandable items
+interface SubMenuItem {
+  id: string;
+  labelKo: string;
+  labelEn: string;
+  path: string;
+  icon?: ReactNode;
+}
+
+const SUBMENU_CONFIG: Record<string, { items: SubMenuItem[] }> = {
+  library: {
+    items: [
+      { id: "lib-team", labelKo: "팀 자료실", labelEn: "Team Library", path: "/library?tab=team" },
+      { id: "lib-my", labelKo: "내 자료실", labelEn: "My Library", path: "/library?tab=my" },
+    ],
+  },
+  projects: {
+    items: [], // populated dynamically from project groups
+  },
+  branding: {
+    items: [], // populated dynamically
+  },
+};
 
 const GROUP_ORDER_KEY = "poten_group_nav_order";
 
@@ -154,6 +179,8 @@ export function Sidebar() {
     try { return localStorage.getItem('poten_sidebar_team_expanded') !== 'false'; } catch { return true; }
   });
   const [projectsExpanded, setProjectsExpanded] = useState(true);
+  const [libraryExpanded, setLibraryExpanded] = useState(false);
+  const [brandingExpanded, setBrandingExpanded] = useState(false);
 
   // Custom project groups (persisted per org)
   const projectGroupsKey = `poten_project_groups_${activeOrgId || 'default'}`;
@@ -233,7 +260,7 @@ export function Sidebar() {
     dashboard: { to: p("/dashboard"), icon: <LayoutDashboard size={16} />, label: t("dashboard") },
     tasks: { to: p("/tasks"), icon: <CheckSquare size={16} />, label: t("my_tasks") },
     calendar: { to: p("/calendar"), icon: <Calendar size={16} />, label: ko ? "캘린더" : "Calendar" },
-    library: { to: p("/library"), icon: <BookMarked size={16} />, label: ko ? "아카이빙" : "Archive" },
+    library: { to: p("/library"), icon: <BookMarked size={16} />, label: ko ? "자료실" : "Library" },
     projects: { to: p("/projects"), icon: <FolderKanban size={16} />, label: ko ? "프로젝트" : "Projects" },
     branding: { to: p("/branding"), icon: <Palette size={16} />, label: ko ? "브랜딩" : "Branding" },
     meetings: { to: p("/meetings"), icon: <Video size={16} />, label: ko ? "회의/미팅" : "Meetings" },
@@ -430,6 +457,140 @@ export function Sidebar() {
                   <Plus size={12} />
                   {ko ? "그룹 추가" : "Add group"}
                 </button>
+              </div>
+            )}
+          </div>
+        </DraggableNavItem>
+      );
+    }
+
+    // Library (자료실) with expandable submenu
+    if (id === "library") {
+      return (
+        <DraggableNavItem key={id} id={id} groupId={groupId} moveItem={moveItem}>
+          <div>
+            <div className="flex items-center group/nav">
+              <NavLink
+                to={item.to}
+                onClick={closeSidebar}
+                className={({ isActive }) =>
+                  cn(
+                    "flex-1 flex items-center gap-2.5 px-2 py-1 rounded-md text-[15px] transition-all duration-100",
+                    isActive && !location.search
+                      ? "bg-gray-200/70 text-gray-900 font-semibold"
+                      : "text-gray-600 hover:bg-gray-200/50 hover:text-gray-900"
+                  )
+                }
+              >
+                <div className="shrink-0 text-gray-500">{item.icon}</div>
+                <span>{item.label}</span>
+              </NavLink>
+              <button
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setLibraryExpanded(!libraryExpanded); }}
+                className="p-0.5 mr-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-200/60 transition-colors opacity-0 group-hover/nav:opacity-100"
+              >
+                {libraryExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              </button>
+            </div>
+            {libraryExpanded && (
+              <div className="ml-7 mt-0.5 space-y-0.5">
+                <NavLink
+                  to={p("/library?tab=team")}
+                  onClick={closeSidebar}
+                  className={() =>
+                    cn(
+                      "flex items-center gap-2 px-2 py-1 rounded-md text-[14px] transition-all",
+                      location.pathname.includes("/library") && location.search.includes("tab=team")
+                        ? "bg-gray-200/70 text-gray-900 font-semibold"
+                        : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
+                    )
+                  }
+                >
+                  <Users size={13} />
+                  {ko ? "팀 자료실" : "Team Library"}
+                </NavLink>
+                <NavLink
+                  to={p("/library?tab=my")}
+                  onClick={closeSidebar}
+                  className={() =>
+                    cn(
+                      "flex items-center gap-2 px-2 py-1 rounded-md text-[14px] transition-all",
+                      location.pathname.includes("/library") && location.search.includes("tab=my")
+                        ? "bg-gray-200/70 text-gray-900 font-semibold"
+                        : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
+                    )
+                  }
+                >
+                  <BookMarked size={13} />
+                  {ko ? "내 자료실" : "My Library"}
+                </NavLink>
+              </div>
+            )}
+          </div>
+        </DraggableNavItem>
+      );
+    }
+
+    // Branding with expandable submenu
+    if (id === "branding") {
+      return (
+        <DraggableNavItem key={id} id={id} groupId={groupId} moveItem={moveItem}>
+          <div>
+            <div className="flex items-center group/nav">
+              <NavLink
+                to={item.to}
+                onClick={closeSidebar}
+                className={({ isActive }) =>
+                  cn(
+                    "flex-1 flex items-center gap-2.5 px-2 py-1 rounded-md text-[15px] transition-all duration-100",
+                    isActive && !location.search
+                      ? "bg-gray-200/70 text-gray-900 font-semibold"
+                      : "text-gray-600 hover:bg-gray-200/50 hover:text-gray-900"
+                  )
+                }
+              >
+                <div className="shrink-0 text-gray-500">{item.icon}</div>
+                <span>{item.label}</span>
+              </NavLink>
+              <button
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setBrandingExpanded(!brandingExpanded); }}
+                className="p-0.5 mr-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-200/60 transition-colors opacity-0 group-hover/nav:opacity-100"
+              >
+                {brandingExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              </button>
+            </div>
+            {brandingExpanded && (
+              <div className="ml-7 mt-0.5 space-y-0.5">
+                <NavLink
+                  to={p("/branding?view=channels")}
+                  onClick={closeSidebar}
+                  className={() =>
+                    cn(
+                      "flex items-center gap-2 px-2 py-1 rounded-md text-[14px] transition-all",
+                      location.pathname.includes("/branding") && (!location.search || location.search.includes("view=channels"))
+                        ? "bg-gray-200/70 text-gray-900 font-semibold"
+                        : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
+                    )
+                  }
+                >
+                  <Palette size={13} />
+                  {ko ? "채널 관리" : "Channels"}
+                </NavLink>
+                <NavLink
+                  to={p("/branding?view=assets")}
+                  onClick={closeSidebar}
+                  className={() =>
+                    cn(
+                      "flex items-center gap-2 px-2 py-1 rounded-md text-[14px] transition-all",
+                      location.pathname.includes("/branding") && location.search.includes("view=assets")
+                        ? "bg-gray-200/70 text-gray-900 font-semibold"
+                        : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
+                    )
+                  }
+                >
+                  <FolderKanban size={13} />
+                  {ko ? "브랜드 자산" : "Brand Assets"}
+                </NavLink>
               </div>
             )}
           </div>
