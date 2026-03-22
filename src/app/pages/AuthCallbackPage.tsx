@@ -12,37 +12,32 @@ import { api } from '../../lib/api';
 export function AuthCallbackPage() {
   const navigate = useNavigate();
 
-  const resolveDestination = async (userId: string) => {
-    // 대기 중인 초대 코드 확인
-    const pendingInvite = localStorage.getItem('poten_pending_invite');
-    if (pendingInvite) {
-      return `/invite/${pendingInvite}`;
-    }
-    // 바로 tasks 페이지로 이동 (온보딩은 나중에)
-    return '/tasks';
-  };
-
   useEffect(() => {
-    // Listen for auth state change (handles URL hash token automatically)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        const dest = await resolveDestination(session.user.id);
-        navigate(dest, { replace: true });
-      }
+    let done = false;
+    const go = () => {
+      if (done) return;
+      done = true;
+      const pendingInvite = localStorage.getItem('poten_pending_invite');
+      navigate(pendingInvite ? `/invite/${pendingInvite}` : '/dashboard', { replace: true });
+    };
+
+    // Method 1: onAuthStateChange fires when Supabase processes the hash token
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session) go();
     });
 
-    // Fallback: if already signed in (e.g. page refresh)
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session) {
-        const dest = await resolveDestination(session.user.id);
-        navigate(dest, { replace: true });
-      }
-    });
+    // Method 2: Poll getSession (in case event already fired before listener was set)
+    const poll = setInterval(async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) { clearInterval(poll); go(); }
+    }, 500);
 
-    // Timeout fallback
-    const timer = setTimeout(() => navigate('/login', { replace: true }), 10000);
+    // Method 3: Timeout fallback — if nothing works after 8s, go to login
+    const timeout = setTimeout(() => {
+      if (!done) { done = true; navigate('/login', { replace: true }); }
+    }, 8000);
 
-    return () => { subscription.unsubscribe(); clearTimeout(timer); };
+    return () => { subscription.unsubscribe(); clearInterval(poll); clearTimeout(timeout); };
   }, [navigate]);
 
   return (
