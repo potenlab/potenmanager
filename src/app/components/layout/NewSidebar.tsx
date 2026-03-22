@@ -144,26 +144,19 @@ export function NewSidebar() {
           <div className="space-y-0.5">
             {/* 내 업무 — with submenu */}
             <div>
-              <div className="flex items-center group/nav">
-                <NavLink
-                  to="/tasks"
-                  className={cn(
-                    "flex-1 flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
-                    isActive("/tasks")
-                      ? "bg-gray-200/70 text-gray-900 font-semibold"
-                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                  )}
-                >
-                  <div className="shrink-0 text-gray-500"><CheckSquare size={16} /></div>
-                  <span>{ko ? "내 업무" : "My Tasks"}</span>
-                </NavLink>
-                <button
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setTasksExpanded(!tasksExpanded); }}
-                  className="p-1 mr-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-200/60 transition-colors opacity-0 group-hover/nav:opacity-100"
-                >
-                  {tasksExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                </button>
-              </div>
+              <button
+                onClick={() => { setTasksExpanded(!tasksExpanded); navigate("/tasks"); }}
+                className={cn(
+                  "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
+                  isActive("/tasks")
+                    ? "bg-gray-200/70 text-gray-900 font-semibold"
+                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                )}
+              >
+                <div className="shrink-0 text-gray-500"><CheckSquare size={16} /></div>
+                <span className="flex-1 text-left">{ko ? "내 업무" : "My Tasks"}</span>
+                {tasksExpanded ? <ChevronDown size={12} className="text-gray-400" /> : <ChevronRight size={12} className="text-gray-400" />}
+              </button>
               {tasksExpanded && (
                 <div className="ml-7 mt-0.5 space-y-0.5">
                   <NavLink to="/tasks?filter=today" className={() => cn(
@@ -202,26 +195,19 @@ export function NewSidebar() {
 
             {/* 자료실 — with submenu */}
             <div>
-              <div className="flex items-center group/nav">
-                <NavLink
-                  to="/library"
-                  className={cn(
-                    "flex-1 flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
-                    isActive("/library")
-                      ? "bg-gray-200/70 text-gray-900 font-semibold"
-                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                  )}
-                >
-                  <div className="shrink-0 text-gray-500"><BookMarked size={16} /></div>
-                  <span>{ko ? "자료실" : "Library"}</span>
-                </NavLink>
-                <button
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setLibraryExpanded(!libraryExpanded); }}
-                  className="p-1 mr-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-200/60 transition-colors opacity-0 group-hover/nav:opacity-100"
-                >
-                  {libraryExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                </button>
-              </div>
+              <button
+                onClick={() => { setLibraryExpanded(!libraryExpanded); navigate("/library"); }}
+                className={cn(
+                  "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
+                  isActive("/library")
+                    ? "bg-gray-200/70 text-gray-900 font-semibold"
+                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                )}
+              >
+                <div className="shrink-0 text-gray-500"><BookMarked size={16} /></div>
+                <span className="flex-1 text-left">{ko ? "자료실" : "Library"}</span>
+                {libraryExpanded ? <ChevronDown size={12} className="text-gray-400" /> : <ChevronRight size={12} className="text-gray-400" />}
+              </button>
               {libraryExpanded && (
                 <div className="ml-7 mt-0.5 space-y-0.5">
                   <NavLink to="/library?tab=team" className={() => cn(
@@ -248,26 +234,19 @@ export function NewSidebar() {
 
             {/* 프로젝트 — with submenu */}
             <div>
-              <div className="flex items-center group/nav">
-                <NavLink
-                  to="/projects"
-                  className={cn(
-                    "flex-1 flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
-                    isActive("/projects")
-                      ? "bg-gray-200/70 text-gray-900 font-semibold"
-                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                  )}
-                >
-                  <div className="shrink-0 text-gray-500"><FolderKanban size={16} /></div>
-                  <span>{ko ? "프로젝트" : "Projects"}</span>
-                </NavLink>
-                <button
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setProjectsExpanded(!projectsExpanded); }}
-                  className="p-1 mr-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-200/60 transition-colors opacity-0 group-hover/nav:opacity-100"
-                >
-                  {projectsExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                </button>
-              </div>
+              <button
+                onClick={() => { setProjectsExpanded(!projectsExpanded); navigate("/projects"); }}
+                className={cn(
+                  "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
+                  isActive("/projects")
+                    ? "bg-gray-200/70 text-gray-900 font-semibold"
+                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                )}
+              >
+                <div className="shrink-0 text-gray-500"><FolderKanban size={16} /></div>
+                <span className="flex-1 text-left">{ko ? "프로젝트" : "Projects"}</span>
+                {projectsExpanded ? <ChevronDown size={12} className="text-gray-400" /> : <ChevronRight size={12} className="text-gray-400" />}
+              </button>
               {projectsExpanded && (
                 <div className="ml-7 mt-0.5 space-y-0.5">
                   <NavLink to="/projects?type=internal" className={() => cn(
