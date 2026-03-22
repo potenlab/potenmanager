@@ -483,6 +483,9 @@ export function NotionBlockEditor({
   const dragStartIdx = useRef<number | null>(null);
   const mouseDownBlockIdx = useRef<number | null>(null); // track which block mousedown started in (even contentEditable)
   const isDragging = useRef(false);
+  // Rubber band (marquee) selection visual
+  const [rubberBand, setRubberBand] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
+  const rubberBandStart = useRef<{ x: number; y: number } | null>(null);
   const blockRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const pendingFocusIdx = useRef<number | null>(null);
   const isComposingRef = useRef(false);
@@ -1599,6 +1602,8 @@ export function NotionBlockEditor({
       if (isDragging.current) isDragging.current = false;
       dragStartIdx.current = null;
       mouseDownBlockIdx.current = null;
+      rubberBandStart.current = null;
+      setRubberBand(null);
       // Clear pre-set drag ref if no actual HTML5 drag happened (just a click)
       if (dragBlockIdxRef.current !== null && dragBlockIdx === null) {
         dragBlockIdxRef.current = null;
@@ -1666,7 +1671,8 @@ export function NotionBlockEditor({
         if (el) { el.focus(); return; }
       }
     }
-    // Start drag selection
+    // Start drag selection + rubber band
+    rubberBandStart.current = { x: e.clientX, y: e.clientY };
     const nearestBlock = blocksRef.current[nearestIdx];
     dragStartIdx.current = nearestIdx;
     isDragging.current = false;
@@ -1698,10 +1704,24 @@ export function NotionBlockEditor({
     return -1;
   }, []);
 
-  // Wrapper-level mouseMove: handle drag from outside + extend selection
+  // Wrapper-level mouseMove: handle drag from outside + extend selection + rubber band
   const handleWrapperMouseMove = useCallback((e: React.MouseEvent) => {
     if (readOnly || e.buttons !== 1) return;
     if (dragBlockIdxRef.current !== null) return; // Block reorder drag in progress
+
+    // Update rubber band visual
+    if (rubberBandStart.current) {
+      const dx = Math.abs(e.clientX - rubberBandStart.current.x);
+      const dy = Math.abs(e.clientY - rubberBandStart.current.y);
+      if (dx > 5 || dy > 5) {
+        setRubberBand({
+          startX: rubberBandStart.current.x,
+          startY: rubberBandStart.current.y,
+          endX: e.clientX,
+          endY: e.clientY,
+        });
+      }
+    }
 
     const currentIdx = findNearestBlockIdx(e.clientY);
     if (currentIdx < 0) return;
@@ -1709,6 +1729,7 @@ export function NotionBlockEditor({
     const originIdx = dragStartIdx.current ?? mouseDownBlockIdx.current;
     if (originIdx === null) {
       // Mouse entered from outside with button held → start selection
+      rubberBandStart.current = { x: e.clientX, y: e.clientY };
       dragStartIdx.current = currentIdx;
       mouseDownBlockIdx.current = currentIdx;
       lastClickedIdx.current = currentIdx;
@@ -1955,7 +1976,19 @@ export function NotionBlockEditor({
 
   // ─── Render ────────────────────────────────────────────────────
   return (
-    <div ref={wrapperRef} className="space-y-0 outline-none pb-8 -mx-12 px-12" tabIndex={-1} onKeyDown={handleWrapperKeyDown} onMouseDown={handleWrapperMouseDown} onMouseMove={handleWrapperMouseMove}>
+    <div ref={wrapperRef} className="space-y-0 outline-none pb-8 -mx-12 px-12 relative" tabIndex={-1} onKeyDown={handleWrapperKeyDown} onMouseDown={handleWrapperMouseDown} onMouseMove={handleWrapperMouseMove}>
+      {/* Rubber band selection visual (like Windows/Notion drag select) */}
+      {rubberBand && (
+        <div
+          className="fixed pointer-events-none z-[50] border border-blue-400/60 bg-blue-400/10 rounded-sm"
+          style={{
+            left: Math.min(rubberBand.startX, rubberBand.endX),
+            top: Math.min(rubberBand.startY, rubberBand.endY),
+            width: Math.abs(rubberBand.endX - rubberBand.startX),
+            height: Math.abs(rubberBand.endY - rubberBand.startY),
+          }}
+        />
+      )}
       {blocks.map((block, idx) => (
         <div
           key={block.id}
