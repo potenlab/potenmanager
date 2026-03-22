@@ -1905,12 +1905,32 @@ app.post("/make-server-f580d5ca/library/og", async (c) => {
       ogTitle = titleTag;
     }
 
-    // Strip " - YouTube" suffix from title if present
-    if (ogTitle && ogSiteName === "YouTube") {
-      ogTitle = ogTitle.replace(/ - YouTube$/, '');
+    // Strip site name suffix from title (like Notion does)
+    // e.g. "트리즈 | 카카오맵" → "트리즈", "Article - Medium" → "Article"
+    if (ogTitle && ogSiteName) {
+      ogTitle = ogTitle
+        .replace(new RegExp(`\\s*[|\\-–—·]\\s*${ogSiteName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i'), '')
+        .trim();
+    }
+    if (ogTitle) {
+      // Also strip common suffixes like " - YouTube", " | Naver" etc.
+      ogTitle = ogTitle.replace(/\s*[|\\-–—]\s*(YouTube|Instagram|Facebook|X|Twitter|TikTok|Naver|네이버)\s*$/i, '').trim();
     }
 
-    const favicon = new URL('/favicon.ico', url).href;
+    // Extract favicon from <link> tags (better than /favicon.ico fallback)
+    const getFavicon = (): string => {
+      // Try <link rel="icon">, <link rel="shortcut icon">, <link rel="apple-touch-icon">
+      const linkMatch = html.match(/<link[^>]*rel=["'](?:shortcut )?icon["'][^>]*href=["']([^"']+)["']/i)
+        || html.match(/<link[^>]*href=["']([^"']+)["'][^>]*rel=["'](?:shortcut )?icon["']/i);
+      if (linkMatch?.[1]) {
+        const href = linkMatch[1];
+        if (href.startsWith('http')) return href;
+        if (href.startsWith('//')) return `https:${href}`;
+        return new URL(href, url).href;
+      }
+      return new URL('/favicon.ico', url).href;
+    };
+    const favicon = getFavicon();
 
     // If we got decent OG data, return it
     const hasGoodTitle = ogTitle && ogTitle.length > 10;
