@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { motion } from 'motion/react';
-import { Zap, FlaskConical, ChevronDown, ChevronUp, Play, Megaphone, Film, Rocket, ShoppingBag, Coffee } from 'lucide-react';
+import { Zap, FlaskConical, ChevronDown, ChevronUp, Play, Megaphone, Film, Rocket, ShoppingBag, Coffee, User, Code2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { api } from '../../lib/api';
@@ -38,11 +38,11 @@ export function LoginPage() {
   const [selectedIndustry, setSelectedIndustry] = useState<string | null>(null);
 
   const DEMO_INDUSTRIES = [
-    { id: 'marketing_agency', labelKo: '마케팅 에이전시', labelEn: 'Marketing Agency', icon: Megaphone, color: 'from-pink-500 to-rose-500' },
-    { id: 'video_production', labelKo: '영상 제작사', labelEn: 'Video Production', icon: Film, color: 'from-violet-500 to-purple-500' },
-    { id: 'startup', labelKo: '스타트업 (SaaS)', labelEn: 'Startup (SaaS)', icon: Rocket, color: 'from-blue-500 to-cyan-500' },
-    { id: 'ecommerce', labelKo: '이커머스', labelEn: 'E-Commerce', icon: ShoppingBag, color: 'from-amber-500 to-orange-500' },
-    { id: 'fnb', labelKo: '카페 / F&B', labelEn: 'Café / F&B', icon: Coffee, color: 'from-emerald-500 to-teal-500' },
+    { id: 'freelancer', labelKo: '개인 프리랜서', labelEn: 'Freelancer', icon: User, color: 'from-blue-500 to-cyan-500' },
+    { id: 'dev_agency', labelKo: '에이전시 (개발)', labelEn: 'Dev Agency', icon: Code2, color: 'from-violet-500 to-purple-500' },
+    { id: 'marketing_agency', labelKo: '에이전시 (마케팅)', labelEn: 'Marketing Agency', icon: Megaphone, color: 'from-pink-500 to-rose-500' },
+    { id: 'production', labelKo: '에이전시 (프로덕션)', labelEn: 'Production', icon: Film, color: 'from-amber-500 to-orange-500' },
+    { id: 'startup', labelKo: '스타트업', labelEn: 'Startup', icon: Rocket, color: 'from-emerald-500 to-teal-500' },
   ];
 
   const handleEmailAuth = async (e: React.FormEvent) => {
@@ -74,17 +74,28 @@ export function LoginPage() {
     setDemoLoading(true);
     setSelectedIndustry(industry || null);
     try {
-      // Clear all poten_ localStorage to prevent org data leaking into demo
-      const keysToRemove = Object.keys(localStorage).filter(k => k.startsWith('poten_'));
+      // Clear all poten/pm localStorage
+      const keysToRemove = Object.keys(localStorage).filter(k => k.startsWith('poten_') || k.startsWith('pm_'));
       keysToRemove.forEach(k => localStorage.removeItem(k));
 
-      await api.setupDemo(industry);
+      // Call demo setup Edge Function
+      const res = await fetch('https://slereezbgubofcrqnkip.supabase.co/functions/v1/pm-demo/setup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNsZXJlZXpiZ3Vib2ZjcnFua2lwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5ODcyNzIsImV4cCI6MjA3NzU2MzI3Mn0.KhELTC5FTGtsC5YeZ-OvEn7q6J1fanYUuVj95-xH0Wc' },
+        body: JSON.stringify({ industry: industry || 'startup' }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message || 'Demo setup failed');
+
+      // Sign in with the created demo account
+      if (data.orgId) {
+        localStorage.setItem('pm_active_org_id', data.orgId);
+        localStorage.setItem('poten_active_org_id', data.orgId);
+      }
       localStorage.setItem('poten_demo_mode', 'true');
-      localStorage.setItem('poten_active_org_id', 'org-demo');
-      if (industry) localStorage.setItem('poten_demo_industry', industry);
-      const result = await signInWithEmail('demo@potenmanager.com', 'demo1234');
+
+      const result = await signInWithEmail(data.email, data.password);
       if (result.error) {
-        localStorage.removeItem('poten_demo_mode');
         setError(ko ? '데모 계정 로그인에 실패했습니다.' : 'Demo login failed.');
       }
     } catch {
