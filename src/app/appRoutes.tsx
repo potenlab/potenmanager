@@ -41,6 +41,7 @@ import { DesktopDownloadPage } from "./pages/DesktopDownloadPage";
 import { LeaderBoardPage } from "./pages/LeaderBoardPage";
 import { LeaderBoardDetailPage } from "./pages/LeaderBoardDetailPage";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { OrgCreatePage } from "./pages/OrgCreatePage";
 
 /** All app pages – shared between the /:orgSlug layout and the legacy fallback */
 const APP_PAGES = [
@@ -82,6 +83,7 @@ const APP_PAGES = [
   { path: "leader-board/new", Component: LeaderBoardDetailPage },
   { path: "leader-board/:itemId", Component: LeaderBoardDetailPage },
   { path: "trash", Component: TrashPage },
+  { path: "org/new", Component: OrgCreatePage },
   { path: "*", Component: DashboardPage },
 ];
 
