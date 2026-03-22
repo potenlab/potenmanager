@@ -1594,9 +1594,6 @@ export function NotionBlockEditor({
       // Blur any focused contentEditable to prevent text cursor remaining
       const active = document.activeElement as HTMLElement;
       if (active?.getAttribute("contenteditable") === "true") active.blur();
-      // Hide rubber band once blocks are selected
-      setRubberBand(null);
-      rubberBandStart.current = null;
     }
   }, [readOnly, selectRange]);
 
@@ -1749,9 +1746,6 @@ export function NotionBlockEditor({
       window.getSelection()?.removeAllRanges();
       const active = document.activeElement as HTMLElement;
       if (active?.getAttribute("contenteditable") === "true") active.blur();
-      // Hide rubber band once blocks are being selected (block highlights are enough)
-      setRubberBand(null);
-      rubberBandStart.current = null;
     }
   }, [readOnly, dragBlockIdx, findNearestBlockIdx, selectRange]);
 
