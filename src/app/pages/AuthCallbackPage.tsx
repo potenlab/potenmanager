@@ -23,25 +23,26 @@ export function AuthCallbackPage() {
   };
 
   useEffect(() => {
-    // Supabase가 URL의 access_token을 자동으로 처리함
+    // Listen for auth state change (handles URL hash token automatically)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        const dest = await resolveDestination(session.user.id);
+        navigate(dest, { replace: true });
+      }
+    });
+
+    // Fallback: if already signed in (e.g. page refresh)
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
         const dest = await resolveDestination(session.user.id);
         navigate(dest, { replace: true });
-      } else {
-        // 세션이 없으면 잠시 후 다시 시도 (토큰 처리 지연 대응)
-        const timer = setTimeout(async () => {
-          const { data: { session: retrySession } } = await supabase.auth.getSession();
-          if (retrySession) {
-            const dest = await resolveDestination(retrySession.user.id);
-            navigate(dest, { replace: true });
-          } else {
-            navigate('/login', { replace: true });
-          }
-        }, 1000);
-        return () => clearTimeout(timer);
       }
     });
+
+    // Timeout fallback
+    const timer = setTimeout(() => navigate('/login', { replace: true }), 10000);
+
+    return () => { subscription.unsubscribe(); clearTimeout(timer); };
   }, [navigate]);
 
   return (
