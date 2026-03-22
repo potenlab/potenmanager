@@ -21,18 +21,28 @@ export function AuthCallbackPage() {
       navigate(pendingInvite ? `/invite/${pendingInvite}` : '/dashboard', { replace: true });
     };
 
-    // Method 1: onAuthStateChange fires when Supabase processes the hash token
+    // PKCE flow: exchange ?code= for session
+    const url = new URL(window.location.href);
+    const code = url.searchParams.get('code');
+    if (code) {
+      supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
+        if (data.session) go();
+        else if (error) console.error('[AuthCallback] Code exchange failed:', error);
+      });
+    }
+
+    // Implicit flow fallback: onAuthStateChange for #access_token
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) go();
     });
 
-    // Method 2: Poll getSession (in case event already fired before listener was set)
+    // Poll fallback
     const poll = setInterval(async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) { clearInterval(poll); go(); }
     }, 500);
 
-    // Method 3: Timeout fallback — if nothing works after 8s, go to login
+    // Timeout fallback
     const timeout = setTimeout(() => {
       if (!done) { done = true; navigate('/login', { replace: true }); }
     }, 8000);
