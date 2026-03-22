@@ -45,6 +45,9 @@ export function NewSidebar() {
 
   const [toolsExpanded, setToolsExpanded] = useState(false);
   const [orgSwitcherOpen, setOrgSwitcherOpen] = useState(false);
+  const [tasksExpanded, setTasksExpanded] = useState(false);
+  const [projectsExpanded, setProjectsExpanded] = useState(false);
+  const [libraryExpanded, setLibraryExpanded] = useState(false);
 
   if (isMobile) return null;
 
@@ -139,21 +142,155 @@ export function NewSidebar() {
             {ko ? "개인" : "Personal"}
           </p>
           <div className="space-y-0.5">
-            {personalItems.map((item) => (
-              <NavLink
-                key={item.id}
-                to={item.to}
-                className={cn(
-                  "flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
-                  isActive(item.to)
-                    ? "bg-gray-200/70 text-gray-900 font-semibold"
-                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                )}
-              >
-                <div className="shrink-0 text-gray-500">{item.icon}</div>
-                <span>{item.label}</span>
-              </NavLink>
-            ))}
+            {/* 내 업무 — with submenu */}
+            <div>
+              <div className="flex items-center group/nav">
+                <NavLink
+                  to="/tasks"
+                  className={cn(
+                    "flex-1 flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
+                    isActive("/tasks")
+                      ? "bg-gray-200/70 text-gray-900 font-semibold"
+                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  )}
+                >
+                  <div className="shrink-0 text-gray-500"><CheckSquare size={16} /></div>
+                  <span>{ko ? "내 업무" : "My Tasks"}</span>
+                </NavLink>
+                <button
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setTasksExpanded(!tasksExpanded); }}
+                  className="p-1 mr-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-200/60 transition-colors opacity-0 group-hover/nav:opacity-100"
+                >
+                  {tasksExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                </button>
+              </div>
+              {tasksExpanded && (
+                <div className="ml-7 mt-0.5 space-y-0.5">
+                  <NavLink to="/tasks?filter=today" className={() => cn(
+                    "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
+                    location.search.includes("filter=today")
+                      ? "bg-gray-200/70 text-gray-900 font-semibold"
+                      : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
+                  )}>
+                    {ko ? "오늘" : "Today"}
+                  </NavLink>
+                  <NavLink to="/tasks?filter=week" className={() => cn(
+                    "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
+                    location.search.includes("filter=week")
+                      ? "bg-gray-200/70 text-gray-900 font-semibold"
+                      : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
+                  )}>
+                    {ko ? "이번 주" : "This Week"}
+                  </NavLink>
+                </div>
+              )}
+            </div>
+
+            {/* 캘린더 — no submenu */}
+            <NavLink
+              to="/calendar"
+              className={cn(
+                "flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
+                isActive("/calendar")
+                  ? "bg-gray-200/70 text-gray-900 font-semibold"
+                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+              )}
+            >
+              <div className="shrink-0 text-gray-500"><Calendar size={16} /></div>
+              <span>{ko ? "캘린더" : "Calendar"}</span>
+            </NavLink>
+
+            {/* 자료실 — with submenu */}
+            <div>
+              <div className="flex items-center group/nav">
+                <NavLink
+                  to="/library"
+                  className={cn(
+                    "flex-1 flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
+                    isActive("/library")
+                      ? "bg-gray-200/70 text-gray-900 font-semibold"
+                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  )}
+                >
+                  <div className="shrink-0 text-gray-500"><BookMarked size={16} /></div>
+                  <span>{ko ? "자료실" : "Library"}</span>
+                </NavLink>
+                <button
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setLibraryExpanded(!libraryExpanded); }}
+                  className="p-1 mr-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-200/60 transition-colors opacity-0 group-hover/nav:opacity-100"
+                >
+                  {libraryExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                </button>
+              </div>
+              {libraryExpanded && (
+                <div className="ml-7 mt-0.5 space-y-0.5">
+                  <NavLink to="/library?tab=team" className={() => cn(
+                    "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
+                    location.search.includes("tab=team")
+                      ? "bg-gray-200/70 text-gray-900 font-semibold"
+                      : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
+                  )}>
+                    <Users size={13} />
+                    {ko ? "팀 자료실" : "Team Library"}
+                  </NavLink>
+                  <NavLink to="/library?tab=my" className={() => cn(
+                    "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
+                    location.search.includes("tab=my")
+                      ? "bg-gray-200/70 text-gray-900 font-semibold"
+                      : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
+                  )}>
+                    <BookMarked size={13} />
+                    {ko ? "내 자료실" : "My Library"}
+                  </NavLink>
+                </div>
+              )}
+            </div>
+
+            {/* 프로젝트 — with submenu */}
+            <div>
+              <div className="flex items-center group/nav">
+                <NavLink
+                  to="/projects"
+                  className={cn(
+                    "flex-1 flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
+                    isActive("/projects")
+                      ? "bg-gray-200/70 text-gray-900 font-semibold"
+                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  )}
+                >
+                  <div className="shrink-0 text-gray-500"><FolderKanban size={16} /></div>
+                  <span>{ko ? "프로젝트" : "Projects"}</span>
+                </NavLink>
+                <button
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setProjectsExpanded(!projectsExpanded); }}
+                  className="p-1 mr-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-200/60 transition-colors opacity-0 group-hover/nav:opacity-100"
+                >
+                  {projectsExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                </button>
+              </div>
+              {projectsExpanded && (
+                <div className="ml-7 mt-0.5 space-y-0.5">
+                  <NavLink to="/projects?type=internal" className={() => cn(
+                    "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
+                    location.search.includes("type=internal")
+                      ? "bg-gray-200/70 text-gray-900 font-semibold"
+                      : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
+                  )}>
+                    <FolderKanban size={13} />
+                    {ko ? "내부 프로젝트" : "Internal"}
+                  </NavLink>
+                  <NavLink to="/projects?type=external" className={() => cn(
+                    "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
+                    location.search.includes("type=external")
+                      ? "bg-gray-200/70 text-gray-900 font-semibold"
+                      : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
+                  )}>
+                    <Building2 size={13} />
+                    {ko ? "외부 프로젝트" : "External"}
+                  </NavLink>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
