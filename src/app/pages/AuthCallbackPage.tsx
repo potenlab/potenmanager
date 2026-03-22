@@ -13,29 +13,13 @@ export function AuthCallbackPage() {
   const navigate = useNavigate();
 
   const resolveDestination = async (userId: string) => {
-    // 0. 대기 중인 초대 코드 확인 (초대 링크 → 로그인 → 복귀)
+    // 대기 중인 초대 코드 확인
     const pendingInvite = localStorage.getItem('poten_pending_invite');
     if (pendingInvite) {
       return `/invite/${pendingInvite}`;
     }
-
-    // 1. localStorage 먼저 체크 (빠름)
-    const localDone = localStorage.getItem('poten_onboarding_complete');
-    if (localDone) return '/dashboard';
-
-    // 2. KV Store 체크 (크로스 디바이스)
-    try {
-      const result = await api.getOnboarding(userId);
-      if (result.exists && result.data?.completedAt) {
-        localStorage.setItem('poten_onboarding_complete', 'true');
-        localStorage.setItem('poten_onboarding_data', JSON.stringify(result.data));
-        return '/dashboard';
-      }
-    } catch (err) {
-      console.error('[AuthCallback] KV Store check failed:', err);
-    }
-
-    return '/onboarding';
+    // 바로 tasks 페이지로 이동 (온보딩은 나중에)
+    return '/tasks';
   };
 
   useEffect(() => {
