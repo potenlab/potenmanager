@@ -51,20 +51,24 @@ export function NewSidebar() {
 
   if (isMobile) return null;
 
+  // ── Path prefix: personal = "/" , org = "/:slug/" ──
+  const slug = currentOrg?.slug;
+  const p = (path: string) => isPersonal ? path : `/${slug}${path}`;
+
   // ── Menu structure ──
   const personalItems: NavItem[] = [
-    { id: "tasks", to: "/tasks", icon: <CheckSquare size={16} />, label: ko ? "내 업무" : "My Tasks" },
-    { id: "calendar", to: "/calendar", icon: <Calendar size={16} />, label: ko ? "캘린더" : "Calendar" },
-    { id: "library", to: "/library", icon: <BookMarked size={16} />, label: ko ? "자료실" : "Library" },
-    { id: "projects", to: "/projects", icon: <FolderKanban size={16} />, label: ko ? "프로젝트" : "Projects" },
+    { id: "tasks", to: p("/tasks"), icon: <CheckSquare size={16} />, label: ko ? "내 업무" : "My Tasks" },
+    { id: "calendar", to: p("/calendar"), icon: <Calendar size={16} />, label: ko ? "캘린더" : "Calendar" },
+    { id: "library", to: p("/library"), icon: <BookMarked size={16} />, label: ko ? "자료실" : "Library" },
+    { id: "projects", to: p("/projects"), icon: <FolderKanban size={16} />, label: ko ? "프로젝트" : "Projects" },
   ];
 
   const orgItems: NavItem[] = [
-    { id: "branding", to: "/branding", icon: <Palette size={16} />, label: ko ? "브랜딩" : "Branding" },
-    { id: "meetings", to: "/meetings", icon: <Video size={16} />, label: ko ? "회의/미팅" : "Meetings" },
-    { id: "chat", to: "/chat", icon: <MessageCircle size={16} />, label: ko ? "채팅" : "Chat" },
-    { id: "radar", to: "/radar", icon: <Radar size={16} />, label: ko ? "비즈 레이더" : "Biz Radar" },
-    { id: "team", to: "/team", icon: <Users size={16} />, label: ko ? "팀" : "Team" },
+    { id: "branding", to: p("/branding"), icon: <Palette size={16} />, label: ko ? "브랜딩" : "Branding" },
+    { id: "meetings", to: p("/meetings"), icon: <Video size={16} />, label: ko ? "회의/미팅" : "Meetings" },
+    { id: "chat", to: p("/chat"), icon: <MessageCircle size={16} />, label: ko ? "채팅" : "Chat" },
+    { id: "radar", to: p("/radar"), icon: <Radar size={16} />, label: ko ? "비즈 레이더" : "Biz Radar" },
+    { id: "team", to: p("/team"), icon: <Users size={16} />, label: ko ? "팀" : "Team" },
   ];
 
   const toolItems: NavItem[] = [
@@ -72,7 +76,11 @@ export function NewSidebar() {
     // { id: "card-news", to: "/tools/card-news", icon: <Zap size={16} />, label: ko ? "카드뉴스 생성기" : "Card News" },
   ];
 
-  const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + "/");
+  const isActive = (path: string) => {
+    // Strip query params for comparison
+    const clean = path.split("?")[0];
+    return location.pathname === clean || location.pathname.startsWith(clean + "/");
+  };
 
   // ── Render ──
   return (
@@ -145,7 +153,7 @@ export function NewSidebar() {
             {/* 내 업무 — with submenu */}
             <div>
               <button
-                onClick={() => { setTasksExpanded(!tasksExpanded); navigate("/tasks"); }}
+                onClick={() => { setTasksExpanded(!tasksExpanded); navigate(p("/tasks")); }}
                 className={cn(
                   "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
                   isActive("/tasks")
@@ -159,7 +167,7 @@ export function NewSidebar() {
               </button>
               {tasksExpanded && (
                 <div className="ml-7 mt-0.5 space-y-0.5">
-                  <NavLink to="/tasks?filter=today" className={() => cn(
+                  <NavLink to={p("/tasks?filter=today")} className={() => cn(
                     "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
                     location.search.includes("filter=today")
                       ? "bg-gray-200/70 text-gray-900 font-semibold"
@@ -167,7 +175,7 @@ export function NewSidebar() {
                   )}>
                     {ko ? "오늘" : "Today"}
                   </NavLink>
-                  <NavLink to="/tasks?filter=week" className={() => cn(
+                  <NavLink to={p("/tasks?filter=week")} className={() => cn(
                     "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
                     location.search.includes("filter=week")
                       ? "bg-gray-200/70 text-gray-900 font-semibold"
@@ -196,7 +204,7 @@ export function NewSidebar() {
             {/* 자료실 — with submenu */}
             <div>
               <button
-                onClick={() => { setLibraryExpanded(!libraryExpanded); navigate("/library"); }}
+                onClick={() => { setLibraryExpanded(!libraryExpanded); navigate(p("/library")); }}
                 className={cn(
                   "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
                   isActive("/library")
@@ -210,7 +218,7 @@ export function NewSidebar() {
               </button>
               {libraryExpanded && (
                 <div className="ml-7 mt-0.5 space-y-0.5">
-                  <NavLink to="/library?tab=team" className={() => cn(
+                  <NavLink to={p("/library?tab=team")} className={() => cn(
                     "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
                     location.search.includes("tab=team")
                       ? "bg-gray-200/70 text-gray-900 font-semibold"
@@ -219,7 +227,7 @@ export function NewSidebar() {
                     <Users size={13} />
                     {ko ? "팀 자료실" : "Team Library"}
                   </NavLink>
-                  <NavLink to="/library?tab=my" className={() => cn(
+                  <NavLink to={p("/library?tab=my")} className={() => cn(
                     "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
                     location.search.includes("tab=my")
                       ? "bg-gray-200/70 text-gray-900 font-semibold"
@@ -235,7 +243,7 @@ export function NewSidebar() {
             {/* 프로젝트 — with submenu */}
             <div>
               <button
-                onClick={() => { setProjectsExpanded(!projectsExpanded); navigate("/projects"); }}
+                onClick={() => { setProjectsExpanded(!projectsExpanded); navigate(p("/projects")); }}
                 className={cn(
                   "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
                   isActive("/projects")
@@ -249,7 +257,7 @@ export function NewSidebar() {
               </button>
               {projectsExpanded && (
                 <div className="ml-7 mt-0.5 space-y-0.5">
-                  <NavLink to="/projects?type=internal" className={() => cn(
+                  <NavLink to={p("/projects?type=internal")} className={() => cn(
                     "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
                     location.search.includes("type=internal")
                       ? "bg-gray-200/70 text-gray-900 font-semibold"
@@ -258,7 +266,7 @@ export function NewSidebar() {
                     <FolderKanban size={13} />
                     {ko ? "내부 프로젝트" : "Internal"}
                   </NavLink>
-                  <NavLink to="/projects?type=external" className={() => cn(
+                  <NavLink to={p("/projects?type=external")} className={() => cn(
                     "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
                     location.search.includes("type=external")
                       ? "bg-gray-200/70 text-gray-900 font-semibold"
