@@ -1387,18 +1387,24 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
           <div className="flex gap-2">
             {!checkedIn ? (
               <button onClick={handleCheckIn}
-                className="flex-1 py-3 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
+                className="px-6 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors inline-flex items-center gap-2">
                 <Clock size={16} /> {ko ? "출근하기" : "Check In"}
               </button>
             ) : !checkedOut ? (
               <button onClick={handleCheckOut}
-                className="flex-1 py-3 bg-gray-900 text-white text-sm font-bold rounded-xl hover:bg-gray-800 transition-colors flex items-center justify-center gap-2">
+                className="px-6 py-2.5 bg-gray-900 text-white text-sm font-bold rounded-xl hover:bg-gray-800 transition-colors inline-flex items-center gap-2">
                 <Clock size={16} /> {ko ? "퇴근하기" : "Check Out"}
               </button>
             ) : (
-              <div className="flex-1 py-3 bg-emerald-50 text-emerald-700 text-sm font-bold rounded-xl text-center flex items-center justify-center gap-2">
-                <Check size={16} /> {ko ? "퇴근 완료" : "Done for today"}
-              </div>
+              <>
+                <div className="px-4 py-2.5 bg-emerald-50 text-emerald-700 text-sm font-bold rounded-xl inline-flex items-center gap-2">
+                  <Check size={16} /> {ko ? "퇴근 완료" : "Done"}
+                </div>
+                <button onClick={handleCheckIn}
+                  className="px-4 py-2.5 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors inline-flex items-center gap-2">
+                  <Clock size={16} /> {ko ? "재출근" : "Re-check in"}
+                </button>
+              </>
             )}
           </div>
         </div>
