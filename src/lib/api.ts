@@ -581,4 +581,32 @@ export const api = {
     if (data && data.length > 0) return { shared: true, token: data[0].token };
     return { shared: false };
   },
+
+  // ── Clients (Sales) ──
+  getClients: async () => {
+    const orgId = getActiveOrgId();
+    if (!orgId) return [];
+    const { data, error } = await supabase.from('pm_clients').select('*').eq('org_id', orgId).order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data || []).map(toCamel);
+  },
+  createClient: async (client: any) => {
+    const uid = await getUid();
+    const orgId = getActiveOrgId();
+    const row = toSnake(client);
+    row.created_by = uid;
+    row.org_id = orgId;
+    const { data, error } = await supabase.from('pm_clients').insert(row).select().single();
+    if (error) throw error;
+    return toCamel(data);
+  },
+  updateClient: async (id: string, updates: any) => {
+    const { data, error } = await supabase.from('pm_clients').update(toSnake(updates)).eq('id', id).select().single();
+    if (error) throw error;
+    return toCamel(data);
+  },
+  deleteClient: async (id: string) => {
+    await supabase.from('pm_clients').delete().eq('id', id);
+    return { success: true };
+  },
 };
