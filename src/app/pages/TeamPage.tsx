@@ -1342,16 +1342,37 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
   }, []);
 
   const handleCheckIn = async () => {
-    try { const r = await api.checkIn(); setMyRecord(r); loadMonth(true); } catch (err) { console.error(err); }
+    try {
+      const r = await api.checkIn();
+      // Ensure checkOut is null (not empty string) after check-in
+      r.checkOut = null;
+      r.currentStatus = 'working';
+      setMyRecord({ ...r });
+      // Refresh calendar in background without overwriting myRecord
+      api.getAttendanceMonth(calMonth.year, calMonth.month).then(data => setMonthRecords(data)).catch(() => {});
+    } catch (err) { console.error(err); }
   };
   const handleCheckOut = async () => {
-    try { const r = await api.checkOut(); setMyRecord(r); loadMonth(true); } catch (err) { console.error(err); }
+    try {
+      const r = await api.checkOut();
+      r.currentStatus = 'off';
+      setMyRecord({ ...r });
+      api.getAttendanceMonth(calMonth.year, calMonth.month).then(data => setMonthRecords(data)).catch(() => {});
+    } catch (err) { console.error(err); }
   };
   const handleBreakStart = async () => {
-    try { const r = await api.startBreak(); setMyRecord(r); loadMonth(true); } catch (err) { console.error(err); }
+    try {
+      const r = await api.startBreak();
+      r.currentStatus = 'break';
+      setMyRecord({ ...r });
+    } catch (err) { console.error(err); }
   };
   const handleBreakEnd = async () => {
-    try { const r = await api.endBreak(); setMyRecord(r); loadMonth(true); } catch (err) { console.error(err); }
+    try {
+      const r = await api.endBreak();
+      r.currentStatus = 'working';
+      setMyRecord({ ...r });
+    } catch (err) { console.error(err); }
   };
   const saveStamp = async () => {
     await api.saveStampConfig(myStamp);
@@ -1372,8 +1393,8 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
 
   const todayStr = new Date().toISOString().split('T')[0];
   const isCurrentMonth = calMonth.year === new Date().getFullYear() && calMonth.month === new Date().getMonth() + 1;
-  const checkedIn = myRecord?.checkIn;
-  const checkedOut = myRecord?.checkOut;
+  const checkedIn = !!myRecord?.checkIn;
+  const checkedOut = !!(myRecord?.checkOut && myRecord.checkOut !== null);
   const currentStatus = myRecord?.currentStatus || 'off';
 
   const formatTime = (iso: string | null | Date) => {
