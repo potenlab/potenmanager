@@ -17,7 +17,8 @@ import {
 import { cn } from "../../../lib/utils";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSidebar } from "../../context/SidebarContext";
-import { useOrgPath } from "../../hooks/useOrgPath";
+import { useWorkspace } from "../../context/WorkspaceContext";
+import { FolderKanban } from "lucide-react";
 
 const APP_VERSION = __APP_VERSION__;
 
@@ -40,47 +41,52 @@ export function BottomNav() {
   const navigate = useNavigate();
   const location = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
-  const op = useOrgPath();
+  const { isPersonal, currentOrg } = useWorkspace();
   const ko = language === "ko";
 
   if (!isMobile) return null;
 
+  // Path prefix: personal = "/" , org = "/:slug/"
+  const slug = currentOrg?.slug;
+  const p = (path: string) => isPersonal ? path : `/${slug}${path}`;
+
   const tabs: TabItem[] = [
     {
-      to: op("/tasks"),
+      to: p("/tasks"),
       icon: <CheckSquare size={20} />,
       label: ko ? "업무" : "Tasks",
       match: (path) => path.includes("/tasks"),
     },
     {
-      to: op("/dashboard"),
+      to: p("/dashboard"),
       icon: <LayoutDashboard size={20} />,
       label: ko ? "홈" : "Home",
       match: (path) => path.includes("/dashboard") || path.split("/").filter(Boolean).length <= 1,
     },
     {
-      to: op("/calendar"),
+      to: p("/calendar"),
       icon: <Calendar size={20} />,
       label: ko ? "캘린더" : "Calendar",
       match: (path) => path.includes("/calendar"),
     },
     {
-      to: op("/team"),
-      icon: <Users size={20} />,
-      label: ko ? "팀" : "Team",
-      match: (path) => path.includes("/team"),
+      to: p("/projects"),
+      icon: <FolderKanban size={20} />,
+      label: ko ? "프로젝트" : "Projects",
+      match: (path) => path.includes("/projects"),
     },
   ];
 
   const moreItems: MoreItem[] = [
-    { to: op("/chat"), icon: <MessageCircle size={20} />, label: ko ? "채팅" : "Chat" },
-    { to: op("/projects"), icon: <Building2 size={20} />, label: ko ? "프로젝트" : "Projects" },
-    { to: op("/branding"), icon: <Building2 size={20} />, label: ko ? "브랜딩" : "Branding" },
-    { to: op("/meetings"), icon: <Video size={20} />, label: ko ? "회의/미팅" : "Meetings" },
-    { to: op("/radar"), icon: <Radar size={20} />, label: ko ? "비즈 레이더" : "Biz Radar" },
-    { to: op("/library"), icon: <BookMarked size={20} />, label: ko ? "자료실" : "Library" },
-    { to: op("/mypage"), icon: <User size={20} />, label: ko ? "마이페이지" : "My Page" },
-    { to: op("/trash"), icon: <Trash2 size={20} />, label: ko ? "휴지통" : "Trash" },
+    { to: p("/library"), icon: <BookMarked size={20} />, label: ko ? "자료실" : "Library" },
+    ...(!isPersonal ? [
+      { to: p("/chat"), icon: <MessageCircle size={20} />, label: ko ? "채팅" : "Chat" },
+      { to: p("/branding"), icon: <Building2 size={20} />, label: ko ? "브랜딩" : "Branding" },
+      { to: p("/meetings"), icon: <Video size={20} />, label: ko ? "회의/미팅" : "Meetings" },
+      { to: p("/radar"), icon: <Radar size={20} />, label: ko ? "비즈 레이더" : "Biz Radar" },
+      { to: p("/team"), icon: <Users size={20} />, label: ko ? "팀" : "Team" },
+    ] : []),
+    { to: "/trash", icon: <Trash2 size={20} />, label: ko ? "휴지통" : "Trash" },
   ];
 
   // Check if current path is in "more" items (to highlight ··· tab)

@@ -59,7 +59,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           if (found) {
             setCurrentOrg(found.org);
             setMode("org");
+            localStorage.setItem("pm_active_org_id", found.org.id);
+            localStorage.setItem("poten_active_org_id", found.org.id);
           }
+        } else {
+          localStorage.removeItem("pm_active_org_id");
+          localStorage.removeItem("poten_active_org_id");
         }
       } catch (e) {
         console.error("[WorkspaceContext] Failed to load orgs:", e);
@@ -85,6 +90,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setCurrentOrg(null);
     setMode("personal");
     localStorage.setItem(ACTIVE_WORKSPACE_KEY, "personal");
+    localStorage.removeItem("pm_active_org_id");
+    localStorage.removeItem("poten_active_org_id");
   }, []);
 
   const switchToOrg = useCallback((orgId: string) => {
@@ -93,6 +100,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       setCurrentOrg(found.org);
       setMode("org");
       localStorage.setItem(ACTIVE_WORKSPACE_KEY, orgId);
+      localStorage.setItem("pm_active_org_id", orgId);
+      localStorage.setItem("poten_active_org_id", orgId);
     }
   }, [orgs]);
 
