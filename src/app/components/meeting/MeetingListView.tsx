@@ -78,9 +78,9 @@ export function MeetingListView({ meetings, onStatusChange }: Props) {
               </tr>
             ) : (
               meetings.map((meeting, index) => {
-                const meetingDate = new Date(meeting.date);
+                const meetingDate = new Date(meeting.date || Date.now());
                 const statusInfo = getStatusInfo(meeting.status);
-                const tc = TYPE_COLORS[meeting.type];
+                const tc = TYPE_COLORS[meeting.type] || TYPE_COLORS.other;
                 const now = new Date();
                 const isPast = meetingDate < now && meeting.status === 'scheduled';
 

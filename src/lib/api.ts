@@ -642,4 +642,39 @@ export const api = {
     await supabase.from('pm_estimates').delete().eq('id', id);
     return { success: true };
   },
+
+  // ── Attendance ──
+  getAttendance: async (date?: string) => {
+    const orgId = getOrgId();
+    const d = date || new Date().toISOString().split('T')[0];
+    const { data, error } = await supabase.from('pm_attendance').select('*').eq('org_id', orgId).eq('date', d);
+    if (error) throw error;
+    return (data || []).map(toCamel);
+  },
+  checkIn: async () => {
+    const uid = await getUid();
+    const orgId = getOrgId();
+    const today = new Date().toISOString().split('T')[0];
+    const { data, error } = await supabase.from('pm_attendance')
+      .upsert({ user_id: uid, org_id: orgId, date: today, check_in: new Date().toISOString(), status: 'present' }, { onConflict: 'user_id,org_id,date' })
+      .select().single();
+    if (error) throw error;
+    return toCamel(data);
+  },
+  checkOut: async () => {
+    const uid = await getUid();
+    const orgId = getOrgId();
+    const today = new Date().toISOString().split('T')[0];
+    const { data, error } = await supabase.from('pm_attendance')
+      .update({ check_out: new Date().toISOString() })
+      .eq('user_id', uid).eq('org_id', orgId).eq('date', today)
+      .select().single();
+    if (error) throw error;
+    return toCamel(data);
+  },
+  updateAttendance: async (id: string, updates: any) => {
+    const { data, error } = await supabase.from('pm_attendance').update(toSnake(updates)).eq('id', id).select().single();
+    if (error) throw error;
+    return toCamel(data);
+  },
 };

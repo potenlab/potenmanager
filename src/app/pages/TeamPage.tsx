@@ -36,6 +36,8 @@ import { createPortal } from "react-dom";
 import { useDrag, useDrop } from "react-dnd";
 import { format, isToday, isTomorrow, startOfWeek, endOfWeek, isWithinInterval } from "date-fns";
 import { useOrgPath } from "../hooks/useOrgPath";
+import { api } from "../../lib/api";
+import { supabase } from "../context/AuthContext";
 
 const TEAM_TASK_DRAG = "TEAM_TASK_CARD";
 const TEAM_COLUMN_DRAG = "TEAM_COLUMN";
@@ -66,10 +68,10 @@ export function TeamPage() {
   });
   const toggleMemberView = (v: "list" | "grid") => { setMemberView(v); localStorage.setItem('poten_team_member_view', v); };
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [activeTab, _setTeamTab] = useState<"members" | "tasks">(() => {
-    try { return (localStorage.getItem('poten_team_tab') as "members" | "tasks") || "members"; } catch { return "members"; }
+  const [activeTab, _setTeamTab] = useState<"members" | "tasks" | "attendance">(() => {
+    try { return (localStorage.getItem('poten_team_tab') as "members" | "tasks" | "attendance") || "members"; } catch { return "members"; }
   });
-  const setActiveTab = (v: "members" | "tasks") => { _setTeamTab(v); localStorage.setItem('poten_team_tab', v); };
+  const setActiveTab = (v: "members" | "tasks" | "attendance") => { _setTeamTab(v); localStorage.setItem('poten_team_tab', v); };
 
   const pendingRequests = joinRequests.filter(r => r.status === 'pending');
 
@@ -157,6 +159,18 @@ export function TeamPage() {
           >
             <LayoutGrid size={15} />
             {ko ? "업무 현황" : "Task Board"}
+          </button>
+          <button
+            onClick={() => setActiveTab("attendance")}
+            className={cn(
+              "px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2",
+              activeTab === "attendance"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            )}
+          >
+            <Clock size={15} />
+            {ko ? "출근" : "Attendance"}
           </button>
         </div>
         {activeTab === "members" && (
@@ -363,7 +377,13 @@ export function TeamPage() {
             </div>
           )}
         </>
-      ) : (
+      ) : null}
+
+      {activeTab === "attendance" && (
+        <AttendanceTab members={members} ko={ko} />
+      )}
+
+      {activeTab === "tasks" && (
         <TeamTaskBoard
           members={members}
           currentUser={currentUser}
@@ -1270,3 +1290,171 @@ const ColorPickerPopover = ({
     </div>
   );
 };
+
+// ─── Attendance Tab ──────────────────────────────────────────────
+function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
+  const [records, setRecords] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [myRecord, setMyRecord] = useState<any>(null);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+
+  const loadAttendance = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await api.getAttendance(selectedDate);
+      setRecords(data);
+      const uid = (await supabase.auth.getUser()).data.user?.id;
+      setMyRecord(data.find((r: any) => r.userId === uid) || null);
+    } catch { /* ignore */ }
+    setLoading(false);
+  }, [selectedDate]);
+
+  useEffect(() => { loadAttendance(); }, [loadAttendance]);
+
+  const handleCheckIn = async () => {
+    try {
+      const r = await api.checkIn();
+      setMyRecord(r);
+      loadAttendance();
+    } catch { /* ignore */ }
+  };
+
+  const handleCheckOut = async () => {
+    try {
+      const r = await api.checkOut();
+      setMyRecord(r);
+      loadAttendance();
+    } catch { /* ignore */ }
+  };
+
+  const isToday = selectedDate === new Date().toISOString().split('T')[0];
+  const checkedIn = myRecord?.checkIn;
+  const checkedOut = myRecord?.checkOut;
+
+  const formatTime = (iso: string | null) => {
+    if (!iso) return "-";
+    return new Date(iso).toLocaleTimeString(ko ? "ko-KR" : "en-US", { hour: "2-digit", minute: "2-digit" });
+  };
+
+  const getWorkDuration = (checkIn: string | null, checkOut: string | null) => {
+    if (!checkIn) return "-";
+    const end = checkOut ? new Date(checkOut) : new Date();
+    const diff = end.getTime() - new Date(checkIn).getTime();
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    return `${h}${ko ? "시간" : "h"} ${m}${ko ? "분" : "m"}`;
+  };
+
+  const getMemberName = (userId: string) => {
+    const m = members.find(m => m.id === userId);
+    return m?.name || m?.email || userId.slice(0, 8);
+  };
+
+  const getMemberAvatar = (userId: string) => {
+    const m = members.find(m => m.id === userId);
+    return m?.avatar;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* My check-in card */}
+      {isToday && (
+        <div className="bg-white rounded-2xl border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">{ko ? "오늘 출근" : "Today"}</h3>
+              <p className="text-sm text-gray-500">{new Date().toLocaleDateString(ko ? "ko-KR" : "en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
+            </div>
+            {checkedIn && (
+              <div className="text-right">
+                <p className="text-xs text-gray-400">{ko ? "근무 시간" : "Duration"}</p>
+                <p className="text-lg font-bold text-gray-900">{getWorkDuration(myRecord?.checkIn, myRecord?.checkOut)}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="bg-gray-50 rounded-xl p-3 text-center">
+              <p className="text-[10px] uppercase font-semibold text-gray-400 mb-1">{ko ? "출근" : "Check In"}</p>
+              <p className="text-xl font-bold text-gray-900">{formatTime(myRecord?.checkIn)}</p>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-3 text-center">
+              <p className="text-[10px] uppercase font-semibold text-gray-400 mb-1">{ko ? "퇴근" : "Check Out"}</p>
+              <p className="text-xl font-bold text-gray-900">{formatTime(myRecord?.checkOut)}</p>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            {!checkedIn ? (
+              <button onClick={handleCheckIn}
+                className="flex-1 py-3 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
+                <Clock size={16} /> {ko ? "출근하기" : "Check In"}
+              </button>
+            ) : !checkedOut ? (
+              <button onClick={handleCheckOut}
+                className="flex-1 py-3 bg-gray-900 text-white text-sm font-bold rounded-xl hover:bg-gray-800 transition-colors flex items-center justify-center gap-2">
+                <Clock size={16} /> {ko ? "퇴근하기" : "Check Out"}
+              </button>
+            ) : (
+              <div className="flex-1 py-3 bg-emerald-50 text-emerald-700 text-sm font-bold rounded-xl text-center flex items-center justify-center gap-2">
+                <Check size={16} /> {ko ? "퇴근 완료" : "Done for today"}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Date picker + team list */}
+      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-700">{ko ? "팀 출근 현황" : "Team Attendance"}</h3>
+          <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
+            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-100" />
+        </div>
+
+        {loading ? (
+          <div className="p-8 text-center text-gray-400 text-sm">{ko ? "로딩 중..." : "Loading..."}</div>
+        ) : records.length === 0 ? (
+          <div className="p-8 text-center text-gray-400 text-sm">{ko ? "출근 기록이 없습니다" : "No records"}</div>
+        ) : (
+          <table className="w-full text-left">
+            <thead><tr className="bg-gray-50/50 border-b border-gray-100">
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500">{ko ? "멤버" : "Member"}</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500">{ko ? "출근" : "In"}</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500">{ko ? "퇴근" : "Out"}</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500">{ko ? "근무시간" : "Duration"}</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500">{ko ? "상태" : "Status"}</th>
+            </tr></thead>
+            <tbody className="divide-y divide-gray-100">
+              {records.map((r: any) => (
+                <tr key={r.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      {getMemberAvatar(r.userId) ? (
+                        <img src={getMemberAvatar(r.userId)} className="w-7 h-7 rounded-full" />
+                      ) : (
+                        <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500">
+                          {getMemberName(r.userId).charAt(0)}
+                        </div>
+                      )}
+                      <span className="text-sm font-medium text-gray-900">{getMemberName(r.userId)}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-700">{formatTime(r.checkIn)}</td>
+                  <td className="px-4 py-3 text-sm text-gray-700">{formatTime(r.checkOut)}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-gray-700">{getWorkDuration(r.checkIn, r.checkOut)}</td>
+                  <td className="px-4 py-3">
+                    <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full",
+                      r.checkOut ? "bg-emerald-100 text-emerald-700" : r.checkIn ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-500")}>
+                      {r.checkOut ? (ko ? "퇴근" : "Done") : r.checkIn ? (ko ? "근무 중" : "Working") : (ko ? "미출근" : "Absent")}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}

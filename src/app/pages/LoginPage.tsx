@@ -107,6 +107,14 @@ export function LoginPage() {
 
   useEffect(() => {
     if (!isLoading && user) {
+      // Demo accounts skip onboarding
+      const isDemo = localStorage.getItem('poten_demo_mode') === 'true';
+      if (isDemo) {
+        localStorage.setItem('poten_onboarding_complete', 'true');
+        navigate(redirectTo, { replace: true });
+        return;
+      }
+
       const localDone = localStorage.getItem('poten_onboarding_complete');
       if (localDone) {
         navigate(redirectTo, { replace: true });

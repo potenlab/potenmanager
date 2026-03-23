@@ -1052,9 +1052,9 @@ export function BizRadarPage() {
                       {(p.deadlineDate || p.deadlineText) && (
                         <span className="flex items-center gap-1 bg-orange-50 text-orange-600 px-2 py-0.5 rounded-md font-medium">
                           <Clock size={10} />
-                          {p.deadlineDate
+                          {p.deadlineDate && p.deadlineDate.length >= 7
                             ? `~${p.deadlineDate.slice(5).replace('-', '/')}`
-                            : p.deadlineText}
+                            : p.deadlineText || ''}
                         </span>
                       )}
                       {p.applicants > 0 && (
@@ -1257,7 +1257,7 @@ export function BizRadarPage() {
                           p.isRecruiting ? "bg-orange-50 text-orange-600" : "bg-gray-100 text-gray-400"
                         )}>
                           <Clock size={10} />
-                          ~{p.deadlineDate.slice(5).replace('-', '/')}
+                          ~{(p.deadlineDate || '').slice(5).replace('-', '/')}
                           {!p.isRecruiting && ' (마감)'}
                         </span>
                       )}

@@ -41,8 +41,8 @@ function MeetingCard({ meeting, column, isSelecting, isSelected, onToggleSelect,
   const navigate = useNavigate();
   const p = useOrgPath();
   const { members } = useTeam();
-  const tc = TYPE_COLORS[meeting.type];
-  const meetingDate = new Date(meeting.date);
+  const tc = TYPE_COLORS[meeting.type] || TYPE_COLORS.other;
+  const meetingDate = new Date(meeting.date || Date.now());
 
   const [{ isDragging }, dragRef] = useDrag<DragItem, void, { isDragging: boolean }>({
     type: DRAG_TYPE,
@@ -89,7 +89,7 @@ function MeetingCard({ meeting, column, isSelecting, isSelected, onToggleSelect,
         <div className="flex items-center gap-1.5">
           {/* Participant avatars (top-right) */}
           <div className="flex -space-x-1.5">
-            {meeting.attendeeIds.slice(0, 3).map(id => {
+            {(meeting.attendeeIds || []).slice(0, 3).map(id => {
               const avatar = getMemberAvatar(id);
               return avatar ? (
                 <img key={id} src={avatar} alt="" className="w-5 h-5 rounded-full border-[1.5px] border-white" />
@@ -99,9 +99,9 @@ function MeetingCard({ meeting, column, isSelecting, isSelected, onToggleSelect,
                 </div>
               );
             })}
-            {meeting.attendeeIds.length > 3 && (
+            {(meeting.attendeeIds || []).length > 3 && (
               <div className="w-5 h-5 rounded-full bg-gray-100 border-[1.5px] border-white flex items-center justify-center text-[8px] font-semibold text-gray-500">
-                +{meeting.attendeeIds.length - 3}
+                +{(meeting.attendeeIds || []).length - 3}
               </div>
             )}
           </div>
@@ -130,9 +130,9 @@ function MeetingCard({ meeting, column, isSelecting, isSelected, onToggleSelect,
             <span className="flex items-center gap-0.5"><MapPin size={10} /> {meeting.location}</span>
           </>
         )}
-        {meeting.actionItems.length > 0 && (
+        {(meeting.actionItems || []).length > 0 && (
           <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-lg ml-auto">
-            {meeting.actionItems.filter(a => a.done).length}/{meeting.actionItems.length}
+            {(meeting.actionItems || []).filter(a => a.done).length}/{(meeting.actionItems || []).length}
           </span>
         )}
       </div>

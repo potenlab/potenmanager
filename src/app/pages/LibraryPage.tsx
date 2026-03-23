@@ -426,7 +426,7 @@ export function LibraryPage() {
 
     // Sort each column by date
     Object.values(map).forEach((arr) => {
-      arr.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      arr.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
     });
 
     return map;
