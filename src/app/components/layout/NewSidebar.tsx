@@ -390,11 +390,11 @@ export function NewSidebar() {
       <div className="border-t border-gray-200 px-3 py-3 space-y-1">
         {/* User Profile */}
         {user && (
-          <div className="flex items-center gap-2.5 px-2 py-2 mb-1">
+          <NavLink to="/mypage" className="flex items-center gap-2.5 px-2 py-2 mb-1 rounded-lg hover:bg-gray-100 transition-all cursor-pointer group">
             <img
               src={user.user_metadata?.avatar_url || user.user_metadata?.picture || `https://api.dicebear.com/7.x/initials/svg?seed=${user.email || 'U'}`}
               alt=""
-              className="w-8 h-8 rounded-full object-cover border border-gray-200 shrink-0"
+              className="w-8 h-8 rounded-full object-cover border border-gray-200 shrink-0 group-hover:ring-2 group-hover:ring-blue-200"
             />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-gray-900 truncate">
@@ -402,7 +402,7 @@ export function NewSidebar() {
               </p>
               <p className="text-[11px] text-gray-400 truncate">{user.email}</p>
             </div>
-          </div>
+          </NavLink>
         )}
         <NavLink
           to="/settings"

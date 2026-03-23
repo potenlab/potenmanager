@@ -1299,18 +1299,33 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
   const [monthRecords, setMonthRecords] = useState<any[]>([]);
   const [calMonth, setCalMonth] = useState(() => { const n = new Date(); return { year: n.getFullYear(), month: n.getMonth() + 1 }; });
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [selectedLogs, setSelectedLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [stampConfigs, setStampConfigs] = useState<Record<string, any>>({});
+  const [showStampEditor, setShowStampEditor] = useState(false);
+  const [myStamp, setMyStamp] = useState<any>({ text: '', color: '#3B82F6', emoji: '', shape: 'rounded' });
 
-  // Load month data
+  const STAMP_PRESETS = [
+    '#EF4444', '#F97316', '#EAB308', '#22C55E', '#3B82F6', '#8B5CF6', '#EC4899', '#14B8A6', '#6366F1', '#F43F5E',
+  ];
+  const SHAPE_OPTIONS = [
+    { value: 'rounded', label: ko ? '네모' : 'Square' },
+    { value: 'circle', label: ko ? '동그라미' : 'Circle' },
+  ];
+
+  // Load month data + stamp configs
   const loadMonth = useCallback(async (preserveMyRecord?: boolean) => {
     setLoading(true);
     try {
-      const data = await api.getAttendanceMonth(calMonth.year, calMonth.month);
+      const [data, stamps] = await Promise.all([
+        api.getAttendanceMonth(calMonth.year, calMonth.month),
+        api.getOrgStampConfigs(),
+      ]);
       setMonthRecords(data);
+      setStampConfigs(stamps);
       if (!preserveMyRecord) {
         const uid = (await supabase.auth.getUser()).data.user?.id;
         const today = new Date().toISOString().split('T')[0];
-        // date from DB may be Date object or string — normalize both
         const found = data.find((r: any) => r.userId === uid && (r.date instanceof Date ? r.date.toISOString().split('T')[0] : String(r.date).slice(0, 10)) === today);
         setMyRecord(found || null);
       }
@@ -1320,29 +1335,50 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
 
   useEffect(() => { loadMonth(); }, [loadMonth]);
 
+  // Load my stamp config
+  useEffect(() => {
+    api.getStampConfig().then(c => { if (c && Object.keys(c).length) setMyStamp(c); });
+  }, []);
+
   const handleCheckIn = async () => {
-    try {
-      const r = await api.checkIn();
-      setMyRecord(r);
-      loadMonth(true); // preserve myRecord while calendar refreshes
-    } catch (err) { console.error("Check-in error:", err); }
+    try { const r = await api.checkIn(); setMyRecord(r); loadMonth(true); } catch (err) { console.error(err); }
   };
   const handleCheckOut = async () => {
-    try {
-      const r = await api.checkOut();
-      setMyRecord(r);
-      loadMonth(true);
-    } catch (err) { console.error("Check-out error:", err); }
+    try { const r = await api.checkOut(); setMyRecord(r); loadMonth(true); } catch (err) { console.error(err); }
+  };
+  const handleBreakStart = async () => {
+    try { const r = await api.startBreak(); setMyRecord(r); loadMonth(true); } catch (err) { console.error(err); }
+  };
+  const handleBreakEnd = async () => {
+    try { const r = await api.endBreak(); setMyRecord(r); loadMonth(true); } catch (err) { console.error(err); }
+  };
+  const saveStamp = async () => {
+    await api.saveStampConfig(myStamp);
+    setShowStampEditor(false);
+    loadMonth();
+  };
+
+  // Load logs when day is selected
+  const loadDayLogs = async (dateStr: string) => {
+    const recs = byDate[dateStr] || [];
+    const allLogs: any[] = [];
+    for (const r of recs) {
+      try { const logs = await api.getAttendanceLogs(r.id); allLogs.push(...logs); } catch {}
+    }
+    allLogs.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    setSelectedLogs(allLogs);
   };
 
   const todayStr = new Date().toISOString().split('T')[0];
   const isCurrentMonth = calMonth.year === new Date().getFullYear() && calMonth.month === new Date().getMonth() + 1;
   const checkedIn = myRecord?.checkIn;
   const checkedOut = myRecord?.checkOut;
+  const currentStatus = myRecord?.currentStatus || 'off';
 
-  const formatTime = (iso: string | null) => {
+  const formatTime = (iso: string | null | Date) => {
     if (!iso) return "-";
-    return new Date(iso).toLocaleTimeString(ko ? "ko-KR" : "en-US", { hour: "2-digit", minute: "2-digit" });
+    const d = iso instanceof Date ? iso : new Date(iso);
+    return d.toLocaleTimeString(ko ? "ko-KR" : "en-US", { hour: "2-digit", minute: "2-digit" });
   };
   const getWorkHours = (checkIn: string | null, checkOut: string | null) => {
     if (!checkIn) return 0;
@@ -1359,6 +1395,22 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
     const m = members.find(m => m.id === userId);
     return m?.name || m?.email || userId.slice(0, 8);
   };
+  const getStampDisplay = (userId: string) => {
+    const cfg = stampConfigs[userId];
+    if (cfg?.emoji) return { text: cfg.emoji, color: cfg.color || '#3B82F6', shape: cfg.shape || 'rounded' };
+    if (cfg?.text) return { text: cfg.text, color: cfg.color || '#3B82F6', shape: cfg.shape || 'rounded' };
+    const name = getMemberName(userId);
+    const text = name.length >= 3 ? name.slice(1, 3) : name;
+    const fallbackColors = ['#EF4444', '#3B82F6', '#22C55E', '#EAB308', '#8B5CF6', '#EC4899', '#14B8A6'];
+    return { text, color: fallbackColors[userId.charCodeAt(0) % fallbackColors.length], shape: 'rounded' };
+  };
+
+  const LOG_TYPE_LABELS: Record<string, { ko: string; en: string; icon: string }> = {
+    check_in: { ko: '출근', en: 'Check In', icon: '🟢' },
+    check_out: { ko: '퇴근', en: 'Check Out', icon: '🔴' },
+    break_start: { ko: '휴식 시작', en: 'Break Start', icon: '☕' },
+    break_end: { ko: '휴식 끝', en: 'Break End', icon: '💪' },
+  };
 
   // Calendar grid
   const firstDay = new Date(calMonth.year, calMonth.month - 1, 1).getDay();
@@ -1367,50 +1419,83 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
   const prevMonth = () => setCalMonth(p => p.month === 1 ? { year: p.year - 1, month: 12 } : { ...p, month: p.month - 1 });
   const nextMonth = () => setCalMonth(p => p.month === 12 ? { year: p.year + 1, month: 1 } : { ...p, month: p.month + 1 });
 
-  // Group records by date (normalize date format)
   const byDate: Record<string, any[]> = {};
   monthRecords.forEach(r => { const d = r.date instanceof Date ? r.date.toISOString().split('T')[0] : String(r.date).slice(0, 10); if (!byDate[d]) byDate[d] = []; byDate[d].push(r); });
 
-  // Selected day detail
   const dayRecords = selectedDay ? (byDate[selectedDay] || []) : [];
-  const dayTasks = selectedDay ? tasks.filter(t => {
+  const dayTasks = selectedDay ? tasks.filter((t: any) => {
     if (!t.updatedAt) return false;
     const u = new Date(t.updatedAt).toISOString().split('T')[0];
     return u === selectedDay && t.status === "completed";
   }) : [];
+
+  const STATUS_BADGES: Record<string, { ko: string; en: string; class: string }> = {
+    working: { ko: '근무중', en: 'Working', class: 'bg-green-100 text-green-700' },
+    break: { ko: '휴식중', en: 'On Break', class: 'bg-amber-100 text-amber-700' },
+    off: { ko: '퇴근', en: 'Off', class: 'bg-gray-100 text-gray-500' },
+  };
 
   return (
     <div className="space-y-6">
       {/* My check-in card */}
       {isCurrentMonth && (
         <div className="bg-white rounded-2xl border border-gray-200 p-5">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h3 className="text-base font-bold text-gray-900">{ko ? "오늘 출근" : "Today"}</h3>
-              <p className="text-xs text-gray-500">{new Date().toLocaleDateString(ko ? "ko-KR" : "en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
-            </div>
-            {checkedIn && (
-              <div className="text-right">
-                <p className="text-xs text-gray-400">{ko ? "근무 시간" : "Duration"}</p>
-                <p className="text-lg font-bold text-gray-900">{formatDuration(getWorkHours(myRecord?.checkIn, myRecord?.checkOut))}</p>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              {/* My stamp preview */}
+              <button onClick={() => setShowStampEditor(true)}
+                className={cn("w-12 h-12 flex items-center justify-center text-white font-black text-sm shadow-md hover:scale-110 transition-transform",
+                  myStamp.shape === 'circle' ? 'rounded-full' : 'rounded-lg')}
+                style={{ backgroundColor: myStamp.color }}
+                title={ko ? "도장 수정" : "Edit stamp"}>
+                {myStamp.emoji || myStamp.text || '?'}
+              </button>
+              <div>
+                <h3 className="text-base font-bold text-gray-900">{ko ? "오늘 출근" : "Today"}</h3>
+                <p className="text-xs text-gray-500">{new Date().toLocaleDateString(ko ? "ko-KR" : "en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
               </div>
-            )}
+            </div>
+            <div className="text-right">
+              {checkedIn && (
+                <>
+                  <span className={cn("inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold", STATUS_BADGES[currentStatus]?.class || STATUS_BADGES.off.class)}>
+                    {ko ? STATUS_BADGES[currentStatus]?.ko : STATUS_BADGES[currentStatus]?.en}
+                  </span>
+                  <p className="text-lg font-bold text-gray-900 mt-0.5">{formatDuration(getWorkHours(myRecord?.checkIn, myRecord?.checkOut))}</p>
+                </>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="flex items-center gap-4 text-sm">
+
+          {checkedIn && (
+            <div className="flex items-center gap-4 text-sm mb-4">
               <span className="text-gray-500">{ko ? "출근" : "In"}: <span className="font-bold text-gray-900">{formatTime(myRecord?.checkIn)}</span></span>
               <span className="text-gray-500">{ko ? "퇴근" : "Out"}: <span className="font-bold text-gray-900">{formatTime(myRecord?.checkOut)}</span></span>
             </div>
-          </div>
-          <div className="flex gap-2">
+          )}
+
+          <div className="flex gap-2 flex-wrap">
             {!checkedIn ? (
               <button onClick={handleCheckIn} className="px-5 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors inline-flex items-center gap-2">
                 <Clock size={15} /> {ko ? "출근하기" : "Check In"}
               </button>
             ) : !checkedOut ? (
-              <button onClick={handleCheckOut} className="px-5 py-2 bg-gray-900 text-white text-sm font-bold rounded-xl hover:bg-gray-800 transition-colors inline-flex items-center gap-2">
-                <Clock size={15} /> {ko ? "퇴근하기" : "Check Out"}
-              </button>
+              <>
+                {currentStatus === 'working' ? (
+                  <>
+                    <button onClick={handleBreakStart} className="px-4 py-2 bg-amber-500 text-white text-sm font-bold rounded-xl hover:bg-amber-600 transition-colors inline-flex items-center gap-2">
+                      ☕ {ko ? "휴식" : "Break"}
+                    </button>
+                    <button onClick={handleCheckOut} className="px-4 py-2 bg-gray-900 text-white text-sm font-bold rounded-xl hover:bg-gray-800 transition-colors inline-flex items-center gap-2">
+                      <Clock size={15} /> {ko ? "퇴근하기" : "Check Out"}
+                    </button>
+                  </>
+                ) : (
+                  <button onClick={handleBreakEnd} className="px-5 py-2 bg-green-600 text-white text-sm font-bold rounded-xl hover:bg-green-700 transition-colors inline-flex items-center gap-2">
+                    💪 {ko ? "업무 복귀" : "Resume Work"}
+                  </button>
+                )}
+              </>
             ) : (
               <>
                 <div className="px-4 py-2 bg-emerald-50 text-emerald-700 text-sm font-bold rounded-xl inline-flex items-center gap-2">
@@ -1425,9 +1510,80 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
         </div>
       )}
 
+      {/* Stamp Editor Modal */}
+      {showStampEditor && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowStampEditor(false)}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm space-y-5" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-gray-900">{ko ? "내 도장 만들기" : "Create My Stamp"}</h3>
+
+            {/* Preview */}
+            <div className="flex justify-center">
+              <div className={cn("w-20 h-20 flex items-center justify-center text-white font-black text-2xl shadow-lg",
+                myStamp.shape === 'circle' ? 'rounded-full' : 'rounded-xl')}
+                style={{ backgroundColor: myStamp.color }}>
+                {myStamp.emoji || myStamp.text || '?'}
+              </div>
+            </div>
+
+            {/* Text */}
+            <div>
+              <label className="text-xs font-semibold text-gray-500 mb-1 block">{ko ? "도장 텍스트 (2자)" : "Stamp Text (2 chars)"}</label>
+              <input type="text" maxLength={2} value={myStamp.text}
+                onChange={e => setMyStamp((s: any) => ({ ...s, text: e.target.value, emoji: '' }))}
+                placeholder={ko ? "예: 대현" : "e.g. DH"}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+            </div>
+
+            {/* Emoji */}
+            <div>
+              <label className="text-xs font-semibold text-gray-500 mb-1 block">{ko ? "또는 이모지" : "Or Emoji"}</label>
+              <div className="flex gap-2 flex-wrap">
+                {['😎', '🔥', '⚡', '🌟', '💎', '🎯', '🚀', '🐱', '🦊', '🐻'].map(e => (
+                  <button key={e} onClick={() => setMyStamp((s: any) => ({ ...s, emoji: e, text: '' }))}
+                    className={cn("w-9 h-9 rounded-lg text-lg flex items-center justify-center hover:bg-gray-100",
+                      myStamp.emoji === e && "ring-2 ring-blue-500 bg-blue-50")}>
+                    {e}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Color */}
+            <div>
+              <label className="text-xs font-semibold text-gray-500 mb-1 block">{ko ? "색상" : "Color"}</label>
+              <div className="flex gap-2 flex-wrap">
+                {STAMP_PRESETS.map(c => (
+                  <button key={c} onClick={() => setMyStamp((s: any) => ({ ...s, color: c }))}
+                    className={cn("w-8 h-8 rounded-full", myStamp.color === c && "ring-2 ring-offset-2 ring-gray-900")}
+                    style={{ backgroundColor: c }} />
+                ))}
+              </div>
+            </div>
+
+            {/* Shape */}
+            <div>
+              <label className="text-xs font-semibold text-gray-500 mb-1 block">{ko ? "모양" : "Shape"}</label>
+              <div className="flex gap-2">
+                {SHAPE_OPTIONS.map(s => (
+                  <button key={s.value} onClick={() => setMyStamp((st: any) => ({ ...st, shape: s.value }))}
+                    className={cn("px-4 py-1.5 rounded-lg text-sm font-medium border",
+                      myStamp.shape === s.value ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-600 hover:bg-gray-50")}>
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button onClick={() => setShowStampEditor(false)} className="flex-1 px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium">{ko ? "취소" : "Cancel"}</button>
+              <button onClick={saveStamp} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold">{ko ? "저장" : "Save"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Calendar */}
       <div className="bg-white rounded-2xl border border-gray-200 p-5">
-        {/* Month navigation */}
         <div className="flex items-center justify-between mb-4">
           <button onClick={prevMonth} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><ChevronLeft size={18} /></button>
           <h3 className="text-sm font-bold text-gray-900">
@@ -1436,20 +1592,17 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
           <button onClick={nextMonth} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><ArrowRight size={18} /></button>
         </div>
 
-        {/* Day headers */}
         <div className="grid grid-cols-7 gap-1 mb-1">
           {dayHeaders.map((d, i) => (
             <div key={i} className={cn("text-center text-[10px] font-semibold py-1", i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-gray-400")}>{d}</div>
           ))}
         </div>
 
-        {/* Calendar grid */}
         {loading ? (
           <div className="py-12 text-center text-gray-400 text-sm">{ko ? "로딩 중..." : "Loading..."}</div>
         ) : (
           <div className="grid grid-cols-7 gap-1">
-            {/* Empty cells for first week offset */}
-            {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} className="h-24" />)}
+            {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} className="h-28" />)}
 
             {Array.from({ length: daysInMonth }).map((_, i) => {
               const day = i + 1;
@@ -1459,11 +1612,10 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
               const isSelected = dateStr === selectedDay;
               const totalHours = dayRecs.reduce((s: number, r: any) => s + getWorkHours(r.checkIn, r.checkOut), 0);
               const dayOfWeek = new Date(calMonth.year, calMonth.month - 1, day).getDay();
-              const STAMP_COLORS = ["bg-red-500", "bg-blue-500", "bg-emerald-500", "bg-amber-500", "bg-purple-500", "bg-cyan-500", "bg-rose-500"];
 
               return (
-                <button key={day} onClick={() => setSelectedDay(isSelected ? null : dateStr)}
-                  className={cn("h-24 rounded-xl text-left p-1.5 transition-all relative flex flex-col",
+                <button key={day} onClick={() => { const d = isSelected ? null : dateStr; setSelectedDay(d); if (d) loadDayLogs(d); else setSelectedLogs([]); }}
+                  className={cn("h-28 rounded-xl text-left p-1.5 transition-all relative flex flex-col",
                     isSelected ? "bg-blue-50 ring-2 ring-blue-400" : isToday ? "bg-blue-50/50" : "hover:bg-gray-50",
                     dayOfWeek === 0 && "text-red-500", dayOfWeek === 6 && "text-blue-500")}>
                   <span className={cn("text-xs font-medium mb-1", isToday && "bg-blue-600 text-white w-5 h-5 rounded-full inline-flex items-center justify-center")}>
@@ -1473,15 +1625,13 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
                     <div className="flex-1 flex flex-col justify-end gap-0.5">
                       <div className="flex flex-wrap gap-0.5">
                         {dayRecs.slice(0, 4).map((r: any, idx: number) => {
-                          const name = getMemberName(r.userId);
-                          const stamp = name.length >= 3 ? name.slice(1, 3) : name.length === 2 ? name : name.slice(0, 2);
-                          const colorIdx = r.userId.charCodeAt(0) % STAMP_COLORS.length;
+                          const s = getStampDisplay(r.userId);
                           return (
-                            <div key={idx} className={cn("w-7 h-7 rounded-md flex items-center justify-center text-[9px] font-black text-white shadow-sm",
-                              STAMP_COLORS[colorIdx])}
-                              style={{ opacity: r.checkOut ? 0.85 : 0.5 }}
-                              title={`${name} ${r.checkOut ? (ko ? "퇴근" : "Done") : (ko ? "근무중" : "Working")}`}>
-                              {stamp}
+                            <div key={idx} className={cn("w-7 h-7 flex items-center justify-center text-[9px] font-black text-white shadow-sm",
+                              s.shape === 'circle' ? 'rounded-full' : 'rounded-md')}
+                              style={{ backgroundColor: s.color, opacity: r.checkOut ? 0.9 : 0.5 }}
+                              title={`${getMemberName(r.userId)} ${r.checkOut ? (ko ? "퇴근" : "Done") : (ko ? "근무중" : "Working")}`}>
+                              {s.text}
                             </div>
                           );
                         })}
@@ -1508,31 +1658,53 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
           {dayRecords.length === 0 ? (
             <p className="text-sm text-gray-400">{ko ? "출근 기록 없음" : "No attendance records"}</p>
           ) : (
-            <div className="space-y-2 mb-4">
-              {dayRecords.map((r: any) => (
-                <div key={r.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                  <div className="flex items-center gap-2">
-                    <div className={cn("w-6 h-6 rounded-md text-[8px] font-black flex items-center justify-center",
-                      r.checkOut ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700")}>
-                      {(() => { const n = getMemberName(r.userId); return n.length >= 3 ? n.slice(1, 3) : n.length === 2 ? n : n.slice(0, 2); })()}
+            <div className="space-y-3 mb-4">
+              {dayRecords.map((r: any) => {
+                const s = getStampDisplay(r.userId);
+                const recLogs = selectedLogs.filter(l => l.attendanceId === r.id);
+                return (
+                  <div key={r.id} className="border border-gray-100 rounded-xl p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className={cn("w-7 h-7 flex items-center justify-center text-[9px] font-black text-white",
+                          s.shape === 'circle' ? 'rounded-full' : 'rounded-md')}
+                          style={{ backgroundColor: s.color }}>
+                          {s.text}
+                        </div>
+                        <span className="text-sm font-medium text-gray-900">{getMemberName(r.userId)}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-gray-500">
+                        <span>{formatTime(r.checkIn)} ~ {formatTime(r.checkOut)}</span>
+                        <span className="font-medium text-gray-700">{formatDuration(getWorkHours(r.checkIn, r.checkOut))}</span>
+                      </div>
                     </div>
-                    <span className="text-sm font-medium text-gray-900">{getMemberName(r.userId)}</span>
+                    {/* Activity logs timeline */}
+                    {recLogs.length > 0 && (
+                      <div className="ml-3 pl-3 border-l-2 border-gray-200 space-y-1.5 mt-2">
+                        {recLogs.map((log: any, li: number) => {
+                          const lt = LOG_TYPE_LABELS[log.type] || { ko: log.type, en: log.type, icon: '📝' };
+                          return (
+                            <div key={li} className="flex items-center gap-2 text-xs text-gray-600">
+                              <span>{lt.icon}</span>
+                              <span className="font-medium">{formatTime(log.timestamp)}</span>
+                              <span className="text-gray-400">{ko ? lt.ko : lt.en}</span>
+                              {log.note && <span className="text-gray-500">— {log.note}</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-gray-500">
-                    <span>{formatTime(r.checkIn)} ~ {formatTime(r.checkOut)}</span>
-                    <span className="font-medium text-gray-700">{formatDuration(getWorkHours(r.checkIn, r.checkOut))}</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
-          {/* Completed tasks on this day */}
           {dayTasks.length > 0 && (
             <div>
               <p className="text-xs font-semibold text-gray-400 uppercase mb-2">{ko ? "완료한 업무" : "Completed Tasks"}</p>
               <div className="space-y-1">
-                {dayTasks.map(t => (
+                {dayTasks.map((t: any) => (
                   <div key={t.id} className="flex items-center gap-2 text-sm text-gray-700 py-1">
                     <Check size={12} className="text-emerald-500 shrink-0" />
                     <span className="truncate">{t.title}</span>

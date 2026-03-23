@@ -663,34 +663,97 @@ export const api = {
     const uid = await getUid();
     const orgId = getActiveOrgId();
     const today = new Date().toISOString().split('T')[0];
-    // Check if record exists for today
+    const now = new Date().toISOString();
     const { data: existing } = await supabase.from('pm_attendance')
       .select('id').eq('user_id', uid).eq('org_id', orgId).eq('date', today).maybeSingle();
     let data, error;
     if (existing) {
-      // Re-check-in: clear check_out, update check_in
       ({ data, error } = await supabase.from('pm_attendance')
-        .update({ check_in: new Date().toISOString(), check_out: null, status: 'present' })
+        .update({ check_in: now, check_out: null, status: 'present', current_status: 'working' })
         .eq('id', existing.id).select().single());
     } else {
       ({ data, error } = await supabase.from('pm_attendance')
-        .insert({ user_id: uid, org_id: orgId, date: today, check_in: new Date().toISOString(), status: 'present' })
+        .insert({ user_id: uid, org_id: orgId, date: today, check_in: now, status: 'present', current_status: 'working' })
         .select().single());
     }
     if (error) throw error;
+    // Log check_in event
+    const attId = data.id;
+    await supabase.from('pm_attendance_logs').insert({ attendance_id: attId, user_id: uid, org_id: orgId, type: 'check_in', timestamp: now });
     return toCamel(data);
   },
   checkOut: async () => {
     const uid = await getUid();
     const orgId = getActiveOrgId();
     const today = new Date().toISOString().split('T')[0];
+    const now = new Date().toISOString();
     const { data, error } = await supabase.from('pm_attendance')
-      .update({ check_out: new Date().toISOString() })
+      .update({ check_out: now, current_status: 'off' })
       .eq('user_id', uid).eq('org_id', orgId).eq('date', today)
       .is('check_out', null)
       .select().single();
     if (error) throw error;
+    await supabase.from('pm_attendance_logs').insert({ attendance_id: data.id, user_id: uid, org_id: orgId, type: 'check_out', timestamp: now });
     return toCamel(data);
+  },
+  startBreak: async () => {
+    const uid = await getUid();
+    const orgId = getActiveOrgId();
+    const today = new Date().toISOString().split('T')[0];
+    const now = new Date().toISOString();
+    const { data, error } = await supabase.from('pm_attendance')
+      .update({ current_status: 'break' })
+      .eq('user_id', uid).eq('org_id', orgId).eq('date', today)
+      .is('check_out', null)
+      .select().single();
+    if (error) throw error;
+    await supabase.from('pm_attendance_logs').insert({ attendance_id: data.id, user_id: uid, org_id: orgId, type: 'break_start', timestamp: now });
+    return toCamel(data);
+  },
+  endBreak: async () => {
+    const uid = await getUid();
+    const orgId = getActiveOrgId();
+    const today = new Date().toISOString().split('T')[0];
+    const now = new Date().toISOString();
+    const { data, error } = await supabase.from('pm_attendance')
+      .update({ current_status: 'working' })
+      .eq('user_id', uid).eq('org_id', orgId).eq('date', today)
+      .is('check_out', null)
+      .select().single();
+    if (error) throw error;
+    await supabase.from('pm_attendance_logs').insert({ attendance_id: data.id, user_id: uid, org_id: orgId, type: 'break_end', timestamp: now });
+    return toCamel(data);
+  },
+  getAttendanceLogs: async (attendanceId: string) => {
+    const { data, error } = await supabase.from('pm_attendance_logs')
+      .select('*').eq('attendance_id', attendanceId).order('timestamp', { ascending: true });
+    if (error) throw error;
+    return (data || []).map(toCamel);
+  },
+  // Stamp config
+  getStampConfig: async () => {
+    const uid = await getUid();
+    const orgId = getActiveOrgId();
+    const { data } = await supabase.from('pm_org_members')
+      .select('stamp_config').eq('user_id', uid).eq('org_id', orgId).maybeSingle();
+    return data?.stamp_config || {};
+  },
+  saveStampConfig: async (config: any) => {
+    const uid = await getUid();
+    const orgId = getActiveOrgId();
+    const { error } = await supabase.from('pm_org_members')
+      .update({ stamp_config: config })
+      .eq('user_id', uid).eq('org_id', orgId);
+    if (error) throw error;
+  },
+  getOrgStampConfigs: async () => {
+    const orgId = getActiveOrgId();
+    const { data, error } = await supabase.from('pm_org_members')
+      .select('user_id, stamp_config').eq('org_id', orgId);
+    if (error) throw error;
+    const map: Record<string, any> = {};
+    (data || []).forEach((r: any) => { if (r.stamp_config && Object.keys(r.stamp_config).length) map[r.user_id] = r.stamp_config; });
+    return map;
   },
   updateAttendance: async (id: string, updates: any) => {
     const { data, error } = await supabase.from('pm_attendance').update(toSnake(updates)).eq('id', id).select().single();
