@@ -52,7 +52,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
         setOrgs(myOrgs);
 
-        // Restore last active workspace
+        // Restore last active workspace, or default to first org
         const saved = localStorage.getItem(ACTIVE_WORKSPACE_KEY);
         if (saved && saved !== "personal") {
           const found = myOrgs.find((o) => o.org.id === saved);
@@ -62,6 +62,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             localStorage.setItem("pm_active_org_id", found.org.id);
             localStorage.setItem("poten_active_org_id", found.org.id);
           }
+        } else if (!saved && myOrgs.length > 0) {
+          // First visit: default to first org (team workspace)
+          const first = myOrgs[0];
+          setCurrentOrg(first.org);
+          setMode("org");
+          localStorage.setItem(ACTIVE_WORKSPACE_KEY, first.org.id);
+          localStorage.setItem("pm_active_org_id", first.org.id);
+          localStorage.setItem("poten_active_org_id", first.org.id);
         } else {
           localStorage.removeItem("pm_active_org_id");
           localStorage.removeItem("poten_active_org_id");
