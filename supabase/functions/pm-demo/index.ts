@@ -295,11 +295,10 @@ app.post("/pm-demo/setup", async (c) => {
         role: "owner",
       });
 
-      // Add fake team members for org modes
+      // Add fake team members for org modes (2 members)
       const fakeMembers = [
-        { name: "김민수", title: "개발팀 리드" },
-        { name: "박지현", title: "디자이너" },
-        { name: "이서연", title: "마케터" },
+        { name: "김민수", title: "개발팀 리드", stamp: { text: "민수", color: "#3B82F6", shape: "rounded" } },
+        { name: "박지현", title: "디자이너", stamp: { text: "지현", color: "#EC4899", shape: "circle" } },
       ];
       for (const fm of fakeMembers) {
         const fmEmail = `demo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@potenmanager.demo`;
@@ -323,9 +322,15 @@ app.post("/pm-demo/setup", async (c) => {
             org_id: orgId,
             user_id: fmAuth.user.id,
             role: "member",
+            stamp_config: fm.stamp,
           });
         }
       }
+
+      // Set owner stamp config
+      await supabase.from("pm_org_members").update({
+        stamp_config: { text: "데모", color: "#22C55E", shape: "rounded" },
+      }).eq("org_id", orgId).eq("user_id", userId);
     }
 
     // 3. Seed tasks
