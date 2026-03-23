@@ -1311,7 +1311,7 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
         const uid = (await supabase.auth.getUser()).data.user?.id;
         const today = new Date().toISOString().split('T')[0];
         // date from DB may be Date object or string — normalize both
-        const found = data.find((r: any) => r.userId === uid && String(r.date).slice(0, 10) === today);
+        const found = data.find((r: any) => r.userId === uid && (r.date instanceof Date ? r.date.toISOString().split('T')[0] : String(r.date).slice(0, 10)) === today);
         setMyRecord(found || null);
       }
     } catch (err) { console.error("Attendance load error:", err); }
@@ -1369,7 +1369,7 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
 
   // Group records by date (normalize date format)
   const byDate: Record<string, any[]> = {};
-  monthRecords.forEach(r => { const d = String(r.date).slice(0, 10); if (!byDate[d]) byDate[d] = []; byDate[d].push(r); });
+  monthRecords.forEach(r => { const d = r.date instanceof Date ? r.date.toISOString().split('T')[0] : String(r.date).slice(0, 10); if (!byDate[d]) byDate[d] = []; byDate[d].push(r); });
 
   // Selected day detail
   const dayRecords = selectedDay ? (byDate[selectedDay] || []) : [];
@@ -1478,8 +1478,8 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
                           const colorIdx = r.userId.charCodeAt(0) % STAMP_COLORS.length;
                           return (
                             <div key={idx} className={cn("w-7 h-7 rounded-md flex items-center justify-center text-[9px] font-black text-white shadow-sm",
-                              r.checkOut ? STAMP_COLORS[colorIdx] : "bg-gray-300")}
-                              style={r.checkOut ? { opacity: 0.85 } : {}}
+                              STAMP_COLORS[colorIdx])}
+                              style={{ opacity: r.checkOut ? 0.85 : 0.5 }}
                               title={`${name} ${r.checkOut ? (ko ? "퇴근" : "Done") : (ko ? "근무중" : "Working")}`}>
                               {stamp}
                             </div>

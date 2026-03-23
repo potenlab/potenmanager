@@ -663,9 +663,20 @@ export const api = {
     const uid = await getUid();
     const orgId = getActiveOrgId();
     const today = new Date().toISOString().split('T')[0];
-    const { data, error } = await supabase.from('pm_attendance')
-      .upsert({ user_id: uid, org_id: orgId, date: today, check_in: new Date().toISOString(), check_out: null, status: 'present' }, { onConflict: 'user_id,org_id,date' })
-      .select().single();
+    // Check if record exists for today
+    const { data: existing } = await supabase.from('pm_attendance')
+      .select('id').eq('user_id', uid).eq('org_id', orgId).eq('date', today).maybeSingle();
+    let data, error;
+    if (existing) {
+      // Re-check-in: clear check_out, update check_in
+      ({ data, error } = await supabase.from('pm_attendance')
+        .update({ check_in: new Date().toISOString(), check_out: null, status: 'present' })
+        .eq('id', existing.id).select().single());
+    } else {
+      ({ data, error } = await supabase.from('pm_attendance')
+        .insert({ user_id: uid, org_id: orgId, date: today, check_in: new Date().toISOString(), status: 'present' })
+        .select().single());
+    }
     if (error) throw error;
     return toCamel(data);
   },
@@ -676,6 +687,7 @@ export const api = {
     const { data, error } = await supabase.from('pm_attendance')
       .update({ check_out: new Date().toISOString() })
       .eq('user_id', uid).eq('org_id', orgId).eq('date', today)
+      .is('check_out', null)
       .select().single();
     if (error) throw error;
     return toCamel(data);
