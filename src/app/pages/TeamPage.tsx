@@ -1699,21 +1699,26 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
                         <span className="font-medium text-gray-700">{formatDuration(getWorkHours(r.checkIn, r.checkOut))}</span>
                       </div>
                     </div>
-                    {/* Activity logs timeline */}
+                    {/* Activity logs timeline - collapsible */}
                     {recLogs.length > 0 && (
-                      <div className="ml-3 pl-3 border-l-2 border-gray-200 space-y-1.5 mt-2">
-                        {recLogs.map((log: any, li: number) => {
-                          const lt = LOG_TYPE_LABELS[log.type] || { ko: log.type, en: log.type, icon: '📝' };
-                          return (
-                            <div key={li} className="flex items-center gap-2 text-xs text-gray-600">
-                              <span>{lt.icon}</span>
-                              <span className="font-medium">{formatTime(log.timestamp)}</span>
-                              <span className="text-gray-400">{ko ? lt.ko : lt.en}</span>
-                              {log.note && <span className="text-gray-500">— {log.note}</span>}
-                            </div>
-                          );
-                        })}
-                      </div>
+                      <details className="mt-2">
+                        <summary className="text-[11px] text-gray-400 cursor-pointer hover:text-gray-600 select-none">
+                          {ko ? `활동 로그 (${recLogs.length}건)` : `Activity Log (${recLogs.length})`}
+                        </summary>
+                        <div className="ml-3 pl-3 border-l-2 border-gray-200 space-y-1.5 mt-2">
+                          {recLogs.map((log: any, li: number) => {
+                            const lt = LOG_TYPE_LABELS[log.type] || { ko: log.type, en: log.type, icon: '📝' };
+                            return (
+                              <div key={li} className="flex items-center gap-2 text-xs text-gray-600">
+                                <span>{lt.icon}</span>
+                                <span className="font-medium">{formatTime(log.timestamp)}</span>
+                                <span className="text-gray-400">{ko ? lt.ko : lt.en}</span>
+                                {log.note && <span className="text-gray-500">— {log.note}</span>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </details>
                     )}
                   </div>
                 );
