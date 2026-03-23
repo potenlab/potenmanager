@@ -664,7 +664,7 @@ export const api = {
     const orgId = getActiveOrgId();
     const today = new Date().toISOString().split('T')[0];
     const { data, error } = await supabase.from('pm_attendance')
-      .upsert({ user_id: uid, org_id: orgId, date: today, check_in: new Date().toISOString(), status: 'present' }, { onConflict: 'user_id,org_id,date' })
+      .upsert({ user_id: uid, org_id: orgId, date: today, check_in: new Date().toISOString(), check_out: null, status: 'present' }, { onConflict: 'user_id,org_id,date' })
       .select().single();
     if (error) throw error;
     return toCamel(data);
