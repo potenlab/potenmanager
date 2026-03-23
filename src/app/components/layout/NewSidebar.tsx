@@ -53,19 +53,29 @@ export function NewSidebar() {
   const [salesExpanded, setSalesExpanded] = useState(false);
   const [teamExpanded, setTeamExpanded] = useState(false);
   const [todayAttendance, setTodayAttendance] = useState<any[]>([]);
+  const [sidebarMembers, setSidebarMembers] = useState<any[]>([]);
 
-  const { members } = useTeam();
+  const { members: teamMembers } = useTeam();
 
-  // Load today's attendance for team status dots
+  // Load team members + attendance for sidebar
   useEffect(() => {
-    if (isPersonal || !currentOrg) return;
+    if (isPersonal || !currentOrg) { setSidebarMembers([]); return; }
+    // Fetch members directly for sidebar (in case TeamContext hasn't loaded yet)
+    api.getTeamMembers().then(m => setSidebarMembers(m || [])).catch(() => {});
     const today = new Date().toISOString().split('T')[0];
     api.getAttendance(today).then(setTodayAttendance).catch(() => {});
     const interval = setInterval(() => {
       api.getAttendance(today).then(setTodayAttendance).catch(() => {});
-    }, 60000); // refresh every minute
+    }, 60000);
     return () => clearInterval(interval);
   }, [isPersonal, currentOrg]);
+
+  // Sync from TeamContext when it loads
+  useEffect(() => {
+    if (teamMembers.length > 0) setSidebarMembers(teamMembers);
+  }, [teamMembers]);
+
+  const members = sidebarMembers;
 
   if (isMobile) return null;
 
