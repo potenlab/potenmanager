@@ -1474,7 +1474,7 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
                       <div className="flex flex-wrap gap-0.5">
                         {dayRecs.slice(0, 4).map((r: any, idx: number) => {
                           const name = getMemberName(r.userId);
-                          const stamp = name.length >= 2 ? name.slice(0, 2) : name;
+                          const stamp = name.length >= 3 ? name.slice(1, 3) : name.length === 2 ? name : name.slice(0, 2);
                           const colorIdx = r.userId.charCodeAt(0) % STAMP_COLORS.length;
                           return (
                             <div key={idx} className={cn("w-7 h-7 rounded-md flex items-center justify-center text-[9px] font-black text-white shadow-sm",
@@ -1512,9 +1512,9 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
               {dayRecords.map((r: any) => (
                 <div key={r.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
                   <div className="flex items-center gap-2">
-                    <div className={cn("w-6 h-6 rounded-full text-[9px] font-bold flex items-center justify-center",
+                    <div className={cn("w-6 h-6 rounded-md text-[8px] font-black flex items-center justify-center",
                       r.checkOut ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700")}>
-                      {getMemberName(r.userId).charAt(0)}
+                      {(() => { const n = getMemberName(r.userId); return n.length >= 3 ? n.slice(1, 3) : n.length === 2 ? n : n.slice(0, 2); })()}
                     </div>
                     <span className="text-sm font-medium text-gray-900">{getMemberName(r.userId)}</span>
                   </div>
