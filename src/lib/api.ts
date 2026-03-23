@@ -609,4 +609,37 @@ export const api = {
     await supabase.from('pm_clients').delete().eq('id', id);
     return { success: true };
   },
+
+  // ── Estimates ──
+  getEstimates: async () => {
+    const orgId = getActiveOrgId();
+    if (!orgId) return [];
+    const { data, error } = await supabase.from('pm_estimates').select('*, pm_clients(name, company)').eq('org_id', orgId).order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data || []).map((row: any) => ({
+      ...toCamel(row),
+      clientName: row.pm_clients?.name,
+      clientCompany: row.pm_clients?.company,
+      items: row.items || [],
+    }));
+  },
+  createEstimate: async (estimate: any) => {
+    const uid = await getUid();
+    const orgId = getActiveOrgId();
+    const row = toSnake(estimate);
+    row.created_by = uid;
+    row.org_id = orgId;
+    const { data, error } = await supabase.from('pm_estimates').insert(row).select().single();
+    if (error) throw error;
+    return toCamel(data);
+  },
+  updateEstimate: async (id: string, updates: any) => {
+    const { data, error } = await supabase.from('pm_estimates').update(toSnake(updates)).eq('id', id).select().single();
+    if (error) throw error;
+    return toCamel(data);
+  },
+  deleteEstimate: async (id: string) => {
+    await supabase.from('pm_estimates').delete().eq('id', id);
+    return { success: true };
+  },
 };
