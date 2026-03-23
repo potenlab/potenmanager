@@ -20,6 +20,7 @@ import {
   LayoutList,
   Calendar as CalendarIcon,
   ChevronLeft,
+  Pencil,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { User, Task, getUserColor, setUserColor, getColorOwner, getMemberColorConfig, MEMBER_COLORS, getAllAssigneeIds } from "../../lib/mockData";
@@ -1467,46 +1468,60 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
             </div>
           </div>
 
-          {checkedIn && (
-            <div className="flex items-center gap-4 text-sm mb-4">
-              <span className="text-gray-500">{ko ? "출근" : "In"}: <span className="font-bold text-gray-900">{formatTime(myRecord?.checkIn)}</span></span>
-              <span className="text-gray-500">{ko ? "퇴근" : "Out"}: <span className="font-bold text-gray-900">{formatTime(myRecord?.checkOut)}</span></span>
-            </div>
-          )}
-
-          <div className="flex gap-2 flex-wrap">
-            {!checkedIn ? (
-              <button onClick={handleCheckIn} className="px-5 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors inline-flex items-center gap-2">
-                <Clock size={15} /> {ko ? "출근하기" : "Check In"}
-              </button>
-            ) : !checkedOut ? (
-              <>
-                {currentStatus === 'working' ? (
-                  <>
-                    <button onClick={handleBreakStart} className="px-4 py-2 bg-amber-500 text-white text-sm font-bold rounded-xl hover:bg-amber-600 transition-colors inline-flex items-center gap-2">
-                      ☕ {ko ? "휴식" : "Break"}
+          {/* Status flow indicator */}
+          {(() => {
+            const steps = [
+              { key: 'check_in', ko: '출근', en: 'In', icon: '🟢', time: myRecord?.checkIn },
+              { key: 'working', ko: '근무중', en: 'Working', icon: '💻' },
+              { key: 'break', ko: '휴식', en: 'Break', icon: '☕' },
+              { key: 'check_out', ko: '퇴근', en: 'Out', icon: '🔴', time: myRecord?.checkOut },
+            ];
+            const activeIdx = !checkedIn ? -1 : checkedOut ? 3 : currentStatus === 'break' ? 2 : 1;
+            return (
+              <div className="flex items-center gap-1 mb-4 bg-gray-50 rounded-xl p-2">
+                {steps.map((step, idx) => (
+                  <div key={step.key} className="flex items-center flex-1">
+                    <button
+                      onClick={() => {
+                        if (idx === 0 && !checkedIn) handleCheckIn();
+                        else if (idx === 0 && checkedOut) handleCheckIn(); // re-check-in
+                        else if (idx === 2 && activeIdx === 1) handleBreakStart();
+                        else if (idx === 1 && activeIdx === 2) handleBreakEnd();
+                        else if (idx === 3 && activeIdx >= 1 && activeIdx < 3) handleCheckOut();
+                      }}
+                      disabled={
+                        (idx === 0 && checkedIn && !checkedOut) ||
+                        (idx === 1 && (activeIdx === 1 || activeIdx < 0 || activeIdx === 3)) ||
+                        (idx === 2 && (activeIdx === 2 || activeIdx < 1 || activeIdx === 3)) ||
+                        (idx === 3 && (activeIdx === 3 || activeIdx < 1))
+                      }
+                      className={cn(
+                        "flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg w-full transition-all text-center",
+                        idx === activeIdx ? "bg-white shadow-sm ring-1 ring-gray-200" : "",
+                        idx <= activeIdx ? "opacity-100" : "opacity-40",
+                        idx !== activeIdx && idx <= activeIdx ? "cursor-default" : "",
+                        // clickable states
+                        (idx === 0 && (!checkedIn || checkedOut)) ? "hover:bg-blue-50 cursor-pointer" : "",
+                        (idx === 2 && activeIdx === 1) ? "hover:bg-amber-50 cursor-pointer" : "",
+                        (idx === 1 && activeIdx === 2) ? "hover:bg-green-50 cursor-pointer" : "",
+                        (idx === 3 && activeIdx >= 1 && activeIdx < 3) ? "hover:bg-red-50 cursor-pointer" : "",
+                      )}>
+                      <span className="text-base leading-none">{step.icon}</span>
+                      <span className={cn("text-[10px] font-bold", idx === activeIdx ? "text-gray-900" : "text-gray-500")}>
+                        {ko ? step.ko : step.en}
+                      </span>
+                      {step.time && (
+                        <span className="text-[9px] text-gray-400">{formatTime(step.time)}</span>
+                      )}
                     </button>
-                    <button onClick={handleCheckOut} className="px-4 py-2 bg-gray-900 text-white text-sm font-bold rounded-xl hover:bg-gray-800 transition-colors inline-flex items-center gap-2">
-                      <Clock size={15} /> {ko ? "퇴근하기" : "Check Out"}
-                    </button>
-                  </>
-                ) : (
-                  <button onClick={handleBreakEnd} className="px-5 py-2 bg-green-600 text-white text-sm font-bold rounded-xl hover:bg-green-700 transition-colors inline-flex items-center gap-2">
-                    💪 {ko ? "업무 복귀" : "Resume Work"}
-                  </button>
-                )}
-              </>
-            ) : (
-              <>
-                <div className="px-4 py-2 bg-emerald-50 text-emerald-700 text-sm font-bold rounded-xl inline-flex items-center gap-2">
-                  <Check size={14} /> {ko ? "퇴근 완료" : "Done"}
-                </div>
-                <button onClick={handleCheckIn} className="px-4 py-2 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors inline-flex items-center gap-2">
-                  <Clock size={14} /> {ko ? "재출근" : "Re-check in"}
-                </button>
-              </>
-            )}
-          </div>
+                    {idx < steps.length - 1 && (
+                      <div className={cn("h-px w-3 shrink-0 mx-0.5", idx < activeIdx ? "bg-gray-300" : "bg-gray-200")} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -1589,7 +1604,13 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
           <h3 className="text-sm font-bold text-gray-900">
             {calMonth.year}{ko ? "년 " : "/"}{calMonth.month}{ko ? "월" : ""}
           </h3>
-          <button onClick={nextMonth} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><ArrowRight size={18} /></button>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setShowStampEditor(true)}
+              className="px-2.5 py-1 text-[11px] font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors inline-flex items-center gap-1">
+              <Pencil size={12} /> {ko ? "도장" : "Stamp"}
+            </button>
+            <button onClick={nextMonth} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><ArrowRight size={18} /></button>
+          </div>
         </div>
 
         <div className="grid grid-cols-7 gap-1 mb-1">
