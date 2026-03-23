@@ -1302,14 +1302,18 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
   const [loading, setLoading] = useState(true);
 
   // Load month data
-  const loadMonth = useCallback(async () => {
+  const loadMonth = useCallback(async (preserveMyRecord?: boolean) => {
     setLoading(true);
     try {
       const data = await api.getAttendanceMonth(calMonth.year, calMonth.month);
       setMonthRecords(data);
-      const uid = (await supabase.auth.getUser()).data.user?.id;
-      const today = new Date().toISOString().split('T')[0];
-      setMyRecord(data.find((r: any) => r.userId === uid && r.date === today) || null);
+      if (!preserveMyRecord) {
+        const uid = (await supabase.auth.getUser()).data.user?.id;
+        const today = new Date().toISOString().split('T')[0];
+        // date from DB may be Date object or string — normalize both
+        const found = data.find((r: any) => r.userId === uid && String(r.date).slice(0, 10) === today);
+        setMyRecord(found || null);
+      }
     } catch (err) { console.error("Attendance load error:", err); }
     setLoading(false);
   }, [calMonth]);
@@ -1317,10 +1321,18 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
   useEffect(() => { loadMonth(); }, [loadMonth]);
 
   const handleCheckIn = async () => {
-    try { const r = await api.checkIn(); setMyRecord(r); loadMonth(); } catch (err) { console.error("Check-in error:", err); }
+    try {
+      const r = await api.checkIn();
+      setMyRecord(r);
+      loadMonth(true); // preserve myRecord while calendar refreshes
+    } catch (err) { console.error("Check-in error:", err); }
   };
   const handleCheckOut = async () => {
-    try { const r = await api.checkOut(); setMyRecord(r); loadMonth(); } catch (err) { console.error("Check-out error:", err); }
+    try {
+      const r = await api.checkOut();
+      setMyRecord(r);
+      loadMonth(true);
+    } catch (err) { console.error("Check-out error:", err); }
   };
 
   const todayStr = new Date().toISOString().split('T')[0];
@@ -1355,9 +1367,9 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
   const prevMonth = () => setCalMonth(p => p.month === 1 ? { year: p.year - 1, month: 12 } : { ...p, month: p.month - 1 });
   const nextMonth = () => setCalMonth(p => p.month === 12 ? { year: p.year + 1, month: 1 } : { ...p, month: p.month + 1 });
 
-  // Group records by date
+  // Group records by date (normalize date format)
   const byDate: Record<string, any[]> = {};
-  monthRecords.forEach(r => { const d = r.date; if (!byDate[d]) byDate[d] = []; byDate[d].push(r); });
+  monthRecords.forEach(r => { const d = String(r.date).slice(0, 10); if (!byDate[d]) byDate[d] = []; byDate[d].push(r); });
 
   // Selected day detail
   const dayRecords = selectedDay ? (byDate[selectedDay] || []) : [];
