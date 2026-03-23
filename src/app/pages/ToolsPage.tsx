@@ -19,6 +19,7 @@ interface Tool {
   detailKo: string;
   detailEn: string;
   status: "active" | "coming_soon" | "beta";
+  externalUrl?: string; // 외부 서비스 링크
 }
 
 const TOOLS: Tool[] = [
@@ -35,28 +36,17 @@ const TOOLS: Tool[] = [
     status: "active",
   },
   {
-    id: "ai-strategy",
-    icon: <Sparkles size={28} />,
-    color: "bg-purple-100 text-purple-600",
-    titleKo: "AI 전략 생성기",
-    titleEn: "AI Strategy Generator",
-    descKo: "AI가 비즈니스 전략과 실행 계획을 자동으로 생성합니다.",
-    descEn: "AI automatically generates business strategies and action plans.",
-    detailKo: "목표와 현재 상황을 입력하면 AI가 맞춤형 전략을 생성합니다. 실행 가능한 단계별 계획, 핵심 지표, 리스크 분석까지 제공합니다.",
-    detailEn: "Input your goals and current situation, and AI generates customized strategies with actionable steps, key metrics, and risk analysis.",
-    status: "active",
-  },
-  {
-    id: "ai-content",
+    id: "poten-paper",
     icon: <FileText size={28} />,
     color: "bg-emerald-100 text-emerald-600",
-    titleKo: "AI 콘텐츠 생성",
-    titleEn: "AI Content Generator",
-    descKo: "블로그, SNS 포스트, 마케팅 카피를 AI로 생성하세요.",
-    descEn: "Generate blog posts, social media content, and marketing copy with AI.",
-    detailKo: "업무 컨텍스트를 이해한 AI가 맞춤형 콘텐츠를 생성합니다. 블로그 글, SNS 포스트, 이메일 템플릿 등 다양한 형식을 지원합니다.",
-    detailEn: "AI that understands your work context generates customized content including blog posts, social media posts, and email templates.",
+    titleKo: "포텐페이퍼",
+    titleEn: "Poten Paper",
+    descKo: "AI 사업계획서 생성기. 아이디어만 입력하면 완성된 사업계획서를 만들어줍니다.",
+    descEn: "AI Business Plan Generator. Just input your idea and get a complete business plan.",
+    detailKo: "사업 아이디어, 타겟 시장, 비즈니스 모델을 입력하면 AI가 시장 분석, 경쟁사 분석, 재무 계획, 마케팅 전략까지 포함된 완성도 높은 사업계획서를 자동으로 생성합니다. 투자 유치, 정부 지원사업 신청 등에 바로 활용할 수 있습니다.",
+    detailEn: "Input your business idea, target market, and business model. AI generates a comprehensive business plan including market analysis, competitor analysis, financial projections, and marketing strategy. Ready for investor pitches and government grant applications.",
     status: "active",
+    externalUrl: "https://thepotential.kr/poten-paper",
   },
   {
     id: "card-news",
@@ -167,7 +157,18 @@ function ToolDetail({ tool, onBack, ko }: { tool: Tool; onBack: () => void; ko: 
         </div>
 
         {/* Action */}
-        <div className="px-8 pb-8">
+        <div className="px-8 pb-8 space-y-2">
+          {/* External link button */}
+          {tool.externalUrl && (
+            <a
+              href={tool.externalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-3 rounded-xl bg-gray-900 text-white text-sm font-bold hover:bg-gray-800 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+            >
+              {ko ? "서비스 바로가기 →" : "Go to Service →"}
+            </a>
+          )}
           {tool.status === "coming_soon" ? (
             <button
               disabled
