@@ -307,42 +307,20 @@ export function NewSidebar() {
           </div>
         )}
 
-        {/* Tools Section */}
+        {/* Tools */}
         <div>
-          <button
-            onClick={() => setToolsExpanded(!toolsExpanded)}
-            className="w-full flex items-center justify-between px-2 mb-1"
+          <NavLink
+            to="/tools"
+            className={cn(
+              "flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
+              isActive("/tools")
+                ? "bg-gray-200/70 text-gray-900 font-semibold"
+                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+            )}
           >
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-              {ko ? "도구" : "Tools"}
-            </p>
-            {toolsExpanded ? <ChevronDown size={10} className="text-gray-400" /> : <ChevronRight size={10} className="text-gray-400" />}
-          </button>
-          {toolsExpanded && (
-            <div className="space-y-0.5">
-              {toolItems.length === 0 ? (
-                <p className="px-2 py-2 text-xs text-gray-400 italic">
-                  {ko ? "곧 추가됩니다..." : "Coming soon..."}
-                </p>
-              ) : (
-                toolItems.map((item) => (
-                  <NavLink
-                    key={item.id}
-                    to={item.to}
-                    className={cn(
-                      "flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all",
-                      isActive(item.to)
-                        ? "bg-gray-200/70 text-gray-900 font-semibold"
-                        : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                    )}
-                  >
-                    <div className="shrink-0 text-gray-500">{item.icon}</div>
-                    <span>{item.label}</span>
-                  </NavLink>
-                ))
-              )}
-            </div>
-          )}
+            <div className="shrink-0 text-gray-500"><Wrench size={16} /></div>
+            <span>{ko ? "도구" : "Tools"}</span>
+          </NavLink>
         </div>
 
         {/* Upgrade to Org (personal mode only) */}
