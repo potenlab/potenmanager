@@ -1305,7 +1305,7 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
       setRecords(data);
       const uid = (await supabase.auth.getUser()).data.user?.id;
       setMyRecord(data.find((r: any) => r.userId === uid) || null);
-    } catch { /* ignore */ }
+    } catch (err) { console.error("Attendance load error:", err); }
     setLoading(false);
   }, [selectedDate]);
 
@@ -1316,7 +1316,7 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
       const r = await api.checkIn();
       setMyRecord(r);
       loadAttendance();
-    } catch { /* ignore */ }
+    } catch (err) { console.error("Check-in error:", err); }
   };
 
   const handleCheckOut = async () => {
@@ -1324,7 +1324,7 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
       const r = await api.checkOut();
       setMyRecord(r);
       loadAttendance();
-    } catch { /* ignore */ }
+    } catch (err) { console.error("Check-out error:", err); }
   };
 
   const isToday = selectedDate === new Date().toISOString().split('T')[0];

@@ -645,7 +645,7 @@ export const api = {
 
   // ── Attendance ──
   getAttendance: async (date?: string) => {
-    const orgId = getOrgId();
+    const orgId = getActiveOrgId();
     const d = date || new Date().toISOString().split('T')[0];
     const { data, error } = await supabase.from('pm_attendance').select('*').eq('org_id', orgId).eq('date', d);
     if (error) throw error;
@@ -653,7 +653,7 @@ export const api = {
   },
   checkIn: async () => {
     const uid = await getUid();
-    const orgId = getOrgId();
+    const orgId = getActiveOrgId();
     const today = new Date().toISOString().split('T')[0];
     const { data, error } = await supabase.from('pm_attendance')
       .upsert({ user_id: uid, org_id: orgId, date: today, check_in: new Date().toISOString(), status: 'present' }, { onConflict: 'user_id,org_id,date' })
@@ -663,7 +663,7 @@ export const api = {
   },
   checkOut: async () => {
     const uid = await getUid();
-    const orgId = getOrgId();
+    const orgId = getActiveOrgId();
     const today = new Date().toISOString().split('T')[0];
     const { data, error } = await supabase.from('pm_attendance')
       .update({ check_out: new Date().toISOString() })
