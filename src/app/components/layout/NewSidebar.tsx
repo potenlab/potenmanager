@@ -64,10 +64,10 @@ export function NewSidebar() {
   ];
 
   const orgItems: NavItem[] = [
+    { id: "sales", to: p("/radar"), icon: <Radar size={16} />, label: ko ? "영업/세일즈" : "Sales" },
     { id: "branding", to: p("/branding"), icon: <Palette size={16} />, label: ko ? "브랜딩" : "Branding" },
     { id: "meetings", to: p("/meetings"), icon: <Video size={16} />, label: ko ? "회의/미팅" : "Meetings" },
     { id: "chat", to: p("/chat"), icon: <MessageCircle size={16} />, label: ko ? "채팅" : "Chat" },
-    { id: "radar", to: p("/radar"), icon: <Radar size={16} />, label: ko ? "비즈 레이더" : "Biz Radar" },
     { id: "team", to: p("/team"), icon: <Users size={16} />, label: ko ? "팀" : "Team" },
   ];
 
