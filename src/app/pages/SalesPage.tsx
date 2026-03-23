@@ -739,32 +739,115 @@ function RevenueTab({ clients, estimates, ko }: { clients: Client[]; estimates: 
         </div>
       </div>
 
-      {/* Won Clients List */}
-      <h3 className="text-sm font-semibold text-gray-700 mb-3">{ko ? "계약 완료 목록" : "Won Deals"}</h3>
-      {wonClients.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-sm text-gray-400">
-          {ko ? "아직 계약 완료된 건이 없습니다" : "No won deals yet"}
+      {/* Two-column: Won Clients + Monthly Revenue */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Won Clients List */}
+        <div>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">{ko ? "계약 완료 목록" : "Won Deals"}</h3>
+          {wonClients.length === 0 ? (
+            <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-sm text-gray-400">
+              {ko ? "아직 계약 완료된 건이 없습니다" : "No won deals yet"}
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <table className="w-full text-left">
+                <thead><tr className="bg-gray-50/50 border-b border-gray-100">
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500">{ko ? "프로젝트" : "Project"}</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500">{ko ? "회사" : "Company"}</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500">{ko ? "매출" : "Value"}</th>
+                </tr></thead>
+                <tbody className="divide-y divide-gray-100">
+                  {wonClients.map(c => (
+                    <tr key={c.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{c.name}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500">{c.company || "-"}</td>
+                      <td className="px-4 py-3 text-sm font-bold text-emerald-600">{(c.value || 0).toLocaleString()}{ko ? "원" : ""}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-left">
-            <thead><tr className="bg-gray-50/50 border-b border-gray-100">
-              <th className="px-4 py-3 text-xs font-semibold text-gray-500">{ko ? "프로젝트" : "Project"}</th>
-              <th className="px-4 py-3 text-xs font-semibold text-gray-500">{ko ? "회사" : "Company"}</th>
-              <th className="px-4 py-3 text-xs font-semibold text-gray-500">{ko ? "매출" : "Value"}</th>
-            </tr></thead>
-            <tbody className="divide-y divide-gray-100">
-              {wonClients.map(c => (
-                <tr key={c.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{c.name}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{c.company || "-"}</td>
-                  <td className="px-4 py-3 text-sm font-bold text-emerald-600">{(c.value || 0).toLocaleString()}{ko ? "원" : ""}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+
+        {/* Monthly Revenue Chart */}
+        <div>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">{ko ? "월별 매출" : "Monthly Revenue"}</h3>
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            {(() => {
+              // Group paid payments by month
+              const monthlyData: Record<string, { paid: number; pending: number }> = {};
+              const now = new Date();
+              // Initialize last 6 months
+              for (let i = 5; i >= 0; i--) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                monthlyData[key] = { paid: 0, pending: 0 };
+              }
+              // Aggregate from client payments
+              clients.forEach(c => {
+                (c.payments || []).forEach(p => {
+                  const createdMonth = c.createdAt ? new Date(c.createdAt instanceof Date ? c.createdAt : c.createdAt).toISOString().slice(0, 7) : null;
+                  const month = createdMonth || now.toISOString().slice(0, 7);
+                  if (monthlyData[month]) {
+                    if (p.status === 'paid') monthlyData[month].paid += p.amount;
+                    else monthlyData[month].pending += p.amount;
+                  }
+                });
+              });
+              // Also add won client values to their creation month
+              wonClients.forEach(c => {
+                const hasPaid = (c.payments || []).some(p => p.status === 'paid');
+                if (!hasPaid && c.value) {
+                  const month = c.createdAt ? new Date(c.createdAt instanceof Date ? c.createdAt : c.createdAt).toISOString().slice(0, 7) : now.toISOString().slice(0, 7);
+                  if (monthlyData[month]) monthlyData[month].paid += c.value;
+                }
+              });
+
+              const months = Object.keys(monthlyData).sort();
+              const maxVal = Math.max(...months.map(m => monthlyData[m].paid + monthlyData[m].pending), 1);
+
+              return (
+                <div className="space-y-3">
+                  {months.map(m => {
+                    const d = monthlyData[m];
+                    const total = d.paid + d.pending;
+                    const paidPct = maxVal > 0 ? (d.paid / maxVal) * 100 : 0;
+                    const pendingPct = maxVal > 0 ? (d.pending / maxVal) * 100 : 0;
+                    const [, month] = m.split('-');
+                    return (
+                      <div key={m} className="flex items-center gap-3">
+                        <span className="text-xs text-gray-500 w-8 shrink-0 text-right">{parseInt(month)}{ko ? "월" : ""}</span>
+                        <div className="flex-1 h-7 bg-gray-50 rounded-lg overflow-hidden flex">
+                          {paidPct > 0 && (
+                            <div className="bg-emerald-500 h-full rounded-l-lg flex items-center justify-end px-1.5 transition-all"
+                              style={{ width: `${paidPct}%`, minWidth: paidPct > 0 ? '20px' : '0' }}>
+                              {paidPct > 15 && <span className="text-[9px] text-white font-bold">{d.paid.toLocaleString()}</span>}
+                            </div>
+                          )}
+                          {pendingPct > 0 && (
+                            <div className="bg-amber-400 h-full flex items-center justify-end px-1.5 transition-all"
+                              style={{ width: `${pendingPct}%`, minWidth: pendingPct > 0 ? '20px' : '0' }}>
+                              {pendingPct > 15 && <span className="text-[9px] text-white font-bold">{d.pending.toLocaleString()}</span>}
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-xs font-medium text-gray-600 w-20 text-right shrink-0">
+                          {total > 0 ? `${total.toLocaleString()}` : '-'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  <div className="flex items-center gap-4 mt-2 pt-2 border-t border-gray-100">
+                    <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-emerald-500 rounded" /><span className="text-[10px] text-gray-500">{ko ? "수금 완료" : "Paid"}</span></div>
+                    <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-amber-400 rounded" /><span className="text-[10px] text-gray-500">{ko ? "미수금" : "Pending"}</span></div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

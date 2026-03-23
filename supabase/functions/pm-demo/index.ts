@@ -295,10 +295,11 @@ app.post("/pm-demo/setup", async (c) => {
         role: "owner",
       });
 
-      // Add fake team members for org modes (2 members)
+      // Add fake team members for org modes
       const fakeMembers = [
         { name: "김민수", title: "개발팀 리드", stamp: { text: "민수", color: "#3B82F6", shape: "rounded" } },
         { name: "박지현", title: "디자이너", stamp: { text: "지현", color: "#EC4899", shape: "circle" } },
+        { name: "이서연", title: "마케터", stamp: { text: "서연", color: "#8B5CF6", shape: "rounded" } },
       ];
       for (const fm of fakeMembers) {
         const fmEmail = `demo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@potenmanager.demo`;
