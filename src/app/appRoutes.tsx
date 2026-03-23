@@ -43,6 +43,7 @@ import { LeaderBoardDetailPage } from "./pages/LeaderBoardDetailPage";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { OrgCreatePage } from "./pages/OrgCreatePage";
 import { ToolsPage } from "./pages/ToolsPage";
+import { SalesPage } from "./pages/SalesPage";
 
 /** All app pages – shared between the /:orgSlug layout and the legacy fallback */
 const APP_PAGES = [
@@ -86,6 +87,10 @@ const APP_PAGES = [
   { path: "trash", Component: TrashPage },
   { path: "org/new", Component: OrgCreatePage },
   { path: "tools", Component: ToolsPage },
+  { path: "sales", Component: SalesPage },
+  { path: "sales/clients", Component: SalesPage },
+  { path: "sales/estimates", Component: SalesPage },
+  { path: "sales/revenue", Component: SalesPage },
   { path: "*", Component: DashboardPage },
 ];
 

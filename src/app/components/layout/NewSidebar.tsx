@@ -11,7 +11,7 @@ import {
   CheckSquare, Calendar, BookMarked, FolderKanban,
   MessageCircle, Video, Users, Palette, Radar, Crown,
   Wrench, ChevronDown, ChevronRight, Plus, Building2,
-  User, Settings, Zap, LogOut,
+  User, Settings, Zap, LogOut, DollarSign, FileText, BarChart3,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { useWorkspace } from "../../context/WorkspaceContext";
@@ -48,6 +48,7 @@ export function NewSidebar() {
   const [tasksExpanded, setTasksExpanded] = useState(false);
   const [projectsExpanded, setProjectsExpanded] = useState(false);
   const [libraryExpanded, setLibraryExpanded] = useState(false);
+  const [salesExpanded, setSalesExpanded] = useState(false);
 
   if (isMobile) return null;
 
@@ -64,7 +65,6 @@ export function NewSidebar() {
   ];
 
   const orgItems: NavItem[] = [
-    { id: "sales", to: p("/radar"), icon: <Radar size={16} />, label: ko ? "영업/세일즈" : "Sales" },
     { id: "branding", to: p("/branding"), icon: <Palette size={16} />, label: ko ? "브랜딩" : "Branding" },
     { id: "meetings", to: p("/meetings"), icon: <Video size={16} />, label: ko ? "회의/미팅" : "Meetings" },
     { id: "chat", to: p("/chat"), icon: <MessageCircle size={16} />, label: ko ? "채팅" : "Chat" },
@@ -288,6 +288,55 @@ export function NewSidebar() {
               {currentOrg.name}
             </p>
             <div className="space-y-0.5">
+              {/* 영업/세일즈 — with submenu */}
+              <div>
+                <button
+                  onClick={() => { setSalesExpanded(!salesExpanded); navigate(p("/sales")); }}
+                  className={cn(
+                    "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
+                    isActive(p("/sales"))
+                      ? "bg-gray-200/70 text-gray-900 font-semibold"
+                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  )}
+                >
+                  <div className="shrink-0 text-gray-500"><DollarSign size={16} /></div>
+                  <span className="flex-1 text-left">{ko ? "영업/세일즈" : "Sales"}</span>
+                  {salesExpanded ? <ChevronDown size={12} className="text-gray-400" /> : <ChevronRight size={12} className="text-gray-400" />}
+                </button>
+                {salesExpanded && (
+                  <div className="ml-7 mt-0.5 space-y-0.5">
+                    <NavLink to={p("/sales/clients")} className={() => cn(
+                      "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
+                      location.pathname.includes("/sales/clients")
+                        ? "bg-gray-200/70 text-gray-900 font-semibold"
+                        : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
+                    )}>
+                      <Users size={13} />
+                      {ko ? "클라이언트 관리" : "Clients"}
+                    </NavLink>
+                    <NavLink to={p("/sales/estimates")} className={() => cn(
+                      "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
+                      location.pathname.includes("/sales/estimates")
+                        ? "bg-gray-200/70 text-gray-900 font-semibold"
+                        : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
+                    )}>
+                      <FileText size={13} />
+                      {ko ? "견적서/계약" : "Estimates"}
+                    </NavLink>
+                    <NavLink to={p("/sales/revenue")} className={() => cn(
+                      "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
+                      location.pathname.includes("/sales/revenue")
+                        ? "bg-gray-200/70 text-gray-900 font-semibold"
+                        : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
+                    )}>
+                      <BarChart3 size={13} />
+                      {ko ? "매출 현황" : "Revenue"}
+                    </NavLink>
+                  </div>
+                )}
+              </div>
+
+              {/* Other org items */}
               {orgItems.map((item) => (
                 <NavLink
                   key={item.id}
