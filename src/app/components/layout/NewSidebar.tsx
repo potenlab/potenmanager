@@ -5,7 +5,7 @@
  * 조직 모드: + 채팅, 회의, 팀, 브랜딩, 비즈레이더
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router";
 import {
   CheckSquare, Calendar, BookMarked, FolderKanban,
@@ -18,6 +18,8 @@ import { useWorkspace } from "../../context/WorkspaceContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useAuth } from "../../context/AuthContext";
 import { useSidebar } from "../../context/SidebarContext";
+import { useTeam } from "../../context/TeamContext";
+import { api } from "../../../lib/api";
 
 interface NavItem {
   id: string;
@@ -49,6 +51,21 @@ export function NewSidebar() {
   const [projectsExpanded, setProjectsExpanded] = useState(false);
   const [libraryExpanded, setLibraryExpanded] = useState(false);
   const [salesExpanded, setSalesExpanded] = useState(false);
+  const [teamExpanded, setTeamExpanded] = useState(false);
+  const [todayAttendance, setTodayAttendance] = useState<any[]>([]);
+
+  const { members } = useTeam();
+
+  // Load today's attendance for team status dots
+  useEffect(() => {
+    if (isPersonal || !currentOrg) return;
+    const today = new Date().toISOString().split('T')[0];
+    api.getAttendance(today).then(setTodayAttendance).catch(() => {});
+    const interval = setInterval(() => {
+      api.getAttendance(today).then(setTodayAttendance).catch(() => {});
+    }, 60000); // refresh every minute
+    return () => clearInterval(interval);
+  }, [isPersonal, currentOrg]);
 
   if (isMobile) return null;
 
@@ -338,19 +355,56 @@ export function NewSidebar() {
 
               {/* Other org items */}
               {orgItems.map((item) => (
-                <NavLink
-                  key={item.id}
-                  to={item.to}
-                  className={cn(
-                    "flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
-                    isActive(item.to)
-                      ? "bg-gray-200/70 text-gray-900 font-semibold"
-                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                <div key={item.id}>
+                  {item.id === 'team' ? (
+                    <>
+                      <button
+                        onClick={() => { setTeamExpanded(!teamExpanded); navigate(item.to); }}
+                        className={cn(
+                          "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
+                          isActive(item.to)
+                            ? "bg-gray-200/70 text-gray-900 font-semibold"
+                            : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                        )}
+                      >
+                        <div className="shrink-0 text-gray-500">{item.icon}</div>
+                        <span className="flex-1 text-left">{item.label}</span>
+                        <ChevronDown size={14} className={cn("text-gray-400 transition-transform", !teamExpanded && "-rotate-90")} />
+                      </button>
+                      {teamExpanded && members.length > 0 && (
+                        <div className="ml-4 mt-0.5 space-y-0.5">
+                          {members.map(m => {
+                            const att = todayAttendance.find((a: any) => a.userId === m.id);
+                            const status = att?.currentStatus || (att?.checkOut ? 'off' : att?.checkIn ? 'working' : null);
+                            return (
+                              <div key={m.id} className="flex items-center gap-2 px-2 py-1 rounded-md text-[13px] text-gray-500">
+                                <div className={cn("w-2 h-2 rounded-full shrink-0",
+                                  status === 'working' ? "bg-green-500" :
+                                  status === 'break' ? "bg-amber-400" :
+                                  status === 'off' ? "bg-gray-300" : "bg-gray-200"
+                                )} />
+                                <span className="truncate">{m.name || m.email?.split('@')[0]}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <NavLink
+                      to={item.to}
+                      className={cn(
+                        "flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
+                        isActive(item.to)
+                          ? "bg-gray-200/70 text-gray-900 font-semibold"
+                          : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                      )}
+                    >
+                      <div className="shrink-0 text-gray-500">{item.icon}</div>
+                      <span>{item.label}</span>
+                    </NavLink>
                   )}
-                >
-                  <div className="shrink-0 text-gray-500">{item.icon}</div>
-                  <span>{item.label}</span>
-                </NavLink>
+                </div>
               ))}
             </div>
           </div>
