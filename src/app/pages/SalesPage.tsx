@@ -601,7 +601,8 @@ function ClientDetail({ client, estimates, onBack, onEdit, onStageChange, onPaym
                     {/* Amount */}
                     <div className="mb-4">
                       <div className="flex items-baseline gap-1">
-                        <input value={p.amount.toLocaleString()} onChange={e => updatePayment(p.id, { amount: parseInt(e.target.value.replace(/[^0-9]/g, "")) || 0 })}
+                        <input value={p.amount || ""} onChange={e => updatePayment(p.id, { amount: parseInt(e.target.value.replace(/[^0-9]/g, "")) || 0 })}
+                          placeholder="0"
                           className="text-2xl font-bold text-gray-900 bg-transparent outline-none w-40 border-b-2 border-transparent hover:border-gray-200 focus:border-blue-400" />
                         <span className="text-sm text-gray-400">{ko ? "원" : ""}</span>
                       </div>
@@ -648,7 +649,7 @@ function ClientDetail({ client, estimates, onBack, onEdit, onStageChange, onPaym
       {detailTab === "memos" && (
         <div className="min-h-[400px]">
           <NotionBlockEditor
-            value={client.memoContent || ""}
+            initialContent={client.memoContent || ""}
             onChange={onMemoUpdate}
             placeholder={ko ? "'/' 를 입력하여 블록을 추가하세요 (미팅 노트, 진행 상황, 특이사항 등)" : "Type '/' for blocks..."}
             language={ko ? "ko" : "en"}
@@ -693,12 +694,12 @@ function ClientDetail({ client, estimates, onBack, onEdit, onStageChange, onPaym
 
 // ─── Revenue Tab ────────────────────────────────────────────────
 function RevenueTab({ clients, estimates, ko }: { clients: Client[]; estimates: Estimate[]; ko: boolean }) {
-  const wonClients = clients.filter(c => c.stage === "won");
-  const totalRevenue = wonClients.reduce((s, c) => s + (c.value || 0), 0);
+  const totalValue = clients.reduce((s, c) => s + (c.value || 0), 0);
+  const paidTotal = clients.reduce((s, c) => s + (c.payments || []).filter(p => p.status === "paid").reduce((ss, p) => ss + p.amount, 0), 0);
+  const remaining = totalValue - paidTotal;
   const pipelineValue = clients.filter(c => !["won", "lost"].includes(c.stage)).reduce((s, c) => s + (c.value || 0), 0);
   const lostValue = clients.filter(c => c.stage === "lost").reduce((s, c) => s + (c.value || 0), 0);
-  const acceptedEstimates = estimates.filter(e => e.status === "accepted");
-  const totalEstimated = acceptedEstimates.reduce((s, e) => s + (e.totalAmount || 0), 0);
+  const wonClients = clients.filter(c => c.stage === "won");
 
   return (
     <div>
@@ -706,27 +707,27 @@ function RevenueTab({ clients, estimates, ko }: { clients: Client[]; estimates: 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center"><TrendingUp size={16} className="text-emerald-600" /></div>
-            <span className="text-xs text-gray-500">{ko ? "계약 완료 매출" : "Won Revenue"}</span>
+            <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center"><TrendingUp size={16} className="text-gray-600" /></div>
+            <span className="text-xs text-gray-500">{ko ? "전체 금액" : "Total Value"}</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{totalRevenue.toLocaleString()}<span className="text-sm font-normal text-gray-500">{ko ? "원" : ""}</span></p>
-          <p className="text-xs text-emerald-600 mt-1">{wonClients.length}{ko ? "건" : " deals"}</p>
+          <p className="text-2xl font-bold text-gray-900">{totalValue.toLocaleString()}<span className="text-sm font-normal text-gray-500">{ko ? "원" : ""}</span></p>
+          <p className="text-xs text-gray-500 mt-1">{clients.length}{ko ? "건" : " clients"}</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center"><ArrowUpRight size={16} className="text-blue-600" /></div>
-            <span className="text-xs text-gray-500">{ko ? "진행 중 파이프라인" : "Pipeline"}</span>
+            <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center"><Check size={16} className="text-emerald-600" /></div>
+            <span className="text-xs text-gray-500">{ko ? "수령 금액" : "Received"}</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{pipelineValue.toLocaleString()}<span className="text-sm font-normal text-gray-500">{ko ? "원" : ""}</span></p>
+          <p className="text-2xl font-bold text-emerald-600">{paidTotal.toLocaleString()}<span className="text-sm font-normal text-gray-500">{ko ? "원" : ""}</span></p>
+          <p className="text-xs text-emerald-600 mt-1">{ko ? "수금 완료" : "collected"}</p>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center"><ArrowUpRight size={16} className="text-amber-600" /></div>
+            <span className="text-xs text-gray-500">{ko ? "남은 금액" : "Remaining"}</span>
+          </div>
+          <p className="text-2xl font-bold text-amber-600">{remaining.toLocaleString()}<span className="text-sm font-normal text-gray-500">{ko ? "원" : ""}</span></p>
           <p className="text-xs text-blue-600 mt-1">{clients.filter(c => !["won", "lost"].includes(c.stage)).length}{ko ? "건 진행 중" : " active"}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center"><FileText size={16} className="text-amber-600" /></div>
-            <span className="text-xs text-gray-500">{ko ? "수락된 견적" : "Accepted Estimates"}</span>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">{totalEstimated.toLocaleString()}<span className="text-sm font-normal text-gray-500">{ko ? "원" : ""}</span></p>
-          <p className="text-xs text-amber-600 mt-1">{acceptedEstimates.length}{ko ? "건" : ""}</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex items-center gap-2 mb-2">
@@ -921,9 +922,12 @@ export function SalesPage() {
             setSelectedClient(u);
           }}
           onMemoUpdate={async (memoContent) => {
-            const u = await api.updateClient(selectedClient.id, { memoContent });
-            setClients(p => p.map(c => c.id === selectedClient.id ? u : c));
-            setSelectedClient(u);
+            // Update local state immediately (no re-fetch to avoid editor reset)
+            const updated = { ...selectedClient, memoContent };
+            setSelectedClient(updated);
+            setClients(p => p.map(c => c.id === selectedClient.id ? updated : c));
+            // Save to DB in background
+            api.updateClient(selectedClient.id, { memoContent }).catch(() => {});
           }}
           ko={ko} />
         <ClientDialog open={clientDialogOpen} onClose={() => { setClientDialogOpen(false); setEditingClient(null); }}
