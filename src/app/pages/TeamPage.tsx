@@ -1449,7 +1449,7 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
         ) : (
           <div className="grid grid-cols-7 gap-1">
             {/* Empty cells for first week offset */}
-            {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} className="h-16" />)}
+            {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} className="h-24" />)}
 
             {Array.from({ length: daysInMonth }).map((_, i) => {
               const day = i + 1;
@@ -1459,27 +1459,35 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
               const isSelected = dateStr === selectedDay;
               const totalHours = dayRecs.reduce((s: number, r: any) => s + getWorkHours(r.checkIn, r.checkOut), 0);
               const dayOfWeek = new Date(calMonth.year, calMonth.month - 1, day).getDay();
+              const STAMP_COLORS = ["bg-red-500", "bg-blue-500", "bg-emerald-500", "bg-amber-500", "bg-purple-500", "bg-cyan-500", "bg-rose-500"];
 
               return (
                 <button key={day} onClick={() => setSelectedDay(isSelected ? null : dateStr)}
-                  className={cn("h-16 rounded-lg text-left p-1.5 transition-all relative",
+                  className={cn("h-24 rounded-xl text-left p-1.5 transition-all relative flex flex-col",
                     isSelected ? "bg-blue-50 ring-2 ring-blue-400" : isToday ? "bg-blue-50/50" : "hover:bg-gray-50",
                     dayOfWeek === 0 && "text-red-500", dayOfWeek === 6 && "text-blue-500")}>
-                  <span className={cn("text-xs font-medium", isToday && "bg-blue-600 text-white w-5 h-5 rounded-full inline-flex items-center justify-center")}>
+                  <span className={cn("text-xs font-medium mb-1", isToday && "bg-blue-600 text-white w-5 h-5 rounded-full inline-flex items-center justify-center")}>
                     {day}
                   </span>
                   {dayRecs.length > 0 && (
-                    <div className="mt-0.5">
-                      <div className="flex -space-x-1">
-                        {dayRecs.slice(0, 3).map((r: any, idx: number) => (
-                          <div key={idx} className={cn("w-4 h-4 rounded-full text-[7px] font-bold flex items-center justify-center border border-white",
-                            r.checkOut ? "bg-emerald-400 text-white" : "bg-blue-400 text-white")}>
-                            {getMemberName(r.userId).charAt(0)}
-                          </div>
-                        ))}
+                    <div className="flex-1 flex flex-col justify-end gap-0.5">
+                      <div className="flex flex-wrap gap-0.5">
+                        {dayRecs.slice(0, 4).map((r: any, idx: number) => {
+                          const name = getMemberName(r.userId);
+                          const stamp = name.length >= 2 ? name.slice(0, 2) : name;
+                          const colorIdx = r.userId.charCodeAt(0) % STAMP_COLORS.length;
+                          return (
+                            <div key={idx} className={cn("w-7 h-7 rounded-md flex items-center justify-center text-[9px] font-black text-white shadow-sm",
+                              r.checkOut ? STAMP_COLORS[colorIdx] : "bg-gray-300")}
+                              style={r.checkOut ? { opacity: 0.85 } : {}}
+                              title={`${name} ${r.checkOut ? (ko ? "퇴근" : "Done") : (ko ? "근무중" : "Working")}`}>
+                              {stamp}
+                            </div>
+                          );
+                        })}
                       </div>
                       {totalHours > 0 && (
-                        <p className="text-[9px] text-gray-400 mt-0.5 leading-none">{Math.round(totalHours)}{ko ? "h" : "h"}</p>
+                        <p className="text-[8px] text-gray-400 leading-none">{Math.round(totalHours)}h</p>
                       )}
                     </div>
                   )}
