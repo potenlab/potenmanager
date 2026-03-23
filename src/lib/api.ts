@@ -651,6 +651,14 @@ export const api = {
     if (error) throw error;
     return (data || []).map(toCamel);
   },
+  getAttendanceMonth: async (year: number, month: number) => {
+    const orgId = getActiveOrgId();
+    const from = `${year}-${String(month).padStart(2, '0')}-01`;
+    const to = `${year}-${String(month).padStart(2, '0')}-31`;
+    const { data, error } = await supabase.from('pm_attendance').select('*').eq('org_id', orgId).gte('date', from).lte('date', to);
+    if (error) throw error;
+    return (data || []).map(toCamel);
+  },
   checkIn: async () => {
     const uid = await getUid();
     const orgId = getActiveOrgId();

@@ -19,6 +19,7 @@ import {
   LayoutGrid,
   LayoutList,
   Calendar as CalendarIcon,
+  ChevronLeft,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { User, Task, getUserColor, setUserColor, getColorOwner, getMemberColorConfig, MEMBER_COLORS, getAllAssigneeIds } from "../../lib/mockData";
@@ -1293,41 +1294,37 @@ const ColorPickerPopover = ({
 
 // ─── Attendance Tab ──────────────────────────────────────────────
 function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
-  const [records, setRecords] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { tasks } = useTaskContext();
   const [myRecord, setMyRecord] = useState<any>(null);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [monthRecords, setMonthRecords] = useState<any[]>([]);
+  const [calMonth, setCalMonth] = useState(() => { const n = new Date(); return { year: n.getFullYear(), month: n.getMonth() + 1 }; });
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const loadAttendance = useCallback(async () => {
+  // Load month data
+  const loadMonth = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await api.getAttendance(selectedDate);
-      setRecords(data);
+      const data = await api.getAttendanceMonth(calMonth.year, calMonth.month);
+      setMonthRecords(data);
       const uid = (await supabase.auth.getUser()).data.user?.id;
-      setMyRecord(data.find((r: any) => r.userId === uid) || null);
+      const today = new Date().toISOString().split('T')[0];
+      setMyRecord(data.find((r: any) => r.userId === uid && r.date === today) || null);
     } catch (err) { console.error("Attendance load error:", err); }
     setLoading(false);
-  }, [selectedDate]);
+  }, [calMonth]);
 
-  useEffect(() => { loadAttendance(); }, [loadAttendance]);
+  useEffect(() => { loadMonth(); }, [loadMonth]);
 
   const handleCheckIn = async () => {
-    try {
-      const r = await api.checkIn();
-      setMyRecord(r);
-      loadAttendance();
-    } catch (err) { console.error("Check-in error:", err); }
+    try { const r = await api.checkIn(); setMyRecord(r); loadMonth(); } catch (err) { console.error("Check-in error:", err); }
   };
-
   const handleCheckOut = async () => {
-    try {
-      const r = await api.checkOut();
-      setMyRecord(r);
-      loadAttendance();
-    } catch (err) { console.error("Check-out error:", err); }
+    try { const r = await api.checkOut(); setMyRecord(r); loadMonth(); } catch (err) { console.error("Check-out error:", err); }
   };
 
-  const isToday = selectedDate === new Date().toISOString().split('T')[0];
+  const todayStr = new Date().toISOString().split('T')[0];
+  const isCurrentMonth = calMonth.year === new Date().getFullYear() && calMonth.month === new Date().getMonth() + 1;
   const checkedIn = myRecord?.checkIn;
   const checkedOut = myRecord?.checkOut;
 
@@ -1335,74 +1332,80 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
     if (!iso) return "-";
     return new Date(iso).toLocaleTimeString(ko ? "ko-KR" : "en-US", { hour: "2-digit", minute: "2-digit" });
   };
-
-  const getWorkDuration = (checkIn: string | null, checkOut: string | null) => {
-    if (!checkIn) return "-";
+  const getWorkHours = (checkIn: string | null, checkOut: string | null) => {
+    if (!checkIn) return 0;
     const end = checkOut ? new Date(checkOut) : new Date();
-    const diff = end.getTime() - new Date(checkIn).getTime();
-    const h = Math.floor(diff / 3600000);
-    const m = Math.floor((diff % 3600000) / 60000);
-    return `${h}${ko ? "시간" : "h"} ${m}${ko ? "분" : "m"}`;
+    return (end.getTime() - new Date(checkIn).getTime()) / 3600000;
   };
-
+  const formatDuration = (h: number) => {
+    if (h <= 0) return "-";
+    const hours = Math.floor(h);
+    const mins = Math.round((h - hours) * 60);
+    return `${hours}${ko ? "시간" : "h"}${mins > 0 ? ` ${mins}${ko ? "분" : "m"}` : ""}`;
+  };
   const getMemberName = (userId: string) => {
     const m = members.find(m => m.id === userId);
     return m?.name || m?.email || userId.slice(0, 8);
   };
 
-  const getMemberAvatar = (userId: string) => {
-    const m = members.find(m => m.id === userId);
-    return m?.avatar;
-  };
+  // Calendar grid
+  const firstDay = new Date(calMonth.year, calMonth.month - 1, 1).getDay();
+  const daysInMonth = new Date(calMonth.year, calMonth.month, 0).getDate();
+  const dayHeaders = ko ? ["일", "월", "화", "수", "목", "금", "토"] : ["S", "M", "T", "W", "T", "F", "S"];
+  const prevMonth = () => setCalMonth(p => p.month === 1 ? { year: p.year - 1, month: 12 } : { ...p, month: p.month - 1 });
+  const nextMonth = () => setCalMonth(p => p.month === 12 ? { year: p.year + 1, month: 1 } : { ...p, month: p.month + 1 });
+
+  // Group records by date
+  const byDate: Record<string, any[]> = {};
+  monthRecords.forEach(r => { const d = r.date; if (!byDate[d]) byDate[d] = []; byDate[d].push(r); });
+
+  // Selected day detail
+  const dayRecords = selectedDay ? (byDate[selectedDay] || []) : [];
+  const dayTasks = selectedDay ? tasks.filter(t => {
+    if (!t.updatedAt) return false;
+    const u = new Date(t.updatedAt).toISOString().split('T')[0];
+    return u === selectedDay && t.status === "completed";
+  }) : [];
 
   return (
     <div className="space-y-6">
       {/* My check-in card */}
-      {isToday && (
-        <div className="bg-white rounded-2xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
+      {isCurrentMonth && (
+        <div className="bg-white rounded-2xl border border-gray-200 p-5">
+          <div className="flex items-center justify-between mb-3">
             <div>
-              <h3 className="text-lg font-bold text-gray-900">{ko ? "오늘 출근" : "Today"}</h3>
-              <p className="text-sm text-gray-500">{new Date().toLocaleDateString(ko ? "ko-KR" : "en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
+              <h3 className="text-base font-bold text-gray-900">{ko ? "오늘 출근" : "Today"}</h3>
+              <p className="text-xs text-gray-500">{new Date().toLocaleDateString(ko ? "ko-KR" : "en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
             </div>
             {checkedIn && (
               <div className="text-right">
                 <p className="text-xs text-gray-400">{ko ? "근무 시간" : "Duration"}</p>
-                <p className="text-lg font-bold text-gray-900">{getWorkDuration(myRecord?.checkIn, myRecord?.checkOut)}</p>
+                <p className="text-lg font-bold text-gray-900">{formatDuration(getWorkHours(myRecord?.checkIn, myRecord?.checkOut))}</p>
               </div>
             )}
           </div>
-
-          <div className="grid grid-cols-2 gap-3 mb-4">
-            <div className="bg-gray-50 rounded-xl p-3 text-center">
-              <p className="text-[10px] uppercase font-semibold text-gray-400 mb-1">{ko ? "출근" : "Check In"}</p>
-              <p className="text-xl font-bold text-gray-900">{formatTime(myRecord?.checkIn)}</p>
-            </div>
-            <div className="bg-gray-50 rounded-xl p-3 text-center">
-              <p className="text-[10px] uppercase font-semibold text-gray-400 mb-1">{ko ? "퇴근" : "Check Out"}</p>
-              <p className="text-xl font-bold text-gray-900">{formatTime(myRecord?.checkOut)}</p>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex items-center gap-4 text-sm">
+              <span className="text-gray-500">{ko ? "출근" : "In"}: <span className="font-bold text-gray-900">{formatTime(myRecord?.checkIn)}</span></span>
+              <span className="text-gray-500">{ko ? "퇴근" : "Out"}: <span className="font-bold text-gray-900">{formatTime(myRecord?.checkOut)}</span></span>
             </div>
           </div>
-
           <div className="flex gap-2">
             {!checkedIn ? (
-              <button onClick={handleCheckIn}
-                className="px-6 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors inline-flex items-center gap-2">
-                <Clock size={16} /> {ko ? "출근하기" : "Check In"}
+              <button onClick={handleCheckIn} className="px-5 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors inline-flex items-center gap-2">
+                <Clock size={15} /> {ko ? "출근하기" : "Check In"}
               </button>
             ) : !checkedOut ? (
-              <button onClick={handleCheckOut}
-                className="px-6 py-2.5 bg-gray-900 text-white text-sm font-bold rounded-xl hover:bg-gray-800 transition-colors inline-flex items-center gap-2">
-                <Clock size={16} /> {ko ? "퇴근하기" : "Check Out"}
+              <button onClick={handleCheckOut} className="px-5 py-2 bg-gray-900 text-white text-sm font-bold rounded-xl hover:bg-gray-800 transition-colors inline-flex items-center gap-2">
+                <Clock size={15} /> {ko ? "퇴근하기" : "Check Out"}
               </button>
             ) : (
               <>
-                <div className="px-4 py-2.5 bg-emerald-50 text-emerald-700 text-sm font-bold rounded-xl inline-flex items-center gap-2">
-                  <Check size={16} /> {ko ? "퇴근 완료" : "Done"}
+                <div className="px-4 py-2 bg-emerald-50 text-emerald-700 text-sm font-bold rounded-xl inline-flex items-center gap-2">
+                  <Check size={14} /> {ko ? "퇴근 완료" : "Done"}
                 </div>
-                <button onClick={handleCheckIn}
-                  className="px-4 py-2.5 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors inline-flex items-center gap-2">
-                  <Clock size={16} /> {ko ? "재출근" : "Re-check in"}
+                <button onClick={handleCheckIn} className="px-4 py-2 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors inline-flex items-center gap-2">
+                  <Clock size={14} /> {ko ? "재출근" : "Re-check in"}
                 </button>
               </>
             )}
@@ -1410,57 +1413,116 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
         </div>
       )}
 
-      {/* Date picker + team list */}
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-700">{ko ? "팀 출근 현황" : "Team Attendance"}</h3>
-          <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-100" />
+      {/* Calendar */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-5">
+        {/* Month navigation */}
+        <div className="flex items-center justify-between mb-4">
+          <button onClick={prevMonth} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><ChevronLeft size={18} /></button>
+          <h3 className="text-sm font-bold text-gray-900">
+            {calMonth.year}{ko ? "년 " : "/"}{calMonth.month}{ko ? "월" : ""}
+          </h3>
+          <button onClick={nextMonth} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"><ArrowRight size={18} /></button>
         </div>
 
+        {/* Day headers */}
+        <div className="grid grid-cols-7 gap-1 mb-1">
+          {dayHeaders.map((d, i) => (
+            <div key={i} className={cn("text-center text-[10px] font-semibold py-1", i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-gray-400")}>{d}</div>
+          ))}
+        </div>
+
+        {/* Calendar grid */}
         {loading ? (
-          <div className="p-8 text-center text-gray-400 text-sm">{ko ? "로딩 중..." : "Loading..."}</div>
-        ) : records.length === 0 ? (
-          <div className="p-8 text-center text-gray-400 text-sm">{ko ? "출근 기록이 없습니다" : "No records"}</div>
+          <div className="py-12 text-center text-gray-400 text-sm">{ko ? "로딩 중..." : "Loading..."}</div>
         ) : (
-          <table className="w-full text-left">
-            <thead><tr className="bg-gray-50/50 border-b border-gray-100">
-              <th className="px-4 py-3 text-xs font-semibold text-gray-500">{ko ? "멤버" : "Member"}</th>
-              <th className="px-4 py-3 text-xs font-semibold text-gray-500">{ko ? "출근" : "In"}</th>
-              <th className="px-4 py-3 text-xs font-semibold text-gray-500">{ko ? "퇴근" : "Out"}</th>
-              <th className="px-4 py-3 text-xs font-semibold text-gray-500">{ko ? "근무시간" : "Duration"}</th>
-              <th className="px-4 py-3 text-xs font-semibold text-gray-500">{ko ? "상태" : "Status"}</th>
-            </tr></thead>
-            <tbody className="divide-y divide-gray-100">
-              {records.map((r: any) => (
-                <tr key={r.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      {getMemberAvatar(r.userId) ? (
-                        <img src={getMemberAvatar(r.userId)} className="w-7 h-7 rounded-full" />
-                      ) : (
-                        <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500">
-                          {getMemberName(r.userId).charAt(0)}
-                        </div>
+          <div className="grid grid-cols-7 gap-1">
+            {/* Empty cells for first week offset */}
+            {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} className="h-16" />)}
+
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const day = i + 1;
+              const dateStr = `${calMonth.year}-${String(calMonth.month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+              const dayRecs = byDate[dateStr] || [];
+              const isToday = dateStr === todayStr;
+              const isSelected = dateStr === selectedDay;
+              const totalHours = dayRecs.reduce((s: number, r: any) => s + getWorkHours(r.checkIn, r.checkOut), 0);
+              const dayOfWeek = new Date(calMonth.year, calMonth.month - 1, day).getDay();
+
+              return (
+                <button key={day} onClick={() => setSelectedDay(isSelected ? null : dateStr)}
+                  className={cn("h-16 rounded-lg text-left p-1.5 transition-all relative",
+                    isSelected ? "bg-blue-50 ring-2 ring-blue-400" : isToday ? "bg-blue-50/50" : "hover:bg-gray-50",
+                    dayOfWeek === 0 && "text-red-500", dayOfWeek === 6 && "text-blue-500")}>
+                  <span className={cn("text-xs font-medium", isToday && "bg-blue-600 text-white w-5 h-5 rounded-full inline-flex items-center justify-center")}>
+                    {day}
+                  </span>
+                  {dayRecs.length > 0 && (
+                    <div className="mt-0.5">
+                      <div className="flex -space-x-1">
+                        {dayRecs.slice(0, 3).map((r: any, idx: number) => (
+                          <div key={idx} className={cn("w-4 h-4 rounded-full text-[7px] font-bold flex items-center justify-center border border-white",
+                            r.checkOut ? "bg-emerald-400 text-white" : "bg-blue-400 text-white")}>
+                            {getMemberName(r.userId).charAt(0)}
+                          </div>
+                        ))}
+                      </div>
+                      {totalHours > 0 && (
+                        <p className="text-[9px] text-gray-400 mt-0.5 leading-none">{Math.round(totalHours)}{ko ? "h" : "h"}</p>
                       )}
-                      <span className="text-sm font-medium text-gray-900">{getMemberName(r.userId)}</span>
                     </div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">{formatTime(r.checkIn)}</td>
-                  <td className="px-4 py-3 text-sm text-gray-700">{formatTime(r.checkOut)}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-700">{getWorkDuration(r.checkIn, r.checkOut)}</td>
-                  <td className="px-4 py-3">
-                    <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full",
-                      r.checkOut ? "bg-emerald-100 text-emerald-700" : r.checkIn ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-500")}>
-                      {r.checkOut ? (ko ? "퇴근" : "Done") : r.checkIn ? (ko ? "근무 중" : "Working") : (ko ? "미출근" : "Absent")}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         )}
       </div>
+
+      {/* Selected day detail */}
+      {selectedDay && (
+        <div className="bg-white rounded-2xl border border-gray-200 p-5">
+          <h3 className="text-sm font-bold text-gray-900 mb-3">
+            {new Date(selectedDay + 'T00:00:00').toLocaleDateString(ko ? "ko-KR" : "en-US", { month: "long", day: "numeric", weekday: "long" })}
+          </h3>
+
+          {dayRecords.length === 0 ? (
+            <p className="text-sm text-gray-400">{ko ? "출근 기록 없음" : "No attendance records"}</p>
+          ) : (
+            <div className="space-y-2 mb-4">
+              {dayRecords.map((r: any) => (
+                <div key={r.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                  <div className="flex items-center gap-2">
+                    <div className={cn("w-6 h-6 rounded-full text-[9px] font-bold flex items-center justify-center",
+                      r.checkOut ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700")}>
+                      {getMemberName(r.userId).charAt(0)}
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">{getMemberName(r.userId)}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-gray-500">
+                    <span>{formatTime(r.checkIn)} ~ {formatTime(r.checkOut)}</span>
+                    <span className="font-medium text-gray-700">{formatDuration(getWorkHours(r.checkIn, r.checkOut))}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Completed tasks on this day */}
+          {dayTasks.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase mb-2">{ko ? "완료한 업무" : "Completed Tasks"}</p>
+              <div className="space-y-1">
+                {dayTasks.map(t => (
+                  <div key={t.id} className="flex items-center gap-2 text-sm text-gray-700 py-1">
+                    <Check size={12} className="text-emerald-500 shrink-0" />
+                    <span className="truncate">{t.title}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
