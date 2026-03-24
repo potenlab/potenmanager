@@ -257,14 +257,101 @@ export const api = {
     return { org: data, userRole: 'member' };
   },
 
-  // ── Invite System (simplified) ──
-  generateInvite: async (orgId: string, data: any) => ({ code: Math.random().toString(36).slice(2, 8).toUpperCase(), orgId }),
-  lookupInvite: async (code: string) => null,
-  joinViaInvite: async (code: string, data: any) => ({ success: true }),
-  directJoin: async (code: string, data: any) => ({ success: true }),
+  // ── Invite System ──
+  generateInvite: async (orgId: string, data: { createdBy: string; createdByName?: string; role?: string }) => {
+    const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: invite, error } = await supabase.from('pm_invites').insert({
+      code,
+      org_id: orgId,
+      created_by: data.createdBy,
+      created_by_name: data.createdByName || '',
+      role: data.role || 'member',
+      expires_at: expiresAt,
+    }).select().single();
+    if (error) throw error;
+    return { code: invite.code, expiresAt: invite.expires_at, orgId };
+  },
+
+  lookupInvite: async (code: string) => {
+    const { data, error } = await supabase
+      .from('pm_invites')
+      .select('*, pm_orgs(name)')
+      .eq('code', code.toUpperCase())
+      .single();
+    if (error || !data) return { valid: false };
+    if (data.used_by) return { valid: false, used: true };
+    if (new Date(data.expires_at) < new Date()) return { valid: false, expired: true };
+    return {
+      valid: true,
+      code: data.code,
+      orgId: data.org_id,
+      orgName: data.pm_orgs?.name || '',
+      createdBy: data.created_by,
+      createdByName: data.created_by_name || '',
+      role: data.role,
+      expiresAt: data.expires_at,
+    };
+  },
+
+  joinViaInvite: async (code: string, data: { userId: string; userName?: string }) => {
+    return api.directJoin(code, data);
+  },
+
+  directJoin: async (code: string, data: { userId: string; userName?: string; avatar?: string; email?: string }) => {
+    // 1. Lookup invite
+    const { data: invite, error: lookupErr } = await supabase
+      .from('pm_invites')
+      .select('*')
+      .eq('code', code.toUpperCase())
+      .is('used_by', null)
+      .single();
+    if (lookupErr || !invite) return { success: false, error: 'Invalid or used invite code' };
+    if (new Date(invite.expires_at) < new Date()) return { success: false, error: 'Invite expired' };
+
+    // 2. Check if already a member
+    const { data: existing } = await supabase
+      .from('pm_org_members')
+      .select('user_id')
+      .eq('org_id', invite.org_id)
+      .eq('user_id', data.userId)
+      .maybeSingle();
+    if (existing) {
+      // Already a member — mark invite used and succeed
+      await supabase.from('pm_invites').update({ used_by: data.userId, used_at: new Date().toISOString() }).eq('id', invite.id);
+      return { success: true };
+    }
+
+    // 3. Add to org members
+    const { error: memberErr } = await supabase.from('pm_org_members').insert({
+      org_id: invite.org_id,
+      user_id: data.userId,
+      role: invite.role || 'member',
+    });
+    if (memberErr) return { success: false, error: memberErr.message };
+
+    // 4. Mark invite as used
+    await supabase.from('pm_invites').update({ used_by: data.userId, used_at: new Date().toISOString() }).eq('id', invite.id);
+
+    // 5. Set active org
+    localStorage.setItem('pm_active_org_id', invite.org_id);
+    localStorage.setItem('poten_active_org_id', invite.org_id);
+
+    return { success: true };
+  },
+
   getJoinRequests: async (orgId: string) => [],
   processJoinRequest: async (orgId: string, userId: string, action: string) => ({ success: true }),
-  getOrgInvites: async (orgId: string) => [],
+
+  getOrgInvites: async (orgId: string) => {
+    const { data, error } = await supabase
+      .from('pm_invites')
+      .select('*')
+      .eq('org_id', orgId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
 
   // ── Brand Assets ──
   getBrandAssets: async () => {
