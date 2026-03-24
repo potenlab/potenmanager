@@ -77,6 +77,16 @@ export function NewSidebar() {
     if (teamMembers.length > 0) setSidebarMembers(teamMembers);
   }, [teamMembers]);
 
+  // Listen for attendance changes (immediate update)
+  useEffect(() => {
+    const handler = () => {
+      const today = new Date().toISOString().split('T')[0];
+      api.getAttendance(today).then(setTodayAttendance).catch(() => {});
+    };
+    window.addEventListener('attendance-changed', handler);
+    return () => window.removeEventListener('attendance-changed', handler);
+  }, []);
+
   // Listen for tools changes
   useEffect(() => {
     const handler = () => setEnabledTools(getEnabledTools());

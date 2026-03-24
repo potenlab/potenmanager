@@ -1377,9 +1377,10 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
     api.getStampConfig().then(c => { if (c && Object.keys(c).length) setMyStamp(c); });
   }, []);
 
+  const notifyAttendance = () => window.dispatchEvent(new CustomEvent('attendance-changed'));
+
   const handleCheckIn = async () => {
     try {
-      // If on break, just end break (don't call checkIn which resets time)
       if (currentStatus === 'break' && myRecord) {
         const r = await api.endBreak();
         r.currentStatus = 'working';
@@ -1389,6 +1390,7 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
         setBreakStartTime(null);
         setLastResumeTime(new Date().toISOString());
         setMyRecord({ ...r });
+        notifyAttendance();
         return;
       }
       const r = await api.checkIn();
@@ -1398,8 +1400,8 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
       setLastResumeTime(new Date().toISOString());
       setTotalBreakMs(0);
       setMyRecord({ ...r });
-      // Refresh calendar in background without overwriting myRecord
       api.getAttendanceMonth(calMonth.year, calMonth.month).then(data => setMonthRecords(data)).catch(() => {});
+      notifyAttendance();
     } catch (err) { console.error(err); }
   };
   const handleCheckOut = async () => {
@@ -1408,6 +1410,7 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
       r.currentStatus = 'off';
       setMyRecord({ ...r });
       api.getAttendanceMonth(calMonth.year, calMonth.month).then(data => setMonthRecords(data)).catch(() => {});
+      notifyAttendance();
     } catch (err) { console.error(err); }
   };
   const handleBreakStart = async () => {
@@ -1417,6 +1420,7 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
       setBreakStartTime(new Date().toISOString());
       setLastResumeTime(null);
       setMyRecord({ ...r });
+      notifyAttendance();
     } catch (err) { console.error(err); }
   };
   const handleBreakEnd = async () => {
@@ -1429,6 +1433,7 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
       setBreakStartTime(null);
       setLastResumeTime(new Date().toISOString());
       setMyRecord({ ...r });
+      notifyAttendance();
     } catch (err) { console.error(err); }
   };
   const saveStamp = async () => {
