@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useLocation } from "react-router";
 import {
   DollarSign, Plus, Search, Users, FileText, BarChart3,
   MoreHorizontal, X, Trash2, ChevronLeft, Edit2, Phone, Mail,
@@ -37,14 +38,13 @@ const STAGES = [
   { id: "negotiation", labelKo: "협상 중", labelEn: "Negotiation", color: "bg-amber-100 text-amber-700 border-amber-200" },
   { id: "contract", labelKo: "계약 검토", labelEn: "Contract", color: "bg-orange-100 text-orange-700 border-orange-200" },
   { id: "won", labelKo: "계약 완료", labelEn: "Won", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-  { id: "lost", labelKo: "실패", labelEn: "Lost", color: "bg-gray-100 text-gray-500 border-gray-200" },
+  { id: "lost", labelKo: "반환", labelEn: "Cancelled", color: "bg-gray-100 text-gray-500 border-gray-200" },
 ];
 
 const EST_STATUS = [
-  { id: "draft", labelKo: "초안", labelEn: "Draft", color: "bg-gray-100 text-gray-600" },
-  { id: "sent", labelKo: "발송", labelEn: "Sent", color: "bg-blue-100 text-blue-700" },
-  { id: "accepted", labelKo: "수락", labelEn: "Accepted", color: "bg-emerald-100 text-emerald-700" },
-  { id: "rejected", labelKo: "거절", labelEn: "Rejected", color: "bg-red-100 text-red-600" },
+  { id: "draft", labelKo: "작성중", labelEn: "Draft", color: "bg-gray-100 text-gray-600" },
+  { id: "accepted", labelKo: "확정", labelEn: "Confirmed", color: "bg-emerald-100 text-emerald-700" },
+  { id: "rejected", labelKo: "취소", labelEn: "Cancelled", color: "bg-red-100 text-red-600" },
 ];
 
 // ─── Stage Pill (clickable button with popover) ─────────────────
@@ -296,7 +296,37 @@ function EstimateDialog({ open, onClose, onSave, clients, estimate, ko }: {
             className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm outline-none resize-none" />
         </div>
         <div className="px-6 pb-6 flex gap-2">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">{ko ? "취소" : "Cancel"}</button>
+          <button onClick={onClose} className="py-2.5 px-4 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">{ko ? "취소" : "Cancel"}</button>
+          {estimate && (
+            <button onClick={() => {
+              const printWin = window.open('', '_blank');
+              if (!printWin) return;
+              const clientName = clients.find(c => c.id === clientId)?.company || clients.find(c => c.id === clientId)?.name || '';
+              printWin.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>
+                body{font-family:-apple-system,sans-serif;padding:40px;color:#111;max-width:800px;margin:0 auto}
+                h1{font-size:24px;margin-bottom:4px} .meta{color:#666;font-size:13px;margin-bottom:24px}
+                table{width:100%;border-collapse:collapse;margin:16px 0}
+                th{text-align:left;border-bottom:2px solid #111;padding:8px 4px;font-size:13px;color:#666}
+                td{padding:8px 4px;border-bottom:1px solid #eee;font-size:14px}
+                .total-row td{border-top:2px solid #111;font-weight:700;font-size:16px;padding-top:12px}
+                .notes{margin-top:24px;padding:16px;background:#f9f9f9;border-radius:8px;font-size:13px;color:#444}
+                @media print{body{padding:20px}}
+              </style></head><body>
+                <h1>${title}</h1>
+                <div class="meta">${clientName ? `${ko ? '클라이언트' : 'Client'}: ${clientName}<br>` : ''}${ko ? '날짜' : 'Date'}: ${new Date().toLocaleDateString(ko ? 'ko-KR' : 'en-US')}</div>
+                <table><thead><tr><th>${ko ? '항목' : 'Item'}</th><th style="text-align:right">${ko ? '수량' : 'Qty'}</th><th style="text-align:right">${ko ? '단가' : 'Price'}</th><th style="text-align:right">${ko ? '금액' : 'Amount'}</th></tr></thead>
+                <tbody>${items.filter(i => i.name).map(i => `<tr><td>${i.name}</td><td style="text-align:right">${i.qty}</td><td style="text-align:right">${i.unitPrice.toLocaleString()}</td><td style="text-align:right">${(i.qty * i.unitPrice).toLocaleString()}</td></tr>`).join('')}
+                <tr class="total-row"><td colspan="3">${ko ? '합계' : 'Total'}</td><td style="text-align:right">${items.reduce((s, i) => s + i.qty * i.unitPrice, 0).toLocaleString()}${ko ? '원' : ''}</td></tr>
+                </tbody></table>
+                ${notes ? `<div class="notes">${notes}</div>` : ''}
+              </body></html>`);
+              printWin.document.close();
+              printWin.print();
+            }}
+              className="py-2.5 px-4 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">
+              🖨️ {ko ? "출력" : "Print"}
+            </button>
+          )}
           <button onClick={handleSave} disabled={!title.trim() || saving}
             className={cn("flex-1 py-2.5 rounded-xl text-sm font-bold", !title.trim() || saving ? "bg-gray-100 text-gray-400" : "bg-blue-600 text-white hover:bg-blue-700")}>
             {saving ? "..." : (ko ? "저장" : "Save")}
@@ -693,7 +723,7 @@ function ClientDetail({ client, estimates, onBack, onEdit, onStageChange, onPaym
 }
 
 // ─── Revenue Tab ────────────────────────────────────────────────
-function RevenueTab({ clients, estimates, ko }: { clients: Client[]; estimates: Estimate[]; ko: boolean }) {
+export function RevenueTab({ clients, estimates, ko }: { clients: Client[]; estimates: Estimate[]; ko: boolean }) {
   const totalValue = clients.reduce((s, c) => s + (c.value || 0), 0);
   const paidTotal = clients.reduce((s, c) => s + (c.payments || []).filter(p => p.status === "paid").reduce((ss, p) => ss + p.amount, 0), 0);
   const remaining = totalValue - paidTotal;
@@ -732,7 +762,7 @@ function RevenueTab({ clients, estimates, ko }: { clients: Client[]; estimates: 
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center"><ArrowDownRight size={16} className="text-red-500" /></div>
-            <span className="text-xs text-gray-500">{ko ? "실패" : "Lost"}</span>
+            <span className="text-xs text-gray-500">{ko ? "반환" : "Cancelled"}</span>
           </div>
           <p className="text-2xl font-bold text-gray-900">{lostValue.toLocaleString()}<span className="text-sm font-normal text-gray-500">{ko ? "원" : ""}</span></p>
           <p className="text-xs text-red-500 mt-1">{clients.filter(c => c.stage === "lost").length}{ko ? "건" : ""}</p>
@@ -858,7 +888,13 @@ export function SalesPage() {
   const { currentOrg } = useWorkspace();
   const ko = language === "ko";
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"clients" | "estimates" | "revenue">("clients");
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState<"clients" | "estimates" | "revenue">(() => {
+    const path = location.pathname;
+    if (path.includes("/sales/estimates")) return "estimates";
+    if (path.includes("/sales/revenue")) return "revenue";
+    return "clients";
+  });
   const [clients, setClients] = useState<Client[]>([]);
   const [estimates, setEstimates] = useState<Estimate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -869,6 +905,14 @@ export function SalesPage() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const menuRef = useRef<HTMLTableCellElement>(null);
+
+  // Sync tab from URL
+  useEffect(() => {
+    const path = location.pathname;
+    if (path.includes("/sales/estimates")) setActiveTab("estimates");
+    else if (path.includes("/sales/revenue")) setActiveTab("revenue");
+    else if (path.includes("/sales/clients") || path.endsWith("/sales")) setActiveTab("clients");
+  }, [location.pathname]);
 
   useEffect(() => {
     setLoading(true);
@@ -923,7 +967,7 @@ export function SalesPage() {
     "협상": "negotiation", "협상 중": "negotiation",
     "계약": "contract", "계약 검토": "contract",
     "완료": "won", "계약 완료": "won", "성공": "won",
-    "실패": "lost", "취소": "lost",
+    "실패": "lost", "취소": "lost", "반환": "lost", "계약취소": "lost",
     "inquiry": "inquiry", "proposal": "proposal", "negotiation": "negotiation",
     "contract": "contract", "won": "won", "lost": "lost",
   };
@@ -1022,7 +1066,6 @@ export function SalesPage() {
   const tabs = [
     { id: "clients" as const, labelKo: "클라이언트 관리", labelEn: "Clients", icon: <Users size={16} /> },
     { id: "estimates" as const, labelKo: "견적서/계약", labelEn: "Estimates", icon: <FileText size={16} /> },
-    { id: "revenue" as const, labelKo: "매출 현황", labelEn: "Revenue", icon: <BarChart3 size={16} /> },
   ];
 
   return (
@@ -1031,7 +1074,7 @@ export function SalesPage() {
         <div>
           <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
             <DollarSign size={22} className="text-emerald-600" />
-            {ko ? "영업/세일즈" : "Sales"}
+            {ko ? "고객관리" : "Clients"}
           </h1>
           <p className="text-sm text-gray-500 mt-1">
             {ko ? `진행 중 ${pipelineValue.toLocaleString()}원 · 계약 완료 ${totalValue.toLocaleString()}원` : `Pipeline ${pipelineValue.toLocaleString()} · Won ${totalValue.toLocaleString()}`}
@@ -1203,7 +1246,6 @@ export function SalesPage() {
       )}
 
       {/* ── Revenue Tab ── */}
-      {activeTab === "revenue" && <RevenueTab clients={clients} estimates={estimates} ko={ko} />}
 
       {/* Dialogs */}
       <ClientDialog open={clientDialogOpen} onClose={() => { setClientDialogOpen(false); setEditingClient(null); }}

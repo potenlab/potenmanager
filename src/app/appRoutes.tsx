@@ -49,6 +49,7 @@ const LeaderBoardDetailPage = lazy(() => import("./pages/LeaderBoardDetailPage")
 const OrgCreatePage = lazy(() => import("./pages/OrgCreatePage").then(m => ({ default: m.OrgCreatePage })));
 const ToolsPage = lazy(() => import("./pages/ToolsPage").then(m => ({ default: m.ToolsPage })));
 const SalesPage = lazy(() => import("./pages/SalesPage").then(m => ({ default: m.SalesPage })));
+const RevenuePage = lazy(() => import("./pages/RevenuePage").then(m => ({ default: m.RevenuePage })));
 
 /** All app pages – shared between the /:orgSlug layout and the legacy fallback */
 const APP_PAGES = [
@@ -96,6 +97,7 @@ const APP_PAGES = [
   { path: "sales/clients", Component: SalesPage },
   { path: "sales/estimates", Component: SalesPage },
   { path: "sales/revenue", Component: SalesPage },
+  { path: "revenue", Component: RevenuePage },
   { path: "*", Component: DashboardPage },
 ];
 

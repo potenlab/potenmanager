@@ -624,7 +624,7 @@ export function MeetingPage() {
           </button>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center">
-          <div className="flex-1 sm:max-w-md">
+          <div className="sm:max-w-md">
             <div className="flex items-center w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-400 transition-all shadow-sm">
               <Search className="text-gray-400 mr-2 shrink-0" size={18} />
               <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
@@ -632,28 +632,38 @@ export function MeetingPage() {
                 className="w-full text-sm outline-none bg-transparent placeholder-gray-400 text-gray-900" />
             </div>
           </div>
+          <div className="flex bg-gray-100 p-1 rounded-xl">
+            <button onClick={() => setViewMode('board')}
+              className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                viewMode === 'board' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
+              <LayoutGrid size={14} /> Board
+            </button>
+            <button onClick={() => setViewMode('list')}
+              className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                viewMode === 'list' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
+              <ListIcon size={14} /> List
+            </button>
+          </div>
+          <div className="flex-1" />
           <div className="relative" ref={monthFilterRef}>
             <button
               onClick={() => setShowMonthFilter(!showMonthFilter)}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-2 bg-white border rounded-xl text-xs font-medium transition-all shadow-sm",
-                filterMonth !== 'all'
-                  ? "border-blue-300 text-blue-700 ring-1 ring-blue-100"
-                  : "border-gray-200 text-gray-500 hover:text-gray-700"
-              )}
+              className="flex items-center gap-1 text-lg font-black text-gray-900 hover:text-gray-600 transition-colors"
             >
-              <CalendarIcon size={13} />
               {filterMonth === 'all'
-                ? (ko ? '월별' : 'Month')
+                ? (() => {
+                    const now = new Date();
+                    return `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}`;
+                  })()
                 : (() => {
                     const [y, m] = filterMonth.split('-').map(Number);
-                    return ko ? `${y}년 ${m}월` : new Date(y, m - 1).toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+                    return `${y}.${String(m).padStart(2, '0')}`;
                   })()
               }
-              <ChevronDown size={11} />
+              <ChevronDown size={14} className="text-gray-400" />
             </button>
             {showMonthFilter && (
-              <div className="absolute top-full mt-1 right-0 bg-white border border-gray-200 rounded-xl shadow-lg z-50 min-w-[160px] py-1 max-h-[320px] overflow-y-auto">
+              <div className="absolute top-full mt-1 left-0 bg-white border border-gray-200 rounded-xl shadow-lg z-50 min-w-[160px] py-1 max-h-[320px] overflow-y-auto">
                 <button
                   onClick={() => { setFilterMonth('all'); setShowMonthFilter(false); }}
                   className={cn("w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-gray-50 transition-colors",
@@ -664,7 +674,7 @@ export function MeetingPage() {
                 </button>
                 {availableMonths.map(month => {
                   const [y, m] = month.split('-').map(Number);
-                  const label = ko ? `${y}년 ${m}월` : new Date(y, m - 1).toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+                  const label = ko ? `${y}.${String(m).padStart(2, '0')}` : new Date(y, m - 1).toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
                   return (
                     <button
                       key={month}
@@ -679,18 +689,6 @@ export function MeetingPage() {
                 })}
               </div>
             )}
-          </div>
-          <div className="flex bg-gray-100 p-1 rounded-xl">
-            <button onClick={() => setViewMode('board')}
-              className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
-                viewMode === 'board' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
-              <LayoutGrid size={14} /> Board
-            </button>
-            <button onClick={() => setViewMode('list')}
-              className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
-                viewMode === 'list' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
-              <ListIcon size={14} /> List
-            </button>
           </div>
         </div>
       </header>

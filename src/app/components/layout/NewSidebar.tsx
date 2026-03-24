@@ -20,6 +20,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useSidebar } from "../../context/SidebarContext";
 import { useTeam } from "../../context/TeamContext";
 import { api } from "../../../lib/api";
+import { getEnabledTools } from "../../pages/ToolsPage";
 
 interface NavItem {
   id: string;
@@ -54,6 +55,7 @@ export function NewSidebar() {
   const [teamExpanded, setTeamExpanded] = useState(false);
   const [todayAttendance, setTodayAttendance] = useState<any[]>([]);
   const [sidebarMembers, setSidebarMembers] = useState<any[]>([]);
+  const [enabledTools, setEnabledTools] = useState<string[]>(() => getEnabledTools());
 
   const { members: teamMembers } = useTeam();
 
@@ -74,6 +76,13 @@ export function NewSidebar() {
   useEffect(() => {
     if (teamMembers.length > 0) setSidebarMembers(teamMembers);
   }, [teamMembers]);
+
+  // Listen for tools changes
+  useEffect(() => {
+    const handler = () => setEnabledTools(getEnabledTools());
+    window.addEventListener('tools-changed', handler);
+    return () => window.removeEventListener('tools-changed', handler);
+  }, []);
 
   const members = sidebarMembers;
 
@@ -327,7 +336,7 @@ export function NewSidebar() {
                   )}
                 >
                   <div className="shrink-0 text-gray-500"><DollarSign size={16} /></div>
-                  <span className="flex-1 text-left">{ko ? "영업/세일즈" : "Sales"}</span>
+                  <span className="flex-1 text-left">{ko ? "고객관리" : "Sales"}</span>
                   {salesExpanded ? <ChevronDown size={12} className="text-gray-400" /> : <ChevronRight size={12} className="text-gray-400" />}
                 </button>
                 {salesExpanded && (
@@ -349,15 +358,6 @@ export function NewSidebar() {
                     )}>
                       <FileText size={13} />
                       {ko ? "견적서/계약" : "Estimates"}
-                    </NavLink>
-                    <NavLink to={p("/sales/revenue")} className={() => cn(
-                      "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
-                      location.pathname.includes("/sales/revenue")
-                        ? "bg-gray-200/70 text-gray-900 font-semibold"
-                        : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
-                    )}>
-                      <BarChart3 size={13} />
-                      {ko ? "매출 현황" : "Revenue"}
                     </NavLink>
                   </div>
                 )}
@@ -434,6 +434,16 @@ export function NewSidebar() {
             <div className="shrink-0 text-gray-500"><Wrench size={16} /></div>
             <span>{ko ? "도구" : "Tools"}</span>
           </NavLink>
+          {/* Dynamic tool items */}
+          {enabledTools.includes('revenue') && (
+            <NavLink to={p("/revenue")} className={cn(
+              "flex items-center gap-2 ml-4 px-2 py-1 rounded-md text-[13px] transition-all",
+              isActive("/revenue") ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
+            )}>
+              <BarChart3 size={13} />
+              {ko ? "매출 관리" : "Revenue"}
+            </NavLink>
+          )}
         </div>
 
         {/* Upgrade to Org (personal mode only) */}

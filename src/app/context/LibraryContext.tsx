@@ -43,6 +43,7 @@ interface LibraryContextType {
   unpublishItem: (id: string) => void;
   addCategory: (name: string) => void;
   removeCategory: (name: string) => void;
+  renameCategory: (oldName: string, newName: string) => void;
   fetchOgMetadata: (url: string) => Promise<OgMetadata | null>;
   isLoading: boolean;
   isSynced: boolean;
@@ -61,6 +62,7 @@ const defaultValue: LibraryContextType = {
   unpublishItem: () => {},
   addCategory: () => {},
   removeCategory: () => {},
+  renameCategory: () => {},
   fetchOgMetadata: async () => null,
   isLoading: true,
   isSynced: false,
@@ -185,7 +187,23 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       api.saveLibraryCategories(next).catch(() => {});
       return next;
     });
-  }, []);
+    // Move items in this category to uncategorized
+    items.filter(i => i.category === name).forEach(i => {
+      updateItem(i.id, { category: undefined });
+    });
+  }, [items, updateItem]);
+
+  const renameCategory = useCallback((oldName: string, newName: string) => {
+    setCustomCategories(prev => {
+      const next = prev.map(c => c === oldName ? newName : c);
+      api.saveLibraryCategories(next).catch(() => {});
+      return next;
+    });
+    // Update items with old category name
+    items.filter(i => i.category === oldName).forEach(i => {
+      updateItem(i.id, { category: newName });
+    });
+  }, [items, updateItem]);
 
   const fetchOgMetadata = useCallback(async (url: string): Promise<OgMetadata | null> => {
     try {
@@ -198,8 +216,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<LibraryContextType>(() => ({
     items, myItems, teamItems, customCategories, addItem, updateItem, removeItem,
-    getItem, publishItem, unpublishItem, addCategory, removeCategory, fetchOgMetadata, isLoading, isSynced,
-  }), [items, myItems, teamItems, customCategories, addItem, updateItem, removeItem, getItem, publishItem, unpublishItem, addCategory, removeCategory, fetchOgMetadata, isLoading, isSynced]);
+    getItem, publishItem, unpublishItem, addCategory, removeCategory, renameCategory, fetchOgMetadata, isLoading, isSynced,
+  }), [items, myItems, teamItems, customCategories, addItem, updateItem, removeItem, getItem, publishItem, unpublishItem, addCategory, removeCategory, renameCategory, fetchOgMetadata, isLoading, isSynced]);
 
   return (
     <LibraryContext.Provider value={value}>

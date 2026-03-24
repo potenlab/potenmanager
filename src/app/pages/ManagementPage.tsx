@@ -1047,7 +1047,7 @@ export function ManagementPage() {
     persistCards([...cards, newCard]);
     // If filtered by category, auto-set category on the new project
     if (board === "projects" && projectFilter) {
-      const category: string = projectFilter || "default";
+      const category: string = projectFilter || "internal";
       const projects = loadProjects();
       const newProject: Project = {
         id: newCard.id,
@@ -1092,7 +1092,7 @@ export function ManagementPage() {
     // Filter by project group
     if (board === "projects" && projectFilter) {
       const projects = loadProjects();
-      const ids = new Set(projects.filter(p => p.category === projectFilter || (!p.category && projectFilter === "default")).map(p => p.id));
+      const ids = new Set(projects.filter(p => p.category === projectFilter || (!p.category && projectFilter === "internal") || (p.category === "default" && projectFilter === "internal")).map(p => p.id));
       result = result.filter(c => ids.has(c.id));
     }
     if (!searchQuery.trim()) return result;

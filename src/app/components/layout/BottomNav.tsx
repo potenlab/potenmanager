@@ -81,7 +81,7 @@ export function BottomNav() {
   const moreItems: MoreItem[] = [
     { to: p("/library"), icon: <BookMarked size={20} />, label: ko ? "자료실" : "Library" },
     ...(!isPersonal ? [
-      { to: p("/sales"), icon: <DollarSign size={20} />, label: ko ? "영업/세일즈" : "Sales" },
+      { to: p("/sales"), icon: <DollarSign size={20} />, label: ko ? "고객관리" : "Sales" },
       { to: p("/chat"), icon: <MessageCircle size={20} />, label: ko ? "채팅" : "Chat" },
       { to: p("/branding"), icon: <Building2 size={20} />, label: ko ? "브랜딩" : "Branding" },
       { to: p("/meetings"), icon: <Video size={20} />, label: ko ? "회의/미팅" : "Meetings" },

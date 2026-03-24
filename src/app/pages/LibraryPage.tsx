@@ -148,6 +148,7 @@ function KanbanColumn({
   isOwnerFn,
   onContextMenu,
   onRemoveColumn,
+  onRenameColumn,
   isCustom,
   compact,
   onDrop,
@@ -163,6 +164,7 @@ function KanbanColumn({
   isOwnerFn: (item: LibraryItem) => boolean;
   onContextMenu: (e: React.MouseEvent, id: string) => void;
   onRemoveColumn?: () => void;
+  onRenameColumn?: (newName: string) => void;
   isCustom?: boolean;
   compact?: boolean;
   onDrop: (itemId: string, targetCategory: string) => void;
@@ -240,25 +242,61 @@ function KanbanColumn({
         <div className="w-10 h-1 rounded-full bg-gray-200 group-hover/grip:bg-gray-400 group-active/grip:bg-blue-400 transition-colors" />
       </div>
 
-      {/* Column header */}
-      <div className="flex items-center justify-between px-3.5 pb-3 pt-1 border-b border-gray-100">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-[13px] font-bold text-gray-700 truncate">{title}</span>
-          <span className="text-[11px] font-semibold text-gray-400 bg-gray-200/60 rounded-full px-1.5 min-w-[20px] text-center">
-            {items.length}
-          </span>
-        </div>
-        <div className="flex items-center gap-0.5 shrink-0">
-          {isCustom && onRemoveColumn && items.length === 0 && (
-            <button
-              onClick={onRemoveColumn}
-              className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+      {/* Column header with right-click context menu */}
+      {(() => {
+        const [colMenu, setColMenu] = useState<{ x: number; y: number } | null>(null);
+        const [editing, setEditing] = useState(false);
+        const [editName, setEditName] = useState(title);
+        return (
+          <>
+            <div
+              className="flex items-center justify-between px-3.5 pb-3 pt-1 border-b border-gray-100"
+              onContextMenu={e => {
+                e.preventDefault();
+                setColMenu({ x: e.clientX, y: e.clientY });
+              }}
             >
-              <Trash2 size={12} />
-            </button>
-          )}
-        </div>
-      </div>
+              <div className="flex items-center gap-2 min-w-0">
+                {editing ? (
+                  <input autoFocus value={editName}
+                    onChange={e => setEditName(e.target.value)}
+                    onBlur={() => { if (editName.trim() && editName !== title && onRenameColumn) onRenameColumn(editName.trim()); setEditing(false); }}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur(); } if (e.key === 'Escape') { setEditName(title); setEditing(false); } }}
+                    className="text-[13px] font-bold text-gray-700 bg-white border border-blue-300 rounded px-1.5 py-0.5 outline-none w-28" />
+                ) : (
+                  <span className="text-[13px] font-bold text-gray-700 truncate">{title}</span>
+                )}
+                <span className="text-[11px] font-semibold text-gray-400 bg-gray-200/60 rounded-full px-1.5 min-w-[20px] text-center">
+                  {items.length}
+                </span>
+              </div>
+            </div>
+            {colMenu && (
+              <>
+                <div className="fixed inset-0 z-[999]" onClick={() => setColMenu(null)} />
+                <div className="fixed z-[1000] bg-white rounded-xl shadow-xl border border-gray-200 py-1 min-w-[140px]"
+                  style={{ left: colMenu.x, top: colMenu.y }}>
+                  {isCustom && onRenameColumn && (
+                    <button onClick={() => { setColMenu(null); setEditing(true); }}
+                      className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                      <Pencil size={14} /> {ko ? "이름 변경" : "Rename"}
+                    </button>
+                  )}
+                  {onRemoveColumn && (
+                    <button onClick={() => { setColMenu(null); if (items.length > 0) { if (!confirm(ko ? `${items.length}개 항목이 미분류로 이동됩니다. 삭제할까요?` : `${items.length} items will move to Uncategorized. Delete?`)) return; } onRemoveColumn(); }}
+                      className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                      <Trash2 size={14} /> {ko ? "삭제" : "Delete"}
+                    </button>
+                  )}
+                  {!isCustom && !onRemoveColumn && (
+                    <div className="px-3 py-2 text-xs text-gray-400">{ko ? "기본 카테고리는 수정할 수 없습니다" : "Default category"}</div>
+                  )}
+                </div>
+              </>
+            )}
+          </>
+        );
+      })()}
 
       {/* Cards */}
       <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-[60px] scrollbar-hide">
@@ -330,6 +368,7 @@ export function LibraryPage() {
     addItem,
     addCategory,
     removeCategory,
+    renameCategory,
     fetchOgMetadata,
   } = useLibrary();
   const { currentUser } = useTeam();
@@ -827,6 +866,7 @@ export function LibraryPage() {
                 isCustom={col.isCustom}
                 compact={boardSize === "compact"}
                 onRemoveColumn={col.isCustom ? () => removeCategory(col.key) : undefined}
+                onRenameColumn={col.isCustom ? (newName: string) => renameCategory(col.key, newName) : undefined}
                 onDrop={(itemId, targetCategory) => {
                   const newCat = targetCategory === "__uncategorized__" ? undefined : targetCategory;
                   updateItem(itemId, { category: newCat });

@@ -97,6 +97,18 @@ const TOOLS: Tool[] = [
     status: "coming_soon",
   },
   {
+    id: "revenue",
+    icon: <BarChart3 size={28} />,
+    color: "bg-emerald-100 text-emerald-600",
+    titleKo: "매출 관리",
+    titleEn: "Revenue",
+    descKo: "매출 현황, 수금 상태, 월별 추이를 한눈에 파악하세요.",
+    descEn: "Track revenue, payment status, and monthly trends at a glance.",
+    detailKo: "전체 금액, 수령 금액, 남은 금액을 실시간으로 추적합니다. 월별 매출 차트로 수금 완료와 미수금 현황을 시각적으로 파악할 수 있습니다.",
+    detailEn: "Track total value, received payments, and remaining amounts in real-time. Visualize monthly revenue with paid vs pending breakdown.",
+    status: "active",
+  },
+  {
     id: "analytics",
     icon: <BarChart3 size={28} />,
     color: "bg-orange-100 text-orange-600",
@@ -111,9 +123,21 @@ const TOOLS: Tool[] = [
 ];
 
 // ─── Tool Detail View ──────────────────────────────────────────
+const ENABLED_TOOLS_KEY = 'pm_enabled_tools';
+export function getEnabledTools(): string[] {
+  try { return JSON.parse(localStorage.getItem(ENABLED_TOOLS_KEY) || '["biz-radar"]'); } catch { return ['biz-radar']; }
+}
+function toggleTool(id: string, enabled: boolean) {
+  const current = getEnabledTools();
+  const next = enabled ? [...new Set([...current, id])] : current.filter(t => t !== id);
+  localStorage.setItem(ENABLED_TOOLS_KEY, JSON.stringify(next));
+  // Dispatch event so sidebar can react
+  window.dispatchEvent(new CustomEvent('tools-changed'));
+}
+
 function ToolDetail({ tool, onBack, ko }: { tool: Tool; onBack: () => void; ko: boolean }) {
   const { isPersonal, currentOrg } = useWorkspace();
-  const [added, setAdded] = useState(false);
+  const [added, setAdded] = useState(() => getEnabledTools().includes(tool.id));
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -178,15 +202,16 @@ function ToolDetail({ tool, onBack, ko }: { tool: Tool; onBack: () => void; ko: 
             </button>
           ) : added ? (
             <button
-              disabled
-              className="w-full py-3 rounded-xl bg-emerald-50 text-emerald-600 text-sm font-bold flex items-center justify-center gap-2"
+              onClick={() => { toggleTool(tool.id, false); setAdded(false); }}
+              className="w-full py-3 rounded-xl bg-emerald-50 text-emerald-600 text-sm font-bold hover:bg-red-50 hover:text-red-600 flex items-center justify-center gap-2 transition-colors group"
             >
-              <Check size={16} />
-              {ko ? "추가 완료" : "Added"}
+              <Check size={16} className="group-hover:hidden" />
+              <span className="group-hover:hidden">{ko ? "추가됨" : "Added"}</span>
+              <span className="hidden group-hover:inline">{ko ? "제거하기" : "Remove"}</span>
             </button>
           ) : (
             <button
-              onClick={() => setAdded(true)}
+              onClick={() => { toggleTool(tool.id, true); setAdded(true); }}
               className="w-full py-3 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
             >
               <Plus size={16} />

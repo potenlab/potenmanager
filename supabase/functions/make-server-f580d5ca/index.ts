@@ -1787,6 +1787,72 @@ app.post("/make-server-f580d5ca/library/og", async (c) => {
 
     const isInstagram = /^https?:\/\/(www\.)?instagram\.com\//i.test(url);
     const isYouTube = /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i.test(url);
+    const isTwitter = /^https?:\/\/(www\.)?(twitter\.com|x\.com)\//i.test(url);
+
+    // Instagram: server-side scraping is blocked, construct metadata from URL pattern + i.instagram.com API
+    if (isInstagram) {
+      const pathMatch = url.match(/instagram\.com\/([^/?#]+)/);
+      const username = pathMatch?.[1];
+      const isProfile = username && !['p', 'reel', 'reels', 'stories', 'explore', 'accounts', 'about', 'legal', 'developer'].includes(username);
+
+      if (isProfile) {
+        // Try i.instagram.com API (mobile endpoint, sometimes works)
+        let displayName = username;
+        let bio = "";
+        let profilePic = "";
+        let followers = "";
+        try {
+          const apiRes = await fetch(`https://i.instagram.com/api/v1/users/web_profile_info/?username=${username}`, {
+            headers: {
+              'User-Agent': 'Instagram 278.0.0.19.115 Android (33/13; 420dpi; 1080x2340)',
+              'X-IG-App-ID': '936619743392459',
+            },
+            signal: AbortSignal.timeout(5000),
+          });
+          if (apiRes.ok) {
+            const apiData = await apiRes.json();
+            const user = apiData?.data?.user;
+            if (user) {
+              displayName = user.full_name || username;
+              bio = user.biography || "";
+              profilePic = user.profile_pic_url_hd || user.profile_pic_url || "";
+              const fc = user.edge_followed_by?.count;
+              followers = fc ? (fc >= 10000 ? `${Math.round(fc / 1000)}K` : String(fc)) + " Followers" : "";
+            }
+          }
+        } catch {}
+
+        const desc = [followers, bio].filter(Boolean).join(" · ");
+        return c.json({
+          ogTitle: `${displayName} (@${username}) • Instagram`,
+          ogDescription: desc || `@${username} Instagram profile`,
+          ogImage: profilePic || "https://static.cdninstagram.com/rsrc.php/v4/yD/r/R0fBIMurK8v.png",
+          ogSiteName: "Instagram",
+          favicon: "https://www.instagram.com/favicon.ico",
+        });
+      }
+      // For posts/reels, fall through to normal HTML parsing with Googlebot UA
+    }
+
+    // Twitter/X: use noembed for reliable metadata
+    if (isTwitter) {
+      try {
+        const noembedUrl = `https://noembed.com/embed?url=${encodeURIComponent(url)}`;
+        const noRes = await fetch(noembedUrl, { signal: AbortSignal.timeout(5000) });
+        if (noRes.ok) {
+          const noembed = await noRes.json();
+          if (noembed && !noembed.error) {
+            return c.json({
+              ogTitle: noembed.author_name ? `${noembed.author_name} on X` : noembed.title,
+              ogDescription: noembed.title || undefined,
+              ogImage: noembed.thumbnail_url,
+              ogSiteName: "X (Twitter)",
+              favicon: "https://abs.twimg.com/favicons/twitter.3.ico",
+            });
+          }
+        }
+      } catch {}
+    }
 
     // YouTube: use oEmbed API for reliable video metadata
     if (isYouTube) {
