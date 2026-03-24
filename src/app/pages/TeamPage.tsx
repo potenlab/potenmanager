@@ -1571,10 +1571,16 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
               const sesMins = Math.max(0, Math.floor(sessionMs / 60000));
               const sesH = Math.floor(sesMins / 60);
               const sesM = sesMins % 60;
+              const breakTotalMs = totalBreakMs + currentBreakMs;
+              const breakMins = Math.max(0, Math.floor(breakTotalMs / 60000));
+              const breakH = Math.floor(breakMins / 60);
+              const breakM = breakMins % 60;
               return (
                 <div className="text-right">
-                  <p className="text-[10px] text-gray-400">{ko ? "총 근무시간" : "Total Work"}</p>
-                  <p className="text-xl font-black text-gray-900">{workH}{ko ? "시간 " : "h "}{workM}{ko ? "분" : "m"}</p>
+                  <p className="text-[10px] text-gray-400">{ko ? "총 휴식시간" : "Total Break"}</p>
+                  <p className="text-xl font-black text-gray-900">{breakH}{ko ? "시간 " : "h "}{String(breakM).padStart(2, '0')}{ko ? "분" : "m"}</p>
+                  <p className="text-[10px] text-gray-400 mt-1">{ko ? "총 근무시간" : "Total Work"}</p>
+                  <p className="text-xl font-black text-gray-900">{workH}{ko ? "시간 " : "h "}{String(workM).padStart(2, '0')}{ko ? "분" : "m"}</p>
                 </div>
               );
             })()}
