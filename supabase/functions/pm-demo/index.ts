@@ -259,7 +259,7 @@ app.post("/pm-demo/setup", async (c) => {
       email: demoEmail,
       password: demoPassword,
       email_confirm: true,
-      user_metadata: { full_name: "데모 사용자", is_demo: true },
+      user_metadata: { full_name: "정원규", is_demo: true },
     });
     if (authError) throw authError;
     const userId = authData.user.id;
@@ -268,8 +268,8 @@ app.post("/pm-demo/setup", async (c) => {
     await supabase.from("profiles").upsert({
       id: userId,
       email: demoEmail,
-      full_name: "데모 사용자",
-      avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=Demo`,
+      full_name: "정원규",
+      avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent("정원규")}`,
       job_title: industry === "freelancer" ? "프리랜서 개발자" : "대표",
       approval_status: "approved",
       onboarding_completed: true,
@@ -297,9 +297,11 @@ app.post("/pm-demo/setup", async (c) => {
 
       // Add fake team members for org modes
       const fakeMembers = [
-        { name: "김민수", title: "개발팀 리드", stamp: { text: "민수", color: "#3B82F6", shape: "rounded" } },
-        { name: "박지현", title: "디자이너", stamp: { text: "지현", color: "#EC4899", shape: "circle" } },
-        { name: "이서연", title: "마케터", stamp: { text: "서연", color: "#8B5CF6", shape: "rounded" } },
+        { name: "김우진", title: "개발팀 리드", stamp: { text: "우진", color: "#3B82F6", shape: "rounded" } },
+        { name: "조유식", title: "기획자", stamp: { text: "유식", color: "#22C55E", shape: "rounded" } },
+        { name: "곽민경", title: "디자이너", stamp: { text: "민경", color: "#EC4899", shape: "circle" } },
+        { name: "박지현", title: "마케터", stamp: { text: "지현", color: "#8B5CF6", shape: "rounded" } },
+        { name: "홍지연", title: "PM", stamp: { text: "지연", color: "#F97316", shape: "circle" } },
       ];
       for (const fm of fakeMembers) {
         const fmEmail = `demo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@potenmanager.demo`;
@@ -330,7 +332,7 @@ app.post("/pm-demo/setup", async (c) => {
 
       // Set owner stamp config
       await supabase.from("pm_org_members").update({
-        stamp_config: { text: "데모", color: "#22C55E", shape: "rounded" },
+        stamp_config: { text: "원규", color: "#EF4444", shape: "rounded" },
       }).eq("org_id", orgId).eq("user_id", userId);
     }
 
