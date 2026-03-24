@@ -5,8 +5,9 @@
  * 조직 모드: + 채팅, 회의, 팀, 브랜딩, 비즈레이더
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router";
+import { useDrag, useDrop } from "react-dnd";
 import {
   CheckSquare, Calendar, BookMarked, FolderKanban,
   MessageCircle, Video, Users, Palette, Radar, Crown,
@@ -35,6 +36,50 @@ interface NavGroup {
   label: string;
   items: NavItem[];
   collapsible?: boolean;
+}
+
+// ─── Drag & Drop for sidebar menu reordering ──────────────────
+const SIDEBAR_DND_TYPE = "SIDEBAR_NAV_ITEM";
+const NAV_ORDER_KEY = "pm_sidebar_nav_order";
+
+function loadNavOrder(): Record<string, string[]> {
+  try { return JSON.parse(localStorage.getItem(NAV_ORDER_KEY) || '{}'); } catch { return {}; }
+}
+function saveNavOrder(orders: Record<string, string[]>) {
+  localStorage.setItem(NAV_ORDER_KEY, JSON.stringify(orders));
+}
+function getOrderedItems(groupId: string, items: NavItem[]): NavItem[] {
+  const stored = loadNavOrder()[groupId];
+  if (!stored) return items;
+  const itemMap = new Map(items.map(i => [i.id, i]));
+  const ordered = stored.filter(id => itemMap.has(id)).map(id => itemMap.get(id)!);
+  const missing = items.filter(i => !stored.includes(i.id));
+  return [...ordered, ...missing];
+}
+
+function DraggableNavItem({ id, groupId, moveItem, children }: {
+  id: string; groupId: string;
+  moveItem: (fromId: string, toId: string) => void;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [{ isDragging }, drag] = useDrag({
+    type: `${SIDEBAR_DND_TYPE}_${groupId}`,
+    item: { id },
+    collect: (monitor) => ({ isDragging: monitor.isDragging() }),
+  });
+  const [, drop] = useDrop({
+    accept: `${SIDEBAR_DND_TYPE}_${groupId}`,
+    hover(dragItem: { id: string }) {
+      if (dragItem.id !== id) moveItem(dragItem.id, id);
+    },
+  });
+  drag(drop(ref));
+  return (
+    <div ref={ref} className={cn("cursor-grab active:cursor-grabbing", isDragging && "opacity-40")}>
+      {children}
+    </div>
+  );
 }
 
 export function NewSidebar() {
@@ -103,19 +148,43 @@ export function NewSidebar() {
   const p = (path: string) => isPersonal ? path : `/${slug}${path}`;
 
   // ── Menu structure ──
-  const personalItems: NavItem[] = [
+  const personalItemsDef: NavItem[] = [
     { id: "tasks", to: p("/tasks"), icon: <CheckSquare size={16} />, label: ko ? "내 업무" : "My Tasks" },
     { id: "calendar", to: p("/calendar"), icon: <Calendar size={16} />, label: ko ? "캘린더" : "Calendar" },
     { id: "library", to: p("/library"), icon: <BookMarked size={16} />, label: ko ? "자료실" : "Library" },
     { id: "projects", to: p("/projects"), icon: <FolderKanban size={16} />, label: ko ? "프로젝트" : "Projects" },
   ];
 
-  const orgItems: NavItem[] = [
+  const orgItemsDef: NavItem[] = [
     { id: "branding", to: p("/branding"), icon: <Palette size={16} />, label: ko ? "브랜딩" : "Branding" },
     { id: "meetings", to: p("/meetings"), icon: <Video size={16} />, label: ko ? "회의/미팅" : "Meetings" },
     { id: "chat", to: p("/chat"), icon: <MessageCircle size={16} />, label: ko ? "채팅" : "Chat" },
     { id: "team", to: p("/team"), icon: <Users size={16} />, label: ko ? "팀" : "Team" },
   ];
+
+  const [personalItems, setPersonalItems] = useState(() => getOrderedItems("personal", personalItemsDef));
+  const [orgItems, setOrgItems] = useState(() => getOrderedItems("org", orgItemsDef));
+
+  // Re-sync when language/org changes
+  useEffect(() => { setPersonalItems(getOrderedItems("personal", personalItemsDef)); }, [ko, isPersonal, currentOrg?.slug]);
+  useEffect(() => { setOrgItems(getOrderedItems("org", orgItemsDef)); }, [ko, isPersonal, currentOrg?.slug]);
+
+  const moveItem = useCallback((groupId: string, fromId: string, toId: string) => {
+    const setter = groupId === "personal" ? setPersonalItems : setOrgItems;
+    setter(prev => {
+      const items = [...prev];
+      const fromIdx = items.findIndex(i => i.id === fromId);
+      const toIdx = items.findIndex(i => i.id === toId);
+      if (fromIdx === -1 || toIdx === -1) return prev;
+      const [moved] = items.splice(fromIdx, 1);
+      items.splice(toIdx, 0, moved);
+      // Save order
+      const orders = loadNavOrder();
+      orders[groupId] = items.map(i => i.id);
+      saveNavOrder(orders);
+      return items;
+    });
+  }, []);
 
   const toolItems: NavItem[] = [
     // 나중에 하나씩 추가
@@ -373,9 +442,9 @@ export function NewSidebar() {
                 )}
               </div>
 
-              {/* Other org items */}
+              {/* Other org items (draggable) */}
               {orgItems.map((item) => (
-                <div key={item.id}>
+                <DraggableNavItem key={item.id} id={item.id} groupId="org" moveItem={(fromId, toId) => moveItem("org", fromId, toId)}>
                   {item.id === 'team' ? (
                     <>
                       <button
@@ -424,7 +493,7 @@ export function NewSidebar() {
                       <span>{item.label}</span>
                     </NavLink>
                   )}
-                </div>
+                </DraggableNavItem>
               ))}
             </div>
           </div>
