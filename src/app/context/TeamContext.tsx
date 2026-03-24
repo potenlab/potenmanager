@@ -3,6 +3,7 @@ import { User, setUserColor } from "../../lib/mockData";
 import { api } from "../../lib/api";
 import { notificationBus } from "../../lib/notificationEvents";
 import { useAuth } from "./AuthContext";
+import { useWorkspace } from "./WorkspaceContext";
 
 /** Supabase auth 유저 → 앱 내 User 객체 변환 */
 function userFromAuth(authUser: { id: string; user_metadata?: Record<string, any>; email?: string } | null): User {
@@ -48,6 +49,7 @@ const TeamContext = createContext<TeamContextType>(defaultValue);
 
 export function TeamProvider({ children }: { children: ReactNode }) {
   const { user: authUser } = useAuth();
+  const { currentOrg } = useWorkspace();
   const [members, setMembers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User>(() => userFromAuth(null));
   const [isLoading, setIsLoading] = useState(true);
@@ -110,10 +112,8 @@ export function TeamProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!authUser) return;          // auth 로드 전이면 대기
-    if (initRef.current) return;
-    initRef.current = true;
     fetchMembers();
-  }, [fetchMembers, authUser]);
+  }, [fetchMembers, authUser, currentOrg?.id]);
 
   const addMember = useCallback(async (member: User) => {
     setMembers((prev) => [...prev, member]);

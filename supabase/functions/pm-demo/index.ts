@@ -31,7 +31,7 @@ function getDemoData(industry: string): DemoConfig {
     case "freelancer":
       return {
         orgName: "내 워크스페이스",
-        orgSlug: `demo-free-${Date.now()}`,
+        orgSlug: `demo-freelancer-${Math.random().toString(36).slice(2, 6)}`,
         industry: "freelancer",
         tasks: [
           { title: "포트폴리오 사이트 리뉴얼", status: "in-progress", priority: "high", category: "development" },
@@ -66,7 +66,7 @@ function getDemoData(industry: string): DemoConfig {
     case "dev_agency":
       return {
         orgName: "데모 개발 에이전시",
-        orgSlug: `demo-dev-${Date.now()}`,
+        orgSlug: `demo-agency-${Math.random().toString(36).slice(2, 6)}`,
         industry: "dev_agency",
         tasks: [
           { title: "클라이언트 A - API 설계", status: "in-progress", priority: "high", category: "development" },
@@ -113,7 +113,7 @@ function getDemoData(industry: string): DemoConfig {
     case "marketing_agency":
       return {
         orgName: "데모 마케팅 에이전시",
-        orgSlug: `demo-mkt-${Date.now()}`,
+        orgSlug: `demo-marketing-${Math.random().toString(36).slice(2, 6)}`,
         industry: "marketing_agency",
         tasks: [
           { title: "클라이언트 A - SNS 콘텐츠 기획", status: "in-progress", priority: "high", category: "content_writing" },
@@ -156,7 +156,7 @@ function getDemoData(industry: string): DemoConfig {
     case "production":
       return {
         orgName: "데모 영상 제작사",
-        orgSlug: `demo-prod-${Date.now()}`,
+        orgSlug: `demo-production-${Math.random().toString(36).slice(2, 6)}`,
         industry: "production",
         tasks: [
           { title: "클라이언트 A - 촬영 콘티 작성", status: "in-progress", priority: "high", category: "content_video" },
@@ -199,7 +199,7 @@ function getDemoData(industry: string): DemoConfig {
     default:
       return {
         orgName: "데모 스타트업",
-        orgSlug: `demo-startup-${Date.now()}`,
+        orgSlug: `demo-startup-${Math.random().toString(36).slice(2, 6)}`,
         industry: "startup",
         tasks: [
           { title: "MVP 기능 정의서 작성", status: "in-progress", priority: "high", category: "planning" },
