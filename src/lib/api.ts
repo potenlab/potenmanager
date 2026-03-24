@@ -153,21 +153,34 @@ export const api = {
   getTeamMembers: async () => {
     const orgId = getActiveOrgId();
     if (!orgId) return [];
-    const { data, error } = await supabase
+    // Fetch members
+    const { data: members, error } = await supabase
       .from('pm_org_members')
-      .select('*, profiles(*)')
+      .select('*')
       .eq('org_id', orgId);
     if (error) throw error;
-    return (data || []).map((row: any) => ({
-      id: row.user_id,
-      name: row.profiles?.full_name || row.profiles?.nickname || 'Unknown',
-      email: row.profiles?.email || '',
-      avatar: row.profiles?.avatar_url || '',
-      role: row.role,
-      joinedAt: row.joined_at,
-      jobRole: row.profiles?.job_title || '',
-      jobTitle: row.profiles?.job_title || '',
-    }));
+    if (!members || members.length === 0) return [];
+    // Fetch profiles separately (no FK between pm_org_members and profiles)
+    const userIds = members.map((m: any) => m.user_id);
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('*')
+      .in('id', userIds);
+    const profileMap: Record<string, any> = {};
+    (profiles || []).forEach((p: any) => { profileMap[p.id] = p; });
+    return members.map((row: any) => {
+      const p = profileMap[row.user_id];
+      return {
+        id: row.user_id,
+        name: p?.full_name || p?.nickname || 'Unknown',
+        email: p?.email || '',
+        avatar: p?.avatar_url || '',
+        role: row.role,
+        joinedAt: row.joined_at,
+        jobRole: p?.job_title || '',
+        jobTitle: p?.job_title || '',
+      };
+    });
   },
   createTeamMember: async (member: any) => member,
   updateTeamMember: async (id: string, data: any) => data,

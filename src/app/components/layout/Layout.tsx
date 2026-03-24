@@ -1,4 +1,5 @@
 import { Outlet, useNavigate, useLocation } from "react-router";
+import { Suspense } from "react";
 import { NewSidebar } from "./NewSidebar";
 import { Bell, ChevronDown, ChevronLeft, ChevronRight, Flag, Plus, Settings, X, Zap, PanelLeft } from "lucide-react";
 import { BottomNav } from "./BottomNav";
@@ -337,7 +338,9 @@ export function Layout() {
           </header>
           )}
           <div className="animate-fade-in pb-20 md:pb-8">
-            <Outlet />
+            <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>}>
+              <Outlet />
+            </Suspense>
           </div>
         </main>
         </div>

@@ -33,4 +33,21 @@ export default defineConfig({
 
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
+
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Core React
+          'vendor-react': ['react', 'react-dom', 'react-router'],
+          // UI libraries
+          'vendor-ui': ['lucide-react', 'react-dnd', 'react-dnd-html5-backend', 'react-dnd-touch-backend'],
+          // Supabase
+          'vendor-supabase': ['@supabase/supabase-js'],
+          // xlsx (heavy, lazy load candidate)
+          'vendor-xlsx': ['xlsx'],
+        },
+      },
+    },
+  },
 })
