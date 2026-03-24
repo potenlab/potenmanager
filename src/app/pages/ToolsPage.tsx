@@ -79,6 +79,19 @@ const TOOLS: Tool[] = [
   },
   // ── 기능 (유틸리티 / 외부 서비스) ──
   {
+    id: "estimate",
+    icon: <Calculator size={28} />,
+    color: "bg-amber-100 text-amber-600",
+    titleKo: "견적서 작성기",
+    titleEn: "Estimate Builder",
+    descKo: "프로젝트 견적서를 빠르게 작성하고 공유하세요.",
+    descEn: "Quickly create and share project estimates.",
+    detailKo: "항목별 단가, 공수, 할인율을 입력하면 전문적인 견적서가 자동으로 생성됩니다. PDF 내보내기와 클라이언트 공유 링크를 지원합니다.",
+    detailEn: "Enter unit prices, labor, and discounts to auto-generate professional estimates. Supports PDF export and client sharing links.",
+    status: "coming_soon",
+    category: "feature",
+  },
+  {
     id: "poten-paper",
     icon: <FileText size={28} />,
     color: "bg-emerald-100 text-emerald-600",
