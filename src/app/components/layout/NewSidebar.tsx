@@ -155,11 +155,22 @@ export function NewSidebar() {
     { id: "projects", to: p("/projects"), icon: <FolderKanban size={16} />, label: ko ? "프로젝트" : "Projects" },
   ];
 
+  // Tool items that can be dynamically added
+  const TOOL_NAV_ITEMS: Record<string, NavItem> = {
+    revenue: { id: "revenue", to: p("/revenue"), icon: <BarChart3 size={16} />, label: ko ? "매출 관리" : "Revenue" },
+    // Add more tool→nav mappings here
+  };
+
   const orgItemsDef: NavItem[] = [
+    { id: "sales", to: p("/sales"), icon: <DollarSign size={16} />, label: ko ? "고객관리" : "Clients" },
     { id: "branding", to: p("/branding"), icon: <Palette size={16} />, label: ko ? "브랜딩" : "Branding" },
     { id: "meetings", to: p("/meetings"), icon: <Video size={16} />, label: ko ? "회의/미팅" : "Meetings" },
     { id: "chat", to: p("/chat"), icon: <MessageCircle size={16} />, label: ko ? "채팅" : "Chat" },
     { id: "team", to: p("/team"), icon: <Users size={16} />, label: ko ? "팀" : "Team" },
+    // Dynamically add enabled tools
+    ...enabledTools
+      .filter(t => TOOL_NAV_ITEMS[t])
+      .map(t => TOOL_NAV_ITEMS[t]),
   ];
 
   const [personalItems, setPersonalItems] = useState(() => getOrderedItems("personal", personalItemsDef));
@@ -403,49 +414,48 @@ export function NewSidebar() {
               {currentOrg.name}
             </p>
             <div className="space-y-0.5">
-              {/* 영업/세일즈 — with submenu */}
-              <div>
-                <button
-                  onClick={() => { setSalesExpanded(!salesExpanded); navigate(p("/sales")); }}
-                  className={cn(
-                    "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
-                    isActive(p("/sales"))
-                      ? "bg-gray-200/70 text-gray-900 font-semibold"
-                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                  )}
-                >
-                  <div className="shrink-0 text-gray-500"><DollarSign size={16} /></div>
-                  <span className="flex-1 text-left">{ko ? "고객관리" : "Sales"}</span>
-                  {salesExpanded ? <ChevronDown size={12} className="text-gray-400" /> : <ChevronRight size={12} className="text-gray-400" />}
-                </button>
-                {salesExpanded && (
-                  <div className="ml-7 mt-0.5 space-y-0.5">
-                    <NavLink to={p("/sales/clients")} className={() => cn(
-                      "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
-                      location.pathname.includes("/sales/clients")
-                        ? "bg-gray-200/70 text-gray-900 font-semibold"
-                        : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
-                    )}>
-                      <Users size={13} />
-                      {ko ? "클라이언트 관리" : "Clients"}
-                    </NavLink>
-                    <NavLink to={p("/sales/estimates")} className={() => cn(
-                      "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
-                      location.pathname.includes("/sales/estimates")
-                        ? "bg-gray-200/70 text-gray-900 font-semibold"
-                        : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
-                    )}>
-                      <FileText size={13} />
-                      {ko ? "견적서/계약" : "Estimates"}
-                    </NavLink>
-                  </div>
-                )}
-              </div>
-
-              {/* Other org items (draggable) */}
+              {/* Org items (all draggable) */}
               {orgItems.map((item) => (
                 <DraggableNavItem key={item.id} id={item.id} groupId="org" moveItem={(fromId, toId) => moveItem("org", fromId, toId)}>
-                  {item.id === 'team' ? (
+                  {item.id === 'sales' ? (
+                    <>
+                      <button
+                        onClick={() => { setSalesExpanded(!salesExpanded); navigate(p("/sales")); }}
+                        className={cn(
+                          "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
+                          isActive(p("/sales"))
+                            ? "bg-gray-200/70 text-gray-900 font-semibold"
+                            : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                        )}
+                      >
+                        <div className="shrink-0 text-gray-500">{item.icon}</div>
+                        <span className="flex-1 text-left">{item.label}</span>
+                        {salesExpanded ? <ChevronDown size={12} className="text-gray-400" /> : <ChevronRight size={12} className="text-gray-400" />}
+                      </button>
+                      {salesExpanded && (
+                        <div className="ml-7 mt-0.5 space-y-0.5">
+                          <NavLink to={p("/sales/clients")} className={() => cn(
+                            "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
+                            location.pathname.includes("/sales/clients")
+                              ? "bg-gray-200/70 text-gray-900 font-semibold"
+                              : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
+                          )}>
+                            <Users size={13} />
+                            {ko ? "클라이언트 관리" : "Clients"}
+                          </NavLink>
+                          <NavLink to={p("/sales/estimates")} className={() => cn(
+                            "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
+                            location.pathname.includes("/sales/estimates")
+                              ? "bg-gray-200/70 text-gray-900 font-semibold"
+                              : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
+                          )}>
+                            <FileText size={13} />
+                            {ko ? "견적서/계약" : "Estimates"}
+                          </NavLink>
+                        </div>
+                      )}
+                    </>
+                  ) : item.id === 'team' ? (
                     <>
                       <button
                         onClick={() => { setTeamExpanded(!teamExpanded); navigate(item.to); }}
@@ -513,16 +523,6 @@ export function NewSidebar() {
             <div className="shrink-0 text-gray-500"><Wrench size={16} /></div>
             <span>{ko ? "도구" : "Tools"}</span>
           </NavLink>
-          {/* Dynamic tool items */}
-          {enabledTools.includes('revenue') && (
-            <NavLink to={p("/revenue")} className={cn(
-              "flex items-center gap-2 ml-4 px-2 py-1 rounded-md text-[13px] transition-all",
-              isActive("/revenue") ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
-            )}>
-              <BarChart3 size={13} />
-              {ko ? "매출 관리" : "Revenue"}
-            </NavLink>
-          )}
         </div>
 
         {/* Upgrade to Org (personal mode only) */}
