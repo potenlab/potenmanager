@@ -678,11 +678,15 @@ export const api = {
     const today = new Date().toISOString().split('T')[0];
     const now = new Date().toISOString();
     const { data: existing } = await supabase.from('pm_attendance')
-      .select('id').eq('user_id', uid).eq('org_id', orgId).eq('date', today).maybeSingle();
+      .select('id, check_out').eq('user_id', uid).eq('org_id', orgId).eq('date', today).maybeSingle();
     let data, error;
     if (existing) {
+      // If checked out (re-check-in), reset check_in. Otherwise just resume working.
+      const updates = existing.check_out
+        ? { check_in: now, check_out: null, status: 'present', current_status: 'working' }
+        : { current_status: 'working' };
       ({ data, error } = await supabase.from('pm_attendance')
-        .update({ check_in: now, check_out: null, status: 'present', current_status: 'working' })
+        .update(updates)
         .eq('id', existing.id).select().single());
     } else {
       ({ data, error } = await supabase.from('pm_attendance')

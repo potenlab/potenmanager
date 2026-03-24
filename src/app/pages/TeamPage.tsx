@@ -1297,6 +1297,10 @@ const ColorPickerPopover = ({
 function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
   const { tasks } = useTaskContext();
   const [myRecord, setMyRecord] = useState<any>(null);
+  const [breakStartTime, setBreakStartTime] = useState<string | null>(null);
+  const [lastResumeTime, setLastResumeTime] = useState<string | null>(null); // last time work resumed
+  const [totalBreakMs, setTotalBreakMs] = useState(0); // accumulated break time in ms
+  const [elapsed, setElapsed] = useState(0); // force re-render every minute
   const [monthRecords, setMonthRecords] = useState<any[]>([]);
   const [calMonth, setCalMonth] = useState(() => { const n = new Date(); return { year: n.getFullYear(), month: n.getMonth() + 1 }; });
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
@@ -1329,12 +1333,44 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
         const today = new Date().toISOString().split('T')[0];
         const found = data.find((r: any) => r.userId === uid && (r.date instanceof Date ? r.date.toISOString().split('T')[0] : String(r.date).slice(0, 10)) === today);
         setMyRecord(found || null);
+        // Calculate total break time from logs
+        if (found) {
+          try {
+            const logs = await api.getAttendanceLogs(found.id);
+            let breakMs = 0;
+            let lastBreakStart: number | null = null;
+            for (const log of logs) {
+              if (log.type === 'break_start') lastBreakStart = new Date(log.timestamp).getTime();
+              else if (log.type === 'break_end' && lastBreakStart) {
+                breakMs += new Date(log.timestamp).getTime() - lastBreakStart;
+                lastBreakStart = null;
+              }
+            }
+            setTotalBreakMs(breakMs);
+            if (found.currentStatus === 'break' && lastBreakStart) {
+              setBreakStartTime(new Date(lastBreakStart).toISOString());
+              setLastResumeTime(null);
+            } else {
+              setBreakStartTime(null);
+              // Find last break_end or check_in as resume time
+              const lastEnd = [...logs].reverse().find(l => l.type === 'break_end');
+              setLastResumeTime(lastEnd ? lastEnd.timestamp : (found.checkIn || null));
+            }
+          } catch {}
+        }
       }
     } catch (err) { console.error("Attendance load error:", err); }
     setLoading(false);
   }, [calMonth]);
 
   useEffect(() => { loadMonth(); }, [loadMonth]);
+
+  // Tick every 30s for live elapsed time
+  useEffect(() => {
+    if (!myRecord?.checkIn || myRecord?.checkOut) return;
+    const timer = setInterval(() => setElapsed(e => e + 1), 30000);
+    return () => clearInterval(timer);
+  }, [myRecord?.checkIn, myRecord?.checkOut]);
 
   // Load my stamp config
   useEffect(() => {
@@ -1343,10 +1379,24 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
 
   const handleCheckIn = async () => {
     try {
+      // If on break, just end break (don't call checkIn which resets time)
+      if (currentStatus === 'break' && myRecord) {
+        const r = await api.endBreak();
+        r.currentStatus = 'working';
+        if (breakStartTime) {
+          setTotalBreakMs(prev => prev + (Date.now() - new Date(breakStartTime).getTime()));
+        }
+        setBreakStartTime(null);
+        setLastResumeTime(new Date().toISOString());
+        setMyRecord({ ...r });
+        return;
+      }
       const r = await api.checkIn();
-      // Ensure checkOut is null (not empty string) after check-in
       r.checkOut = null;
       r.currentStatus = 'working';
+      setBreakStartTime(null);
+      setLastResumeTime(new Date().toISOString());
+      setTotalBreakMs(0);
       setMyRecord({ ...r });
       // Refresh calendar in background without overwriting myRecord
       api.getAttendanceMonth(calMonth.year, calMonth.month).then(data => setMonthRecords(data)).catch(() => {});
@@ -1364,6 +1414,8 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
     try {
       const r = await api.startBreak();
       r.currentStatus = 'break';
+      setBreakStartTime(new Date().toISOString());
+      setLastResumeTime(null);
       setMyRecord({ ...r });
     } catch (err) { console.error(err); }
   };
@@ -1371,6 +1423,11 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
     try {
       const r = await api.endBreak();
       r.currentStatus = 'working';
+      if (breakStartTime) {
+        setTotalBreakMs(prev => prev + (Date.now() - new Date(breakStartTime).getTime()));
+      }
+      setBreakStartTime(null);
+      setLastResumeTime(new Date().toISOString());
       setMyRecord({ ...r });
     } catch (err) { console.error(err); }
   };
@@ -1464,7 +1521,6 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
         <div className="bg-white rounded-2xl border border-gray-200 p-5">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              {/* My stamp preview */}
               <button onClick={() => setShowStampEditor(true)}
                 className={cn("w-12 h-12 flex items-center justify-center text-white font-black text-sm shadow-md hover:scale-110 transition-transform",
                   myStamp.shape === 'circle' ? 'rounded-full' : 'rounded-lg')}
@@ -1473,76 +1529,95 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
                 {myStamp.emoji || myStamp.text || '?'}
               </button>
               <div>
-                <h3 className="text-base font-bold text-gray-900">{ko ? "오늘 출근" : "Today"}</h3>
                 <p className="text-xs text-gray-500">{new Date().toLocaleDateString(ko ? "ko-KR" : "en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
+                {checkedIn && (() => {
+                  void elapsed;
+                  const statusLabel = ko ? STATUS_BADGES[currentStatus]?.ko : STATUS_BADGES[currentStatus]?.en;
+                  // Current session display: break shows break elapsed, working shows work elapsed
+                  const currentBreakMs = (currentStatus === 'break' && breakStartTime) ? (Date.now() - new Date(breakStartTime).getTime()) : 0;
+                  const currentMins = currentStatus === 'break' ? Math.floor(currentBreakMs / 60000) : 0;
+                  const currentH = Math.floor(currentMins / 60);
+                  const currentM = currentMins % 60;
+                  return (
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className={cn("inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold", STATUS_BADGES[currentStatus]?.class || STATUS_BADGES.off.class)}>
+                        {statusLabel}
+                      </span>
+                      {currentStatus === 'break' && (
+                        <span className="text-sm font-bold text-amber-600">{currentH > 0 ? `${currentH}${ko ? "시간 " : "h "}` : ""}{currentM}{ko ? "분" : "m"}</span>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
-            <div className="text-right">
-              {checkedIn && (
-                <>
-                  <span className={cn("inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold", STATUS_BADGES[currentStatus]?.class || STATUS_BADGES.off.class)}>
-                    {ko ? STATUS_BADGES[currentStatus]?.ko : STATUS_BADGES[currentStatus]?.en}
-                  </span>
-                  <p className="text-lg font-bold text-gray-900 mt-0.5">{formatDuration(getWorkHours(myRecord?.checkIn, myRecord?.checkOut))}</p>
-                </>
-              )}
-            </div>
+            {checkedIn && (() => {
+              void elapsed;
+              const totalElapsedMs = myRecord?.checkIn ? (myRecord?.checkOut ? new Date(myRecord.checkOut).getTime() : Date.now()) - new Date(myRecord.checkIn).getTime() : 0;
+              const currentBreakMs = (currentStatus === 'break' && breakStartTime) ? (Date.now() - new Date(breakStartTime).getTime()) : 0;
+              const actualWorkMs = totalElapsedMs - totalBreakMs - currentBreakMs;
+              const workMins = Math.max(0, Math.floor(actualWorkMs / 60000));
+              const workH = Math.floor(workMins / 60);
+              const workM = workMins % 60;
+              // Current session: break = break elapsed, working = time since last resume
+              const sessionMs = currentStatus === 'break'
+                ? currentBreakMs
+                : lastResumeTime ? (Date.now() - new Date(lastResumeTime).getTime()) : actualWorkMs;
+              const sesMins = Math.max(0, Math.floor(sessionMs / 60000));
+              const sesH = Math.floor(sesMins / 60);
+              const sesM = sesMins % 60;
+              return (
+                <div className="text-right">
+                  <p className="text-[10px] text-gray-400">{ko ? "총 근무시간" : "Total Work"}</p>
+                  <p className="text-xl font-black text-gray-900">{workH}{ko ? "시간 " : "h "}{workM}{ko ? "분" : "m"}</p>
+                </div>
+              );
+            })()}
           </div>
 
-          {/* Status flow indicator */}
-          {(() => {
-            const steps = [
-              { key: 'check_in', ko: '출근', en: 'In', icon: '🟢', time: myRecord?.checkIn },
-              { key: 'working', ko: '근무중', en: 'Working', icon: '💻' },
-              { key: 'break', ko: '휴식', en: 'Break', icon: '☕' },
-              { key: 'check_out', ko: '퇴근', en: 'Out', icon: '🔴', time: myRecord?.checkOut },
-            ];
-            const activeIdx = !checkedIn ? -1 : checkedOut ? 3 : currentStatus === 'break' ? 2 : 1;
-            return (
-              <div className="flex items-center gap-1 mb-4 bg-gray-50 rounded-xl p-2">
-                {steps.map((step, idx) => (
-                  <div key={step.key} className="flex items-center flex-1">
-                    <button
-                      onClick={() => {
-                        if (idx === 0 && !checkedIn) handleCheckIn();
-                        else if (idx === 0 && checkedOut) handleCheckIn(); // re-check-in
-                        else if (idx === 2 && activeIdx === 1) handleBreakStart();
-                        else if (idx === 1 && activeIdx === 2) handleBreakEnd();
-                        else if (idx === 3 && activeIdx >= 1 && activeIdx < 3) handleCheckOut();
-                      }}
-                      disabled={
-                        (idx === 0 && checkedIn && !checkedOut) ||
-                        (idx === 1 && (activeIdx === 1 || activeIdx < 0 || activeIdx === 3)) ||
-                        (idx === 2 && (activeIdx === 2 || activeIdx < 1 || activeIdx === 3)) ||
-                        (idx === 3 && (activeIdx === 3 || activeIdx < 1))
-                      }
-                      className={cn(
-                        "flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg w-full transition-all text-center",
-                        idx === activeIdx ? "bg-white shadow-sm ring-1 ring-gray-200" : "",
-                        idx <= activeIdx ? "opacity-100" : "opacity-40",
-                        idx !== activeIdx && idx <= activeIdx ? "cursor-default" : "",
-                        // clickable states
-                        (idx === 0 && (!checkedIn || checkedOut)) ? "hover:bg-blue-50 cursor-pointer" : "",
-                        (idx === 2 && activeIdx === 1) ? "hover:bg-amber-50 cursor-pointer" : "",
-                        (idx === 1 && activeIdx === 2) ? "hover:bg-green-50 cursor-pointer" : "",
-                        (idx === 3 && activeIdx >= 1 && activeIdx < 3) ? "hover:bg-red-50 cursor-pointer" : "",
-                      )}>
-                      <span className="text-base leading-none">{step.icon}</span>
-                      <span className={cn("text-[10px] font-bold", idx === activeIdx ? "text-gray-900" : "text-gray-500")}>
-                        {ko ? step.ko : step.en}
-                      </span>
-                      {step.time && (
-                        <span className="text-[9px] text-gray-400">{formatTime(step.time)}</span>
-                      )}
-                    </button>
-                    {idx < steps.length - 1 && (
-                      <div className={cn("h-px w-3 shrink-0 mx-0.5", idx < activeIdx ? "bg-gray-300" : "bg-gray-200")} />
-                    )}
-                  </div>
-                ))}
-              </div>
-            );
-          })()}
+          {/* Action buttons + status */}
+          <div className="flex items-center justify-between">
+            <div className="flex gap-2">
+              {/* 출근 */}
+              <button
+                onClick={() => { if (!checkedIn || checkedOut || currentStatus === 'break') handleCheckIn(); }}
+                disabled={currentStatus === 'working'}
+                className={cn("px-4 py-2 rounded-lg text-sm font-bold transition-all inline-flex items-center gap-1.5",
+                  currentStatus === 'working' ? "bg-blue-600 text-white cursor-default" :
+                  currentStatus === 'break' ? "bg-blue-100 text-blue-700 hover:bg-blue-200 cursor-pointer" :
+                  (!checkedIn || checkedOut) ? "bg-blue-100 text-blue-700 hover:bg-blue-200 cursor-pointer" :
+                  "bg-gray-100 text-gray-400 cursor-default"
+                )}>
+                🟢 {ko ? "출근" : "In"}
+              </button>
+              {/* 휴식 */}
+              <button
+                onClick={() => {
+                  if (currentStatus === 'working') handleBreakStart();
+                  else if (currentStatus === 'break') handleBreakEnd();
+                }}
+                disabled={!checkedIn || checkedOut}
+                className={cn("px-4 py-2 rounded-lg text-sm font-bold transition-all inline-flex items-center gap-1.5",
+                  currentStatus === 'break' ? "bg-amber-500 text-white cursor-pointer" :
+                  currentStatus === 'working' ? "bg-amber-50 text-amber-700 hover:bg-amber-100 cursor-pointer" :
+                  "bg-gray-100 text-gray-400 cursor-default"
+                )}>
+                ☕ {ko ? "휴식" : "Break"}
+              </button>
+              {/* 퇴근 */}
+              <button
+                onClick={() => { if (checkedIn && !checkedOut) handleCheckOut(); }}
+                disabled={!checkedIn || checkedOut}
+                className={cn("px-4 py-2 rounded-lg text-sm font-bold transition-all inline-flex items-center gap-1.5",
+                  checkedOut ? "bg-gray-200 text-gray-500 cursor-default" :
+                  (checkedIn && !checkedOut) ? "bg-red-50 text-red-600 hover:bg-red-100 cursor-pointer" :
+                  "bg-gray-100 text-gray-400 cursor-default"
+                )}>
+                🔴 {ko ? "퇴근" : "Out"}
+              </button>
+            </div>
+
+          </div>
         </div>
       )}
 
