@@ -333,7 +333,8 @@ export const api = {
     // 4. Mark invite as used
     await supabase.from('pm_invites').update({ used_by: data.userId, used_at: new Date().toISOString() }).eq('id', invite.id);
 
-    // 5. Set active org
+    // 5. Set active org (all 3 keys so WorkspaceContext picks it up)
+    localStorage.setItem('pm_active_workspace', invite.org_id);
     localStorage.setItem('pm_active_org_id', invite.org_id);
     localStorage.setItem('poten_active_org_id', invite.org_id);
 
