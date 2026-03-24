@@ -788,7 +788,13 @@ export function Sidebar() {
                       className="w-full flex items-center gap-2 px-2 py-1 rounded-md text-[14px] transition-all group/member text-gray-500 hover:bg-gray-200/40 hover:text-gray-700"
                     >
                       <div className="relative shrink-0">
-                        <img src={member.avatar} alt={member.name} className="w-4 h-4 rounded-full object-cover border border-gray-200" />
+                        {member.avatar ? (
+                          <img src={member.avatar} alt={member.name} className="w-5 h-5 rounded-full object-cover border border-gray-200" />
+                        ) : (
+                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white bg-gradient-to-br from-blue-400 to-indigo-500 border border-gray-200">
+                            {member.name?.[0] || "?"}
+                          </div>
+                        )}
                         <div className={cn("absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 border border-[#F7F7F5] rounded-full", isOnline(member.id) ? "bg-green-500" : "bg-gray-300")} />
                       </div>
                       <span className="truncate">{member.name}</span>
