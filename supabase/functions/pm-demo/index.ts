@@ -473,6 +473,55 @@ app.post("/pm-demo/setup", async (c) => {
   }
 });
 
+// ─── Cleanup old demo orgs ───
+app.post("/pm-demo/cleanup", async (c) => {
+  try {
+    const { maxAgeHours = 24 } = await c.req.json().catch(() => ({}));
+    const cutoff = new Date(Date.now() - maxAgeHours * 3600000).toISOString();
+
+    // Find old demo orgs
+    const { data: oldOrgs } = await supabase.from("pm_orgs")
+      .select("id, slug, created_at")
+      .eq("plan", "demo")
+      .lt("created_at", cutoff);
+
+    if (!oldOrgs || oldOrgs.length === 0) return c.json({ deleted: 0, message: "No old demo orgs" });
+
+    const orgIds = oldOrgs.map(o => o.id);
+    let deletedUsers = 0;
+
+    for (const orgId of orgIds) {
+      // Get member user_ids (to delete auth users)
+      const { data: members } = await supabase.from("pm_org_members")
+        .select("user_id").eq("org_id", orgId);
+      const userIds = (members || []).map(m => m.user_id);
+
+      // Delete org data (cascade handles most, but be thorough)
+      const tables = ["pm_attendance_logs", "pm_attendance", "pm_estimates", "pm_clients", "pm_tasks", "pm_projects", "pm_kanban_cards", "pm_kanban_columns", "pm_library", "pm_meetings", "pm_biz_radar", "pm_brands", "pm_chat_messages", "pm_chat_rooms", "pm_org_members"];
+      for (const table of tables) {
+        await supabase.from(table).delete().eq("org_id", orgId);
+      }
+      // Delete org
+      await supabase.from("pm_orgs").delete().eq("id", orgId);
+
+      // Delete auth users + profiles
+      for (const uid of userIds) {
+        await supabase.from("profiles").delete().eq("id", uid);
+        await supabase.auth.admin.deleteUser(uid);
+        deletedUsers++;
+      }
+    }
+
+    return c.json({
+      deleted: orgIds.length,
+      deletedUsers,
+      orgs: oldOrgs.map(o => o.slug),
+    });
+  } catch (e) {
+    return c.json({ error: String(e) }, 500);
+  }
+});
+
 // Health check
 app.get("/pm-demo/health", (c) => c.json({ status: "ok" }));
 
