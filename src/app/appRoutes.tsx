@@ -13,41 +13,60 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { TasksPage } from "./pages/TasksPage";
 import { OnboardingPage } from "./pages/OnboardingPage";
 
+// Auto-reload on chunk load failure (stale deploy)
+function lazyRetry<T extends { [key: string]: any }>(
+  factory: () => Promise<T>,
+  pick: keyof T,
+) {
+  return lazy(() =>
+    factory()
+      .then((m) => ({ default: m[pick] as React.ComponentType }))
+      .catch(() => {
+        const reloaded = sessionStorage.getItem("chunk_reload");
+        if (!reloaded) {
+          sessionStorage.setItem("chunk_reload", "1");
+          window.location.reload();
+        }
+        return { default: () => null };
+      }),
+  );
+}
+
 // Lazy loaded (heavy pages)
-const TaskDetailPage = lazy(() => import("./pages/TaskDetailPage").then(m => ({ default: m.TaskDetailPage })));
-const GoalDetailPage = lazy(() => import("./pages/GoalDetailPage").then(m => ({ default: m.GoalDetailPage })));
-const GoalPage = lazy(() => import("./pages/GoalPage").then(m => ({ default: m.GoalPage })));
-const GoalsPage = lazy(() => import("./pages/GoalsPage").then(m => ({ default: m.GoalsPage })));
-const GoalSetupWizardPage = lazy(() => import("./pages/GoalSetupWizardPage").then(m => ({ default: m.GoalSetupWizardPage })));
-const GoalEditPage = lazy(() => import("./pages/GoalEditPage").then(m => ({ default: m.GoalEditPage })));
-const OrgSettingsPage = lazy(() => import("./pages/OrgSettingsPage").then(m => ({ default: m.OrgSettingsPage })));
-const StrategyCreationPage = lazy(() => import("./pages/StrategyCreationPage").then(m => ({ default: m.StrategyCreationPage })));
-const CalendarPage = lazy(() => import("./pages/CalendarPage").then(m => ({ default: m.CalendarPage })));
-const TeamPage = lazy(() => import("./pages/TeamPage").then(m => ({ default: m.TeamPage })));
-const TeamMemberPage = lazy(() => import("./pages/TeamMemberPage").then(m => ({ default: m.TeamMemberPage })));
-const PermissionsPage = lazy(() => import("./pages/PermissionsPage").then(m => ({ default: m.PermissionsPage })));
-const NotificationsPage = lazy(() => import("./pages/NotificationsPage").then(m => ({ default: m.NotificationsPage })));
-const MyPage = lazy(() => import("./pages/MyPage").then(m => ({ default: m.MyPage })));
-const InviteAcceptPage = lazy(() => import("./pages/InviteAcceptPage").then(m => ({ default: m.InviteAcceptPage })));
-const MeetingPage = lazy(() => import("./pages/MeetingPage").then(m => ({ default: m.MeetingPage })));
-const MeetingDetailPage = lazy(() => import("./pages/MeetingDetailPage").then(m => ({ default: m.MeetingDetailPage })));
-const BizRadarPage = lazy(() => import("./pages/BizRadarPage").then(m => ({ default: m.BizRadarPage })));
-const BizRadarDetailPage = lazy(() => import("./pages/BizRadarDetailPage").then(m => ({ default: m.BizRadarDetailPage })));
-const LibraryPage = lazy(() => import("./pages/LibraryPage").then(m => ({ default: m.LibraryPage })));
-const LibraryDetailPage = lazy(() => import("./pages/LibraryDetailPage").then(m => ({ default: m.LibraryDetailPage })));
-const TeamBoardDetailPage = lazy(() => import("./pages/TeamBoardDetailPage").then(m => ({ default: m.TeamBoardDetailPage })));
-const TrashPage = lazy(() => import("./pages/TrashPage").then(m => ({ default: m.TrashPage })));
-const ManagementPage = lazy(() => import("./pages/ManagementPage").then(m => ({ default: m.ManagementPage })));
-const ProjectDetailPage = lazy(() => import("./pages/ProjectDetailPage").then(m => ({ default: m.ProjectDetailPage })));
-const BrandDetailPage = lazy(() => import("./pages/BrandDetailPage").then(m => ({ default: m.BrandDetailPage })));
-const SubPageDetailPage = lazy(() => import("./pages/SubPageDetailPage").then(m => ({ default: m.SubPageDetailPage })));
-const ChatPage = lazy(() => import("./pages/ChatPage").then(m => ({ default: m.ChatPage })));
-const SharePage = lazy(() => import("./pages/SharePage").then(m => ({ default: m.SharePage })));
-const DesktopDownloadPage = lazy(() => import("./pages/DesktopDownloadPage").then(m => ({ default: m.DesktopDownloadPage })));
-const LeaderBoardPage = lazy(() => import("./pages/LeaderBoardPage").then(m => ({ default: m.LeaderBoardPage })));
-const LeaderBoardDetailPage = lazy(() => import("./pages/LeaderBoardDetailPage").then(m => ({ default: m.LeaderBoardDetailPage })));
-const OrgCreatePage = lazy(() => import("./pages/OrgCreatePage").then(m => ({ default: m.OrgCreatePage })));
-const ToolsPage = lazy(() => import("./pages/ToolsPage").then(m => ({ default: m.ToolsPage })));
+const TaskDetailPage = lazyRetry(() => import("./pages/TaskDetailPage"), "TaskDetailPage");
+const GoalDetailPage = lazyRetry(() => import("./pages/GoalDetailPage"), "GoalDetailPage");
+const GoalPage = lazyRetry(() => import("./pages/GoalPage"), "GoalPage");
+const GoalsPage = lazyRetry(() => import("./pages/GoalsPage"), "GoalsPage");
+const GoalSetupWizardPage = lazyRetry(() => import("./pages/GoalSetupWizardPage"), "GoalSetupWizardPage");
+const GoalEditPage = lazyRetry(() => import("./pages/GoalEditPage"), "GoalEditPage");
+const OrgSettingsPage = lazyRetry(() => import("./pages/OrgSettingsPage"), "OrgSettingsPage");
+const StrategyCreationPage = lazyRetry(() => import("./pages/StrategyCreationPage"), "StrategyCreationPage");
+const CalendarPage = lazyRetry(() => import("./pages/CalendarPage"), "CalendarPage");
+const TeamPage = lazyRetry(() => import("./pages/TeamPage"), "TeamPage");
+const TeamMemberPage = lazyRetry(() => import("./pages/TeamMemberPage"), "TeamMemberPage");
+const PermissionsPage = lazyRetry(() => import("./pages/PermissionsPage"), "PermissionsPage");
+const NotificationsPage = lazyRetry(() => import("./pages/NotificationsPage"), "NotificationsPage");
+const MyPage = lazyRetry(() => import("./pages/MyPage"), "MyPage");
+const InviteAcceptPage = lazyRetry(() => import("./pages/InviteAcceptPage"), "InviteAcceptPage");
+const MeetingPage = lazyRetry(() => import("./pages/MeetingPage"), "MeetingPage");
+const MeetingDetailPage = lazyRetry(() => import("./pages/MeetingDetailPage"), "MeetingDetailPage");
+const BizRadarPage = lazyRetry(() => import("./pages/BizRadarPage"), "BizRadarPage");
+const BizRadarDetailPage = lazyRetry(() => import("./pages/BizRadarDetailPage"), "BizRadarDetailPage");
+const LibraryPage = lazyRetry(() => import("./pages/LibraryPage"), "LibraryPage");
+const LibraryDetailPage = lazyRetry(() => import("./pages/LibraryDetailPage"), "LibraryDetailPage");
+const TeamBoardDetailPage = lazyRetry(() => import("./pages/TeamBoardDetailPage"), "TeamBoardDetailPage");
+const TrashPage = lazyRetry(() => import("./pages/TrashPage"), "TrashPage");
+const ManagementPage = lazyRetry(() => import("./pages/ManagementPage"), "ManagementPage");
+const ProjectDetailPage = lazyRetry(() => import("./pages/ProjectDetailPage"), "ProjectDetailPage");
+const BrandDetailPage = lazyRetry(() => import("./pages/BrandDetailPage"), "BrandDetailPage");
+const SubPageDetailPage = lazyRetry(() => import("./pages/SubPageDetailPage"), "SubPageDetailPage");
+const ChatPage = lazyRetry(() => import("./pages/ChatPage"), "ChatPage");
+const SharePage = lazyRetry(() => import("./pages/SharePage"), "SharePage");
+const DesktopDownloadPage = lazyRetry(() => import("./pages/DesktopDownloadPage"), "DesktopDownloadPage");
+const LeaderBoardPage = lazyRetry(() => import("./pages/LeaderBoardPage"), "LeaderBoardPage");
+const LeaderBoardDetailPage = lazyRetry(() => import("./pages/LeaderBoardDetailPage"), "LeaderBoardDetailPage");
+const OrgCreatePage = lazyRetry(() => import("./pages/OrgCreatePage"), "OrgCreatePage");
+const ToolsPage = lazyRetry(() => import("./pages/ToolsPage"), "ToolsPage");
 const SalesPage = lazy(() => import("./pages/SalesPage").then(m => ({ default: m.SalesPage })));
 const RevenuePage = lazy(() => import("./pages/RevenuePage").then(m => ({ default: m.RevenuePage })));
 

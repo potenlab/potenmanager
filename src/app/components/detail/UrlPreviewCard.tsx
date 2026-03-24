@@ -25,6 +25,27 @@ function getYouTubeVideoId(url: string): string | null {
 // Simple in-memory cache for OG metadata
 const ogCache = new Map<string, OgData | null>();
 
+// Instagram URLs return login page OG — extract username and build proper preview
+function getInstagramFallback(url: string): OgData | null {
+  try {
+    const u = new URL(url);
+    if (!u.hostname.includes('instagram.com')) return null;
+    const parts = u.pathname.split('/').filter(Boolean);
+    if (parts.length === 0 || parts[0] === 'p' || parts[0] === 'reel') return null;
+    const username = parts[0];
+    return {
+      ogTitle: `@${username} • Instagram profile`,
+      ogDescription: `Instagram photos and videos from @${username}`,
+      favicon: 'https://www.instagram.com/static/images/ico/favicon-192.png/68d99ba29cc8.png',
+    };
+  } catch { return null; }
+}
+
+function isBlockedOg(og: OgData): boolean {
+  const t = (og.ogTitle || '').toLowerCase();
+  return t.includes('로그인') || t.includes('login') || t === 'instagram';
+}
+
 export function useUrlPreviews(content?: string) {
   const [previews, setPreviews] = useState<Map<string, OgData>>(new Map());
   const [loading, setLoading] = useState(false);
@@ -43,7 +64,11 @@ export function useUrlPreviews(content?: string) {
     try {
       setLoading(true);
       const ytId = getYouTubeVideoId(url);
-      const og = await api.fetchOgMetadata(url);
+      let og = await api.fetchOgMetadata(url);
+      // Instagram blocks server scraping — use fallback
+      if (og && isBlockedOg(og)) {
+        og = getInstagramFallback(url) || og;
+      }
       if (og) {
         const ytFallback = ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : undefined;
         const data: OgData = { ...og, ogImage: og.ogImage || ytFallback };
@@ -53,7 +78,14 @@ export function useUrlPreviews(content?: string) {
         ogCache.set(url, null);
       }
     } catch {
-      ogCache.set(url, null);
+      // If fetch fails entirely, try Instagram fallback
+      const igFallback = getInstagramFallback(url);
+      if (igFallback) {
+        ogCache.set(url, igFallback);
+        setPreviews((prev) => new Map(prev).set(url, igFallback));
+      } else {
+        ogCache.set(url, null);
+      }
     } finally {
       setLoading(false);
     }

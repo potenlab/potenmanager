@@ -94,14 +94,12 @@ export function TeamProvider({ children }: { children: ReactNode }) {
       }
       setIsSynced(true);
 
-      // Load all members' calendar colors on init
+      // Sync team colors from DB to localStorage
       const memberList = serverMembers && serverMembers.length > 0 ? serverMembers : (authUser ? [userFromAuth(authUser)] : []);
       memberList.forEach((m: any) => {
-        api.getProfile(m.id).then((profile: any) => {
-          if (profile?.calendarColor) {
-            setUserColor(m.id, profile.calendarColor);
-          }
-        }).catch(() => {});
+        if (m.color) {
+          setUserColor(m.id, m.color);
+        }
       });
     } catch (err) {
       console.error("[TeamContext] Failed to fetch members:", err);

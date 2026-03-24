@@ -1092,7 +1092,12 @@ export function ManagementPage() {
     // Filter by project group
     if (board === "projects" && projectFilter) {
       const projects = loadProjects();
-      const ids = new Set(projects.filter(p => p.category === projectFilter || (!p.category && projectFilter === "internal") || (p.category === "default" && projectFilter === "internal")).map(p => p.id));
+      const ids = new Set(projects.filter(p => {
+        const isExternal = p.category === "external" || !!p.client;
+        if (projectFilter === "external") return isExternal;
+        if (projectFilter === "internal") return !isExternal;
+        return true;
+      }).map(p => p.id));
       result = result.filter(c => ids.has(c.id));
     }
     if (!searchQuery.trim()) return result;

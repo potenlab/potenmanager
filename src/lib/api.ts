@@ -179,11 +179,18 @@ export const api = {
         joinedAt: row.joined_at,
         jobRole: p?.job_title || '',
         jobTitle: p?.job_title || '',
+        color: row.color || null,
       };
     });
   },
   createTeamMember: async (member: any) => member,
-  updateTeamMember: async (id: string, data: any) => data,
+  updateTeamMember: async (id: string, data: any) => {
+    const orgId = getActiveOrgId();
+    if (orgId && data.color !== undefined) {
+      await supabase.from('pm_org_members').update({ color: data.color }).eq('org_id', orgId).eq('user_id', id);
+    }
+    return data;
+  },
   deleteTeamMember: async (id: string) => {
     const orgId = getActiveOrgId();
     if (orgId) {

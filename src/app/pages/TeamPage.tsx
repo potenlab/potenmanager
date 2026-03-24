@@ -39,7 +39,7 @@ import { useDrag, useDrop } from "react-dnd";
 import { format, isToday, isTomorrow, startOfWeek, endOfWeek, isWithinInterval } from "date-fns";
 import { useOrgPath } from "../hooks/useOrgPath";
 import { api } from "../../lib/api";
-import { supabase } from "../context/AuthContext";
+import { supabase, useAuth } from "../context/AuthContext";
 
 const TEAM_TASK_DRAG = "TEAM_TASK_CARD";
 const TEAM_COLUMN_DRAG = "TEAM_COLUMN";
@@ -62,9 +62,18 @@ export function TeamPage() {
   const { members, currentUser } = usePermission();
   const { tasks, updateTask } = useTaskContext();
   const { org, isLoading: orgLoading, joinRequests, pendingCount, approveRequest, rejectRequest } = useInvite();
-  const { removeMember } = useTeam();
+  const { removeMember, updateMember } = useTeam();
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [kickTarget, setKickTarget] = useState<User | null>(null);
+  const [colorPickerFor, setColorPickerFor] = useState<string | null>(null);
+
+  // Close color picker on outside click
+  useEffect(() => {
+    if (!colorPickerFor) return;
+    const handler = () => setColorPickerFor(null);
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [colorPickerFor]);
   const [memberView, setMemberView] = useState<"list" | "grid">(() => {
     try { return (localStorage.getItem('poten_team_member_view') as "list" | "grid") || "list"; } catch { return "list"; }
   });
@@ -254,6 +263,7 @@ export function TeamPage() {
                     <th className="text-left px-4 py-2.5">{ko ? "이름" : "Name"}</th>
                     <th className="text-left px-4 py-2.5">{ko ? "이메일" : "Email"}</th>
                     <th className="text-left px-4 py-2.5">{ko ? "역할" : "Role"}</th>
+                    <th className="text-center px-4 py-2.5">{ko ? "컬러" : "Color"}</th>
                     <th className="text-center px-4 py-2.5">{ko ? "완료" : "Done"}</th>
                     <th className="text-center px-4 py-2.5">{ko ? "진행중" : "In Progress"}</th>
                     <th className="text-center px-4 py-2.5">{ko ? "대기" : "Pending"}</th>
@@ -264,18 +274,25 @@ export function TeamPage() {
                   {[...members].sort((a, b) => a.id === currentUser.id ? -1 : b.id === currentUser.id ? 1 : 0).map((member) => {
                     const stats = memberStats[member.id] || { completed: 0, inProgress: 0, pending: 0, total: 0 };
                     const roleInfo = getRoleInfo(member.role as Role);
+                    const memberColor = getUserColor(member.id);
                     return (
                       <tr
                         key={member.id}
                         onClick={() => navigate(p(`/team/${member.id}`))}
-                        className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors group"
+                        className="border-b border-gray-50 cursor-pointer transition-colors group"
+                        style={memberColor ? { backgroundColor: `${memberColor}08` } : {}}
+                        onMouseEnter={(e) => { if (memberColor) e.currentTarget.style.backgroundColor = `${memberColor}14`; else e.currentTarget.style.backgroundColor = 'rgb(249 250 251)'; }}
+                        onMouseLeave={(e) => { if (memberColor) e.currentTarget.style.backgroundColor = `${memberColor}08`; else e.currentTarget.style.backgroundColor = ''; }}
                       >
                         <td className="px-4 py-3 flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 shrink-0">
+                          <div
+                            className="w-8 h-8 rounded-full overflow-hidden shrink-0"
+                            style={memberColor ? { boxShadow: `0 0 0 2.5px ${memberColor}`, background: '#e5e7eb' } : { background: '#e5e7eb' }}
+                          >
                             {member.profileImage ? (
                               <img src={member.profileImage} alt="" className="w-full h-full object-cover" />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-sm font-bold text-white bg-gradient-to-br from-blue-400 to-indigo-500">
+                              <div className="w-full h-full flex items-center justify-center text-sm font-bold text-white" style={memberColor ? { backgroundColor: memberColor } : { background: 'linear-gradient(135deg, #60a5fa, #6366f1)' }}>
                                 {member.name?.[0] || "?"}
                               </div>
                             )}
@@ -290,6 +307,63 @@ export function TeamPage() {
                           <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full", roleInfo.color, roleInfo.bg)}>
                             {ko ? roleInfo.labelKo : roleInfo.label}
                           </span>
+                        </td>
+                        <td className="px-4 py-3 text-center relative">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setColorPickerFor(colorPickerFor === member.id ? null : member.id); }}
+                            className="mx-auto w-6 h-6 rounded-full border-2 border-gray-200 hover:border-gray-400 transition-colors flex items-center justify-center"
+                            style={getUserColor(member.id) ? { backgroundColor: getUserColor(member.id)!, borderColor: getUserColor(member.id)! } : {}}
+                          >
+                            {!getUserColor(member.id) && <Palette size={12} className="text-gray-400" />}
+                          </button>
+                          {colorPickerFor === member.id && (
+                            <div className="absolute z-50 top-full mt-1 left-1/2 -translate-x-1/2 bg-white rounded-xl shadow-lg border border-gray-200 p-3 w-[220px]"
+                              onClick={(e) => e.stopPropagation()}>
+                              <p className="text-[10px] text-gray-400 font-medium mb-2">{ko ? "팀 컬러 선택" : "Pick team color"}</p>
+                              <div className="grid grid-cols-6 gap-1.5">
+                                {MEMBER_COLORS.map((c) => {
+                                  const owner = getColorOwner(c.hex);
+                                  const taken = owner && owner !== member.id;
+                                  const selected = getUserColor(member.id) === c.hex;
+                                  return (
+                                    <button
+                                      key={c.id}
+                                      disabled={!!taken}
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        const newColor = selected ? null : c.hex;
+                                        setUserColor(member.id, newColor);
+                                        setColorPickerFor(null);
+                                        await updateMember(member.id, { color: newColor } as any);
+                                      }}
+                                      className={cn(
+                                        "w-7 h-7 rounded-full border-2 transition-all flex items-center justify-center",
+                                        selected ? "border-gray-900 scale-110" : "border-transparent hover:scale-110",
+                                        taken && "opacity-30 cursor-not-allowed"
+                                      )}
+                                      style={{ backgroundColor: c.hex }}
+                                      title={taken ? `${ko ? "사용중" : "Taken"}` : (ko ? c.labelKo : c.label)}
+                                    >
+                                      {selected && <Check size={12} className="text-white" />}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              {getUserColor(member.id) && (
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    setUserColor(member.id, null);
+                                    setColorPickerFor(null);
+                                    await updateMember(member.id, { color: null } as any);
+                                  }}
+                                  className="mt-2 text-[11px] text-gray-400 hover:text-red-500 transition-colors w-full text-center"
+                                >
+                                  {ko ? "컬러 제거" : "Remove color"}
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-center text-sm text-green-600 font-medium">{stats.completed}</td>
                         <td className="px-4 py-3 text-center text-sm text-blue-600 font-medium">{stats.inProgress}</td>
@@ -1296,11 +1370,12 @@ const ColorPickerPopover = ({
 // ─── Attendance Tab ──────────────────────────────────────────────
 function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
   const { tasks } = useTaskContext();
+  const { user: authUser } = useAuth();
   const [myRecord, setMyRecord] = useState<any>(null);
   const [breakStartTime, setBreakStartTime] = useState<string | null>(null);
   const [lastResumeTime, setLastResumeTime] = useState<string | null>(null); // last time work resumed
   const [totalBreakMs, setTotalBreakMs] = useState(0); // accumulated break time in ms
-  const [elapsed, setElapsed] = useState(0); // force re-render every minute
+  const [now, setNow] = useState(Date.now()); // live clock for timer display
   const [monthRecords, setMonthRecords] = useState<any[]>([]);
   const [calMonth, setCalMonth] = useState(() => { const n = new Date(); return { year: n.getFullYear(), month: n.getMonth() + 1 }; });
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
@@ -1337,12 +1412,15 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
         if (found) {
           try {
             const logs = await api.getAttendanceLogs(found.id);
+            const checkInTime = found.checkIn ? new Date(found.checkIn).getTime() : 0;
             let breakMs = 0;
             let lastBreakStart: number | null = null;
             for (const log of logs) {
-              if (log.type === 'break_start') lastBreakStart = new Date(log.timestamp).getTime();
+              const logTime = new Date(log.timestamp).getTime();
+              if (logTime < checkInTime) continue; // skip breaks before current check-in
+              if (log.type === 'break_start') lastBreakStart = logTime;
               else if (log.type === 'break_end' && lastBreakStart) {
-                breakMs += new Date(log.timestamp).getTime() - lastBreakStart;
+                breakMs += logTime - lastBreakStart;
                 lastBreakStart = null;
               }
             }
@@ -1365,12 +1443,11 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
 
   useEffect(() => { loadMonth(); }, [loadMonth]);
 
-  // Tick every 30s for live elapsed time
+  // Tick every second for live timer
   useEffect(() => {
-    if (!myRecord?.checkIn || myRecord?.checkOut) return;
-    const timer = setInterval(() => setElapsed(e => e + 1), 30000);
+    const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
-  }, [myRecord?.checkIn, myRecord?.checkOut]);
+  }, []);
 
   // Load my stamp config
   useEffect(() => {
@@ -1398,8 +1475,20 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
       r.currentStatus = 'working';
       setBreakStartTime(null);
       setLastResumeTime(new Date().toISOString());
-      setTotalBreakMs(0);
       setMyRecord({ ...r });
+      // Re-calculate break time from logs in background (only after current checkIn)
+      const ciTime = r.checkIn ? new Date(r.checkIn).getTime() : 0;
+      api.getAttendanceLogs(r.id).then(logs => {
+        let breakMs = 0;
+        let lastBS: number | null = null;
+        for (const log of logs) {
+          const lt = new Date(log.timestamp).getTime();
+          if (lt < ciTime) continue;
+          if (log.type === 'break_start') lastBS = lt;
+          else if (log.type === 'break_end' && lastBS) { breakMs += lt - lastBS; lastBS = null; }
+        }
+        setTotalBreakMs(breakMs);
+      }).catch(() => {});
       api.getAttendanceMonth(calMonth.year, calMonth.month).then(data => setMonthRecords(data)).catch(() => {});
       notifyAttendance();
     } catch (err) { console.error(err); }
@@ -1481,10 +1570,12 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
   };
   const getStampDisplay = (userId: string) => {
     const cfg = stampConfigs[userId];
-    if (cfg?.emoji) return { text: cfg.emoji, color: cfg.color || '#3B82F6', shape: cfg.shape || 'rounded' };
-    if (cfg?.text) return { text: cfg.text, color: cfg.color || '#3B82F6', shape: cfg.shape || 'rounded' };
+    const teamColor = getUserColor(userId);
+    if (cfg?.emoji) return { text: cfg.emoji, color: teamColor || cfg.color || '#3B82F6', shape: cfg.shape || 'rounded' };
+    if (cfg?.text) return { text: cfg.text, color: teamColor || cfg.color || '#3B82F6', shape: cfg.shape || 'rounded' };
     const name = getMemberName(userId);
     const text = name.length >= 3 ? name.slice(1, 3) : name;
+    if (teamColor) return { text, color: teamColor, shape: 'rounded' };
     const fallbackColors = ['#EF4444', '#3B82F6', '#22C55E', '#EAB308', '#8B5CF6', '#EC4899', '#14B8A6'];
     return { text, color: fallbackColors[userId.charCodeAt(0) % fallbackColors.length], shape: 'rounded' };
   };
@@ -1529,17 +1620,16 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
               <button onClick={() => setShowStampEditor(true)}
                 className={cn("w-12 h-12 flex items-center justify-center text-white font-black text-sm shadow-md hover:scale-110 transition-transform",
                   myStamp.shape === 'circle' ? 'rounded-full' : 'rounded-lg')}
-                style={{ backgroundColor: myStamp.color }}
+                style={{ backgroundColor: (authUser?.id ? getUserColor(authUser.id) : null) || myStamp.color }}
                 title={ko ? "도장 수정" : "Edit stamp"}>
                 {myStamp.emoji || myStamp.text || '?'}
               </button>
               <div>
                 <p className="text-xs text-gray-500">{new Date().toLocaleDateString(ko ? "ko-KR" : "en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
                 {checkedIn && (() => {
-                  void elapsed;
                   const statusLabel = ko ? STATUS_BADGES[currentStatus]?.ko : STATUS_BADGES[currentStatus]?.en;
                   // Current session display: break shows break elapsed, working shows work elapsed
-                  const currentBreakMs = (currentStatus === 'break' && breakStartTime) ? (Date.now() - new Date(breakStartTime).getTime()) : 0;
+                  const currentBreakMs = (currentStatus === 'break' && breakStartTime) ? (now - new Date(breakStartTime).getTime()) : 0;
                   const currentMins = currentStatus === 'break' ? Math.floor(currentBreakMs / 60000) : 0;
                   const currentH = Math.floor(currentMins / 60);
                   const currentM = currentMins % 60;
@@ -1557,33 +1647,28 @@ function AttendanceTab({ members, ko }: { members: User[]; ko: boolean }) {
               </div>
             </div>
             {checkedIn && (() => {
-              void elapsed;
-              const totalElapsedMs = myRecord?.checkIn ? (myRecord?.checkOut ? new Date(myRecord.checkOut).getTime() : Date.now()) - new Date(myRecord.checkIn).getTime() : 0;
-              const currentBreakMs = (currentStatus === 'break' && breakStartTime) ? (Date.now() - new Date(breakStartTime).getTime()) : 0;
+              const checkInTime = new Date(myRecord?.checkIn).getTime();
+              const totalElapsedMs = myRecord?.checkIn ? (myRecord?.checkOut ? new Date(myRecord.checkOut).getTime() : now) - checkInTime : 0;
+              const currentBreakMs = (currentStatus === 'break' && breakStartTime) ? (now - new Date(breakStartTime).getTime()) : 0;
               const actualWorkMs = totalElapsedMs - totalBreakMs - currentBreakMs;
-              const workMins = Math.max(0, Math.floor(actualWorkMs / 60000));
-              const workH = Math.floor(workMins / 60);
-              const workM = workMins % 60;
-              // Current session: break = break elapsed, working = time since last resume
-              const sessionMs = currentStatus === 'break'
-                ? currentBreakMs
-                : lastResumeTime ? (Date.now() - new Date(lastResumeTime).getTime()) : actualWorkMs;
-              const sesMins = Math.max(0, Math.floor(sessionMs / 60000));
-              const sesH = Math.floor(sesMins / 60);
-              const sesM = sesMins % 60;
+              const workSecs = Math.max(0, Math.floor(actualWorkMs / 1000));
+              const workH = Math.floor(workSecs / 3600);
+              const workM = Math.floor((workSecs % 3600) / 60);
+              const workS = workSecs % 60;
               const breakTotalMs = totalBreakMs + currentBreakMs;
-              const breakMins = Math.max(0, Math.floor(breakTotalMs / 60000));
-              const breakH = Math.floor(breakMins / 60);
-              const breakM = breakMins % 60;
+              const breakSecs = Math.max(0, Math.floor(breakTotalMs / 1000));
+              const breakH = Math.floor(breakSecs / 3600);
+              const breakM = Math.floor((breakSecs % 3600) / 60);
+              const breakS = breakSecs % 60;
               return (
                 <div className="text-right space-y-3">
                   <div>
                     <p className="text-[10px] text-amber-400">{ko ? "총 휴식시간" : "Total Break"}</p>
-                    <p className="text-xl font-black text-amber-500">{breakH}{ko ? "시간 " : "h "}{String(breakM).padStart(2, '0')}{ko ? "분" : "m"}</p>
+                    <p className="text-xl font-black text-amber-500 tabular-nums">{String(breakH).padStart(2, '0')} : {String(breakM).padStart(2, '0')} : {String(breakS).padStart(2, '0')}</p>
                   </div>
                   <div>
                     <p className="text-[10px] text-gray-400">{ko ? "총 근무시간" : "Total Work"}</p>
-                    <p className="text-xl font-black text-gray-900">{workH}{ko ? "시간 " : "h "}{String(workM).padStart(2, '0')}{ko ? "분" : "m"}</p>
+                    <p className="text-xl font-black text-gray-900 tabular-nums">{String(workH).padStart(2, '0')} : {String(workM).padStart(2, '0')} : {String(workS).padStart(2, '0')}</p>
                   </div>
                 </div>
               );
