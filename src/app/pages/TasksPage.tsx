@@ -95,6 +95,30 @@ function LinkedBoardBadge({ board, cardId, language }: { board: 'projects' | 'br
   );
 }
 
+// ─── Avatar with initials fallback ──────────────────────────────────
+function AvatarWithFallback({ src, name, size = 24 }: { src?: string; name: string; size?: number }) {
+  const [failed, setFailed] = useState(false);
+  if (src && !failed) {
+    return (
+      <img
+        src={src} alt={name} title={name}
+        className="rounded-full border border-white shadow-sm object-cover"
+        style={{ width: size, height: size }}
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+  return (
+    <div
+      className="rounded-full border border-white shadow-sm flex items-center justify-center bg-gray-200 text-gray-600 font-bold"
+      style={{ width: size, height: size, fontSize: size * 0.4 }}
+      title={name}
+    >
+      {name?.charAt(0)?.toUpperCase()}
+    </div>
+  );
+}
+
 // ─── Draggable Task Card (with selection) ───────────────────────────
 function TaskCard({
   task, isSelecting, isSelected, onToggleSelect, selectedIds, onContextMenu, compact,
@@ -251,14 +275,7 @@ function TaskCard({
                 </div>
               )}
             </div>
-            {assignee && (
-              <img
-                src={assignee.avatar}
-                alt={assignee.name}
-                title={assignee.name}
-                className="w-6 h-6 rounded-full border border-white shadow-sm object-cover"
-              />
-            )}
+            {assignee && <AvatarWithFallback src={assignee.avatar} name={assignee.name} size={24} />}
           </div>
         </>
       )}
@@ -553,7 +570,7 @@ function BoardView({
         <TaskColumn
           title={language === 'ko' ? "긴급" : "Urgent"} count={urgentTasks.length} tasks={urgentTasks}
           icon={<Zap size={16} className="text-red-500" />}
-          onAddTask={onAddTask} status="pending" onDrop={onStatusChange}
+          onAddTask={onAddTask} status={"urgent" as any} onDrop={onStatusChange}
           isAdding={isAdminOrOwner && addingInColumn === 'urgent'}
           onStartAdd={isAdminOrOwner ? () => onStartAdd('urgent') : undefined}
           onCancelAdd={onCancelAdd}
@@ -1085,24 +1102,30 @@ export function TasksPage() {
     clearSelection();
   }, [clearSelection, updateTask, getTask, addTaskToContext]);
 
-  const handleStatusChange = useCallback((taskIds: string[], newStatus: Task['status'], clone?: boolean) => {
+  const handleStatusChange = useCallback((taskIds: string[], newStatus: Task['status'] | 'urgent', clone?: boolean) => {
     // Reset alt key ref to prevent stuck clone state
     altKeyRef.current = false;
 
     // Deduplicate task IDs to prevent processing same task multiple times
     const uniqueIds = [...new Set(taskIds)];
 
-    // Skip if all tasks already have the target status (same-column drop)
-    const allSameStatus = uniqueIds.every(id => {
+    // Handle "urgent" as a priority change, not a status change
+    const isUrgent = newStatus === 'urgent';
+    const actualStatus: Task['status'] = isUrgent ? 'pending' : newStatus;
+
+    // Skip if all tasks already match the target (same-column drop)
+    const allSame = uniqueIds.every(id => {
       const t = getTask(id);
-      return t && t.status === newStatus;
+      if (!t) return false;
+      if (isUrgent) return t.priority === 'high' && t.status !== 'completed' && t.status !== 'routine';
+      return t.status === actualStatus && t.priority !== 'high';
     });
-    if (allSameStatus && !clone) {
+    if (allSame && !clone) {
       clearSelection();
       return;
     }
 
-    const progress = newStatus === 'completed' ? 100 : newStatus === 'in-progress' ? 50 : 0;
+    const progress = actualStatus === 'completed' ? 100 : actualStatus === 'in-progress' ? 50 : 0;
     if (clone) {
       // Alt+drag: duplicate tasks with new status
       uniqueIds.forEach(id => {
@@ -1112,8 +1135,9 @@ export function TasksPage() {
         const cloned: Task = {
           ...original,
           id: newId,
-          status: newStatus,
-          progress,
+          status: isUrgent ? original.status : actualStatus,
+          priority: isUrgent ? 'high' : original.priority === 'high' ? 'medium' : original.priority,
+          progress: isUrgent ? original.progress : progress,
           title: original.title,
           titleKo: original.titleKo ? `${original.titleKo}` : undefined,
           createdAt: new Date(),
@@ -1124,12 +1148,22 @@ export function TasksPage() {
     } else {
       uniqueIds.forEach(id => {
         const task = getTask(id);
-        const updates: Partial<Task> = { status: newStatus, progress };
-        // Moving from routine to a non-completed column → reset due date to today
-        if (task && task.status === 'routine' && newStatus !== 'completed' && newStatus !== 'routine') {
-          const today = new Date();
-          today.setHours(23, 59, 59, 0);
-          updates.dueDate = today;
+        const updates: Partial<Task> = {};
+
+        if (isUrgent) {
+          // Moving to urgent: set priority to high, keep current status
+          updates.priority = 'high';
+        } else {
+          // Moving to a status column: update status and clear urgent if needed
+          updates.status = actualStatus;
+          updates.progress = progress;
+          if (task?.priority === 'high') updates.priority = 'medium';
+          // Moving from routine to a non-completed column → reset due date to today
+          if (task && task.status === 'routine' && actualStatus !== 'completed' && actualStatus !== 'routine') {
+            const today = new Date();
+            today.setHours(23, 59, 59, 0);
+            updates.dueDate = today;
+          }
         }
         updateTask(id, updates);
       });

@@ -12,7 +12,8 @@ import type { Role } from "../../lib/permissions";
 import { useChat, ChatMessage } from "../context/ChatContext";
 import { usePresence } from "../context/PresenceContext";
 
-export function ChatPage() {
+/** Standalone content (embeddable in TeamPage tab) */
+export function ChatContent({ embedded = false, targetUserId, onBack }: { embedded?: boolean; targetUserId?: string; onBack?: () => void } = {}) {
   const { language } = useLanguage();
   const ko = language === "ko";
   const { currentUser, members, removeMember, updateMember } = useTeam();
@@ -22,6 +23,14 @@ export function ChatPage() {
   const [input, setInput] = useState("");
   const [search, setSearch] = useState("");
   const [chatTab, setChatTab] = useState<'conversations' | 'members'>('conversations');
+
+  // Auto-open DM with target user when targetUserId is provided
+  const autoOpenedRef = useRef(false);
+  useEffect(() => {
+    if (!targetUserId || autoOpenedRef.current) return;
+    autoOpenedRef.current = true;
+    startDM(targetUserId).then((roomId) => openRoom(roomId));
+  }, [targetUserId]);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [roleSubMenuId, setRoleSubMenuId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -84,8 +93,8 @@ export function ChatPage() {
   };
 
   // Get the other participant in a DM room
-  const getOtherUserId = (room: { participants: string[] }) => {
-    return room.participants.find((p) => p !== currentUser.id) || "";
+  const getOtherUserId = (room: { participants?: string[] }) => {
+    return room.participants?.find((p) => p !== currentUser.id) || "";
   };
 
   // Members not yet in any room (for new conversation)
@@ -168,7 +177,7 @@ export function ChatPage() {
         {/* Header */}
         <div className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-gray-100">
           <button
-            onClick={closeRoom}
+            onClick={() => { closeRoom(); onBack?.(); }}
             className="p-1.5 -ml-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <ArrowLeft size={20} />
@@ -293,15 +302,17 @@ export function ChatPage() {
   // ─── Room List View ─────────────────────────────────────
   return (
     <div className="h-full flex flex-col max-w-2xl mx-auto w-full">
-      <header className="mb-4 shrink-0">
-        <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1 flex items-center gap-2">
-          <MessageCircle size={22} className="text-blue-500" />
-          {ko ? "채팅" : "Chat"}
-        </h1>
-        <p className="text-gray-500 text-xs">
-          {ko ? "팀원과 1:1 대화" : "1:1 conversations with team"}
-        </p>
-      </header>
+      {!embedded && (
+        <header className="mb-4 shrink-0">
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1 flex items-center gap-2">
+            <MessageCircle size={22} className="text-blue-500" />
+            {ko ? "채팅" : "Chat"}
+          </h1>
+          <p className="text-gray-500 text-xs">
+            {ko ? "팀원과 1:1 대화" : "1:1 conversations with team"}
+          </p>
+        </header>
+      )}
 
       {/* Tabs */}
       <div className="flex bg-gray-100 p-1 rounded-xl mb-4 shrink-0">
@@ -538,4 +549,9 @@ export function ChatPage() {
       </div>
     </div>
   );
+}
+
+/** Route-level page wrapper */
+export function ChatPage() {
+  return <ChatContent />;
 }

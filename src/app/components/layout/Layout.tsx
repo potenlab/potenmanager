@@ -37,7 +37,6 @@ function getTabLabel(path: string, ko: boolean): string {
     branding: ["브랜딩", "Branding"],
     meetings: ["회의/미팅", "Meetings"],
     radar: ["비즈 레이더", "Biz Radar"],
-    chat: ["채팅", "Chat"],
     team: ["팀", "Team"],
     organization: ["조직", "Organization"],
     notifications: ["알림", "Notifications"],

@@ -21,6 +21,8 @@ import {
   Calendar as CalendarIcon,
   ChevronLeft,
   Pencil,
+  MessageCircle,
+  Video,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { User, Task, getUserColor, setUserColor, getColorOwner, getMemberColorConfig, MEMBER_COLORS, getAllAssigneeIds } from "../../lib/mockData";
@@ -40,6 +42,8 @@ import { format, isToday, isTomorrow, startOfWeek, endOfWeek, isWithinInterval }
 import { useOrgPath } from "../hooks/useOrgPath";
 import { api } from "../../lib/api";
 import { supabase, useAuth } from "../context/AuthContext";
+import { ChatContent } from "./ChatPage";
+import { MeetingContent } from "./MeetingPage";
 
 const TEAM_TASK_DRAG = "TEAM_TASK_CARD";
 const TEAM_COLUMN_DRAG = "TEAM_COLUMN";
@@ -66,6 +70,7 @@ export function TeamPage() {
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [kickTarget, setKickTarget] = useState<User | null>(null);
   const [colorPickerFor, setColorPickerFor] = useState<string | null>(null);
+  const [chatTargetId, setChatTargetId] = useState<string | null>(null);
 
   // Close color picker on outside click
   useEffect(() => {
@@ -79,10 +84,11 @@ export function TeamPage() {
   });
   const toggleMemberView = (v: "list" | "grid") => { setMemberView(v); localStorage.setItem('poten_team_member_view', v); };
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [activeTab, _setTeamTab] = useState<"members" | "tasks" | "attendance">(() => {
-    try { return (localStorage.getItem('poten_team_tab') as "members" | "tasks" | "attendance") || "members"; } catch { return "members"; }
+  type TeamTab = "members" | "tasks" | "attendance" | "meetings";
+  const [activeTab, _setTeamTab] = useState<TeamTab>(() => {
+    try { return (localStorage.getItem('poten_team_tab') as TeamTab) || "members"; } catch { return "members"; }
   });
-  const setActiveTab = (v: "members" | "tasks" | "attendance") => { _setTeamTab(v); localStorage.setItem('poten_team_tab', v); };
+  const setActiveTab = (v: TeamTab) => { _setTeamTab(v); localStorage.setItem('poten_team_tab', v); };
 
   const pendingRequests = joinRequests.filter(r => r.status === 'pending');
 
@@ -147,42 +153,26 @@ export function TeamPage() {
       {/* ── Tab Bar ─────────────────────────────────────────────── */}
       <div className="flex items-center gap-3 -mt-2 mb-4">
         <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 w-fit shrink-0">
-          <button
-            onClick={() => setActiveTab("members")}
-            className={cn(
-              "px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2",
-              activeTab === "members"
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
-            )}
-          >
-            <Users size={15} />
-            {ko ? "멤버" : "Members"}
-          </button>
-          <button
-            onClick={() => setActiveTab("tasks")}
-            className={cn(
-              "px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2",
-              activeTab === "tasks"
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
-            )}
-          >
-            <LayoutGrid size={15} />
-            {ko ? "업무 현황" : "Task Board"}
-          </button>
-          <button
-            onClick={() => setActiveTab("attendance")}
-            className={cn(
-              "px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2",
-              activeTab === "attendance"
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
-            )}
-          >
-            <Clock size={15} />
-            {ko ? "출근" : "Attendance"}
-          </button>
+          {([
+            { id: "members" as TeamTab, icon: <Users size={15} />, label: ko ? "멤버" : "Members" },
+            { id: "attendance" as TeamTab, icon: <Clock size={15} />, label: ko ? "출근" : "Attendance" },
+            { id: "tasks" as TeamTab, icon: <LayoutGrid size={15} />, label: ko ? "업무 현황" : "Task Board" },
+            { id: "meetings" as TeamTab, icon: <Video size={15} />, label: ko ? "회의" : "Meetings" },
+          ]).map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2",
+                activeTab === tab.id
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              )}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
         </div>
         {activeTab === "members" && (
           <div className="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5">
@@ -252,7 +242,11 @@ export function TeamPage() {
         </div>
       )}
 
-      {activeTab === "members" ? (
+      {activeTab === "members" && chatTargetId ? (
+        <div className="flex-1 min-h-0">
+          <ChatContent embedded targetUserId={chatTargetId} onBack={() => setChatTargetId(null)} />
+        </div>
+      ) : activeTab === "members" ? (
         <>
           {memberView === "list" ? (
             /* ── List View ── */
@@ -370,6 +364,15 @@ export function TeamPage() {
                         <td className="px-4 py-3 text-center text-sm text-gray-500 font-medium">{stats.pending}</td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-2">
+                            {member.id !== currentUser.id && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setChatTargetId(member.id); }}
+                                className="p-1.5 text-gray-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors md:opacity-0 md:group-hover:opacity-100"
+                                title={ko ? "채팅" : "Chat"}
+                              >
+                                <MessageCircle size={14} />
+                              </button>
+                            )}
                             {member.id !== currentUser.id && member.role !== "owner" && (currentUser.role === "owner" || currentUser.role === "admin") && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); setKickTarget(member); }}
@@ -415,6 +418,7 @@ export function TeamPage() {
                       ? () => setKickTarget(member)
                       : undefined
                   }
+                  onChat={member.id !== currentUser.id ? () => setChatTargetId(member.id) : undefined}
                 />
               ))}
 
@@ -468,6 +472,12 @@ export function TeamPage() {
           ko={ko}
           navigate={navigate}
         />
+      )}
+
+      {activeTab === "meetings" && (
+        <div className="flex-1 min-h-0">
+          <MeetingContent embedded />
+        </div>
       )}
 
       {/* ── Kick Confirmation Modal ── */}
@@ -923,12 +933,14 @@ function TeamMemberCard({
   onViewTasks,
   currentUser,
   onKick,
+  onChat,
 }: {
   member: User;
   stats: { completed: number; inProgress: number; pending: number; total: number };
   onViewTasks: () => void;
   currentUser: User;
   onKick?: () => void;
+  onChat?: () => void;
 }) {
   const { language } = useLanguage();
   const [memberColor, setMemberColorState] = useState<string | null>(() => getUserColor(member.id));
@@ -999,16 +1011,27 @@ function TeamMemberCard({
       onClick={onViewTasks}
       className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all p-6 flex flex-col items-center relative group cursor-pointer hover:border-blue-200"
     >
-      {/* Kick button */}
-      {onKick && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onKick(); }}
-          className="absolute top-3 right-3 p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all md:opacity-0 md:group-hover:opacity-100"
-          title={language === "ko" ? "내보내기" : "Remove"}
-        >
-          <X size={16} />
-        </button>
-      )}
+      {/* Action buttons */}
+      <div className="absolute top-3 right-3 flex items-center gap-1">
+        {onChat && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onChat(); }}
+            className="p-1.5 text-gray-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all md:opacity-0 md:group-hover:opacity-100"
+            title={language === "ko" ? "채팅" : "Chat"}
+          >
+            <MessageCircle size={16} />
+          </button>
+        )}
+        {onKick && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onKick(); }}
+            className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all md:opacity-0 md:group-hover:opacity-100"
+            title={language === "ko" ? "내보내기" : "Remove"}
+          >
+            <X size={16} />
+          </button>
+        )}
+      </div>
       {/* Avatar with color ring */}
       <div className="relative mb-4">
         <div

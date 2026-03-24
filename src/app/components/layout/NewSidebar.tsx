@@ -2,7 +2,7 @@
  * NewSidebar — 개인/조직 모드 대응 사이드바
  *
  * 개인 모드: 내 업무, 캘린더, 자료실, 프로젝트, 도구
- * 조직 모드: + 채팅, 회의, 팀, 브랜딩, 비즈레이더
+ * 조직 모드: + 팀, 브랜딩, 비즈레이더
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -10,7 +10,7 @@ import { NavLink, useNavigate, useLocation } from "react-router";
 import { useDrag, useDrop } from "react-dnd";
 import {
   CheckSquare, Calendar, BookMarked, FolderKanban,
-  MessageCircle, Video, Users, Palette, Radar, Crown,
+  Users, Palette, Radar, Crown,
   Wrench, ChevronDown, ChevronRight, Plus, Building2,
   User, Settings, Zap, LogOut, DollarSign, FileText, BarChart3,
 } from "lucide-react";
@@ -164,8 +164,6 @@ export function NewSidebar() {
   const orgItemsDef: NavItem[] = [
     { id: "sales", to: p("/sales"), icon: <DollarSign size={16} />, label: ko ? "고객관리" : "Clients" },
     { id: "branding", to: p("/branding"), icon: <Palette size={16} />, label: ko ? "브랜딩" : "Branding" },
-    { id: "meetings", to: p("/meetings"), icon: <Video size={16} />, label: ko ? "회의/미팅" : "Meetings" },
-    { id: "chat", to: p("/chat"), icon: <MessageCircle size={16} />, label: ko ? "채팅" : "Chat" },
     { id: "team", to: p("/team"), icon: <Users size={16} />, label: ko ? "팀" : "Team" },
     // Dynamically add enabled tools
     ...enabledTools

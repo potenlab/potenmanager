@@ -6,9 +6,10 @@ import {
   FolderKanban, Palette, Crown, Plus, Trash2,
   Calendar as CalendarIcon, MoreHorizontal, X, Check,
   Image as ImageIcon, Globe, Search, Edit3,
-  StickyNote, LayoutGrid, List, AlignJustify, LayoutList, UserPlus,
+  StickyNote, LayoutGrid, List, AlignJustify, LayoutList, UserPlus, Camera,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { ScreenshotImportDialog } from "../components/ScreenshotImportDialog";
 import { api } from "../../lib/api";
 import { useRealtimeBroadcast } from "../../lib/realtimeSync";
 import { useLanguage } from "../context/LanguageContext";
@@ -766,6 +767,7 @@ export function ManagementPage() {
   const { org } = useInvite();
   const { currentUser, members } = usePermission();
   const [showTeamBoard, setShowTeamBoard] = useState(false);
+  const [showScreenshotImport, setShowScreenshotImport] = useState(false);
 
   const [columns, setColumns] = useState<KanbanColumn[]>(() => loadColumns(board));
   const [cards, setCards] = useState<KanbanCard[]>(() => loadCards(board));
@@ -1005,6 +1007,50 @@ export function ManagementPage() {
     }
   }, [board, broadcast]);
 
+  const handleScreenshotImport = useCallback((extracted: { name: string; description?: string; status?: string; client?: string; startDate?: string; endDate?: string; budget?: string; category?: string; team?: string; goal?: string }[]) => {
+    const projects = loadProjects();
+    const newProjects: Project[] = [];
+    const newCards: KanbanCard[] = [];
+    const planningCol = columns.find(c => c.title?.toLowerCase().includes("plan") || c.title?.includes("기획")) || columns[0];
+
+    for (const p of extracted) {
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
+      const project: Project = {
+        id,
+        name: p.name,
+        description: p.description || "",
+        status: (p.status as Project["status"]) || "planning",
+        color: "#3B82F6",
+        memberIds: [],
+        createdAt: now,
+        createdBy: currentUser?.id,
+        client: p.client,
+        budget: p.budget,
+        category: p.client ? "external" : "internal",
+        startDate: p.startDate,
+        endDate: p.endDate,
+        goal: p.goal,
+        team: p.team,
+      };
+      newProjects.push(project);
+      newCards.push({
+        id,
+        columnId: planningCol?.id || columns[0]?.id || "col-1",
+        title: p.name,
+        description: p.description,
+        createdAt: now,
+        order: 999,
+      });
+      if (localStorage.getItem('poten_demo_mode') !== 'true') {
+        api.createProject(project).catch(() => {});
+      }
+    }
+
+    saveProjects([...projects, ...newProjects]);
+    persistCards([...cards, ...newCards]);
+  }, [columns, cards, persistCards, currentUser]);
+
   // Column operations
   const handleAddColumn = () => {
     if (!newColName.trim()) { setAddingColumn(false); return; }
@@ -1128,6 +1174,16 @@ export function ManagementPage() {
                 : (ko ? "칼럼을 자유롭게 커스텀하고 브랜드 자산을 관리합니다" : "Customize columns and manage brand assets")}
             </p>
           </div>
+          <div className="flex items-center gap-2">
+          {board === "projects" && (
+            <button
+              onClick={() => setShowScreenshotImport(true)}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-all border shadow-sm bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
+            >
+              <Camera size={16} />
+              {ko ? "캡쳐로 가져오기" : "Import from Screenshot"}
+            </button>
+          )}
           {org && (
             <button
               onClick={() => setShowTeamBoard(v => !v)}
@@ -1142,6 +1198,7 @@ export function ManagementPage() {
               {ko ? "팀 보드" : "Team Board"}
             </button>
           )}
+        </div>
         </div>
 
         {/* Member Avatars for LeaderBoard */}
@@ -1424,6 +1481,13 @@ export function ManagementPage() {
           </>
         )}
       </AnimatePresence>
+
+      <ScreenshotImportDialog
+        open={showScreenshotImport}
+        onClose={() => setShowScreenshotImport(false)}
+        onImport={handleScreenshotImport}
+        ko={ko}
+      />
     </div>
   );
 }

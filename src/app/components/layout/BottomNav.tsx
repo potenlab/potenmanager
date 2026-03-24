@@ -7,12 +7,10 @@ import {
   Users,
   MoreHorizontal,
   Building2,
-  Video,
   Radar,
   BookMarked,
   User,
   Trash2,
-  MessageCircle,
   DollarSign,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
@@ -82,9 +80,7 @@ export function BottomNav() {
     { to: p("/library"), icon: <BookMarked size={20} />, label: ko ? "자료실" : "Library" },
     ...(!isPersonal ? [
       { to: p("/sales"), icon: <DollarSign size={20} />, label: ko ? "고객관리" : "Sales" },
-      { to: p("/chat"), icon: <MessageCircle size={20} />, label: ko ? "채팅" : "Chat" },
       { to: p("/branding"), icon: <Building2 size={20} />, label: ko ? "브랜딩" : "Branding" },
-      { to: p("/meetings"), icon: <Video size={20} />, label: ko ? "회의/미팅" : "Meetings" },
       { to: p("/radar"), icon: <Radar size={20} />, label: ko ? "비즈 레이더" : "Biz Radar" },
       { to: p("/team"), icon: <Users size={20} />, label: ko ? "팀" : "Team" },
     ] : []),

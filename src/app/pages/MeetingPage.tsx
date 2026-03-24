@@ -436,7 +436,8 @@ function BoardView({
 }
 
 // ─── Main Page ──────────────────────────────────────────────────────
-export function MeetingPage() {
+/** Standalone content (embeddable in TeamPage tab) */
+export function MeetingContent({ embedded = false }: { embedded?: boolean } = {}) {
   const { language } = useLanguage();
   const ko = language === 'ko';
   const navigate = useNavigate();
@@ -609,20 +610,22 @@ export function MeetingPage() {
 
   return (
     <div className="h-full flex flex-col">
-      <header className="mb-6 shrink-0">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
-          <div>
-            <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">{ko ? '회의' : 'Meetings'}</h1>
-            <p className="text-gray-500 text-xs sm:text-sm">
-              {ko ? `오늘 ${todayCount}개 · 예정 ${upcomingCount}개 · 완료 ${completedCount}개`
-                : `${todayCount} today · ${upcomingCount} upcoming · ${completedCount} completed`}
-            </p>
+      <header className={cn("shrink-0", embedded ? "mb-4" : "mb-6")}>
+        {!embedded && (
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+            <div>
+              <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">{ko ? '회의' : 'Meetings'}</h1>
+              <p className="text-gray-500 text-xs sm:text-sm">
+                {ko ? `오늘 ${todayCount}개 · 예정 ${upcomingCount}개 · 완료 ${completedCount}개`
+                  : `${todayCount} today · ${upcomingCount} upcoming · ${completedCount} completed`}
+              </p>
+            </div>
+            <button onClick={() => navigate(p('/meetings/new'))}
+              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm shadow-blue-200">
+              <Plus size={16} /> {ko ? '새 회의' : 'New Meeting'}
+            </button>
           </div>
-          <button onClick={() => navigate(p('/meetings/new'))}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm shadow-blue-200">
-            <Plus size={16} /> {ko ? '새 회의' : 'New Meeting'}
-          </button>
-        </div>
+        )}
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center">
           <div className="sm:max-w-md">
             <div className="flex items-center w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-400 transition-all shadow-sm">
@@ -741,4 +744,9 @@ export function MeetingPage() {
       )}
     </div>
   );
+}
+
+/** Route-level page wrapper */
+export function MeetingPage() {
+  return <MeetingContent />;
 }

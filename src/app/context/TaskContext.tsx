@@ -159,15 +159,8 @@ export function TaskProvider({ children }: { children: ReactNode }) {
 
     const success = await attempt(2);
     if (!success) {
-      try {
-        const serverTasks = await api.getTasks();
-        if (serverTasks) {
-          setTasks(serverTasks as Task[]);
-          console.warn("[TaskContext] Restored state from server after sync failure.");
-        }
-      } catch {
-        console.error("[TaskContext] Failed to restore state from server.");
-      }
+      // Don't rollback to server state — preserve local changes and retry on next action
+      console.warn(`[TaskContext] Sync failed for ${action}, local changes preserved.`);
     }
   }, []);
 
