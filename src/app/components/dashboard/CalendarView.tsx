@@ -494,6 +494,7 @@ function DroppableDayCell({
   onCellContextMenu,
   canDragTaskFn,
   cardStyle = "compact",
+  colorMode = "status",
 }: {
   day: Date;
   isCurrentMonth: boolean;
@@ -518,6 +519,7 @@ function DroppableDayCell({
   onCellContextMenu?: (day: Date, x: number, y: number) => void;
   canDragTaskFn?: (task: Task) => boolean;
   cardStyle?: CalendarCardStyle;
+  colorMode?: CalendarColorMode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -2281,6 +2283,7 @@ export function CalendarView({ taskFilter, colorMode = 'status', categoryFilter,
                   setMtgCtxMenu(null);
                 }}
                 cardStyle={cardStyle}
+                colorMode={colorMode}
                 canDragTaskFn={(task: Task) => {
                   if (canEditAnyCalendar) return true;
                   if (canEditOwnCalendar) {
