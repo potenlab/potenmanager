@@ -93,9 +93,6 @@ export function NewSidebar() {
 
   const [toolsExpanded, setToolsExpanded] = useState(false);
   const [orgSwitcherOpen, setOrgSwitcherOpen] = useState(false);
-  const [tasksExpanded, setTasksExpanded] = useState(false);
-  const [projectsExpanded, setProjectsExpanded] = useState(false);
-  const [libraryExpanded, setLibraryExpanded] = useState(false);
   const [salesExpanded, setSalesExpanded] = useState(false);
   const [teamExpanded, setTeamExpanded] = useState(false);
   const [todayAttendance, setTodayAttendance] = useState<any[]>([]);
@@ -152,19 +149,20 @@ export function NewSidebar() {
     { id: "tasks", to: p("/tasks"), icon: <CheckSquare size={16} />, label: ko ? "내 업무" : "My Tasks" },
     { id: "calendar", to: p("/calendar"), icon: <Calendar size={16} />, label: ko ? "캘린더" : "Calendar" },
     { id: "library", to: p("/library"), icon: <BookMarked size={16} />, label: ko ? "자료실" : "Library" },
-    { id: "projects", to: p("/projects"), icon: <FolderKanban size={16} />, label: ko ? "프로젝트" : "Projects" },
   ];
 
-  // Tool items that can be dynamically added
+  // Tool items that can be dynamically added to sidebar
   const TOOL_NAV_ITEMS: Record<string, NavItem> = {
+    projects: { id: "projects", to: p("/projects"), icon: <FolderKanban size={16} />, label: ko ? "프로젝트" : "Projects" },
+    branding: { id: "branding", to: p("/branding"), icon: <Palette size={16} />, label: ko ? "브랜딩" : "Branding" },
+    sales: { id: "sales", to: p("/sales"), icon: <DollarSign size={16} />, label: ko ? "고객관리" : "Clients" },
     revenue: { id: "revenue", to: p("/revenue"), icon: <BarChart3 size={16} />, label: ko ? "매출 관리" : "Revenue" },
-    // Add more tool→nav mappings here
+    "biz-radar": { id: "biz-radar", to: p("/biz-radar"), icon: <BarChart3 size={16} />, label: ko ? "비즈 레이더" : "Biz Radar" },
   };
 
   const orgItemsDef: NavItem[] = [
-    { id: "sales", to: p("/sales"), icon: <DollarSign size={16} />, label: ko ? "고객관리" : "Clients" },
-    { id: "branding", to: p("/branding"), icon: <Palette size={16} />, label: ko ? "브랜딩" : "Branding" },
-    { id: "team", to: p("/team"), icon: <Users size={16} />, label: ko ? "팀" : "Team" },
+    // Only team is always shown in org mode
+    ...(!isPersonal ? [{ id: "team", to: p("/team"), icon: <Users size={16} />, label: ko ? "팀" : "Team" }] : []),
     // Dynamically add enabled tools
     ...enabledTools
       .filter(t => TOOL_NAV_ITEMS[t])
@@ -274,42 +272,19 @@ export function NewSidebar() {
             {ko ? "개인" : "Personal"}
           </p>
           <div className="space-y-0.5">
-            {/* 내 업무 — with submenu */}
-            <div>
-              <button
-                onClick={() => { setTasksExpanded(!tasksExpanded); navigate(p("/tasks")); }}
-                className={cn(
-                  "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
-                  isActive("/tasks")
-                    ? "bg-gray-200/70 text-gray-900 font-semibold"
-                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                )}
-              >
-                <div className="shrink-0 text-gray-500"><CheckSquare size={16} /></div>
-                <span className="flex-1 text-left">{ko ? "내 업무" : "My Tasks"}</span>
-                {tasksExpanded ? <ChevronDown size={12} className="text-gray-400" /> : <ChevronRight size={12} className="text-gray-400" />}
-              </button>
-              {tasksExpanded && (
-                <div className="ml-7 mt-0.5 space-y-0.5">
-                  <NavLink to={p("/tasks?filter=today")} className={() => cn(
-                    "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
-                    location.search.includes("filter=today")
-                      ? "bg-gray-200/70 text-gray-900 font-semibold"
-                      : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
-                  )}>
-                    {ko ? "오늘" : "Today"}
-                  </NavLink>
-                  <NavLink to={p("/tasks?filter=week")} className={() => cn(
-                    "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
-                    location.search.includes("filter=week")
-                      ? "bg-gray-200/70 text-gray-900 font-semibold"
-                      : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
-                  )}>
-                    {ko ? "이번 주" : "This Week"}
-                  </NavLink>
-                </div>
+            {/* 내 업무 */}
+            <NavLink
+              to={p("/tasks")}
+              className={cn(
+                "flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
+                isActive("/tasks")
+                  ? "bg-gray-200/70 text-gray-900 font-semibold"
+                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
               )}
-            </div>
+            >
+              <div className="shrink-0 text-gray-500"><CheckSquare size={16} /></div>
+              <span>{ko ? "내 업무" : "My Tasks"}</span>
+            </NavLink>
 
             {/* 캘린더 — no submenu */}
             <NavLink
@@ -325,84 +300,45 @@ export function NewSidebar() {
               <span>{ko ? "캘린더" : "Calendar"}</span>
             </NavLink>
 
-            {/* 자료실 — with submenu */}
-            <div>
-              <button
-                onClick={() => { setLibraryExpanded(!libraryExpanded); navigate(p("/library")); }}
-                className={cn(
-                  "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
-                  isActive("/library")
-                    ? "bg-gray-200/70 text-gray-900 font-semibold"
-                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                )}
-              >
-                <div className="shrink-0 text-gray-500"><BookMarked size={16} /></div>
-                <span className="flex-1 text-left">{ko ? "자료실" : "Library"}</span>
-                {libraryExpanded ? <ChevronDown size={12} className="text-gray-400" /> : <ChevronRight size={12} className="text-gray-400" />}
-              </button>
-              {libraryExpanded && (
-                <div className="ml-7 mt-0.5 space-y-0.5">
-                  <NavLink to={p("/library?tab=team")} className={() => cn(
-                    "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
-                    location.search.includes("tab=team")
-                      ? "bg-gray-200/70 text-gray-900 font-semibold"
-                      : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
-                  )}>
-                    <Users size={13} />
-                    {ko ? "팀 자료실" : "Team Library"}
-                  </NavLink>
-                  <NavLink to={p("/library?tab=my")} className={() => cn(
-                    "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
-                    location.search.includes("tab=my")
-                      ? "bg-gray-200/70 text-gray-900 font-semibold"
-                      : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
-                  )}>
-                    <BookMarked size={13} />
-                    {ko ? "내 자료실" : "My Library"}
-                  </NavLink>
-                </div>
+            {/* 자료실 */}
+            <NavLink
+              to={p("/library")}
+              className={cn(
+                "flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
+                isActive("/library")
+                  ? "bg-gray-200/70 text-gray-900 font-semibold"
+                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
               )}
-            </div>
+            >
+              <div className="shrink-0 text-gray-500"><BookMarked size={16} /></div>
+              <span>{ko ? "자료실" : "Library"}</span>
+            </NavLink>
 
-            {/* 프로젝트 — with submenu */}
-            <div>
-              <button
-                onClick={() => { setProjectsExpanded(!projectsExpanded); navigate(p("/projects")); }}
-                className={cn(
-                  "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
-                  isActive("/projects")
-                    ? "bg-gray-200/70 text-gray-900 font-semibold"
-                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                )}
-              >
-                <div className="shrink-0 text-gray-500"><FolderKanban size={16} /></div>
-                <span className="flex-1 text-left">{ko ? "프로젝트" : "Projects"}</span>
-                {projectsExpanded ? <ChevronDown size={12} className="text-gray-400" /> : <ChevronRight size={12} className="text-gray-400" />}
-              </button>
-              {projectsExpanded && (
-                <div className="ml-7 mt-0.5 space-y-0.5">
-                  <NavLink to={p("/projects?type=internal")} className={() => cn(
-                    "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
-                    location.search.includes("type=internal")
-                      ? "bg-gray-200/70 text-gray-900 font-semibold"
-                      : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
-                  )}>
-                    <FolderKanban size={13} />
-                    {ko ? "내부 프로젝트" : "Internal"}
-                  </NavLink>
-                  <NavLink to={p("/projects?type=external")} className={() => cn(
-                    "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
-                    location.search.includes("type=external")
-                      ? "bg-gray-200/70 text-gray-900 font-semibold"
-                      : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
-                  )}>
-                    <Building2 size={13} />
-                    {ko ? "외부 프로젝트" : "External"}
-                  </NavLink>
-                </div>
-              )}
-            </div>
           </div>
+
+          {/* Enabled tool items (always shown) */}
+          {enabledTools.filter(t => TOOL_NAV_ITEMS[t]).length > 0 && (
+            <div className="mt-2 space-y-0.5">
+              {enabledTools.filter(t => TOOL_NAV_ITEMS[t]).map(toolId => {
+                const item = TOOL_NAV_ITEMS[toolId];
+                return (
+                  <NavLink
+                    key={item.id}
+                    to={item.to}
+                    className={cn(
+                      "flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
+                      isActive(item.to)
+                        ? "bg-gray-200/70 text-gray-900 font-semibold"
+                        : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                    )}
+                  >
+                    <div className="shrink-0 text-gray-500">{item.icon}</div>
+                    <span>{item.label}</span>
+                  </NavLink>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Org Section (only when org mode) */}

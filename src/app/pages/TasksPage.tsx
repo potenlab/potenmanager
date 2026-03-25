@@ -28,8 +28,6 @@ import {
   Lightbulb,
   Settings,
   BookOpen,
-  Tag,
-  ChevronDown,
   Pencil,
   StickyNote,
   GripHorizontal,
@@ -42,7 +40,6 @@ import { useLanguage } from "../context/LanguageContext";
 import { useTaskContext } from "../context/TaskContext";
 import { useGoalContext } from "../context/GoalContext";
 import { usePermission } from "../context/PermissionContext";
-import { CalendarView } from "../components/dashboard/CalendarView";
 import { PermissionGate } from "../components/layout/PermissionGate";
 import { differenceInDays, format } from "date-fns";
 import { TaskListView } from "../components/tasks/TaskListView";
@@ -826,6 +823,87 @@ function TimeBoardView({
   );
 }
 
+// ─── Category Board View ────────────────────────────────────────────
+function CategoryBoardView({
+  tasks, language, cardStyle,
+  isSelecting, selectedIds, onToggleSelect, onCardContextMenu,
+}: {
+  tasks: Task[];
+  language: string;
+  cardStyle?: 'detailed' | 'compact';
+  isSelecting: boolean;
+  selectedIds: Set<string>;
+  onToggleSelect: (id: string) => void;
+  onCardContextMenu?: (e: React.MouseEvent, id: string) => void;
+}) {
+  const ko = language === 'ko';
+  const compact = cardStyle === 'compact';
+
+  // Group tasks by category
+  const categoryBuckets = useMemo(() => {
+    const buckets: Record<string, Task[]> = {};
+    const uncategorized: Task[] = [];
+    tasks.forEach(task => {
+      if (task.category && TASK_CATEGORY_CONFIG[task.category]) {
+        if (!buckets[task.category]) buckets[task.category] = [];
+        buckets[task.category].push(task);
+      } else {
+        uncategorized.push(task);
+      }
+    });
+    return { buckets, uncategorized };
+  }, [tasks]);
+
+  const categories = Object.keys(TASK_CATEGORY_CONFIG) as TaskCategory[];
+
+  return (
+    <div className="flex gap-3 h-full min-w-max px-1">
+      {categories.filter(cat => (categoryBuckets.buckets[cat]?.length || 0) > 0).map(cat => {
+        const cfg = TASK_CATEGORY_CONFIG[cat];
+        const catTasks = categoryBuckets.buckets[cat] || [];
+        return (
+          <div key={cat} className="w-72 shrink-0 flex flex-col bg-gray-50/80 rounded-2xl border border-gray-100">
+            <div className="px-3 py-2.5 flex items-center gap-2">
+              <span className={cn("flex items-center gap-1.5 text-sm font-bold", cfg.color)}>
+                {cfg.icon} {ko ? cfg.labelKo : cfg.label}
+              </span>
+              <span className="text-xs text-gray-400 font-medium">{catTasks.length}</span>
+            </div>
+            <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-1.5">
+              {catTasks.map(task => (
+                <TaskCard
+                  key={task.id} task={task}
+                  isSelecting={isSelecting} isSelected={selectedIds.has(task.id)}
+                  onToggleSelect={onToggleSelect} selectedIds={selectedIds}
+                  onContextMenu={onCardContextMenu} compact={compact}
+                />
+              ))}
+            </div>
+          </div>
+        );
+      })}
+      {categoryBuckets.uncategorized.length > 0 && (
+        <div className="w-72 shrink-0 flex flex-col bg-gray-50/80 rounded-2xl border border-gray-100">
+          <div className="px-3 py-2.5 flex items-center gap-2">
+            <span className="text-sm font-bold text-gray-500">{ko ? '미분류' : 'Uncategorized'}</span>
+            <span className="text-xs text-gray-400 font-medium">{categoryBuckets.uncategorized.length}</span>
+          </div>
+          <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-1.5">
+            {categoryBuckets.uncategorized.map(task => (
+              <TaskCard
+                key={task.id} task={task}
+                isSelecting={isSelecting} isSelected={selectedIds.has(task.id)}
+                onToggleSelect={onToggleSelect} selectedIds={selectedIds}
+                onContextMenu={onCardContextMenu} compact={compact}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Page ──────────────────────────────────────────────────────
 export function TasksPage() {
   const { t, language } = useLanguage();
@@ -833,11 +911,11 @@ export function TasksPage() {
   const { goals } = useGoalContext();
   const { moveToTrash } = useTrash();
   const { currentUser, members: teamMembers } = usePermission();
-  const [viewMode, setViewMode] = useState<'board' | 'list' | 'calendar'>(() => {
-    try { return (localStorage.getItem('poten_tasks_view') as 'board' | 'list' | 'calendar') || 'board'; } catch { return 'board'; }
+  const [viewMode, setViewMode] = useState<'board' | 'list'>(() => {
+    try { const v = localStorage.getItem('poten_tasks_view'); return v === 'list' ? 'list' : 'board'; } catch { return 'board'; }
   });
-  const [boardMode, setBoardMode] = useState<'status' | 'time'>(() => {
-    try { return (localStorage.getItem('poten_tasks_board') as 'status' | 'time') || 'status'; } catch { return 'status'; }
+  const [groupBy, setGroupBy] = useState<'status' | 'time' | 'category'>(() => {
+    try { return (localStorage.getItem('poten_tasks_group') as 'status' | 'time' | 'category') || 'status'; } catch { return 'status'; }
   });
   const [cardStyle, setCardStyle] = useState<'detailed' | 'compact'>(() => {
     return (localStorage.getItem('poten_card_style') as 'detailed' | 'compact') || 'detailed';
@@ -872,8 +950,6 @@ export function TasksPage() {
   }, [memoPos]);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [filterCategory, setFilterCategory] = useState<TaskCategory | 'all'>('all');
-  const [showCatFilter, setShowCatFilter] = useState(false);
 
   const isSelecting = selectedIds.size > 0;
 
@@ -890,7 +966,7 @@ export function TasksPage() {
   // ESC to clear selection, Delete to bulk-delete selected
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { clearSelection(); setShowCatFilter(false); }
+      if (e.key === 'Escape') { clearSelection(); }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.size > 0) {
         // Don't intercept if user is typing in an input/textarea
         const tag = (e.target as HTMLElement)?.tagName;
@@ -922,17 +998,6 @@ export function TasksPage() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [clearSelection, selectedIds, getTask, removeTask, moveToTrash]);
-
-  // Close category filter on outside click
-  const catFilterRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!showCatFilter) return;
-    const handler = (e: MouseEvent) => {
-      if (catFilterRef.current && !catFilterRef.current.contains(e.target as Node)) setShowCatFilter(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [showCatFilter]);
 
   const handleBulkMove = useCallback((newStatus: Task['status']) => {
     const progress = newStatus === 'completed' ? 100 : newStatus === 'in-progress' ? 50 : 0;
@@ -1010,11 +1075,8 @@ export function TasksPage() {
         return title.toLowerCase().includes(q) || (task.description?.toLowerCase().includes(q));
       });
     }
-    if (filterCategory !== 'all') {
-      result = result.filter(task => task.category === filterCategory);
-    }
     return result;
-  }, [myTasks, searchQuery, language, filterCategory]);
+  }, [myTasks, searchQuery, language]);
 
   const now = new Date();
   now.setHours(0, 0, 0, 0);
@@ -1178,26 +1240,12 @@ export function TasksPage() {
           <div>
             <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">{t("my_tasks")}</h1>
             <p className="text-gray-500 text-xs sm:text-sm">
-              {viewMode === 'board' && boardMode === 'time'
-                ? (language === 'ko'
-                  ? `오늘 ${timeBuckets.todayTasks.length} · 내일 ${timeBuckets.tomorrowTasks.length} · 이번 주 ${timeBuckets.thisWeekTasks.length} · 이번 달 ${timeBuckets.thisMonthTasks.length}`
-                  : `${timeBuckets.todayTasks.length} today · ${timeBuckets.tomorrowTasks.length} tomorrow · ${timeBuckets.thisWeekTasks.length} this week · ${timeBuckets.thisMonthTasks.length} this month`)
-                : (language === 'ko'
-                  ? `할 일 ${pendingTasks.length} · 진행 중 ${inProgressTasks.length} · 긴급 ${urgentTasks.length} · 루틴 ${routineTasks.length} · 완료 ${completedTasks.length}`
-                  : `${pendingTasks.length} to do · ${inProgressTasks.length} in progress · ${urgentTasks.length} urgent · ${routineTasks.length} routine · ${completedTasks.length} done`)}
+              {language === 'ko'
+                  ? `전체 ${filteredTasks.length}개 업무`
+                  : `${filteredTasks.length} tasks total`}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setShowStrategy(!showStrategy)}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all shadow-sm border",
-                showStrategy
-                  ? "bg-purple-50 text-purple-700 border-purple-200 shadow-purple-100"
-                  : "bg-white text-gray-600 border-gray-200 hover:border-purple-300 hover:text-purple-600 hover:bg-purple-50/50"
-              )}>
-              <Target size={15} />
-              {language === 'ko' ? '내 전략' : 'My Strategy'}
-            </button>
             <button onClick={() => setShowMemo(!showMemo)}
               className={cn(
                 "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all shadow-sm border",
@@ -1221,51 +1269,7 @@ export function TasksPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {/* Category Filter */}
-            <div className="relative" ref={catFilterRef}>
-              <button
-                onClick={() => setShowCatFilter(!showCatFilter)}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-2 bg-white border rounded-xl text-xs font-medium transition-all shadow-sm",
-                  filterCategory !== 'all'
-                    ? "border-blue-300 text-blue-700 ring-1 ring-blue-100"
-                    : "border-gray-200 text-gray-500 hover:text-gray-700"
-                )}
-              >
-                <Tag size={13} />
-                {filterCategory === 'all'
-                  ? (language === 'ko' ? '카테고리' : 'Category')
-                  : (language === 'ko' ? TASK_CATEGORY_CONFIG[filterCategory].labelKo : TASK_CATEGORY_CONFIG[filterCategory].label)
-                }
-                <ChevronDown size={11} />
-              </button>
-              {showCatFilter && (
-                <div className="absolute top-full mt-1 right-0 bg-white border border-gray-200 rounded-xl shadow-lg z-50 min-w-[180px] py-1 max-h-[320px] overflow-y-auto">
-                  <button
-                    onClick={() => { setFilterCategory('all'); setShowCatFilter(false); }}
-                    className={cn("w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-gray-50 transition-colors",
-                      filterCategory === 'all' && "bg-blue-50/50")}
-                  >
-                    <span className="text-gray-500">{language === 'ko' ? '전체' : 'All'}</span>
-                    {filterCategory === 'all' && <Check size={12} className="ml-auto text-blue-600" />}
-                  </button>
-                  {(Object.entries(TASK_CATEGORY_CONFIG) as [TaskCategory, typeof TASK_CATEGORY_CONFIG[TaskCategory]][]).map(([key, cfg]) => (
-                    <button
-                      key={key}
-                      onClick={() => { setFilterCategory(key); setShowCatFilter(false); }}
-                      className={cn("w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-gray-50 transition-colors",
-                        filterCategory === key && "bg-blue-50/50")}
-                    >
-                      <span className={cn("flex items-center gap-1.5", cfg.color)}>
-                        {cfg.icon} {language === 'ko' ? cfg.labelKo : cfg.label}
-                      </span>
-                      {filterCategory === key && <Check size={12} className="ml-auto text-blue-600" />}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
+            {/* View toggle: Board | List */}
             <div className="flex bg-gray-100 p-1 rounded-xl">
               <button onClick={() => { setViewMode('board'); localStorage.setItem('poten_tasks_view', 'board'); }}
                 className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
@@ -1277,26 +1281,28 @@ export function TasksPage() {
                   viewMode === 'list' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
                 <ListIcon size={14} /> List
               </button>
-              <button onClick={() => { setViewMode('calendar'); localStorage.setItem('poten_tasks_view', 'calendar'); }}
-                className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
-                  viewMode === 'calendar' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
-                <CalendarIcon size={14} /> {language === 'ko' ? '캘린더' : 'Calendar'}
+            </div>
+
+            {/* Group toggle: 상태별 | 시간별 | 업무별 */}
+            <div className="flex bg-gray-100 p-1 rounded-xl">
+              <button onClick={() => { setGroupBy('status'); localStorage.setItem('poten_tasks_group', 'status'); }}
+                className={cn("px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
+                  groupBy === 'status' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
+                {language === 'ko' ? '상태별' : 'Status'}
+              </button>
+              <button onClick={() => { setGroupBy('time'); localStorage.setItem('poten_tasks_group', 'time'); }}
+                className={cn("px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
+                  groupBy === 'time' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
+                {language === 'ko' ? '시간별' : 'Time'}
+              </button>
+              <button onClick={() => { setGroupBy('category'); localStorage.setItem('poten_tasks_group', 'category'); }}
+                className={cn("px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
+                  groupBy === 'category' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
+                {language === 'ko' ? '업무별' : 'Category'}
               </button>
             </div>
-            {viewMode === 'board' && (
-              <div className="flex bg-gray-100 p-1 rounded-xl">
-                <button onClick={() => { setBoardMode('status'); localStorage.setItem('poten_tasks_board', 'status'); }}
-                  className={cn("px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
-                    boardMode === 'status' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
-                  {language === 'ko' ? '상태별' : 'By Status'}
-                </button>
-                <button onClick={() => { setBoardMode('time'); localStorage.setItem('poten_tasks_board', 'time'); }}
-                  className={cn("px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
-                    boardMode === 'time' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-900")}>
-                  {language === 'ko' ? '시간별' : 'By Time'}
-                </button>
-              </div>
-            )}
+
+            {/* Card density (board only) */}
             {viewMode === 'board' && (
               <div className="flex items-center bg-gray-50 rounded-lg p-0.5 border border-gray-200">
                 <button
@@ -1327,7 +1333,7 @@ export function TasksPage() {
 
       {viewMode === 'board' ? (
         <div className="flex-1 overflow-x-auto pb-4">
-          {boardMode === 'status' ? (
+          {groupBy === 'status' ? (
             <BoardView
               pendingTasks={pendingTasks} inProgressTasks={inProgressTasks} urgentTasks={urgentTasks} routineTasks={routineTasks} completedTasks={completedTasks}
               onStatusChange={handleStatusChange} onAddTask={handleAddTask} language={language}
@@ -1336,7 +1342,7 @@ export function TasksPage() {
               isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={toggleSelect}
               onBulkSelect={setSelectedIds} onCardContextMenu={handleCardContextMenu}
             />
-          ) : (
+          ) : groupBy === 'time' ? (
             <TimeBoardView
               todayTasks={timeBuckets.todayTasks} tomorrowTasks={timeBuckets.tomorrowTasks}
               thisWeekTasks={timeBuckets.thisWeekTasks} thisMonthTasks={timeBuckets.thisMonthTasks}
@@ -1344,15 +1350,17 @@ export function TasksPage() {
               isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={toggleSelect}
               onBulkSelect={setSelectedIds} onCardContextMenu={handleCardContextMenu}
             />
+          ) : (
+            <CategoryBoardView
+              tasks={filteredTasks} language={language} cardStyle={cardStyle}
+              isSelecting={isSelecting} selectedIds={selectedIds} onToggleSelect={toggleSelect}
+              onCardContextMenu={handleCardContextMenu}
+            />
           )}
-        </div>
-      ) : viewMode === 'calendar' ? (
-        <div className="flex-1 min-h-0 bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden">
-          <CalendarView taskFilter={myTaskFilter} />
         </div>
       ) : (
         <div className="flex-1 overflow-x-auto pb-4">
-          <TaskListView tasks={filteredTasks} onStatusChange={(id, status) => handleStatusChange([id], status)} />
+          <TaskListView tasks={filteredTasks} groupBy={groupBy} onStatusChange={(id, status) => handleStatusChange([id], status)} />
         </div>
       )}
 
@@ -1405,74 +1413,6 @@ export function TasksPage() {
               className="text-[10px] text-amber-400 hover:text-red-500 font-medium transition-colors"
             >
               {language === 'ko' ? '전체 삭제' : 'Clear'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Strategy Panel */}
-      {showStrategy && (
-        <div
-          className="fixed z-[60] w-[340px] bg-white border border-purple-200 rounded-2xl shadow-2xl shadow-purple-200/30 flex flex-col overflow-hidden"
-          style={{ right: 24, top: 120, maxHeight: 'calc(100vh - 160px)' }}
-        >
-          <div className="flex items-center justify-between px-4 py-2.5 bg-purple-50 border-b border-purple-100">
-            <div className="flex items-center gap-2">
-              <Target size={14} className="text-purple-600" />
-              <span className="text-xs font-bold text-purple-800">
-                {language === 'ko' ? '내 전략' : 'My Strategy'}
-              </span>
-            </div>
-            <button onClick={() => setShowStrategy(false)} className="p-1 rounded-lg text-purple-400 hover:text-purple-700 hover:bg-purple-100 transition-colors">
-              <X size={14} />
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-3 space-y-3">
-            {goals.length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-6">
-                {language === 'ko' ? '등록된 전략 목표가 없습니다' : 'No strategy goals yet'}
-              </p>
-            ) : (
-              (['Year', 'Quarter', 'Month', 'Week'] as const).map(level => {
-                const levelGoals = goals.filter(g => g.level === level);
-                if (levelGoals.length === 0) return null;
-                const levelLabel = language === 'ko'
-                  ? { Year: '연간', Quarter: '분기', Month: '월간', Week: '주간' }[level]
-                  : level;
-                return (
-                  <div key={level}>
-                    <h4 className="text-[10px] font-bold text-purple-500 uppercase tracking-wider mb-1.5 px-1">{levelLabel}</h4>
-                    <div className="space-y-1.5">
-                      {levelGoals.map(g => (
-                        <div key={g.id} className="flex items-start gap-2 px-2.5 py-2 rounded-lg bg-gray-50 hover:bg-purple-50/50 transition-colors">
-                          <div className={cn("w-1.5 h-1.5 rounded-full mt-1.5 shrink-0",
-                            g.status === 'completed' ? 'bg-emerald-500' : g.status === 'in-progress' ? 'bg-blue-500' : 'bg-gray-300'
-                          )} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-gray-800 truncate">
-                              {language === 'ko' ? (g.titleKo || g.title) : g.title}
-                            </p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <div className="flex-1 h-1 bg-gray-200 rounded-full overflow-hidden">
-                                <div className="h-full bg-purple-400 rounded-full transition-all" style={{ width: `${g.progress}%` }} />
-                              </div>
-                              <span className="text-[9px] text-gray-400 font-medium">{g.progress}%</span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-          <div className="px-4 py-2 border-t border-purple-100 bg-purple-50/40">
-            <button
-              onClick={() => { setShowStrategy(false); navigate(p('/dashboard')); }}
-              className="w-full text-[10px] text-purple-500 hover:text-purple-700 font-medium transition-colors text-center"
-            >
-              {language === 'ko' ? '대시보드에서 전체 보기 →' : 'View all in Dashboard →'}
             </button>
           </div>
         </div>

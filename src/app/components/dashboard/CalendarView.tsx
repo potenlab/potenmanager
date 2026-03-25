@@ -145,6 +145,19 @@ interface ResizeState {
 }
 
 // ─── Resizable Task Bar ─────────────────────────────────────────────
+// Category → hex color mapping for calendar
+const CATEGORY_STRIPE_COLOR: Record<string, string> = {
+  sales: "#10B981",
+  content_writing: "#8B5CF6",
+  content_video: "#EC4899",
+  marketing: "#F97316",
+  development: "#3B82F6",
+  design: "#D946EF",
+  planning: "#F59E0B",
+  operations: "#6B7280",
+  learning: "#14B8A6",
+};
+
 function ResizableTaskBar({
   task,
   language,
@@ -158,6 +171,7 @@ function ResizableTaskBar({
   onContextMenu,
   canDragTask = true,
   cardStyle = "compact",
+  colorMode = "status",
 }: {
   task: Task;
   language: string;
@@ -171,6 +185,7 @@ function ResizableTaskBar({
   onContextMenu: (task: Task, x: number, y: number) => void;
   canDragTask?: boolean;
   cardStyle?: CalendarCardStyle;
+  colorMode?: CalendarColorMode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const title = language === "ko" ? task.titleKo || task.title : task.title;
@@ -242,9 +257,13 @@ function ResizableTaskBar({
   const isUrgent = !!task.isUrgent && task.status !== "completed";
 
   // Get the effective calendar color for background (team member color)
-  const calColor = getTaskCalendarColor(task);
-  // Get status stripe color
-  const statusStripeColor = STATUS_STRIPE_COLOR[task.status] || STATUS_STRIPE_COLOR.pending;
+  const calColor = colorMode === 'category' && task.category
+    ? CATEGORY_STRIPE_COLOR[task.category] || null
+    : getTaskCalendarColor(task);
+  // Get stripe color based on color mode
+  const statusStripeColor = colorMode === 'category' && task.category
+    ? (CATEGORY_STRIPE_COLOR[task.category] || STATUS_STRIPE_COLOR.pending)
+    : (STATUS_STRIPE_COLOR[task.status] || STATUS_STRIPE_COLOR.pending);
 
   // Check if other selected tasks are being dragged (dim them)
   const isBatchDragged = !isDragging && selectedIds.size > 1 && isSelected && selectedIds.has(task.id);
@@ -612,7 +631,7 @@ function DroppableDayCell({
                       onClick={onTaskClick} onSelect={onSelectTask}
                       onResizeStart={onResizeStart} onContextMenu={onContextMenu}
                       canDragTask={canDragTaskFn ? canDragTaskFn(task) : true}
-                      cardStyle={cardStyle}
+                      cardStyle={cardStyle} colorMode={colorMode}
                     />
                   </div>
                 ) : (
@@ -643,7 +662,7 @@ function DroppableDayCell({
                       onClick={onTaskClick} onSelect={onSelectTask}
                       onResizeStart={onResizeStart} onContextMenu={onContextMenu}
                       canDragTask={canDragTaskFn ? canDragTaskFn(task) : true}
-                      cardStyle={cardStyle}
+                      cardStyle={cardStyle} colorMode={colorMode}
                     />
                   </div>
                 )
@@ -1055,12 +1074,29 @@ function QuickAddPopover({
 }
 
 // ─── Main CalendarView ──────────────────────────────────────────────
-export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => boolean } = {}) {
+export type CalendarColorMode = 'status' | 'category';
+
+export function CalendarView({ taskFilter, colorMode = 'status', categoryFilter, onCategoryToggle }: { taskFilter?: (task: Task) => boolean; colorMode?: CalendarColorMode; categoryFilter?: Set<string> | null; onCategoryToggle?: (cat: string) => void } = {}) {
   const { language, t } = useLanguage();
   const navigate = useNavigate();
   const p = useOrgPath();
   const { tasks: allContextTasks, addTask: addTaskToContext, updateTask, removeTask } = useTaskContext();
-  const calTasks = useMemo(() => taskFilter ? allContextTasks.filter(taskFilter) : allContextTasks, [allContextTasks, taskFilter]);
+  const calTasks = useMemo(() => {
+    let result = taskFilter ? allContextTasks.filter(taskFilter) : allContextTasks;
+    if (categoryFilter && categoryFilter.size > 0) {
+      if (colorMode === 'category') {
+        result = result.filter(t => t.category && categoryFilter.has(t.category));
+      } else {
+        // Status mode filter
+        result = result.filter(t => {
+          if (t.isUrgent && t.status !== 'completed' && categoryFilter.has('urgent')) return true;
+          if (categoryFilter.has(t.status)) return true;
+          return false;
+        });
+      }
+    }
+    return result;
+  }, [allContextTasks, taskFilter, categoryFilter, colorMode]);
   const { meetings, addMeeting, updateMeeting, removeMeeting } = useMeetingContext();
   const { can, members: teamMembers, currentUser } = usePermission();
 
@@ -2024,60 +2060,90 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
           </div>
         </div>
 
-        {/* Team member color legend */}
-        <div className="px-4 py-2 border-b border-gray-100 bg-gray-50/30 flex items-center gap-4 flex-wrap shrink-0">
-          {teamMembers.map((member) => {
-            const color = getUserColor(member.id);
-            const config = color ? getMemberColorConfig(color) : null;
-            if (!color || !config) return null;
-            return (
-              <div key={member.id} className="flex items-center gap-1.5">
-                <span
-                  className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-black/5"
-                  style={{ backgroundColor: color }}
-                />
-                <span className="text-xs font-medium text-gray-600">
-                  {member.name}
-                </span>
-              </div>
-            );
-          })}
-          <div className="flex items-center gap-1.5 ml-auto">
-            <span
-              className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-black/5"
-              style={{ backgroundColor: "#7C3AED" }}
-            />
-            <span className="text-xs font-medium text-gray-500">
-              {language === "ko" ? "회의" : "Meeting"}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span
-              className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-black/5"
-              style={{ background: "linear-gradient(135deg, #FF6B35, #F72585)" }}
-            />
-            <span className="text-xs font-medium text-gray-500">
-              {language === "ko" ? "긴급" : "Urgent"}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 border-l border-gray-200 pl-4">
-            <span className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-black/5" style={{ backgroundColor: "#EAB308" }} />
-            <span className="text-xs font-medium text-gray-500">
-              {language === "ko" ? "할 일" : "To Do"}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-black/5" style={{ backgroundColor: "#3B82F6" }} />
-            <span className="text-xs font-medium text-gray-500">
-              {language === "ko" ? "진행 중" : "In Progress"}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-black/5" style={{ backgroundColor: "#22C55E" }} />
-            <span className="text-xs font-medium text-gray-500">
-              {language === "ko" ? "완료" : "Done"}
-            </span>
-          </div>
+        {/* Color legend */}
+        <div className="px-4 py-2 border-b border-gray-100 bg-gray-50/30 flex items-center gap-2 flex-wrap shrink-0">
+          {colorMode === 'category' ? (
+            <>
+              <button
+                onClick={() => onCategoryToggle?.('__all__')}
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all border",
+                  !categoryFilter || categoryFilter.size === 0
+                    ? "bg-gray-900 text-white border-gray-900"
+                    : "border-gray-300 text-gray-500 hover:text-gray-700 hover:border-gray-400"
+                )}
+              >
+                {language === 'ko' ? '전체' : 'All'}
+              </button>
+              {Object.entries(CATEGORY_STRIPE_COLOR).map(([key, hex]) => {
+                const cfg: Record<string, string> = { sales: '영업', content_writing: '글쓰기', content_video: '영상', marketing: '마케팅', development: '개발', design: '디자인', planning: '기획', operations: '운영', learning: '학습' };
+                const cfgEn: Record<string, string> = { sales: 'Sales', content_writing: 'Content', content_video: 'Video', marketing: 'Marketing', development: 'Dev', design: 'Design', planning: 'Planning', operations: 'Ops', learning: 'Learning' };
+                const isActive = !categoryFilter || categoryFilter.size === 0 || categoryFilter.has(key);
+                return (
+                  <button
+                    key={key}
+                    onClick={() => onCategoryToggle?.(key)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all border",
+                      isActive
+                        ? "border-current opacity-100"
+                        : "border-gray-200 opacity-40 hover:opacity-70"
+                    )}
+                    style={isActive ? { color: hex, backgroundColor: hexToRgba(hex, 0.08), borderColor: hexToRgba(hex, 0.3) } : undefined}
+                  >
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: hex }} />
+                    {language === 'ko' ? cfg[key] : cfgEn[key]}
+                  </button>
+                );
+              })}
+            </>
+          ) : (
+            <>
+              {(() => {
+                const statusItems: { key: string; label: string; labelEn: string; color: string; gradient?: string }[] = [
+                  { key: 'meeting', label: '회의', labelEn: 'Meeting', color: '#7C3AED' },
+                  { key: 'urgent', label: '긴급', labelEn: 'Urgent', color: '#F72585', gradient: 'linear-gradient(135deg, #FF6B35, #F72585)' },
+                  { key: 'pending', label: '할 일', labelEn: 'To Do', color: '#EAB308' },
+                  { key: 'in-progress', label: '진행 중', labelEn: 'In Progress', color: '#3B82F6' },
+                  { key: 'completed', label: '완료', labelEn: 'Done', color: '#22C55E' },
+                ];
+                return (
+                  <>
+                    <button
+                      onClick={() => onCategoryToggle?.('__all__')}
+                      className={cn(
+                        "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all border",
+                        !categoryFilter || categoryFilter.size === 0
+                          ? "bg-gray-900 text-white border-gray-900"
+                          : "border-gray-300 text-gray-500 hover:text-gray-700 hover:border-gray-400"
+                      )}
+                    >
+                      {language === 'ko' ? '전체' : 'All'}
+                    </button>
+                    {statusItems.map(item => {
+                      const isActive = !categoryFilter || categoryFilter.size === 0 || categoryFilter.has(item.key);
+                      return (
+                        <button
+                          key={item.key}
+                          onClick={() => onCategoryToggle?.(item.key)}
+                          className={cn(
+                            "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all border",
+                            isActive
+                              ? "border-current opacity-100"
+                              : "border-gray-200 opacity-40 hover:opacity-70"
+                          )}
+                          style={isActive ? { color: item.color, backgroundColor: hexToRgba(item.color, 0.08), borderColor: hexToRgba(item.color, 0.3) } : undefined}
+                        >
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: item.gradient || item.color }} />
+                          {language === 'ko' ? item.label : item.labelEn}
+                        </button>
+                      );
+                    })}
+                  </>
+                );
+              })()}
+            </>
+          )}
         </div>
 
         {/* Grid Header */}
@@ -2144,7 +2210,11 @@ export function CalendarView({ taskFilter }: { taskFilter?: (task: Task) => bool
             const isCurrentMonth = isSameMonth(day, currentDate);
             const isTodayDate = isToday(day);
             const dayTasks = slottedDayTasks.get(format(day, "yyyy-MM-dd")) || [];
-            const dayMeetings = meetings.filter(m => isSameDay(new Date(m.date), day));
+            const dayMeetings = meetings.filter(m => {
+              if (!isSameDay(new Date(m.date), day)) return false;
+              if (colorMode !== 'category' && categoryFilter && categoryFilter.size > 0 && !categoryFilter.has('meeting')) return false;
+              return true;
+            });
 
             return (
               <DroppableDayCell

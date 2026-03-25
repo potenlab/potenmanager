@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import {
   Radar, Sparkles, FileText, Clock, BarChart3, MessageSquare,
-  Image, Calculator, Zap, ChevronLeft, Check, Plus,
+  Image, Calculator, Zap, ChevronLeft, Check, Plus, FolderKanban, Palette, DollarSign,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
@@ -26,7 +26,45 @@ interface Tool {
 const TOOLS: Tool[] = [
   // ── 페이지 (사이드바에 추가) ──
   {
-    id: "revenue",
+    id: "projects",
+    icon: <FolderKanban size={28} />,
+    color: "bg-indigo-100 text-indigo-600",
+    titleKo: "프로젝트",
+    titleEn: "Projects",
+    descKo: "내부/외부 프로젝트를 칸반 보드로 관리하세요.",
+    descEn: "Manage internal/external projects with kanban boards.",
+    detailKo: "프로젝트별 태스크, 일정, 팀원 배정을 칸반 보드에서 한눈에 관리합니다. 내부 프로젝트와 외부 프로젝트를 구분하여 체계적으로 운영할 수 있습니다.",
+    detailEn: "Manage tasks, schedules, and team assignments per project on kanban boards. Organize internal and external projects systematically.",
+    status: "active",
+    category: "page",
+  },
+  {
+    id: "branding",
+    icon: <Palette size={28} />,
+    color: "bg-fuchsia-100 text-fuchsia-600",
+    titleKo: "브랜딩",
+    titleEn: "Branding",
+    descKo: "브랜드 채널과 자산을 체계적으로 관리하세요.",
+    descEn: "Manage your brand channels and assets systematically.",
+    detailKo: "SNS 채널, 브랜드 가이드, 로고/컬러 등 브랜드 자산을 한곳에서 관리합니다. 개인 채널부터 팀 브랜딩까지 확장할 수 있습니다.",
+    detailEn: "Manage SNS channels, brand guides, logos/colors in one place. Scale from personal channels to team branding.",
+    status: "active",
+    category: "page",
+  },
+  {
+    id: "sales",
+    icon: <DollarSign size={28} />,
+    color: "bg-emerald-100 text-emerald-600",
+    titleKo: "고객관리",
+    titleEn: "Clients",
+    descKo: "클라이언트, 견적서, 대금을 한곳에서 관리하세요.",
+    descEn: "Manage clients, estimates, and payments in one place.",
+    detailKo: "클라이언트 파이프라인, 견적서 작성, 대금 추적을 통합 관리합니다. Excel/CSV 대량 업로드도 지원합니다.",
+    detailEn: "Unified management of client pipeline, estimates, and payment tracking. Supports Excel/CSV bulk upload.",
+    status: "active",
+    category: "page",
+  },
+  {
     icon: <BarChart3 size={28} />,
     color: "bg-emerald-100 text-emerald-600",
     titleKo: "매출 관리",
@@ -136,7 +174,7 @@ const TOOLS: Tool[] = [
 // ─── Tool Detail View ──────────────────────────────────────────
 const ENABLED_TOOLS_KEY = 'pm_enabled_tools';
 export function getEnabledTools(): string[] {
-  try { return JSON.parse(localStorage.getItem(ENABLED_TOOLS_KEY) || '["biz-radar"]'); } catch { return ['biz-radar']; }
+  try { return JSON.parse(localStorage.getItem(ENABLED_TOOLS_KEY) || '["projects","branding","sales"]'); } catch { return ['projects','branding','sales']; }
 }
 function toggleTool(id: string, enabled: boolean) {
   const current = getEnabledTools();

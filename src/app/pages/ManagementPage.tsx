@@ -763,7 +763,9 @@ export function ManagementPage() {
   const location = useLocation();
   const board: BoardType = location.pathname.includes("/branding") ? "branding" : location.pathname.includes("/leader-board") ? "leaderboard" : "projects";
   const searchParams = new URLSearchParams(location.search);
-  const projectFilter = searchParams.get("filter"); // "internal" | "external" | null
+  const urlFilter = searchParams.get("filter");
+  const [projectFilter, setProjectFilter] = useState<string | null>(urlFilter);
+  const [brandFilter, setBrandFilter] = useState<string | null>(null); // "my" | "team" | null(all)
   const { org } = useInvite();
   const { currentUser, members } = usePermission();
   const [showTeamBoard, setShowTeamBoard] = useState(false);
@@ -1138,18 +1140,28 @@ export function ManagementPage() {
     // Filter by project group
     if (board === "projects" && projectFilter) {
       const projects = loadProjects();
-      const ids = new Set(projects.filter(p => {
-        const isExternal = p.category === "external" || !!p.client;
+      const projectMap = new Map(projects.map(p => [p.id, p]));
+      result = result.filter(c => {
+        const proj = projectMap.get(c.id);
+        const isExternal = proj ? (proj.category === "external" || !!proj.client) : false;
         if (projectFilter === "external") return isExternal;
         if (projectFilter === "internal") return !isExternal;
         return true;
-      }).map(p => p.id));
-      result = result.filter(c => ids.has(c.id));
+      });
+    }
+    // Filter by branding ownership
+    if (board === "branding" && brandFilter) {
+      result = result.filter(c => {
+        const isOwner = c.createdBy === currentUser?.id || !c.createdBy;
+        if (brandFilter === "my") return isOwner;
+        if (brandFilter === "team") return !isOwner;
+        return true;
+      });
     }
     if (!searchQuery.trim()) return result;
     const q = searchQuery.toLowerCase();
     return result.filter(c => c.title.toLowerCase().includes(q) || c.description?.toLowerCase().includes(q));
-  }, [cards, searchQuery, board, projectFilter]);
+  }, [cards, searchQuery, board, projectFilter, brandFilter, currentUser?.id]);
 
   return (
     <div className="h-full flex flex-col min-w-0 overflow-hidden">
@@ -1159,7 +1171,7 @@ export function ManagementPage() {
           <div>
             <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">
               {board === "projects" ? (
-                <><FolderKanban className="inline-block mr-2 -mt-0.5" size={22} />{projectFilter === "external" ? (ko ? "외부 프로젝트" : "External Projects") : projectFilter === "internal" ? (ko ? "내부 프로젝트" : "Internal Projects") : (ko ? "프로젝트" : "Projects")}</>
+                <><FolderKanban className="inline-block mr-2 -mt-0.5" size={22} />{ko ? "프로젝트" : "Projects"}</>
               ) : board === "leaderboard" ? (
                 <><Crown className="inline-block mr-2 -mt-0.5" size={22} />{ko ? "리더 게시판" : "Leader Board"}</>
               ) : (
@@ -1173,6 +1185,43 @@ export function ManagementPage() {
                 ? (ko ? "관리자 간 공유 게시판입니다" : "Shared board for admins only")
                 : (ko ? "칼럼을 자유롭게 커스텀하고 브랜드 자산을 관리합니다" : "Customize columns and manage brand assets")}
             </p>
+            {(board === "projects" || board === "branding") && (
+              <div className="flex items-center gap-2 mt-2">
+                {(board === "projects" ? [
+                  { key: null, label: ko ? '전체' : 'All', color: '#374151' },
+                  { key: 'internal', label: ko ? '내부 프로젝트' : 'Internal', color: '#3B82F6' },
+                  { key: 'external', label: ko ? '외부 프로젝트' : 'External', color: '#10B981' },
+                ] : [
+                  { key: null, label: ko ? '전체' : 'All', color: '#374151' },
+                  { key: 'my', label: ko ? '내 채널' : 'My Channels', color: '#3B82F6' },
+                  { key: 'team', label: ko ? '팀 채널' : 'Team', color: '#10B981' },
+                ]).map(item => {
+                  const currentFilter = board === "projects" ? projectFilter : brandFilter;
+                  const setFilter = board === "projects" ? setProjectFilter : setBrandFilter;
+                  const isActive = currentFilter === item.key;
+                  return (
+                    <button
+                      key={item.key ?? 'all'}
+                      onClick={() => setFilter(item.key)}
+                      className={cn(
+                        "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all border",
+                        isActive
+                          ? "opacity-100"
+                          : "border-gray-200 opacity-40 hover:opacity-70"
+                      )}
+                      style={isActive ? {
+                        color: item.key === null ? '#fff' : item.color,
+                        backgroundColor: item.key === null ? '#374151' : `${item.color}14`,
+                        borderColor: item.key === null ? '#374151' : `${item.color}4D`,
+                      } : undefined}
+                    >
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
           {board === "projects" && (

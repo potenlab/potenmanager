@@ -636,51 +636,40 @@ export function LibraryPage() {
         {/* Tabs + View Toggle + Search */}
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => { setActiveTab("all"); setSearchQuery(""); }}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border",
-                activeTab === "all"
-                  ? "bg-gray-900 text-white border-gray-900 shadow-sm"
-                  : "bg-white text-gray-500 border-gray-100 hover:border-gray-300"
-              )}
-            >
-              <Archive size={15} />
-              {ko ? "전체" : "All"}
-              <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-bold", activeTab === "all" ? "bg-gray-700 text-gray-200" : "bg-gray-100 text-gray-500")}>
-                {allVisibleItems.length}
-              </span>
-            </button>
-            <button
-              onClick={() => { setActiveTab("private"); setSearchQuery(""); }}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border",
-                activeTab === "private"
-                  ? "bg-blue-50 text-blue-700 border-blue-200 shadow-sm"
-                  : "bg-white text-gray-500 border-gray-100 hover:border-gray-300"
-              )}
-            >
-              <Lock size={15} />
-              {ko ? "개인자료" : "Private"}
-              <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-bold", activeTab === "private" ? "bg-blue-200 text-blue-700" : "bg-gray-100 text-gray-500")}>
-                {privateItems.length}
-              </span>
-            </button>
-            <button
-              onClick={() => { setActiveTab("team"); setSearchQuery(""); }}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border",
-                activeTab === "team"
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm"
-                  : "bg-white text-gray-500 border-gray-100 hover:border-gray-300"
-              )}
-            >
-              <Globe size={15} />
-              {ko ? "팀 공유" : "Team"}
-              <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-bold", activeTab === "team" ? "bg-emerald-200 text-emerald-700" : "bg-gray-100 text-gray-500")}>
-                {teamItems.length}
-              </span>
-            </button>
+            {([
+              { key: 'all' as const, label: ko ? '전체' : 'All', color: '#374151', count: allVisibleItems.length },
+              { key: 'private' as const, label: ko ? '개인자료' : 'Private', color: '#3B82F6', count: privateItems.length },
+              { key: 'team' as const, label: ko ? '팀 공유' : 'Team', color: '#10B981', count: teamItems.length },
+            ]).map(item => {
+              const isActive = activeTab === item.key;
+              return (
+                <button
+                  key={item.key}
+                  onClick={() => { setActiveTab(item.key); setSearchQuery(""); }}
+                  className={cn(
+                    "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all border",
+                    isActive
+                      ? "opacity-100"
+                      : "border-gray-200 opacity-40 hover:opacity-70"
+                  )}
+                  style={isActive ? {
+                    color: item.key === 'all' ? '#fff' : item.color,
+                    backgroundColor: item.key === 'all' ? '#374151' : `${item.color}14`,
+                    borderColor: item.key === 'all' ? '#374151' : `${item.color}4D`,
+                  } : undefined}
+                >
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                  {item.label}
+                  {item.count > 0 && (
+                    <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-bold",
+                      isActive ? "bg-black/10" : "bg-gray-100 text-gray-400"
+                    )}>
+                      {item.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
           <div className="flex items-center gap-1 shrink-0 border border-gray-200 rounded-lg p-0.5">
             <button
