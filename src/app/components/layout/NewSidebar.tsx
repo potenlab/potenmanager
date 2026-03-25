@@ -157,16 +157,12 @@ export function NewSidebar() {
     branding: { id: "branding", to: p("/branding"), icon: <Palette size={16} />, label: ko ? "브랜딩" : "Branding" },
     sales: { id: "sales", to: p("/sales"), icon: <DollarSign size={16} />, label: ko ? "고객관리" : "Clients" },
     revenue: { id: "revenue", to: p("/revenue"), icon: <BarChart3 size={16} />, label: ko ? "매출 관리" : "Revenue" },
-    "biz-radar": { id: "biz-radar", to: p("/biz-radar"), icon: <BarChart3 size={16} />, label: ko ? "비즈 레이더" : "Biz Radar" },
+    "biz-radar": { id: "biz-radar", to: p("/radar"), icon: <BarChart3 size={16} />, label: ko ? "비즈 레이더" : "Biz Radar" },
   };
 
   const orgItemsDef: NavItem[] = [
     // Only team is always shown in org mode
     ...(!isPersonal ? [{ id: "team", to: p("/team"), icon: <Users size={16} />, label: ko ? "팀" : "Team" }] : []),
-    // Dynamically add enabled tools
-    ...enabledTools
-      .filter(t => TOOL_NAV_ITEMS[t])
-      .map(t => TOOL_NAV_ITEMS[t]),
   ];
 
   const [personalItems, setPersonalItems] = useState(() => getOrderedItems("personal", personalItemsDef));
