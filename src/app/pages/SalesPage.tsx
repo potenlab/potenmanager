@@ -4,13 +4,14 @@ import {
   DollarSign, Plus, Search, Users, FileText, BarChart3,
   MoreHorizontal, X, Trash2, ChevronLeft, Edit2, Phone, Mail,
   TrendingUp, ArrowUpRight, ArrowDownRight, ChevronRight, ChevronDown,
-  Clock, Wallet, Check, CircleDot, Send, Upload,
+  Clock, Wallet, Check, CircleDot, Send, Upload, ImageIcon,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { api } from "../../lib/api";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
+import { ScreenshotImportDialog, ExtractedClient } from "../components/ScreenshotImportDialog";
 import * as XLSX from "xlsx";
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -904,6 +905,7 @@ export function SalesPage() {
   const [editingEstimate, setEditingEstimate] = useState<Estimate | null>(null);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [screenshotOpen, setScreenshotOpen] = useState(false);
   const menuRef = useRef<HTMLTableCellElement>(null);
 
   // Sync tab from URL
@@ -1089,6 +1091,11 @@ export function SalesPage() {
                 {uploading ? <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" /> : <Upload size={15} />}
                 {ko ? "엑셀 업로드" : "Upload"}
               </button>
+              <button onClick={() => setScreenshotOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors">
+                <ImageIcon size={15} />
+                {ko ? "캡쳐 가져오기" : "Screenshot"}
+              </button>
             </>
           )}
           <button onClick={() => { if (activeTab === "estimates") { setEditingEstimate(null); setEstimateDialogOpen(true); } else { setEditingClient(null); setClientDialogOpen(true); } }}
@@ -1250,6 +1257,31 @@ export function SalesPage() {
       {/* Dialogs */}
       <ClientDialog open={clientDialogOpen} onClose={() => { setClientDialogOpen(false); setEditingClient(null); }}
         onSave={editingClient ? handleEditClient : handleAddClient} client={editingClient} ko={ko} />
+      <ScreenshotImportDialog
+        open={screenshotOpen}
+        onClose={() => setScreenshotOpen(false)}
+        type="client"
+        ko={ko}
+        onImport={async (items: ExtractedClient[]) => {
+          const created: Client[] = [];
+          for (const item of items) {
+            try {
+              const c = await api.createClient({
+                name: item.name,
+                company: item.company || "",
+                stage: item.stage || "inquiry",
+                value: item.value || 0,
+                contactName: item.contactName,
+                contactEmail: item.contactEmail,
+                contactPhone: item.contactPhone,
+                notes: item.notes,
+              });
+              created.push(c);
+            } catch (e) { console.error("Failed to import client:", e); }
+          }
+          setClients(p => [...created, ...p]);
+        }}
+      />
       <EstimateDialog open={estimateDialogOpen} onClose={() => { setEstimateDialogOpen(false); setEditingEstimate(null); }}
         onSave={editingEstimate ? handleEditEstimate : handleAddEstimate} clients={clients} estimate={editingEstimate} ko={ko} />
 
