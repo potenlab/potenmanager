@@ -20,7 +20,7 @@ function GoogleLogo() {
 }
 
 export function LoginPage() {
-  const { user, isLoading, signInWithGoogle, signInWithEmail, signUp } = useAuth();
+  const { user, isLoading, signInWithGoogle, signInWithKakao, signInWithEmail, signUp } = useAuth();
   const { language } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -315,6 +315,17 @@ export function LoginPage() {
               >
                 <GoogleLogo />
                 {ko ? 'Google로 계속하기' : 'Continue with Google'}
+              </button>
+
+              {/* Kakao OAuth */}
+              <button
+                onClick={signInWithKakao}
+                className="w-full flex items-center justify-center gap-3 px-5 py-3.5 bg-[#FEE500] border-2 border-[#FEE500] rounded-2xl text-sm font-semibold text-[#191919] hover:bg-[#FADA0A] hover:border-[#FADA0A] transition-all duration-200 shadow-sm"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path fill="#191919" d="M12 3C6.477 3 2 6.463 2 10.691c0 2.726 1.8 5.117 4.508 6.476-.144.522-.926 3.361-.962 3.585 0 0-.02.166.088.229.108.063.234.014.234.014.308-.043 3.574-2.335 4.137-2.728A13.29 13.29 0 0 0 12 18.382c5.523 0 10-3.463 10-7.691S17.523 3 12 3"/>
+                </svg>
+                {ko ? '카카오로 계속하기' : 'Continue with Kakao'}
               </button>
 
               {/* Demo Account — Industry Selection */}

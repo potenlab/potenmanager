@@ -21,6 +21,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   signInWithGoogle: () => Promise<void>;
+  signInWithKakao: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string) => Promise<{ error: string | null; needsConfirmation: boolean }>;
   signOut: () => Promise<void>;
@@ -61,6 +62,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const signInWithKakao = async () => {
+    try { localStorage.removeItem('poten_demo_mode'); localStorage.removeItem('poten_active_org_id'); } catch {}
+    await supabase.auth.signInWithOAuth({
+      provider: 'kakao',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+  };
+
   const signInWithEmail = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error: error.message };
@@ -90,6 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user: session?.user ?? null,
         isLoading,
         signInWithGoogle,
+        signInWithKakao,
         signInWithEmail,
         signUp,
         signOut,
