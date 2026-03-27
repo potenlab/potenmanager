@@ -1,12 +1,9 @@
-import { Tldraw } from "tldraw";
-import "tldraw/tldraw.css";
+import { Excalidraw } from "@excalidraw/excalidraw";
 
 export function BrainstormPage() {
   return (
     <div className="w-full h-[calc(100vh-48px)]">
-      <Tldraw
-        persistenceKey="poten-brainstorm"
-      />
+      <Excalidraw />
     </div>
   );
 }
