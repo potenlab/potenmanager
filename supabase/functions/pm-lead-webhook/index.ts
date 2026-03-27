@@ -62,7 +62,6 @@ app.post("/pm-lead-webhook/inbound", async (c) => {
       value,
       stage: "lead",
       org_id: orgId,
-      created_by: org.id, // system-created
     })
     .select()
     .single();
