@@ -52,7 +52,12 @@ export function OrgCreatePage() {
       await createOrg(name.trim(), slug.trim(), industry);
       navigate("/tasks");
     } catch (e: any) {
-      setError(e.message || (ko ? "조직 생성에 실패했습니다" : "Failed to create org"));
+      const msg = e.message || "";
+      if (msg.includes("duplicate") || msg.includes("unique") || e.code === "23505") {
+        setError(ko ? "이미 존재하는 조직 슬러그입니다. 다른 슬러그를 사용해주세요." : "This slug already exists. Please use a different one.");
+      } else {
+        setError(msg || (ko ? "조직 생성에 실패했습니다" : "Failed to create org"));
+      }
     } finally {
       setLoading(false);
     }

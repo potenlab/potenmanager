@@ -12,7 +12,7 @@ import {
   CheckSquare, Calendar, BookMarked, FolderKanban,
   Users, Palette, Radar, Crown,
   Wrench, ChevronDown, ChevronRight, Plus, Building2,
-  User, Settings, Zap, LogOut, DollarSign, FileText, BarChart3,
+  User, Settings, Zap, LogOut, DollarSign, FileText, BarChart3, PenTool,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { useWorkspace } from "../../context/WorkspaceContext";
@@ -158,6 +158,7 @@ export function NewSidebar() {
     sales: { id: "sales", to: p("/sales"), icon: <DollarSign size={16} />, label: ko ? "고객관리" : "Clients" },
     revenue: { id: "revenue", to: p("/revenue"), icon: <BarChart3 size={16} />, label: ko ? "매출 관리" : "Revenue" },
     "biz-radar": { id: "biz-radar", to: p("/radar"), icon: <BarChart3 size={16} />, label: ko ? "비즈 레이더" : "Biz Radar" },
+    brainstorm: { id: "brainstorm", to: p("/brainstorm"), icon: <PenTool size={16} />, label: ko ? "브레인스토밍" : "Brainstorm" },
   };
 
   const orgItemsDef: NavItem[] = [

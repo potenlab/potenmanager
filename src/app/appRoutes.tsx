@@ -67,6 +67,7 @@ const LeaderBoardPage = lazyRetry(() => import("./pages/LeaderBoardPage"), "Lead
 const LeaderBoardDetailPage = lazyRetry(() => import("./pages/LeaderBoardDetailPage"), "LeaderBoardDetailPage");
 const OrgCreatePage = lazyRetry(() => import("./pages/OrgCreatePage"), "OrgCreatePage");
 const ToolsPage = lazyRetry(() => import("./pages/ToolsPage"), "ToolsPage");
+const BrainstormPage = lazyRetry(() => import("./pages/BrainstormPage"), "BrainstormPage");
 const SalesPage = lazy(() => import("./pages/SalesPage").then(m => ({ default: m.SalesPage })));
 const RevenuePage = lazy(() => import("./pages/RevenuePage").then(m => ({ default: m.RevenuePage })));
 
@@ -112,6 +113,7 @@ const APP_PAGES = [
   { path: "trash", Component: TrashPage },
   { path: "org/new", Component: OrgCreatePage },
   { path: "tools", Component: ToolsPage },
+  { path: "brainstorm", Component: BrainstormPage },
   { path: "sales", Component: SalesPage },
   { path: "sales/clients", Component: SalesPage },
   { path: "sales/estimates", Component: SalesPage },
