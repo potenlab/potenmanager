@@ -111,6 +111,7 @@ const APP_PAGES = [
   { path: "leader-board/new", Component: LeaderBoardDetailPage },
   { path: "leader-board/:itemId", Component: LeaderBoardDetailPage },
   { path: "trash", Component: TrashPage },
+  { path: "settings", Component: OrgSettingsPage },
   { path: "org/new", Component: OrgCreatePage },
   { path: "tools", Component: ToolsPage },
   { path: "brainstorm", Component: BrainstormPage },
