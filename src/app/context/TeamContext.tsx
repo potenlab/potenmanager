@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
 import { User, setUserColor } from "../../lib/mockData";
 import { api } from "../../lib/api";
+import { pmApi } from "../../lib/supabase-api";
 import { notificationBus } from "../../lib/notificationEvents";
 import { useAuth } from "./AuthContext";
 import { useWorkspace } from "./WorkspaceContext";
@@ -158,7 +159,10 @@ export function TeamProvider({ children }: { children: ReactNode }) {
       });
     }
     try {
-      await api.deleteTeamMember(id);
+      const orgId = localStorage.getItem("pm_active_org_id");
+      if (orgId) {
+        await pmApi.removeOrgMember(orgId, id);
+      }
     } catch (err) {
       console.error("[TeamContext] Failed to remove member, rolling back:", err);
       // Rollback: re-add the member
