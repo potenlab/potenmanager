@@ -4,7 +4,7 @@ import {
   DollarSign, Plus, Search, Users, FileText, BarChart3,
   MoreHorizontal, X, Trash2, ChevronLeft, Edit2, Phone, Mail,
   TrendingUp, ArrowUpRight, ArrowDownRight, ChevronRight, ChevronDown,
-  Clock, Wallet, Check, CircleDot, Send, Upload, ImageIcon,
+  Clock, Wallet, Check, CircleDot, Send, Upload, ImageIcon, Link2, Copy,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
@@ -34,6 +34,7 @@ interface Estimate {
 }
 
 const STAGES = [
+  { id: "lead", labelKo: "리드", labelEn: "Lead", color: "bg-sky-100 text-sky-700 border-sky-200" },
   { id: "inquiry", labelKo: "문의", labelEn: "Inquiry", color: "bg-blue-100 text-blue-700 border-blue-200" },
   { id: "proposal", labelKo: "제안/견적", labelEn: "Proposal", color: "bg-purple-100 text-purple-700 border-purple-200" },
   { id: "negotiation", labelKo: "협상 중", labelEn: "Negotiation", color: "bg-amber-100 text-amber-700 border-amber-200" },
@@ -906,6 +907,8 @@ export function SalesPage() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [screenshotOpen, setScreenshotOpen] = useState(false);
+  const [webhookCopied, setWebhookCopied] = useState(false);
+  const [showWebhookPanel, setShowWebhookPanel] = useState(false);
   const menuRef = useRef<HTMLTableCellElement>(null);
 
   // Sync tab from URL
@@ -1085,6 +1088,12 @@ export function SalesPage() {
         <div className="flex items-center gap-2">
           {activeTab === "clients" && (
             <>
+              <button onClick={() => setShowWebhookPanel(!showWebhookPanel)}
+                className={cn("flex items-center gap-1.5 px-3 py-2 border text-sm font-medium rounded-xl transition-colors",
+                  showWebhookPanel ? "border-blue-300 bg-blue-50 text-blue-600" : "border-gray-200 text-gray-600 hover:bg-gray-50")}>
+                <Link2 size={15} />
+                {ko ? "웹훅 연동" : "Webhook"}
+              </button>
               <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFileSelect} className="hidden" />
               <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
                 className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50">
@@ -1115,6 +1124,48 @@ export function SalesPage() {
           </button>
         ))}
       </div>
+
+      {/* ── Webhook Panel ── */}
+      {showWebhookPanel && currentOrg && (
+        <div className="mb-6 p-5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl">
+          <div className="flex items-start justify-between mb-3">
+            <div>
+              <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                <Link2 size={16} className="text-blue-600" />
+                {ko ? "웹훅으로 리드 자동 수집" : "Auto-collect leads via Webhook"}
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                {ko ? "Google Forms, Typeform 등 외부 폼과 연결하면 리드가 자동으로 등록됩니다." : "Connect external forms (Google Forms, Typeform, etc.) to auto-register leads."}
+              </p>
+            </div>
+            <button onClick={() => setShowWebhookPanel(false)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
+          </div>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs text-gray-700 font-mono truncate select-all">
+              {`https://slereezbgubofcrqnkip.supabase.co/functions/v1/pm-lead-webhook/inbound?org=${currentOrg.id}`}
+            </code>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(`https://slereezbgubofcrqnkip.supabase.co/functions/v1/pm-lead-webhook/inbound?org=${currentOrg.id}`);
+                setWebhookCopied(true);
+                setTimeout(() => setWebhookCopied(false), 2000);
+              }}
+              className={cn("flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-medium transition-all shrink-0",
+                webhookCopied ? "bg-emerald-100 text-emerald-700" : "bg-blue-600 text-white hover:bg-blue-700")}
+            >
+              {webhookCopied ? <><Check size={14} /> {ko ? "복사됨" : "Copied"}</> : <><Copy size={14} /> {ko ? "복사" : "Copy"}</>}
+            </button>
+          </div>
+          <div className="mt-3 text-xs text-gray-500">
+            <p className="font-medium text-gray-600 mb-1">{ko ? "요청 형식 (POST JSON):" : "Request format (POST JSON):"}</p>
+            <code className="block px-3 py-2 bg-white/70 border border-gray-200 rounded-lg font-mono whitespace-pre text-[11px]">
+{`{ "name": "홍길동", "company": "ABC Corp",
+  "email": "hong@abc.com", "phone": "010-1234-5678",
+  "notes": "홈페이지 제작 문의", "value": 5000000 }`}
+            </code>
+          </div>
+        </div>
+      )}
 
       {/* ── Clients Tab ── */}
       {activeTab === "clients" && (
