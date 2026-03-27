@@ -38,9 +38,8 @@ const STAGES = [
   { id: "inquiry", labelKo: "문의", labelEn: "Inquiry", color: "bg-blue-100 text-blue-700 border-blue-200" },
   { id: "proposal", labelKo: "제안/견적", labelEn: "Proposal", color: "bg-purple-100 text-purple-700 border-purple-200" },
   { id: "negotiation", labelKo: "협상 중", labelEn: "Negotiation", color: "bg-amber-100 text-amber-700 border-amber-200" },
-  { id: "contract", labelKo: "계약 검토", labelEn: "Contract", color: "bg-orange-100 text-orange-700 border-orange-200" },
   { id: "won", labelKo: "계약 완료", labelEn: "Won", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-  { id: "lost", labelKo: "반환", labelEn: "Cancelled", color: "bg-gray-100 text-gray-500 border-gray-200" },
+  { id: "lost", labelKo: "실패", labelEn: "Lost", color: "bg-gray-100 text-gray-500 border-gray-200" },
 ];
 
 const EST_STATUS = [
@@ -54,7 +53,8 @@ function StagePill({ currentStage, onChange, ko }: { currentStage: string; onCha
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const [dropUp, setDropUp] = useState(false);
-  const stage = STAGES.find(s => s.id === currentStage);
+  const mappedStage = currentStage === "contract" ? "negotiation" : currentStage;
+  const stage = STAGES.find(s => s.id === mappedStage);
 
   useEffect(() => {
     if (!open) return;
@@ -764,7 +764,7 @@ export function RevenueTab({ clients, estimates, ko }: { clients: Client[]; esti
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center"><ArrowDownRight size={16} className="text-red-500" /></div>
-            <span className="text-xs text-gray-500">{ko ? "반환" : "Cancelled"}</span>
+            <span className="text-xs text-gray-500">{ko ? "실패" : "Lost"}</span>
           </div>
           <p className="text-2xl font-bold text-gray-900">{lostValue.toLocaleString()}<span className="text-sm font-normal text-gray-500">{ko ? "원" : ""}</span></p>
           <p className="text-xs text-red-500 mt-1">{clients.filter(c => c.stage === "lost").length}{ko ? "건" : ""}</p>
