@@ -120,6 +120,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setMode("org");
     localStorage.setItem(ACTIVE_WORKSPACE_KEY, org.id);
     localStorage.setItem("pm_active_org_id", org.id);
+    localStorage.setItem("poten_active_org_id", org.id);
     return org;
   }, []);
 
