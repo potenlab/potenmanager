@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
 import { api } from "../../lib/api";
 import { useTeam } from "./TeamContext";
+import { useWorkspace } from "./WorkspaceContext";
 import { notificationBus } from "../../lib/notificationEvents";
 import { generateSlug } from "../hooks/useOrgPath";
 
@@ -87,6 +88,7 @@ const InviteContext = createContext<InviteContextType | null>(null);
 
 export function InviteProvider({ children }: { children: ReactNode }) {
   const { currentUser, refreshMembers } = useTeam();
+  const { currentOrg } = useWorkspace();
   const [org, setOrg] = useState<Organization | null>(null);
   const [allOrgs, setAllOrgs] = useState<OrgSummary[]>([]);
   const [activeOrgId, _setActiveOrgId] = useState<string | null>(() => {
@@ -104,11 +106,30 @@ export function InviteProvider({ children }: { children: ReactNode }) {
   const [invites, setInvites] = useState<Invite[]>([]);
   const initRef = useRef<string | null>(null);
 
-  // ── Load current user's org when userId is available ─────────────
+  // ── Sync org from WorkspaceContext (pm_orgs) ─────────────────────
   useEffect(() => {
-    // Skip if no real user id yet
+    if (currentOrg) {
+      setOrg({
+        id: currentOrg.id,
+        name: currentOrg.name,
+        slug: currentOrg.slug,
+        logoUrl: currentOrg.logoUrl,
+        ownerId: currentOrg.ownerId,
+        memberIds: [],
+        createdAt: currentOrg.createdAt || new Date().toISOString(),
+      });
+      setActiveOrgId(currentOrg.id);
+      setIsLoading(false);
+    } else {
+      setOrg(null);
+      setIsLoading(false);
+    }
+  }, [currentOrg]);
+
+  // ── Fallback: Load from old KV API if WorkspaceContext has no org ──
+  useEffect(() => {
+    if (currentOrg) return; // Already synced from WorkspaceContext
     if (!currentUser.id) return;
-    // Only fetch once per user id
     if (initRef.current === currentUser.id) return;
     initRef.current = currentUser.id;
 
@@ -117,17 +138,13 @@ export function InviteProvider({ children }: { children: ReactNode }) {
       try {
         const result = await api.getUserOrg(currentUser.id);
         if (result.org) {
-          // Auto-generate slug if missing
           if (!result.org.slug && result.org.name) {
             result.org.slug = generateSlug(result.org.name, result.org.id);
             api.updateOrg(result.org.id, { slug: result.org.slug }).catch(() => {});
           }
           setOrg(result.org);
-          try { localStorage.setItem("poten_org_slug", result.org.slug || "org"); } catch {}
-          console.log(`[InviteContext] User belongs to org: ${result.org.name} (slug: ${result.org.slug})`);
         }
         if (result.allOrgs) {
-          // Auto-generate slugs for all orgs
           result.allOrgs.forEach((o: any) => {
             if (!o.slug && o.orgName) o.slug = generateSlug(o.orgName, o.orgId);
           });
@@ -141,7 +158,7 @@ export function InviteProvider({ children }: { children: ReactNode }) {
       }
     };
     init();
-  }, [currentUser.id]);
+  }, [currentUser.id, currentOrg]);
 
   // ── Switch active organization ────────────────────────────────────
   const switchOrg = useCallback(async (orgId: string) => {
