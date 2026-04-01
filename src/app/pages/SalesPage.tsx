@@ -9,6 +9,7 @@ import {
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
 import { useWorkspace } from "../context/WorkspaceContext";
+import { usePermission } from "../context/PermissionContext";
 import { api } from "../../lib/api";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { ScreenshotImportDialog, ExtractedClient } from "../components/ScreenshotImportDialog";
@@ -888,6 +889,7 @@ export function RevenueTab({ clients, estimates, ko }: { clients: Client[]; esti
 export function SalesPage() {
   const { language } = useLanguage();
   const { currentOrg } = useWorkspace();
+  const { members: teamMembers } = usePermission();
   const ko = language === "ko";
   const [searchQuery, setSearchQuery] = useState("");
   const location = useLocation();
@@ -909,6 +911,9 @@ export function SalesPage() {
   const [screenshotOpen, setScreenshotOpen] = useState(false);
   const [webhookCopied, setWebhookCopied] = useState(false);
   const [showWebhookPanel, setShowWebhookPanel] = useState(false);
+  const [contactPickerFor, setContactPickerFor] = useState<string | null>(null);
+  const [editingValueId, setEditingValueId] = useState<string | null>(null);
+  const [editingValueStr, setEditingValueStr] = useState("");
   const menuRef = useRef<HTMLTableCellElement>(null);
 
   // Sync tab from URL
@@ -927,7 +932,12 @@ export function SalesPage() {
   }, [currentOrg]);
 
   useEffect(() => {
-    const h = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpenId(null); };
+    const h = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpenId(null);
+      // Close contact picker if click outside
+      const target = e.target as HTMLElement;
+      if (contactPickerFor && !target.closest('[data-contact-picker]')) setContactPickerFor(null);
+    };
     document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
   }, []);
 
@@ -935,6 +945,13 @@ export function SalesPage() {
   const handleEditClient = async (d: Partial<Client>) => { if (!editingClient) return; const u = await api.updateClient(editingClient.id, d); setClients(p => p.map(c => c.id === editingClient.id ? u : c)); setEditingClient(null); };
   const handleDeleteClient = async (id: string) => { await api.deleteClient(id); setClients(p => p.filter(c => c.id !== id)); setMenuOpenId(null); };
   const handleStageChange = async (id: string, stage: string) => { const u = await api.updateClient(id, { stage }); setClients(p => p.map(c => c.id === id ? u : c)); if (selectedClient?.id === id) setSelectedClient(u); };
+  const handleContactChange = async (id: string, contactName: string) => { const u = await api.updateClient(id, { contactName }); setClients(p => p.map(c => c.id === id ? u : c)); setContactPickerFor(null); };
+  const handleValueSave = async (id: string) => {
+    const val = parseInt(editingValueStr.replace(/[^0-9]/g, "")) || 0;
+    const u = await api.updateClient(id, { value: val });
+    setClients(p => p.map(c => c.id === id ? u : c));
+    setEditingValueId(null);
+  };
   const handleAddEstimate = async (d: any) => { const e = await api.createEstimate(d); setEstimates(p => [e, ...p]); };
   const handleEditEstimate = async (d: any) => { if (!editingEstimate) return; const u = await api.updateEstimate(editingEstimate.id, d); setEstimates(p => p.map(e => e.id === editingEstimate.id ? u : e)); setEditingEstimate(null); };
   const handleDeleteEstimate = async (id: string) => { await api.deleteEstimate(id); setEstimates(p => p.filter(e => e.id !== id)); };
@@ -1227,7 +1244,25 @@ export function SalesPage() {
                           <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
                             <StagePill currentStage={client.stage} onChange={(stage) => handleStageChange(client.id, stage)} ko={ko} />
                           </td>
-                          <td className="px-4 py-3.5 hidden sm:table-cell text-sm font-medium text-gray-700">{(client.value || 0).toLocaleString()}{ko ? "원" : ""}</td>
+                          <td className="px-4 py-3.5 hidden sm:table-cell" onClick={e => e.stopPropagation()}>
+                            {editingValueId === client.id ? (
+                              <input
+                                autoFocus
+                                value={editingValueStr}
+                                onChange={e => setEditingValueStr(e.target.value)}
+                                onBlur={() => handleValueSave(client.id)}
+                                onKeyDown={e => { if (e.key === "Enter") handleValueSave(client.id); if (e.key === "Escape") setEditingValueId(null); }}
+                                className="w-full text-sm font-medium text-gray-700 bg-blue-50 border border-blue-300 rounded-lg px-2 py-1 outline-none"
+                              />
+                            ) : (
+                              <button
+                                onClick={() => { setEditingValueId(client.id); setEditingValueStr((client.value || 0).toString()); }}
+                                className="text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg px-1.5 py-0.5 -mx-1.5 transition-colors"
+                              >
+                                {(client.value || 0).toLocaleString()}{ko ? "원" : ""}
+                              </button>
+                            )}
+                          </td>
                           <td className="px-4 py-3.5 hidden sm:table-cell">
                             {(() => {
                               const paid = (client.payments || []).filter(p => p.status === "paid").reduce((s, p) => s + p.amount, 0);
@@ -1236,7 +1271,33 @@ export function SalesPage() {
                                 : <span className="text-sm text-gray-400">-</span>;
                             })()}
                           </td>
-                          <td className="px-4 py-3.5 hidden lg:table-cell text-sm text-gray-600 truncate">{client.contactName || "-"}</td>
+                          <td className="px-4 py-3.5 hidden lg:table-cell relative" onClick={e => e.stopPropagation()} data-contact-picker>
+                            <button
+                              onClick={() => setContactPickerFor(contactPickerFor === client.id ? null : client.id)}
+                              className={cn("text-sm truncate max-w-full text-left rounded-lg px-1.5 py-0.5 -mx-1.5 transition-colors",
+                                client.contactName ? "text-gray-600 hover:bg-gray-100" : "text-gray-300 hover:bg-gray-100 hover:text-gray-500")}
+                            >
+                              {client.contactName || (ko ? "배정" : "Assign")}
+                            </button>
+                            {contactPickerFor === client.id && (
+                              <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 min-w-[160px]">
+                                {teamMembers.map(m => (
+                                  <button key={m.id} onClick={() => handleContactChange(client.id, m.name)}
+                                    className={cn("w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex items-center gap-2",
+                                      client.contactName === m.name ? "text-blue-600 font-medium" : "text-gray-700")}>
+                                    <img src={m.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${m.name}`} alt="" className="w-5 h-5 rounded-full" />
+                                    {m.name}
+                                  </button>
+                                ))}
+                                {client.contactName && (
+                                  <button onClick={() => handleContactChange(client.id, "")}
+                                    className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 border-t border-gray-100">
+                                    {ko ? "배정 해제" : "Unassign"}
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </td>
                           <td className="px-4 py-3.5 text-center">
                             <span className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg group-hover:bg-blue-100 transition-colors">
                               {ko ? "상세" : "Detail"} <ChevronRight size={12} />
