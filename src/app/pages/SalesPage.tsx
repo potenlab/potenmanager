@@ -1237,8 +1237,17 @@ export function SalesPage() {
                           <td className="px-4 py-3.5">
                             <p className="text-sm font-medium text-gray-900 truncate">{client.name}</p>
                           </td>
-                          <td className="px-4 py-3.5 hidden md:table-cell text-sm text-gray-500">
-                            {client.contractDate ? new Date(client.contractDate).toLocaleDateString(ko ? "ko-KR" : "en-US", { month: "short", day: "numeric" }) : "-"}
+                          <td className="px-4 py-3.5 hidden md:table-cell" onClick={e => e.stopPropagation()}>
+                            <input
+                              type="date"
+                              value={client.contractDate || ""}
+                              onChange={async (e) => {
+                                const val = e.target.value || null;
+                                const u = await api.updateClient(client.id, { contractDate: val });
+                                setClients(p => p.map(c => c.id === client.id ? u : c));
+                              }}
+                              className="text-sm text-gray-500 bg-transparent border-0 outline-none cursor-pointer hover:text-gray-700 w-[120px]"
+                            />
                           </td>
                           <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
                             <StagePill currentStage={client.stage} onChange={(stage) => handleStageChange(client.id, stage)} ko={ko} />
