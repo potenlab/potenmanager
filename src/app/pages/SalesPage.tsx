@@ -1217,16 +1217,17 @@ export function SalesPage() {
               <div>
                 <table className="w-full text-left table-fixed">
                   <thead><tr className="bg-gray-50/50 border-b border-gray-100">
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[5%]">No.</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[17%]">{ko ? "건명" : "Project"}</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[10%] hidden md:table-cell">{ko ? "회사" : "Company"}</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[10%] hidden md:table-cell">{ko ? "계약일" : "Date"}</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[12%]">{ko ? "단계" : "Stage"}</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[12%] hidden sm:table-cell">{ko ? "전체 금액" : "Value"}</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[12%] hidden sm:table-cell">{ko ? "수령 대금" : "Received"}</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[4%]">No.</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[14%]">{ko ? "프로젝트명" : "Project"}</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[8%] hidden md:table-cell">{ko ? "계약일" : "Date"}</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[10%]">{ko ? "단계" : "Stage"}</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[10%] hidden sm:table-cell">{ko ? "합계" : "Total"}</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[10%] hidden md:table-cell">{ko ? "선금" : "Advance"}</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[10%] hidden md:table-cell">{ko ? "중도금" : "Interim"}</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[10%] hidden md:table-cell">{ko ? "잔금" : "Final"}</th>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[9%] hidden lg:table-cell">{ko ? "담당자" : "Contact"}</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[7%] text-center">{ko ? "상세" : "Detail"}</th>
-                    <th className="px-4 py-3 w-[5%]"></th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[6%] text-center">{ko ? "상세" : "Detail"}</th>
+                    <th className="px-4 py-3 w-[4%]"></th>
                   </tr></thead>
                   <tbody className="divide-y divide-gray-100">
                     {filtered.map((client, idx) => {
@@ -1237,7 +1238,6 @@ export function SalesPage() {
                           <td className="px-4 py-3.5">
                             <p className="text-sm font-medium text-gray-900 truncate">{client.name}</p>
                           </td>
-                          <td className="px-4 py-3.5 hidden md:table-cell text-sm text-gray-500 truncate">{client.company || "-"}</td>
                           <td className="px-4 py-3.5 hidden md:table-cell text-sm text-gray-500">
                             {client.contractDate ? new Date(client.contractDate).toLocaleDateString(ko ? "ko-KR" : "en-US", { month: "short", day: "numeric" }) : "-"}
                           </td>
@@ -1263,14 +1263,22 @@ export function SalesPage() {
                               </button>
                             )}
                           </td>
-                          <td className="px-4 py-3.5 hidden sm:table-cell">
-                            {(() => {
-                              const paid = (client.payments || []).filter(p => p.status === "paid").reduce((s, p) => s + p.amount, 0);
-                              return paid > 0
-                                ? <span className="text-sm font-medium text-emerald-600">{paid.toLocaleString()}{ko ? "원" : ""}</span>
-                                : <span className="text-sm text-gray-400">-</span>;
-                            })()}
-                          </td>
+                          {(() => {
+                            const payments = client.payments || [];
+                            const advance = payments.find(p => p.type === "advance");
+                            const interim = payments.find(p => p.type === "interim");
+                            const final_ = payments.find(p => p.type === "final");
+                            const fmt = (p?: Payment) => !p || !p.amount ? <span className="text-gray-300">-</span> : (
+                              <span className={p.status === "paid" ? "text-emerald-600 font-medium" : "text-gray-500"}>
+                                {p.amount.toLocaleString()}
+                              </span>
+                            );
+                            return (<>
+                              <td className="px-4 py-3.5 hidden md:table-cell text-sm">{fmt(advance)}</td>
+                              <td className="px-4 py-3.5 hidden md:table-cell text-sm">{fmt(interim)}</td>
+                              <td className="px-4 py-3.5 hidden md:table-cell text-sm">{fmt(final_)}</td>
+                            </>);
+                          })()}
                           <td className="px-4 py-3.5 hidden lg:table-cell relative" onClick={e => e.stopPropagation()} data-contact-picker>
                             <button
                               onClick={() => setContactPickerFor(contactPickerFor === client.id ? null : client.id)}
