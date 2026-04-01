@@ -23,7 +23,7 @@ interface Payment {
 interface Client {
   id: string; name: string; company: string; stage: string; value: number;
   contactName?: string; contactEmail?: string; contactPhone?: string;
-  notes?: string; projectId?: string; payments?: Payment[]; memoContent?: string; createdAt?: Date; updatedAt?: Date;
+  notes?: string; projectId?: string; payments?: Payment[]; memoContent?: string; contractDate?: string; createdAt?: Date; updatedAt?: Date;
 }
 
 interface Estimate {
@@ -1037,7 +1037,9 @@ export function SalesPage() {
     if (created.length > 0) alert(ko ? `${created.length}건 업로드 완료` : `${created.length} clients imported`);
   };
 
-  const filtered = clients.filter(c => { if (!searchQuery.trim()) return true; const q = searchQuery.toLowerCase(); return c.name?.toLowerCase().includes(q) || c.company?.toLowerCase().includes(q); });
+  const filtered = clients
+    .filter(c => { if (!searchQuery.trim()) return true; const q = searchQuery.toLowerCase(); return c.name?.toLowerCase().includes(q) || c.company?.toLowerCase().includes(q); })
+    .sort((a, b) => (b.contractDate || b.createdAt?.toString() || "").localeCompare(a.contractDate || a.createdAt?.toString() || ""));
   const pipelineValue = clients.filter(c => !["won", "lost"].includes(c.stage)).reduce((s, c) => s + (c.value || 0), 0);
   const totalValue = clients.filter(c => c.stage === "won").reduce((s, c) => s + (c.value || 0), 0);
 
@@ -1198,24 +1200,30 @@ export function SalesPage() {
               <div>
                 <table className="w-full text-left table-fixed">
                   <thead><tr className="bg-gray-50/50 border-b border-gray-100">
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[20%]">{ko ? "건명" : "Project"}</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[12%] hidden md:table-cell">{ko ? "회사" : "Company"}</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[14%]">{ko ? "단계" : "Stage"}</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[13%] hidden sm:table-cell">{ko ? "전체 금액" : "Value"}</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[13%] hidden sm:table-cell">{ko ? "수령 대금" : "Received"}</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[11%] hidden md:table-cell">{ko ? "담당자" : "Contact"}</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[10%] text-center">{ko ? "상세" : "Detail"}</th>
-                    <th className="px-4 py-3 w-[7%]"></th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[5%]">No.</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[17%]">{ko ? "건명" : "Project"}</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[10%] hidden md:table-cell">{ko ? "회사" : "Company"}</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[10%] hidden md:table-cell">{ko ? "계약일" : "Date"}</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[12%]">{ko ? "단계" : "Stage"}</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[12%] hidden sm:table-cell">{ko ? "전체 금액" : "Value"}</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[12%] hidden sm:table-cell">{ko ? "수령 대금" : "Received"}</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[9%] hidden lg:table-cell">{ko ? "담당자" : "Contact"}</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[7%] text-center">{ko ? "상세" : "Detail"}</th>
+                    <th className="px-4 py-3 w-[5%]"></th>
                   </tr></thead>
                   <tbody className="divide-y divide-gray-100">
-                    {filtered.map(client => {
+                    {filtered.map((client, idx) => {
                       return (
                         <tr key={client.id} onClick={() => setSelectedClient(client)}
                           className="hover:bg-blue-50/30 transition-colors group cursor-pointer">
+                          <td className="px-4 py-3.5 text-xs text-gray-400 font-mono">{idx + 1}</td>
                           <td className="px-4 py-3.5">
                             <p className="text-sm font-medium text-gray-900 truncate">{client.name}</p>
                           </td>
                           <td className="px-4 py-3.5 hidden md:table-cell text-sm text-gray-500 truncate">{client.company || "-"}</td>
+                          <td className="px-4 py-3.5 hidden md:table-cell text-sm text-gray-500">
+                            {client.contractDate ? new Date(client.contractDate).toLocaleDateString(ko ? "ko-KR" : "en-US", { month: "short", day: "numeric" }) : "-"}
+                          </td>
                           <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
                             <StagePill currentStage={client.stage} onChange={(stage) => handleStageChange(client.id, stage)} ko={ko} />
                           </td>
@@ -1228,7 +1236,7 @@ export function SalesPage() {
                                 : <span className="text-sm text-gray-400">-</span>;
                             })()}
                           </td>
-                          <td className="px-4 py-3.5 hidden md:table-cell text-sm text-gray-600 truncate">{client.contactName || "-"}</td>
+                          <td className="px-4 py-3.5 hidden lg:table-cell text-sm text-gray-600 truncate">{client.contactName || "-"}</td>
                           <td className="px-4 py-3.5 text-center">
                             <span className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg group-hover:bg-blue-100 transition-colors">
                               {ko ? "상세" : "Detail"} <ChevronRight size={12} />
