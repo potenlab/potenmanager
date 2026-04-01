@@ -60,7 +60,7 @@ app.post("/pm-lead-webhook/inbound", async (c) => {
       contact_phone: contactPhone,
       notes,
       value,
-      stage: "lead",
+      stage: "inquiry",
       org_id: orgId,
     })
     .select()

@@ -35,7 +35,6 @@ interface Estimate {
 }
 
 const STAGES = [
-  { id: "lead", labelKo: "리드", labelEn: "Lead", color: "bg-sky-100 text-sky-700 border-sky-200" },
   { id: "inquiry", labelKo: "문의", labelEn: "Inquiry", color: "bg-blue-100 text-blue-700 border-blue-200" },
   { id: "proposal", labelKo: "제안/견적", labelEn: "Proposal", color: "bg-purple-100 text-purple-700 border-purple-200" },
   { id: "negotiation", labelKo: "협상 중", labelEn: "Negotiation", color: "bg-amber-100 text-amber-700 border-amber-200" },
@@ -54,7 +53,7 @@ function StagePill({ currentStage, onChange, ko }: { currentStage: string; onCha
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const [dropUp, setDropUp] = useState(false);
-  const mappedStage = currentStage === "contract" ? "negotiation" : currentStage;
+  const mappedStage = currentStage === "contract" ? "negotiation" : currentStage === "lead" ? "inquiry" : currentStage;
   const stage = STAGES.find(s => s.id === mappedStage);
 
   useEffect(() => {
