@@ -24,7 +24,7 @@ interface Payment {
 interface Client {
   id: string; name: string; company: string; stage: string; value: number;
   contactName?: string; contactEmail?: string; contactPhone?: string;
-  notes?: string; projectId?: string; payments?: Payment[]; memoContent?: string; contractDate?: string; createdAt?: Date; updatedAt?: Date;
+  notes?: string; projectId?: string; payments?: Payment[]; memoContent?: string; contractDate?: string; meetingDate?: string; createdAt?: Date; updatedAt?: Date;
 }
 
 interface Estimate {
@@ -341,8 +341,8 @@ function EstimateDialog({ open, onClose, onSave, clients, estimate, ko }: {
 }
 
 // ─── Client Detail ──────────────────────────────────────────────
-function ClientDetail({ client, estimates, onBack, onEdit, onStageChange, onPaymentsUpdate, onMemoUpdate, ko }: {
-  client: Client; estimates: Estimate[]; onBack: () => void; onEdit: () => void; onStageChange: (stage: string) => void; onPaymentsUpdate: (payments: Payment[]) => void; onMemoUpdate: (content: string) => void; ko: boolean;
+function ClientDetail({ client, estimates, onBack, onEdit, onStageChange, onPaymentsUpdate, onMemoUpdate, onClientUpdate, ko }: {
+  client: Client; estimates: Estimate[]; onBack: () => void; onEdit: () => void; onStageChange: (stage: string) => void; onPaymentsUpdate: (payments: Payment[]) => void; onMemoUpdate: (content: string) => void; onClientUpdate: (updates: Partial<Client>) => Promise<void>; ko: boolean;
 }) {
   const [detailTab, setDetailTab] = useState<"overview" | "estimates" | "payments" | "memos" | "activity">("overview");
   const clientEstimates = estimates.filter(e => e.clientId === client.id);
@@ -461,6 +461,34 @@ function ClientDetail({ client, estimates, onBack, onEdit, onStageChange, onPaym
       {/* Overview Tab */}
       {detailTab === "overview" && (
         <div className="space-y-4">
+          {/* Meeting Date */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <h3 className="text-xs font-semibold text-gray-400 uppercase mb-3">{ko ? "미팅 일정" : "Meeting Date"}</h3>
+            <input
+              type="date"
+              value={client.meetingDate || ""}
+              onChange={async (e) => {
+                const val = e.target.value || null;
+                const updates: any = { meetingDate: val };
+                // Auto stage: future = meeting, past = proposal
+                if (val) {
+                  const today = new Date().toISOString().split("T")[0];
+                  if (val >= today && (client.stage === "inquiry" || client.stage === "proposal")) updates.stage = "meeting";
+                  else if (val < today && client.stage === "meeting") updates.stage = "proposal";
+                }
+                await onClientUpdate(updates);
+              }}
+              className="text-sm text-gray-700 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 w-full"
+            />
+            {client.meetingDate && (
+              <p className="text-xs text-gray-400 mt-2">
+                {new Date(client.meetingDate + "T00:00:00") >= new Date(new Date().toISOString().split("T")[0] + "T00:00:00")
+                  ? (ko ? "미팅 예정" : "Upcoming meeting")
+                  : (ko ? "미팅 완료" : "Meeting completed")}
+              </p>
+            )}
+          </div>
+
           {/* Contact Info */}
           {(client.contactName || client.contactEmail || client.contactPhone) && (
             <div className="bg-white rounded-xl border border-gray-200 p-4">
@@ -966,7 +994,8 @@ export function SalesPage() {
     } else {
       payments.push({ id: `${type}_${Date.now()}`, type: type as Payment["type"], label: type === "advance" ? "선금" : type === "interim" ? "중도금" : "잔금", amount, status: amount > 0 ? "paid" : "pending" });
     }
-    const u = await api.updateClient(clientId, { payments });
+    const totalValue = payments.reduce((s, p) => s + (p.amount || 0), 0);
+    const u = await api.updateClient(clientId, { payments, value: totalValue });
     setClients(p => p.map(c => c.id === clientId ? u : c));
     setEditingPayment(null);
   };
@@ -1091,12 +1120,15 @@ export function SalesPage() {
             setSelectedClient(u);
           }}
           onMemoUpdate={async (memoContent) => {
-            // Update local state immediately (no re-fetch to avoid editor reset)
             const updated = { ...selectedClient, memoContent };
             setSelectedClient(updated);
             setClients(p => p.map(c => c.id === selectedClient.id ? updated : c));
-            // Save to DB in background
             api.updateClient(selectedClient.id, { memoContent }).catch(() => {});
+          }}
+          onClientUpdate={async (updates) => {
+            const u = await api.updateClient(selectedClient.id, updates);
+            setClients(p => p.map(c => c.id === selectedClient.id ? u : c));
+            setSelectedClient(u);
           }}
           ko={ko} />
         <ClientDialog open={clientDialogOpen} onClose={() => { setClientDialogOpen(false); setEditingClient(null); }}
@@ -1284,24 +1316,11 @@ export function SalesPage() {
                           <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
                             <StagePill currentStage={client.stage} onChange={(stage) => handleStageChange(client.id, stage)} ko={ko} />
                           </td>
-                          <td className="px-4 py-3.5 hidden sm:table-cell" onClick={e => e.stopPropagation()}>
-                            {editingValueId === client.id ? (
-                              <input
-                                autoFocus
-                                value={editingValueStr}
-                                onChange={e => setEditingValueStr(e.target.value)}
-                                onBlur={() => handleValueSave(client.id)}
-                                onKeyDown={e => { if (e.key === "Enter") handleValueSave(client.id); if (e.key === "Escape") setEditingValueId(null); }}
-                                className="w-full text-sm font-medium text-gray-700 bg-blue-50 border border-blue-300 rounded-lg px-2 py-1 outline-none"
-                              />
-                            ) : (
-                              <button
-                                onClick={() => { setEditingValueId(client.id); setEditingValueStr((client.value || 0).toString()); }}
-                                className="text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg px-1.5 py-0.5 -mx-1.5 transition-colors"
-                              >
-                                {(client.value || 0).toLocaleString()}{ko ? "원" : ""}
-                              </button>
-                            )}
+                          <td className="px-4 py-3.5 hidden sm:table-cell text-sm font-medium text-gray-700">
+                            {(() => {
+                              const total = (client.payments || []).reduce((s, p) => s + (p.amount || 0), 0);
+                              return total > 0 ? <>{total.toLocaleString()}{ko ? "원" : ""}</> : <span className="text-gray-300">-</span>;
+                            })()}
                           </td>
                           {(() => {
                             const payments = client.payments || [];
