@@ -28,3 +28,8 @@ npm-debug.log*
 
 # Vercel
 .vercel
+
+release/
+xx00
+xx01
+xx02
