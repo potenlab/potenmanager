@@ -36,6 +36,7 @@ interface Estimate {
 
 const STAGES = [
   { id: "inquiry", labelKo: "문의", labelEn: "Inquiry", color: "bg-blue-100 text-blue-700 border-blue-200" },
+  { id: "meeting", labelKo: "미팅 예정", labelEn: "Meeting", color: "bg-cyan-100 text-cyan-700 border-cyan-200" },
   { id: "proposal", labelKo: "제안/견적", labelEn: "Proposal", color: "bg-purple-100 text-purple-700 border-purple-200" },
   { id: "negotiation", labelKo: "협상 중", labelEn: "Negotiation", color: "bg-amber-100 text-amber-700 border-amber-200" },
   { id: "won", labelKo: "계약 완료", labelEn: "Won", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
@@ -915,6 +916,7 @@ export function SalesPage() {
   const [editingValueStr, setEditingValueStr] = useState("");
   const [editingPayment, setEditingPayment] = useState<{ clientId: string; type: string } | null>(null);
   const [editingPaymentStr, setEditingPaymentStr] = useState("");
+  const [editingDateId, setEditingDateId] = useState<string | null>(null);
   const menuRef = useRef<HTMLTableCellElement>(null);
 
   // Sync tab from URL
@@ -1254,20 +1256,30 @@ export function SalesPage() {
                           <td className="px-4 py-3.5">
                             <p className="text-sm font-medium text-gray-900 truncate">{client.name}</p>
                           </td>
-                          <td className="px-4 py-3.5 hidden md:table-cell relative" onClick={e => e.stopPropagation()}>
-                            <input
-                              type="date"
-                              value={client.contractDate || ""}
-                              onChange={async (e) => {
-                                const val = e.target.value || null;
-                                const u = await api.updateClient(client.id, { contractDate: val });
-                                setClients(p => p.map(c => c.id === client.id ? u : c));
-                              }}
-                              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                            />
-                            <span className={cn("text-sm cursor-pointer", client.contractDate ? "text-gray-500" : "text-gray-300")}>
-                              {client.contractDate ? new Date(client.contractDate + "T00:00:00").toLocaleDateString(ko ? "ko-KR" : "en-US", { month: "short", day: "numeric" }) : (ko ? "날짜" : "Date")}
-                            </span>
+                          <td className="px-4 py-3.5 hidden md:table-cell" onClick={e => e.stopPropagation()}>
+                            {editingDateId === client.id ? (
+                              <input
+                                type="date"
+                                autoFocus
+                                value={client.contractDate || ""}
+                                onChange={async (e) => {
+                                  const val = e.target.value || null;
+                                  const u = await api.updateClient(client.id, { contractDate: val });
+                                  setClients(p => p.map(c => c.id === client.id ? u : c));
+                                  setEditingDateId(null);
+                                }}
+                                onBlur={() => setEditingDateId(null)}
+                                className="text-sm text-gray-700 bg-blue-50 border border-blue-300 rounded-lg px-2 py-0.5 outline-none w-[130px]"
+                              />
+                            ) : (
+                              <button
+                                onClick={() => setEditingDateId(client.id)}
+                                className={cn("text-sm rounded-lg px-1.5 py-0.5 -mx-1.5 transition-colors hover:bg-gray-100",
+                                  client.contractDate ? "text-gray-500" : "text-gray-300")}
+                              >
+                                {client.contractDate ? new Date(client.contractDate + "T00:00:00").toLocaleDateString(ko ? "ko-KR" : "en-US", { month: "short", day: "numeric" }) : (ko ? "날짜" : "Date")}
+                              </button>
+                            )}
                           </td>
                           <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
                             <StagePill currentStage={client.stage} onChange={(stage) => handleStageChange(client.id, stage)} ko={ko} />
