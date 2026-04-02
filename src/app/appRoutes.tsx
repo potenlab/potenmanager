@@ -122,6 +122,7 @@ const APP_PAGES = [
   { path: "sales/revenue", Component: SalesPage },
   { path: "revenue", Component: RevenuePage },
   { path: "finance", Component: FinancePage },
+  { path: "category/:categoryId", Component: TeamPage },
   { path: "*", Component: DashboardPage },
 ];
 

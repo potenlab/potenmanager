@@ -13,6 +13,7 @@ import {
   Users, Palette, Radar, Crown,
   Wrench, ChevronDown, ChevronRight, Plus, Building2,
   User, Settings, Zap, LogOut, DollarSign, FileText, BarChart3, PenTool,
+  Layers, X, MoreHorizontal, Trash2, Edit2,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { useWorkspace } from "../../context/WorkspaceContext";
@@ -21,6 +22,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useSidebar } from "../../context/SidebarContext";
 import { useTeam } from "../../context/TeamContext";
 import { api } from "../../../lib/api";
+import { supabase } from "../../context/AuthContext";
 import { getEnabledTools } from "../../pages/ToolsPage";
 
 interface NavItem {
@@ -99,7 +101,43 @@ export function NewSidebar() {
   const [sidebarMembers, setSidebarMembers] = useState<any[]>([]);
   const [enabledTools, setEnabledTools] = useState<string[]>(() => getEnabledTools());
 
+  // ── Categories ──
+  interface Category { id: string; name: string; memberIds: string[]; orgId: string; }
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [showCategoryForm, setShowCategoryForm] = useState(false);
+  const [categoryName, setCategoryName] = useState("");
+  const [categoryMembers, setCategoryMembers] = useState<string[]>([]);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [categoryMenuId, setCategoryMenuId] = useState<string | null>(null);
+
   const { members: teamMembers } = useTeam();
+
+  // Load categories
+  useEffect(() => {
+    if (!currentOrg) { setCategories([]); return; }
+    supabase.from("pm_categories").select("*").eq("org_id", currentOrg.id)
+      .then(({ data }) => {
+        if (data) setCategories(data.map((r: any) => ({ id: r.id, name: r.name, memberIds: r.member_ids || [], orgId: r.org_id })));
+      });
+  }, [currentOrg]);
+
+  const saveCategory = async () => {
+    if (!categoryName.trim() || !currentOrg) return;
+    if (editingCategory) {
+      const { data } = await supabase.from("pm_categories").update({ name: categoryName.trim(), member_ids: categoryMembers }).eq("id", editingCategory.id).select().single();
+      if (data) setCategories(p => p.map(c => c.id === editingCategory.id ? { id: data.id, name: data.name, memberIds: data.member_ids || [], orgId: data.org_id } : c));
+    } else {
+      const { data } = await supabase.from("pm_categories").insert({ name: categoryName.trim(), member_ids: categoryMembers, org_id: currentOrg.id, created_by: user?.id }).select().single();
+      if (data) setCategories(p => [...p, { id: data.id, name: data.name, memberIds: data.member_ids || [], orgId: data.org_id }]);
+    }
+    setCategoryName(""); setCategoryMembers([]); setShowCategoryForm(false); setEditingCategory(null);
+  };
+
+  const deleteCategory = async (id: string) => {
+    await supabase.from("pm_categories").delete().eq("id", id);
+    setCategories(p => p.filter(c => c.id !== id));
+    setCategoryMenuId(null);
+  };
 
   // Load team members + attendance for sidebar
   useEffect(() => {
@@ -454,6 +492,83 @@ export function NewSidebar() {
             <span>{ko ? "도구" : "Tools"}</span>
           </NavLink>
         </div>
+
+        {/* ── Categories ── */}
+        {!isPersonal && currentOrg && (
+          <div className="mt-2">
+            <div className="flex items-center justify-between px-2 mb-1">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{ko ? "카테고리" : "Categories"}</span>
+              <button onClick={() => { setShowCategoryForm(true); setEditingCategory(null); setCategoryName(""); setCategoryMembers([]); }}
+                className="p-0.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors">
+                <Plus size={14} />
+              </button>
+            </div>
+
+            {/* Category form */}
+            {showCategoryForm && (
+              <div className="mx-2 mb-2 p-3 bg-white border border-blue-200 rounded-xl shadow-sm">
+                <input
+                  autoFocus
+                  value={categoryName}
+                  onChange={e => setCategoryName(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") saveCategory(); if (e.key === "Escape") setShowCategoryForm(false); }}
+                  placeholder={ko ? "카테고리 이름" : "Category name"}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-blue-300 mb-2"
+                />
+                {/* Member selection */}
+                <p className="text-[10px] text-gray-400 font-medium mb-1">{ko ? "멤버 선택" : "Select members"}</p>
+                <div className="max-h-[120px] overflow-y-auto space-y-1 mb-2">
+                  {teamMembers.map(m => (
+                    <label key={m.id} className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-gray-50 cursor-pointer text-sm">
+                      <input type="checkbox" checked={categoryMembers.includes(m.id)}
+                        onChange={e => setCategoryMembers(e.target.checked ? [...categoryMembers, m.id] : categoryMembers.filter(id => id !== m.id))}
+                        className="rounded border-gray-300" />
+                      <img src={m.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${m.name}`} alt="" className="w-5 h-5 rounded-full" />
+                      <span className="text-gray-700 truncate">{m.name}</span>
+                    </label>
+                  ))}
+                </div>
+                <div className="flex gap-1.5 justify-end">
+                  <button onClick={() => setShowCategoryForm(false)} className="px-2.5 py-1 text-xs text-gray-500 hover:bg-gray-100 rounded-lg">{ko ? "취소" : "Cancel"}</button>
+                  <button onClick={saveCategory} className="px-2.5 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg">{ko ? "저장" : "Save"}</button>
+                </div>
+              </div>
+            )}
+
+            {/* Category list */}
+            {categories.map(cat => (
+              <div key={cat.id} className="relative group">
+                <NavLink
+                  to={p(`/category/${cat.id}`)}
+                  className={cn(
+                    "flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
+                    isActive(`/category/${cat.id}`)
+                      ? "bg-gray-200/70 text-gray-900 font-semibold"
+                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  )}
+                >
+                  <div className="shrink-0 text-gray-500"><Layers size={16} /></div>
+                  <span className="truncate flex-1">{cat.name}</span>
+                  <span className="text-[10px] text-gray-400">{cat.memberIds.length}</span>
+                </NavLink>
+                <button
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCategoryMenuId(categoryMenuId === cat.id ? null : cat.id); }}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-gray-300 hover:text-gray-600 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <MoreHorizontal size={14} />
+                </button>
+                {categoryMenuId === cat.id && (
+                  <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 min-w-[120px]">
+                    <button onClick={() => { setEditingCategory(cat); setCategoryName(cat.name); setCategoryMembers(cat.memberIds); setShowCategoryForm(true); setCategoryMenuId(null); }}
+                      className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Edit2 size={12} /> {ko ? "수정" : "Edit"}</button>
+                    <button onClick={() => deleteCategory(cat.id)}
+                      className="w-full text-left px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2"><Trash2 size={12} /> {ko ? "삭제" : "Delete"}</button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Upgrade to Org (personal mode only) */}
         {isPersonal && orgs.length === 0 && (
