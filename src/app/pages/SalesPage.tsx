@@ -913,6 +913,8 @@ export function SalesPage() {
   const [contactPickerFor, setContactPickerFor] = useState<string | null>(null);
   const [editingValueId, setEditingValueId] = useState<string | null>(null);
   const [editingValueStr, setEditingValueStr] = useState("");
+  const [editingPayment, setEditingPayment] = useState<{ clientId: string; type: string } | null>(null);
+  const [editingPaymentStr, setEditingPaymentStr] = useState("");
   const menuRef = useRef<HTMLTableCellElement>(null);
 
   // Sync tab from URL
@@ -950,6 +952,21 @@ export function SalesPage() {
     const u = await api.updateClient(id, { value: val });
     setClients(p => p.map(c => c.id === id ? u : c));
     setEditingValueId(null);
+  };
+  const handlePaymentSave = async (clientId: string, type: string) => {
+    const amount = parseInt(editingPaymentStr.replace(/[^0-9]/g, "")) || 0;
+    const client = clients.find(c => c.id === clientId);
+    if (!client) return;
+    const payments = [...(client.payments || [])];
+    const idx = payments.findIndex(p => p.type === type);
+    if (idx >= 0) {
+      payments[idx] = { ...payments[idx], amount, status: amount > 0 ? "paid" : "pending" };
+    } else {
+      payments.push({ id: `${type}_${Date.now()}`, type: type as Payment["type"], label: type === "advance" ? "선금" : type === "interim" ? "중도금" : "잔금", amount, status: amount > 0 ? "paid" : "pending" });
+    }
+    const u = await api.updateClient(clientId, { payments });
+    setClients(p => p.map(c => c.id === clientId ? u : c));
+    setEditingPayment(null);
   };
   const handleAddEstimate = async (d: any) => { const e = await api.createEstimate(d); setEstimates(p => [e, ...p]); };
   const handleEditEstimate = async (d: any) => { if (!editingEstimate) return; const u = await api.updateEstimate(editingEstimate.id, d); setEstimates(p => p.map(e => e.id === editingEstimate.id ? u : e)); setEditingEstimate(null); };
@@ -1237,7 +1254,7 @@ export function SalesPage() {
                           <td className="px-4 py-3.5">
                             <p className="text-sm font-medium text-gray-900 truncate">{client.name}</p>
                           </td>
-                          <td className="px-4 py-3.5 hidden md:table-cell" onClick={e => e.stopPropagation()}>
+                          <td className="px-4 py-3.5 hidden md:table-cell relative" onClick={e => e.stopPropagation()}>
                             <input
                               type="date"
                               value={client.contractDate || ""}
@@ -1246,8 +1263,11 @@ export function SalesPage() {
                                 const u = await api.updateClient(client.id, { contractDate: val });
                                 setClients(p => p.map(c => c.id === client.id ? u : c));
                               }}
-                              className="text-sm text-gray-500 bg-transparent border-0 outline-none cursor-pointer hover:text-gray-700 w-[120px]"
+                              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                             />
+                            <span className={cn("text-sm cursor-pointer", client.contractDate ? "text-gray-500" : "text-gray-300")}>
+                              {client.contractDate ? new Date(client.contractDate + "T00:00:00").toLocaleDateString(ko ? "ko-KR" : "en-US", { month: "short", day: "numeric" }) : (ko ? "날짜" : "Date")}
+                            </span>
                           </td>
                           <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
                             <StagePill currentStage={client.stage} onChange={(stage) => handleStageChange(client.id, stage)} ko={ko} />
@@ -1273,19 +1293,33 @@ export function SalesPage() {
                           </td>
                           {(() => {
                             const payments = client.payments || [];
-                            const advance = payments.find(p => p.type === "advance");
-                            const interim = payments.find(p => p.type === "interim");
-                            const final_ = payments.find(p => p.type === "final");
-                            const fmt = (p?: Payment) => !p || !p.amount ? <span className="text-gray-300">-</span> : (
-                              <span className={p.status === "paid" ? "text-emerald-600 font-medium" : "text-gray-500"}>
-                                {p.amount.toLocaleString()}
-                              </span>
-                            );
-                            return (<>
-                              <td className="px-4 py-3.5 hidden md:table-cell text-sm">{fmt(advance)}</td>
-                              <td className="px-4 py-3.5 hidden md:table-cell text-sm">{fmt(interim)}</td>
-                              <td className="px-4 py-3.5 hidden md:table-cell text-sm">{fmt(final_)}</td>
-                            </>);
+                            const types = ["advance", "interim", "final"] as const;
+                            return types.map(type => {
+                              const p = payments.find(pp => pp.type === type);
+                              const isEditing = editingPayment?.clientId === client.id && editingPayment?.type === type;
+                              return (
+                                <td key={type} className="px-4 py-3.5 hidden md:table-cell text-sm" onClick={e => e.stopPropagation()}>
+                                  {isEditing ? (
+                                    <input
+                                      autoFocus
+                                      value={editingPaymentStr}
+                                      onChange={e => setEditingPaymentStr(e.target.value)}
+                                      onBlur={() => handlePaymentSave(client.id, type)}
+                                      onKeyDown={e => { if (e.key === "Enter") handlePaymentSave(client.id, type); if (e.key === "Escape") setEditingPayment(null); }}
+                                      className="w-full text-sm font-medium bg-blue-50 border border-blue-300 rounded-lg px-2 py-0.5 outline-none"
+                                    />
+                                  ) : (
+                                    <button
+                                      onClick={() => { setEditingPayment({ clientId: client.id, type }); setEditingPaymentStr((p?.amount || 0).toString()); }}
+                                      className={cn("rounded-lg px-1.5 py-0.5 -mx-1.5 transition-colors hover:bg-gray-100",
+                                        !p || !p.amount ? "text-gray-300" : p.status === "paid" ? "text-emerald-600 font-medium" : "text-gray-500")}
+                                    >
+                                      {!p || !p.amount ? "-" : p.amount.toLocaleString()}
+                                    </button>
+                                  )}
+                                </td>
+                              );
+                            });
                           })()}
                           <td className="px-4 py-3.5 hidden lg:table-cell relative" onClick={e => e.stopPropagation()} data-contact-picker>
                             <button
