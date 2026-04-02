@@ -69,6 +69,7 @@ const OrgCreatePage = lazyRetry(() => import("./pages/OrgCreatePage"), "OrgCreat
 const ToolsPage = lazyRetry(() => import("./pages/ToolsPage"), "ToolsPage");
 const BrainstormPage = lazyRetry(() => import("./pages/BrainstormPage"), "BrainstormPage");
 const SalesPage = lazy(() => import("./pages/SalesPage").then(m => ({ default: m.SalesPage })));
+const FinancePage = lazyRetry(() => import("./pages/FinancePage"), "FinancePage");
 const RevenuePage = lazy(() => import("./pages/RevenuePage").then(m => ({ default: m.RevenuePage })));
 
 /** All app pages – shared between the /:orgSlug layout and the legacy fallback */
@@ -120,6 +121,7 @@ const APP_PAGES = [
   { path: "sales/estimates", Component: SalesPage },
   { path: "sales/revenue", Component: SalesPage },
   { path: "revenue", Component: RevenuePage },
+  { path: "finance", Component: FinancePage },
   { path: "*", Component: DashboardPage },
 ];
 

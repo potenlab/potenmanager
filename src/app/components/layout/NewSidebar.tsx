@@ -159,6 +159,7 @@ export function NewSidebar() {
     revenue: { id: "revenue", to: p("/revenue"), icon: <BarChart3 size={16} />, label: ko ? "매출 관리" : "Revenue" },
     "biz-radar": { id: "biz-radar", to: p("/radar"), icon: <BarChart3 size={16} />, label: ko ? "비즈 레이더" : "Biz Radar" },
     brainstorm: { id: "brainstorm", to: p("/brainstorm"), icon: <PenTool size={16} />, label: ko ? "브레인스토밍" : "Brainstorm" },
+    finance: { id: "finance", to: p("/finance"), icon: <BarChart3 size={16} />, label: ko ? "재무 관리" : "Finance" },
   };
 
   const orgItemsDef: NavItem[] = [
