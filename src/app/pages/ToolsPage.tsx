@@ -65,18 +65,6 @@ const TOOLS: Tool[] = [
     category: "page",
   },
   {
-    icon: <BarChart3 size={28} />,
-    color: "bg-emerald-100 text-emerald-600",
-    titleKo: "매출 관리",
-    titleEn: "Revenue",
-    descKo: "매출 현황, 수금 상태, 월별 추이를 한눈에 파악하세요.",
-    descEn: "Track revenue, payment status, and monthly trends at a glance.",
-    detailKo: "전체 금액, 수령 금액, 남은 금액을 실시간으로 추적합니다. 월별 매출 차트로 수금 완료와 미수금 현황을 시각적으로 파악할 수 있습니다.",
-    detailEn: "Track total value, received payments, and remaining amounts in real-time. Visualize monthly revenue with paid vs pending breakdown.",
-    status: "active",
-    category: "page",
-  },
-  {
     id: "biz-radar",
     icon: <Radar size={28} />,
     color: "bg-blue-100 text-blue-600",
