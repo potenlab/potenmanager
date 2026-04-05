@@ -315,7 +315,7 @@ export function MyPage() {
                         value={editValue}
                         onChange={(e) => setEditValue(e.target.value)}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter") commitEdit();
+                          if (e.key === "Enter" && !e.nativeEvent.isComposing) commitEdit();
                           if (e.key === "Escape") cancelEdit();
                         }}
                         className="flex-1 text-sm text-gray-900 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-100"

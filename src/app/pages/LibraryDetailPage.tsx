@@ -1,7 +1,13 @@
-import { useState, useRef, useCallback } from "react";
-import { useNavigate, useSearchParams } from "react-router";
-import { Globe, Lock, FolderOpen, Loader2 } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router";
+import { motion, AnimatePresence } from "motion/react";
+import {
+  ArrowLeft, Globe, Lock, Link as LinkIcon,
+  Trash2, FolderOpen, Loader2,
+  ChevronDown, LayoutGrid,
+} from "lucide-react";
 import { cn } from "../../lib/utils";
+import { useLanguage } from "../context/LanguageContext";
 import { useLibrary, LibraryItem } from "../context/LibraryContext";
 import { useTeam } from "../context/TeamContext";
 import { useTrash } from "../context/TrashContext";
@@ -9,12 +15,7 @@ import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
 import { ARCHIVE_CATEGORIES, isPredefinedCategory } from "./LibraryPage";
 import { InlineText } from "../components/detail/InlineText";
-import { AutoProperties } from "../components/detail/AutoProperties";
-import { createDetailPage } from "../components/detail/createDetailPage";
-import type { DetailSectionProps } from "../components/detail/createDetailPage";
-import type { PropertyFieldConfig } from "../components/detail/PropertyConfig";
-import { useOrgPath } from "../hooks/useOrgPath";
-import { PAGE_TYPES } from "../components/detail/pageTypes";
+import { PropertyItem } from "../components/detail/PropertyItem";
 
 const URL_REGEX = /https?:\/\/[^\s<>"')\]]+/;
 
@@ -26,6 +27,7 @@ function getYouTubeVideoId(url: string): string | null {
   } catch { /* ignore */ }
   return null;
 }
+
 
 // ─── Category Select ───────────────────────────────────────────────
 function CategorySelect({ value, onChange, ko }: { value: string; onChange: (v: string) => void; ko: boolean }) {
@@ -63,8 +65,15 @@ function CategorySelect({ value, onChange, ko }: { value: string; onChange: (v: 
           type="text"
           value={customValue}
           onChange={(e) => setCustomValue(e.target.value)}
-          onBlur={(e) => onChange(e.target.value.trim() || "")}
-          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+          onBlur={(e) => {
+            const v = e.target.value.trim();
+            onChange(v || "");
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
           placeholder={ko ? "직접 입력" : "Custom"}
           className="text-sm px-2 py-1 rounded-md border border-gray-200 outline-none focus:ring-2 focus:ring-blue-100 text-gray-700 w-32"
           autoFocus
@@ -74,116 +83,61 @@ function CategorySelect({ value, onChange, ko }: { value: string; onChange: (v: 
   );
 }
 
-// ─── Data Hook ─────────────────────────────────────────────────────
-function useLibraryData(id: string | undefined) {
+// ─── Main Detail Page ──────────────────────────────────────────────
+export function LibraryDetailPage() {
+  const { itemId } = useParams();
   const navigate = useNavigate();
-  const p = useOrgPath();
   const [searchParams] = useSearchParams();
-  const { addItem, updateItem, removeItem, getItem } = useLibrary();
+  const { language } = useLanguage();
+  const ko = language === 'ko';
+  const { addItem, updateItem, removeItem, getItem, fetchOgMetadata } = useLibrary();
   const { currentUser } = useTeam();
   const { moveToTrash } = useTrash();
 
-  const isNew = id === "new" || !id;
-  const existing = isNew ? null : getItem(id!);
+  const isNew = itemId === "new" || !itemId;
+  const existing = isNew ? null : getItem(itemId!);
 
-  const [localId, setLocalId] = useState<string | null>(() => {
-    if (isNew) {
-      const newId = `lib-${Date.now()}`;
+  const [localId, setLocalId] = useState<string | null>(null);
+  useEffect(() => {
+    if (isNew && !localId) {
+      const id = `lib-${Date.now()}`;
       const now = new Date().toISOString();
+      const categoryParam = searchParams.get("category") || undefined;
       const newItem: LibraryItem = {
-        id: newId,
+        id,
         title: '',
         type: 'url',
         visibility: 'private',
-        category: searchParams.get("category") || undefined,
+        category: categoryParam,
         ownerId: currentUser.id,
         ownerName: currentUser.name,
         createdAt: now,
         updatedAt: now,
       };
       addItem(newItem);
-      // Navigate will happen in effect
-      setTimeout(() => navigate(p(`/library/${newId}`), { replace: true }), 0);
-      return newId;
+      setLocalId(id);
+      navigate(`/library/${id}`, { replace: true });
     }
-    return null;
-  });
+  }, [isNew, localId]);
 
   const item = existing || (localId ? getItem(localId) : null);
-  const itemId = item?.id || localId || id || "";
+
+  const [ogLoading, setOgLoading] = useState(false);
+  const [propsExpanded, setPropsExpanded] = useState(true);
+  const lastFetchedUrlRef = useRef<string>(item?.url || '');
 
   const handleUpdate = useCallback((updates: Partial<LibraryItem>) => {
     if (item) updateItem(item.id, updates);
   }, [item, updateItem]);
 
-  const handleDelete = useCallback(() => {
-    if (!item) return;
-    if (!confirm('정말 삭제하시겠습니까?')) return;
-    moveToTrash({ id: item.id, type: 'library' as any, title: item.title, data: item, deletedAt: new Date().toISOString() });
-    removeItem(item.id);
-    navigate(p('/library'));
-  }, [item, moveToTrash, removeItem, navigate]);
-
-  return { item, itemId, handleUpdate, handleDelete };
-}
-
-// ─── Section Components ────────────────────────────────────────────
-
-function LibraryTitle({ item, onUpdate, ko }: DetailSectionProps<LibraryItem>) {
-  return (
-    <InlineText
-      value={item.title}
-      onChange={(v) => onUpdate({ title: v })}
-      placeholder={ko ? '제목을 입력하세요' : 'Enter title'}
-      className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight tracking-tight focus:ring-0 focus:bg-transparent hover:bg-transparent border-b-2 border-transparent focus:border-gray-200 rounded-none pb-0.5"
-      as="h1"
-    />
-  );
-}
-
-function LibraryProperties({ item, onUpdate, ko }: DetailSectionProps<LibraryItem>) {
-  return (
-    <AutoProperties fields={[
-      {
-        key: "category",
-        type: "custom",
-        icon: <FolderOpen size={14} />,
-        label: ko ? '카테고리' : 'Category',
-        render: () => (
-          <CategorySelect
-            value={item.category || ''}
-            onChange={(v) => onUpdate({ category: v || undefined })}
-            ko={ko}
-          />
-        ),
-      },
-      {
-        key: "visibility",
-        type: "toggle",
-        icon: item.visibility === 'published' ? <Globe size={14} /> : <Lock size={14} />,
-        label: ko ? '공개' : 'Visibility',
-        value: item.visibility === 'published',
-        onChange: (v) => onUpdate({ visibility: v ? 'published' : 'private' }),
-        onLabel: ko ? '팀에 공유됨' : 'Published to Team',
-        offLabel: ko ? '비공개 (나만 보기)' : 'Private (only you)',
-        onIcon: <Globe size={14} />,
-        offIcon: <Lock size={14} />,
-      },
-    ] as PropertyFieldConfig[]} />
-  );
-}
-
-function LibraryBody({ item, onUpdate, ko, language }: DetailSectionProps<LibraryItem>) {
-  const { fetchOgMetadata } = useLibrary();
-  const [ogLoading, setOgLoading] = useState(false);
-  const lastFetchedUrlRef = useRef<string>(item?.url || '');
-
+  // Auto-fetch OG metadata for a URL
   const triggerOgFetch = useCallback(async (url: string) => {
     if (!url) return;
     setOgLoading(true);
     const ytId = getYouTubeVideoId(url);
     if (ytId) {
-      onUpdate({ ogMetadata: { ogImage: `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`, ogSiteName: 'YouTube' } });
+      const ytThumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+      handleUpdate({ ogMetadata: { ogImage: ytThumb, ogSiteName: 'YouTube' } });
     }
     const og = await fetchOgMetadata(url);
     if (og) {
@@ -192,67 +146,193 @@ function LibraryBody({ item, onUpdate, ko, language }: DetailSectionProps<Librar
         ogMetadata: { ...og, ogImage: og.ogImage || ytFallback },
       };
       if (!item?.title && og.ogTitle) updates.title = og.ogTitle;
-      onUpdate(updates);
+      handleUpdate(updates);
     }
     setOgLoading(false);
-  }, [item, fetchOgMetadata, onUpdate]);
+  }, [item, fetchOgMetadata, handleUpdate]);
 
+  // Content change handler with URL auto-detection
   const handleContentChange = useCallback((v: string) => {
-    onUpdate({ description: v || undefined });
+    handleUpdate({ description: v || undefined });
+
     const match = v?.match(URL_REGEX);
     if (match) {
       const detectedUrl = match[0];
       if (detectedUrl !== lastFetchedUrlRef.current) {
         lastFetchedUrlRef.current = detectedUrl;
-        onUpdate({ url: detectedUrl, type: 'url' });
+        handleUpdate({ url: detectedUrl, type: 'url' });
         triggerOgFetch(detectedUrl);
       }
     }
-  }, [onUpdate, triggerOgFetch]);
+  }, [handleUpdate, triggerOgFetch]);
 
-  return (
-    <>
-      {/* OG loading */}
-      {ogLoading && (
-        <div className="flex items-center gap-2 text-sm text-blue-500 px-1">
-          <Loader2 size={14} className="animate-spin" />
-          {ko ? '미리보기 불러오는 중...' : 'Loading preview...'}
-        </div>
-      )}
+  const handleDelete = () => {
+    if (!item) return;
+    if (confirm(ko ? '정말 삭제하시겠습니까?' : 'Are you sure you want to delete this item?')) {
+      moveToTrash({ id: item.id, type: 'library' as any, title: item.title, data: item, deletedAt: new Date().toISOString() });
+      removeItem(item.id);
+      navigate('/library');
+    }
+  };
 
-      {/* Content — same as TaskDetailPage style */}
-      <div className="min-h-[200px]">
-        <NotionBlockEditor
-          initialContent={item.description || ''}
-          onChange={handleContentChange}
-          placeholder={ko ? 'URL을 붙여넣거나 메모를 입력하세요...' : 'Paste a URL or write a note...'}
-          parentType="library"
-          parentId={item.id}
-        />
-        <UrlPreviewSection content={item.description || ''} language={language} />
+  if (!item) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
       </div>
-    </>
-  );
-}
+    );
+  }
 
-function LibraryCollapsedPreview({ item, ko }: { item: LibraryItem; ko: boolean }) {
   return (
-    <span className={cn(
-      "text-[10px] font-bold px-1.5 py-0.5 rounded",
-      item.visibility === 'published' ? "bg-emerald-50 text-emerald-600" : "bg-gray-100 text-gray-500"
-    )}>
-      {item.visibility === 'published' ? (ko ? '공개' : 'Public') : (ko ? '비공개' : 'Private')}
-    </span>
+    <div className="h-full overflow-y-auto bg-white scrollbar-hide">
+      <div className="max-w-6xl mx-auto py-4 sm:py-7 px-4 sm:px-8 pb-64">
+        <div className="max-w-3xl">
+          <div className="space-y-6">
+
+            {/* Navigation */}
+            <div className="flex items-center justify-between">
+              <button onClick={() => navigate('/library')} className="flex items-center gap-2 text-gray-400 hover:text-gray-900 transition-colors text-sm group">
+                <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+                {ko ? '아카이빙' : 'Archive'}
+              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={handleDelete} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Title */}
+            <div>
+              <InlineText
+                value={item.title}
+                onChange={(v) => handleUpdate({ title: v })}
+                placeholder={ko ? '제목을 입력하세요' : 'Enter title'}
+                className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight tracking-tight focus:ring-0 focus:bg-transparent hover:bg-transparent border-b-2 border-transparent focus:border-gray-200 rounded-none pb-0.5"
+                as="h1"
+              />
+            </div>
+
+            {/* Properties: Category + Visibility only */}
+            <div className="bg-gray-50/50 rounded-2xl border border-gray-100 overflow-hidden">
+              <button
+                onClick={() => setPropsExpanded(p => !p)}
+                className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-100/50 transition-colors"
+              >
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <LayoutGrid size={12} />
+                  {ko ? '속성' : 'Properties'}
+                </span>
+                <div className="flex items-center gap-2">
+                  {!propsExpanded && (
+                    <span className={cn(
+                      "text-[10px] font-bold px-1.5 py-0.5 rounded",
+                      item.visibility === 'published' ? "bg-emerald-50 text-emerald-600" : "bg-gray-100 text-gray-500"
+                    )}>
+                      {item.visibility === 'published' ? (ko ? '공개' : 'Public') : (ko ? '비공개' : 'Private')}
+                    </span>
+                  )}
+                  <ChevronDown size={14} className={cn("text-gray-400 transition-transform duration-200", propsExpanded && "rotate-180")} />
+                </div>
+              </button>
+
+              <AnimatePresence initial={false}>
+                {propsExpanded && (
+                  <motion.div
+                    initial={{ height: 0 }}
+                    animate={{ height: "auto" }}
+                    exit={{ height: 0 }}
+                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                    className="overflow-hidden"
+                  >
+                    <div className="divide-y divide-gray-100 border-t border-gray-100">
+                      {/* Category */}
+                      <PropertyItem icon={<FolderOpen size={14} />} label={ko ? '카테고리' : 'Category'}>
+                        <CategorySelect
+                          value={item.category || ''}
+                          onChange={(v) => handleUpdate({ category: v || undefined })}
+                          ko={ko}
+                        />
+                      </PropertyItem>
+
+                      {/* Visibility toggle */}
+                      <PropertyItem icon={item.visibility === 'published' ? <Globe size={14} /> : <Lock size={14} />} label={ko ? '공개' : 'Visibility'}>
+                        <button
+                          onClick={() => handleUpdate({ visibility: item.visibility === 'published' ? 'private' : 'published' })}
+                          className={cn(
+                            "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
+                            item.visibility === 'published'
+                              ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          )}
+                        >
+                          {item.visibility === 'published' ? <Globe size={14} /> : <Lock size={14} />}
+                          {item.visibility === 'published'
+                            ? (ko ? '팀에 공유됨' : 'Published to Team')
+                            : (ko ? '비공개 (나만 보기)' : 'Private (only you)')
+                          }
+                        </button>
+                      </PropertyItem>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* OG Preview Card (auto-detected URL) */}
+            {item.url && item.ogMetadata && (item.ogMetadata.ogTitle || item.ogMetadata.ogImage) && (
+              <div className="rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm">
+                {item.ogMetadata.ogImage && (
+                  <div className="h-48 bg-gray-100 overflow-hidden">
+                    <img src={item.ogMetadata.ogImage} alt="" className="w-full h-full object-cover" />
+                  </div>
+                )}
+                <div className="p-4">
+                  {item.ogMetadata.ogSiteName && (
+                    <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider mb-1">
+                      {item.ogMetadata.ogSiteName}
+                    </p>
+                  )}
+                  {item.ogMetadata.ogTitle && (
+                    <p className="text-sm font-semibold text-gray-900 mb-1">{item.ogMetadata.ogTitle}</p>
+                  )}
+                  {item.ogMetadata.ogDescription && (
+                    <p className="text-xs text-gray-500 line-clamp-2">{item.ogMetadata.ogDescription}</p>
+                  )}
+                  {item.url && (
+                    <a href={item.url} target="_blank" rel="noopener noreferrer"
+                      className="mt-2 text-xs text-blue-600 hover:text-blue-700 underline underline-offset-2 truncate block">
+                      {item.url}
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* OG loading indicator */}
+            {ogLoading && (
+              <div className="flex items-center gap-2 text-sm text-blue-500 px-1">
+                <Loader2 size={14} className="animate-spin" />
+                {ko ? '미리보기 불러오는 중...' : 'Loading preview...'}
+              </div>
+            )}
+
+            {/* Content — NotionBlockEditor (paste URL here to auto-detect) */}
+            <div className="min-h-[200px] border-t border-gray-100 pt-5">
+              <NotionBlockEditor
+                initialContent={item.description || ''}
+                onChange={handleContentChange}
+                placeholder={ko ? 'URL을 붙여넣거나 메모를 입력하세요...' : 'Paste a URL or write a note...'}
+                parentType="library"
+                parentId={item.id}
+              />
+
+              <UrlPreviewSection content={item.description || ''} language={language} />
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
-
-// ─── Export ────────────────────────────────────────────────────────
-
-export const LibraryDetailPage = createDetailPage<LibraryItem>({
-  meta: PAGE_TYPES.library,
-  useData: useLibraryData,
-  TitleComponent: LibraryTitle,
-  PropertiesComponent: LibraryProperties,
-  BodyComponent: LibraryBody,
-  CollapsedPreviewComponent: LibraryCollapsedPreview,
-});

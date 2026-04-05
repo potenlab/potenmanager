@@ -80,7 +80,7 @@ function InlineField({
         <input
           {...sharedProps}
           onKeyDown={(e) => {
-            if (e.key === "Enter") e.currentTarget.blur();
+            if (e.key === "Enter" && !e.nativeEvent.isComposing) e.currentTarget.blur();
             if (e.key === "Escape") { setText(savedRef.current); e.currentTarget.blur(); }
           }}
         />

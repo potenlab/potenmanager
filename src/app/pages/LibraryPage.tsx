@@ -811,7 +811,7 @@ export function LibraryPage() {
             value={newCatName}
             onChange={(e) => setNewCatName(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") handleAddCategory();
+              if (e.key === "Enter" && !e.nativeEvent.isComposing) handleAddCategory();
               if (e.key === "Escape") { setAddingCategory(false); setNewCatName(""); }
             }}
             placeholder={ko ? "카테고리 이름" : "Category name"}

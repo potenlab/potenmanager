@@ -869,7 +869,7 @@ export function StrategyCreationPage() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); handleSend(); } }}
               placeholder={STEPS[currentStep]?.placeholder ?? "메시지를 입력하세요..."}
               className="flex-1 text-sm outline-none bg-transparent text-gray-900 placeholder-gray-400"
               disabled={isTyping || isGenerating}

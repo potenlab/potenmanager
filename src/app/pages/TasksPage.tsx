@@ -33,7 +33,7 @@ import {
   GripHorizontal,
   Target,
 } from "lucide-react";
-import { cn } from "../../lib/utils";
+import { cn, onKeys } from "../../lib/utils";
 import { Task, TaskCategory, getAllAssigneeIds } from "../../lib/mockData";
 import { TASK_CATEGORY_CONFIG } from "../../lib/jobRoles";
 import { useLanguage } from "../context/LanguageContext";
@@ -320,10 +320,7 @@ function TaskColumn({
     if (newTitle.trim()) { submittedRef.current = true; onAddTask(newTitle.trim(), status); setNewTitle(''); }
   };
   const handleCancel = () => { setNewTitle(''); onCancelAdd?.(); };
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') { e.preventDefault(); handleSubmit(); }
-    else if (e.key === 'Escape') handleCancel();
-  };
+  const handleKeyDown = onKeys({ Enter: handleSubmit, Escape: handleCancel });
 
   const [{ isOver }, dropRef] = useDrop<DragItem, void, { isOver: boolean }>(
     () => ({

@@ -32,7 +32,7 @@ export function InlineText({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && as !== "p") {
+    if (e.key === "Enter" && as !== "p" && !e.nativeEvent.isComposing) {
       e.preventDefault();
       ref.current?.blur();
     }

@@ -188,7 +188,7 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
                 placeholder={ko ? "예: 더포텐셜" : "e.g. The Potential"}
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-[#0079FF]/20 focus:border-[#0079FF] focus:bg-white transition-all"
                 autoFocus
-                onKeyDown={e => e.key === 'Enter' && handleCreateOrg()}
+                onKeyDown={e => e.key === 'Enter' && !e.nativeEvent.isComposing && handleCreateOrg()}
               />
             </div>
 

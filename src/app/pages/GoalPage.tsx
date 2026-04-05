@@ -552,7 +552,7 @@ export function GoalPage() {
               className="w-full px-4 py-3 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               autoFocus
               onKeyDown={(e) => {
-                if (e.key === "Enter") handleCreateOrg(orgName);
+                if (e.key === "Enter" && !e.nativeEvent.isComposing) handleCreateOrg(orgName);
               }}
             />
           </div>
@@ -867,7 +867,7 @@ export function GoalPage() {
                                   placeholder={ko ? "\uBAA9\uD45C\uAC12 (\uC608: MVP \uCD9C\uC2DC)" : "Target (e.g. Launch MVP)"}
                                   className="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
                                   onKeyDown={(e) => {
-                                    if (e.key === "Enter") handleAddCustomCategory();
+                                    if (e.key === "Enter" && !e.nativeEvent.isComposing) handleAddCustomCategory();
                                     if (e.key === "Escape") { setAddingCatKey(null); setAddCatValue(""); setCustomLabel(""); }
                                   }}
                                 />
@@ -909,7 +909,7 @@ export function GoalPage() {
                                       placeholder={ko ? cat.placeholderKo : cat.placeholderEn}
                                       className="flex-1 text-sm py-1.5 px-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
                                       onKeyDown={(e) => {
-                                        if (e.key === "Enter") handleAddCategory(cat);
+                                        if (e.key === "Enter" && !e.nativeEvent.isComposing) handleAddCategory(cat);
                                         if (e.key === "Escape") { setAddingCatKey(null); setAddCatValue(""); }
                                       }}
                                     />
@@ -1037,7 +1037,7 @@ export function GoalPage() {
                             placeholder={ko ? "\uBAA9\uD45C\uB97C \uC785\uB825\uD558\uC138\uC694..." : "Type a goal..."}
                             className="w-full text-sm font-medium text-gray-900 placeholder-gray-300 outline-none bg-transparent mb-2"
                             onKeyDown={(e) => {
-                              if (e.key === "Enter" && newGoalTitle.trim()) handleAddGoal("Quarter");
+                              if (e.key === "Enter" && !e.nativeEvent.isComposing && newGoalTitle.trim()) handleAddGoal("Quarter");
                               if (e.key === "Escape") { setNewGoalTitle(""); setAddGoalLevel(null); }
                             }}
                           />
@@ -1122,7 +1122,7 @@ export function GoalPage() {
                             placeholder={ko ? "\uBAA9\uD45C\uB97C \uC785\uB825\uD558\uC138\uC694..." : "Type a goal..."}
                             className="w-full text-sm font-medium text-gray-900 placeholder-gray-300 outline-none bg-transparent mb-2"
                             onKeyDown={(e) => {
-                              if (e.key === "Enter" && newGoalTitle.trim()) handleAddGoal("Month");
+                              if (e.key === "Enter" && !e.nativeEvent.isComposing && newGoalTitle.trim()) handleAddGoal("Month");
                               if (e.key === "Escape") { setNewGoalTitle(""); setAddGoalLevel(null); }
                             }}
                           />
@@ -1339,7 +1339,7 @@ export function GoalPage() {
                             placeholder={ko ? "\uBBF8\uC158 \uC81C\uBAA9..." : "Mission title..."}
                             className="w-full text-sm font-medium text-gray-900 placeholder-gray-300 outline-none bg-transparent"
                             onKeyDown={(e) => {
-                              if (e.key === "Enter" && urgentTitle.trim()) handleAddUrgentMission();
+                              if (e.key === "Enter" && !e.nativeEvent.isComposing && urgentTitle.trim()) handleAddUrgentMission();
                               if (e.key === "Escape") { setUrgentTitle(""); setShowUrgentAdd(false); }
                             }}
                           />
@@ -1505,7 +1505,7 @@ export function TeamBoardSidebar({ orgId }: { orgId: string }) {
   }, [newTitle, orgId, currentUser]);
 
   const handleAddKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') { e.preventDefault(); handleAdd(); }
+    if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); handleAdd(); }
     else if (e.key === 'Escape') { setNewTitle(''); setIsAdding(false); }
   };
 
@@ -1583,7 +1583,7 @@ export function TeamBoardSidebar({ orgId }: { orgId: string }) {
               return isEditing ? (
                 <div key={item.id} className="bg-white rounded-xl border border-blue-200 shadow-sm ring-2 ring-blue-100 p-3 space-y-2">
                   <input value={editTitle} onChange={e => setEditTitle(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleUpdate(item.id); } else if (e.key === 'Escape') setEditingId(null); }}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); handleUpdate(item.id); } else if (e.key === 'Escape') setEditingId(null); }}
                     className="w-full text-sm font-medium bg-gray-50 rounded-lg px-3 py-2 border border-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-300" autoFocus />
                   <textarea value={editContent} onChange={e => setEditContent(e.target.value)} rows={3}
                     onKeyDown={e => { if (e.key === 'Escape') setEditingId(null); }}

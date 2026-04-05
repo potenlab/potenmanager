@@ -9,7 +9,7 @@ import {
   RefreshCw, ExternalLink, Clock, ArrowDownUp, Users,
   ChevronLeft, ChevronRight, Sparkles, ArrowDown, ArrowUp, BarChart3, ArrowRight,
 } from "lucide-react";
-import { cn } from "../../lib/utils";
+import { cn, onKeys } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
 import { useBizRadar, BizRadarItem, BizStage, BizType, BizCategory, ConnectionType } from "../context/BizRadarContext";
 import { useTeam } from "../context/TeamContext";
@@ -203,10 +203,7 @@ function PipelineColumn({
 
   const handleSubmit = () => { if (newTitle.trim()) { onAddItem(newTitle.trim(), stage); setNewTitle(''); } };
   const handleCancel = () => { setNewTitle(''); onCancelAdd?.(); };
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') { e.preventDefault(); handleSubmit(); }
-    else if (e.key === 'Escape') handleCancel();
-  };
+  const handleKeyDown = onKeys({ Enter: handleSubmit, Escape: handleCancel });
 
   const totalValue = items.reduce((sum, i) => sum + (i.value || 0), 0);
 
@@ -898,7 +895,7 @@ export function BizRadarPage() {
                   <input
                     value={crawlUrl}
                     onChange={e => setCrawlUrl(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleCrawlUrl()}
+                    onKeyDown={e => e.key === 'Enter' && !e.nativeEvent.isComposing && handleCrawlUrl()}
                     placeholder={ko ? 'URL을 입력하세요 (예: https://example.com/project)' : 'Enter URL (e.g., https://example.com/project)'}
                     className="flex-1 px-4 py-2.5 bg-white border border-purple-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 focus:border-purple-400 placeholder-gray-400"
                   />

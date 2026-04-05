@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import {
-  Clock, MapPin, Users, Calendar, Video,
-  CheckCircle2, Circle, Plus, ArrowRightCircle,
+  ArrowLeft, Clock, MapPin, Users, Calendar, Video,
+  CheckCircle2, Circle, Plus, Trash2, ArrowRightCircle,
   Edit3, Check, X, ChevronDown, CircleDot, XCircle,
-  Timer, User as UserIcon, Sun, Sparkles, ClipboardList, Star,
+  Timer, User as UserIcon, Sun, Sparkles, ClipboardList,
 } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
 import { useMeetingContext, Meeting, ActionItem } from "../context/MeetingContext";
@@ -18,11 +18,7 @@ import { TaskCategory } from "../../lib/mockData";
 import { TASK_CATEGORY_CONFIG, findBestAssignee } from "../../lib/jobRoles";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
-import { DetailPageShell } from "../components/detail/DetailPageShell";
-import { AutoProperties } from "../components/detail/AutoProperties";
-import type { PropertyFieldConfig } from "../components/detail/PropertyConfig";
-import { DateTimeProperty } from "../components/detail/DateTimeProperty";
-import { useOrgPath } from "../hooks/useOrgPath";
+import { NotionDateRangePicker } from "../components/NotionDateRangePicker";
 
 type MeetingStatus = Meeting['status'];
 type MeetingType = Meeting['type'];
@@ -39,7 +35,6 @@ const TYPE_CONFIG: Record<MeetingType, { label: string; labelKo: string; color: 
   review:     { label: "Review",     labelKo: "리뷰",         color: "text-purple-600", bg: "bg-purple-50", icon: <CheckCircle2 size={12} /> },
   brainstorm: { label: "Brainstorm", labelKo: "브레인스토밍", color: "text-amber-600",  bg: "bg-amber-50",  icon: <Sparkles size={12} /> },
   external:   { label: "External",   labelKo: "외부미팅",     color: "text-cyan-600",   bg: "bg-cyan-50",   icon: <MapPin size={12} /> },
-  event:      { label: "Event",      labelKo: "행사참여",     color: "text-rose-600",   bg: "bg-rose-50",   icon: <Star size={12} /> },
   other:      { label: "Other",      labelKo: "기타",         color: "text-gray-600",   bg: "bg-gray-50",   icon: <Circle size={12} /> },
 };
 
@@ -67,7 +62,7 @@ function InlineTitle({ value, onChange, placeholder }: { value: string; onChange
       suppressContentEditableWarning
       onFocus={() => setIsFocused(true)}
       onBlur={handleBlur}
-      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); ref.current?.blur(); } }}
+      onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); ref.current?.blur(); } }}
       data-placeholder={placeholder}
       className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight tracking-tight outline-none rounded-lg empty:before:content-[attr(data-placeholder)] empty:before:text-gray-300 empty:before:pointer-events-none hover:bg-gray-50/50 focus:bg-gray-50 focus:ring-2 focus:ring-blue-100 px-1 -mx-1 border-b-2 border-transparent focus:border-gray-200 rounded-none pb-0.5"
     />
@@ -190,34 +185,140 @@ function AttendeePicker({ selectedIds, onChange, language }: { selectedIds: stri
   );
 }
 
+// ─── Property Row ───────────────────────────────────────────────────
+function PropertyItem({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50/80 transition-colors group">
+      <div className="flex items-center gap-2 w-[110px] shrink-0 text-gray-400 font-medium text-xs">
+        {icon} <span>{label}</span>
+      </div>
+      <div className="flex-1">{children}</div>
+    </div>
+  );
+}
+
+// ─── Meeting Time Input (AM/PM + direct input) ─────────────────────
+function MeetingTimeInput({
+  hour,
+  minute,
+  onChange,
+  language,
+}: {
+  hour: number;
+  minute: number;
+  onChange: (h: number, m: number) => void;
+  language: string;
+}) {
+  const ko = language === "ko";
+  const isAm = hour < 12;
+  const display12h = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+  const [timeText, setTimeText] = useState(
+    `${String(display12h).padStart(2, "0")}:${String(minute).padStart(2, "0")}`
+  );
+
+  // Sync when props change
+  useEffect(() => {
+    const h12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    setTimeText(`${String(h12).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
+  }, [hour, minute]);
+
+  const commitTime = (text: string, am: boolean) => {
+    const trimmed = text.trim();
+    // Support "4" → 04:00, "10" → 10:00, "430" → 4:30, "4:30" → 4:30
+    let h: number, m: number;
+    const colonMatch = trimmed.match(/^(\d{1,2}):(\d{2})$/);
+    const plainMatch = trimmed.match(/^(\d{1,4})$/);
+    if (colonMatch) {
+      h = parseInt(colonMatch[1], 10);
+      m = parseInt(colonMatch[2], 10);
+    } else if (plainMatch) {
+      const num = parseInt(plainMatch[1], 10);
+      if (num <= 12) {
+        h = num; m = 0; // "4" → 4:00
+      } else if (num >= 100) {
+        h = Math.floor(num / 100); m = num % 100; // "430" → 4:30
+      } else {
+        h = num; m = 0;
+      }
+    } else {
+      return;
+    }
+    if (h < 1 || h > 12 || m < 0 || m > 59) return;
+    // Convert 12h to 24h
+    if (am) {
+      h = h === 12 ? 0 : h;
+    } else {
+      h = h === 12 ? 12 : h + 12;
+    }
+    onChange(h, m);
+  };
+
+  const toggleAmPm = () => {
+    const newHour = isAm ? hour + 12 : hour - 12;
+    onChange(Math.max(0, Math.min(23, newHour)), minute);
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      {/* AM/PM toggle */}
+      <div className="flex bg-gray-100 rounded-lg p-0.5">
+        <button
+          onClick={() => { if (!isAm) toggleAmPm(); }}
+          className={cn(
+            "px-2.5 py-1 rounded-md text-xs font-semibold transition-all",
+            isAm ? "bg-white text-blue-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
+          )}
+        >
+          {ko ? "오전" : "AM"}
+        </button>
+        <button
+          onClick={() => { if (isAm) toggleAmPm(); }}
+          className={cn(
+            "px-2.5 py-1 rounded-md text-xs font-semibold transition-all",
+            !isAm ? "bg-white text-blue-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
+          )}
+        >
+          {ko ? "오후" : "PM"}
+        </button>
+      </div>
+
+      {/* Time input */}
+      <input
+        type="text"
+        value={timeText}
+        onChange={(e) => setTimeText(e.target.value)}
+        onBlur={() => {
+          commitTime(timeText, isAm);
+          // Reset to current if invalid
+          const h12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+          setTimeText(`${String(h12).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+            commitTime(timeText, isAm);
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+        className="w-[60px] text-sm font-mono font-semibold text-gray-700 py-1 px-2 border border-gray-200 rounded-lg bg-white text-center focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
+        maxLength={5}
+        placeholder="02:00"
+      />
+    </div>
+  );
+}
 
 // ─── Main Detail Page ───────────────────────────────────────────────
 export function MeetingDetailPage() {
   const { meetingId } = useParams<{ meetingId: string }>();
   const navigate = useNavigate();
-  const p = useOrgPath();
   const { language } = useLanguage();
   const ko = language === 'ko';
-  const { getMeeting, addMeeting, updateMeeting, removeMeeting, fetchMeetingById, isLoading } = useMeetingContext();
+  const { getMeeting, addMeeting, updateMeeting, removeMeeting, isLoading } = useMeetingContext();
   const { members, currentUser } = useTeam();
   const { addTask } = useTaskContext();
   const { moveToTrash } = useTrash();
   const { can } = usePermission();
   const createdRef = useRef(false);
-  const [fetchingFromServer, setFetchingFromServer] = useState(false);
-  const fetchAttemptedRef = useRef(false);
-
-  // Fallback: fetch meeting from server if not found locally after context loaded
-  useEffect(() => {
-    if (isLoading || !meetingId || meetingId === 'new') return;
-    if (fetchAttemptedRef.current) return;
-    const local = getMeeting(meetingId);
-    if (local) return;
-
-    fetchAttemptedRef.current = true;
-    setFetchingFromServer(true);
-    fetchMeetingById(meetingId).finally(() => setFetchingFromServer(false));
-  }, [isLoading, meetingId, getMeeting, fetchMeetingById]);
 
   // Handle /meetings/new — create a meeting and redirect
   useEffect(() => {
@@ -232,7 +333,7 @@ export function MeetingDetailPage() {
         title: '',
         date: meetingDate.toISOString(),
         duration: 60,
-        type: 'external',
+        type: 'other',
         status: 'scheduled',
         attendeeIds: [currentUser.id],
         organizerId: currentUser.id,
@@ -242,7 +343,7 @@ export function MeetingDetailPage() {
         updatedAt: now.toISOString(),
       };
       addMeeting(newMeeting);
-      navigate(p(`/meetings/${id}`), { replace: true });
+      navigate(`/meetings/${id}`, { replace: true });
     }
   }, [meetingId]);
 
@@ -253,21 +354,6 @@ export function MeetingDetailPage() {
   const [newActionAssignee, setNewActionAssignee] = useState('');
   const [newActionCategory, setNewActionCategory] = useState<TaskCategory | ''>('');
   const [showAssignDialog, setShowAssignDialog] = useState(false);
-  const [locationText, setLocationText] = useState(meeting?.location || '');
-  const notesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Sync locationText when meeting changes externally
-  useEffect(() => { if (meeting) setLocationText(meeting.location || ''); }, [meeting?.id]);
-
-  // Auto-save notes on change (debounced)
-  useEffect(() => {
-    if (!meeting) return;
-    if (notesTimerRef.current) clearTimeout(notesTimerRef.current);
-    notesTimerRef.current = setTimeout(() => {
-      updateMeeting(meeting.id, { notes });
-    }, 800);
-    return () => { if (notesTimerRef.current) clearTimeout(notesTimerRef.current); };
-  }, [notes]);
 
   if (meetingId === 'new') {
     return (
@@ -278,7 +364,7 @@ export function MeetingDetailPage() {
   }
 
   if (!meeting) {
-    if (isLoading || fetchingFromServer) {
+    if (isLoading) {
       return (
         <div className="h-full flex items-center justify-center">
           <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -289,7 +375,7 @@ export function MeetingDetailPage() {
       <div className="h-full flex flex-col items-center justify-center gap-4 text-gray-400">
         <Video size={40} className="text-gray-300" />
         <p>{ko ? '회의를 찾을 수 없습니다' : 'Meeting not found'}</p>
-        <button onClick={() => navigate(p('/meetings'))} className="text-sm text-blue-600 hover:underline">
+        <button onClick={() => navigate('/meetings')} className="text-sm text-blue-600 hover:underline">
           {ko ? '회의 목록으로' : 'Back to meetings'}
         </button>
       </div>
@@ -303,6 +389,9 @@ export function MeetingDetailPage() {
   const handleStatusChange = (s: MeetingStatus) => updateMeeting(meeting.id, { status: s });
   const handleTypeChange = (t: MeetingType) => updateMeeting(meeting.id, { type: t });
   const handleDurationChange = (d: string) => updateMeeting(meeting.id, { duration: Number(d) });
+  const [locationText, setLocationText] = useState(meeting?.location || '');
+  // Sync locationText when meeting changes externally
+  useEffect(() => { if (meeting) setLocationText(meeting.location || ''); }, [meeting?.id]);
   const handleLocationBlur = () => {
     const loc = locationText.trim();
     if (loc !== (meeting.location || '')) {
@@ -323,9 +412,22 @@ export function MeetingDetailPage() {
 
   const handleDatePickerChange = (start: Date | null) => {
     if (start) {
+      const old = new Date(meeting.date);
+      start.setHours(old.getHours(), old.getMinutes(), 0, 0);
       updateMeeting(meeting.id, { date: start.toISOString(), status: autoStatus(start) });
     }
   };
+
+  const handleTimeChange = (hour: number, minute: number) => {
+    const d = new Date(meeting.date);
+    d.setHours(hour, minute, 0, 0);
+    updateMeeting(meeting.id, { date: d.toISOString() });
+  };
+
+  // Auto-save notes on change
+  useEffect(() => {
+    updateMeeting(meeting.id, { notes });
+  }, [notes]);
 
   const addActionItem = () => {
     if (!newActionTitle.trim()) return;
@@ -374,117 +476,108 @@ export function MeetingDetailPage() {
     if (!confirm(ko ? '이 회의를 삭제하시겠습니까?' : 'Delete this meeting?')) return;
     moveToTrash({ id: meeting.id, type: 'meeting', title: meeting.title, data: meeting, deletedAt: new Date().toISOString() });
     removeMeeting(meeting.id);
-    navigate(p('/meetings'));
+    navigate('/meetings');
   };
 
   const meetingDate = new Date(meeting.date);
   // dateLocalStr no longer needed — using NotionDateRangePicker
 
   return (
-    <DetailPageShell
-      shareType="meeting"
-      itemId={meeting.id}
-      currentUserId={currentUser.id}
-      backPath="/meetings"
-      backLabel={ko ? '회의 목록' : 'Meetings'}
-      onDelete={handleDelete}
-      title={<InlineTitle value={meeting.title} onChange={handleTitleChange} placeholder={ko ? '회의 제목' : 'Meeting Title'} />}
-      collapsible={true}
-      defaultExpanded={true}
-      properties={
-        <AutoProperties fields={[
-          {
-            key: "status",
-            type: "custom",
-            icon: <CircleDot size={14} />,
-            label: ko ? '상태' : 'Status',
-            render: () => (
-              <span className={cn("flex items-center gap-1.5 px-2 py-1 text-sm font-bold", STATUS_CONFIG[meeting.status]?.color)}>
-                {STATUS_CONFIG[meeting.status]?.icon} {ko ? STATUS_CONFIG[meeting.status]?.labelKo : STATUS_CONFIG[meeting.status]?.label}
-              </span>
-            ),
-          },
-          {
-            key: "type",
-            type: "custom",
-            icon: <Video size={14} />,
-            label: ko ? '유형' : 'Type',
-            render: () => (
-              <InlineDropdown
-                value={meeting.type}
-                options={['standup', 'planning', 'review', 'brainstorm', 'external', 'event', 'other'] as MeetingType[]}
-                onChange={handleTypeChange}
-                renderValue={(v) => <span className={cn("px-2 py-0.5 rounded-md font-bold flex items-center gap-1", TYPE_CONFIG[v]?.bg, TYPE_CONFIG[v]?.color)}>{TYPE_CONFIG[v]?.icon} {ko ? TYPE_CONFIG[v]?.labelKo : TYPE_CONFIG[v]?.label}</span>}
-                renderOption={(o) => <span className={cn("flex items-center gap-1.5", TYPE_CONFIG[o]?.color)}>{TYPE_CONFIG[o]?.icon} {ko ? TYPE_CONFIG[o]?.labelKo : TYPE_CONFIG[o]?.label}</span>}
-              />
-            ),
-          },
-          {
-            key: "datetime",
-            type: "custom",
-            icon: <Calendar size={14} />,
-            label: ko ? '일시' : 'Date & Time',
-            render: () => (
-              <DateTimeProperty
-                startDate={meetingDate}
-                endDate={null}
-                onDateChange={(s) => handleDatePickerChange(s)}
-                language={language}
-                singleDate
-                defaultShowTime
-              />
-            ),
-          },
-          {
-            key: "duration",
-            type: "custom",
-            icon: <Timer size={14} />,
-            label: ko ? '소요시간' : 'Duration',
-            render: () => (
-              <InlineDropdown
-                value={String(meeting.duration)}
-                options={DURATION_OPTIONS.map(String)}
-                onChange={(v) => handleDurationChange(v)}
-                renderValue={(v) => <span className="font-medium text-gray-700">{Number(v) >= 60 ? `${Number(v) / 60}h` : `${v}min`}</span>}
-                renderOption={(o) => <span>{Number(o) >= 60 ? `${Number(o) / 60} hour${Number(o) > 60 ? 's' : ''}` : `${o} min`}</span>}
-              />
-            ),
-          },
-          {
-            key: "location",
-            type: "custom",
-            icon: <MapPin size={14} />,
-            label: ko ? '장소' : 'Location',
-            render: () => (
-              <input
-                value={locationText}
-                onChange={(e) => setLocationText(e.target.value)}
-                onBlur={handleLocationBlur}
-                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                placeholder={ko ? '장소 또는 링크' : 'Room or link'}
-                className="px-2 py-1 rounded-md text-sm bg-transparent hover:bg-gray-100 focus:bg-gray-100 outline-none focus:ring-2 focus:ring-blue-100 transition-colors font-medium text-gray-700 placeholder-gray-300 w-full"
-              />
-            ),
-          },
-          {
-            key: "attendees",
-            type: "custom",
-            icon: <Users size={14} />,
-            label: ko ? '참석자' : 'Attendees',
-            render: () => <AttendeePicker selectedIds={meeting.attendeeIds} onChange={handleAttendeeChange} language={language} />,
-          },
-          {
-            key: "organizer",
-            type: "custom",
-            icon: <UserIcon size={14} />,
-            label: ko ? '주최자' : 'Organizer',
-            render: () => <span className="px-2 py-1 text-sm font-medium text-gray-700">{getMemberName(meeting.organizerId)}</span>,
-          },
-        ] as PropertyFieldConfig[]} />
-      }
-    >
+    <div className="h-full overflow-y-auto bg-white scrollbar-hide">
+      <div className="max-w-6xl mx-auto py-4 sm:py-7 px-4 sm:px-8 pb-64">
+
+        {/* Navigation & Actions */}
+        <div className="flex items-center justify-between mb-6">
+          <button onClick={() => navigate('/meetings')} className="flex items-center gap-2 text-gray-400 hover:text-gray-900 transition-colors text-sm group">
+            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+            {ko ? '회의 목록' : 'Meetings'}
+          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={handleDelete} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
+              <Trash2 size={18} />
+            </button>
+          </div>
+        </div>
+
+        <div className="max-w-3xl">
+          <div className="space-y-6">
+
+            {/* Title */}
+            <InlineTitle value={meeting.title} onChange={handleTitleChange} placeholder={ko ? '회의 제목' : 'Meeting Title'} />
+
+            {/* Properties */}
+            <div className="bg-gray-50/50 rounded-2xl border border-gray-100 divide-y divide-gray-100 overflow-hidden">
+              <PropertyItem icon={<CircleDot size={14} />} label={ko ? '상태' : 'Status'}>
+                <span className={cn("flex items-center gap-1.5 px-2 py-1 text-sm font-bold", STATUS_CONFIG[meeting.status].color)}>
+                  {STATUS_CONFIG[meeting.status].icon} {ko ? STATUS_CONFIG[meeting.status].labelKo : STATUS_CONFIG[meeting.status].label}
+                </span>
+              </PropertyItem>
+
+              <PropertyItem icon={<Video size={14} />} label={ko ? '유형' : 'Type'}>
+                <InlineDropdown
+                  value={meeting.type}
+                  options={['standup', 'planning', 'review', 'brainstorm', 'external', 'other'] as MeetingType[]}
+                  onChange={handleTypeChange}
+                  renderValue={(v) => <span className={cn("px-2 py-0.5 rounded-md font-bold flex items-center gap-1", TYPE_CONFIG[v].bg, TYPE_CONFIG[v].color)}>{TYPE_CONFIG[v].icon} {ko ? TYPE_CONFIG[v].labelKo : TYPE_CONFIG[v].label}</span>}
+                  renderOption={(o) => <span className={cn("flex items-center gap-1.5", TYPE_CONFIG[o].color)}>{TYPE_CONFIG[o].icon} {ko ? TYPE_CONFIG[o].labelKo : TYPE_CONFIG[o].label}</span>}
+                />
+              </PropertyItem>
+
+              <PropertyItem icon={<Calendar size={14} />} label={ko ? '일시' : 'Date & Time'}>
+                <div className="flex items-center gap-3">
+                  <NotionDateRangePicker
+                    startDate={meetingDate}
+                    endDate={null}
+                    onChange={(s) => handleDatePickerChange(s)}
+                    language={language}
+                    singleDate
+                    hideTime
+                  />
+                  <div className="w-px h-5 bg-gray-200" />
+                  <MeetingTimeInput
+                    hour={meetingDate.getHours()}
+                    minute={meetingDate.getMinutes()}
+                    onChange={handleTimeChange}
+                    language={language}
+                  />
+                </div>
+              </PropertyItem>
+
+              <PropertyItem icon={<Timer size={14} />} label={ko ? '소요시간' : 'Duration'}>
+                <InlineDropdown
+                  value={String(meeting.duration)}
+                  options={DURATION_OPTIONS.map(String)}
+                  onChange={(v) => handleDurationChange(v)}
+                  renderValue={(v) => <span className="font-medium text-gray-700">{Number(v) >= 60 ? `${Number(v) / 60}h` : `${v}min`}</span>}
+                  renderOption={(o) => <span>{Number(o) >= 60 ? `${Number(o) / 60} hour${Number(o) > 60 ? 's' : ''}` : `${o} min`}</span>}
+                />
+              </PropertyItem>
+
+              <PropertyItem icon={<MapPin size={14} />} label={ko ? '장소' : 'Location'}>
+                <input
+                  value={locationText}
+                  onChange={(e) => setLocationText(e.target.value)}
+                  onBlur={handleLocationBlur}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) (e.target as HTMLInputElement).blur(); }}
+                  placeholder={ko ? '장소 또는 링크' : 'Room or link'}
+                  className="px-2 py-1 rounded-md text-sm bg-transparent hover:bg-gray-100 focus:bg-gray-100 outline-none focus:ring-2 focus:ring-blue-100 transition-colors font-medium text-gray-700 placeholder-gray-300 w-full"
+                />
+              </PropertyItem>
+
+              <PropertyItem icon={<Users size={14} />} label={ko ? '참석자' : 'Attendees'}>
+                <AttendeePicker selectedIds={meeting.attendeeIds} onChange={handleAttendeeChange} language={language} />
+              </PropertyItem>
+
+              <PropertyItem icon={<UserIcon size={14} />} label={ko ? '주최자' : 'Organizer'}>
+                <span className="px-2 py-1 text-sm font-medium text-gray-700">{getMemberName(meeting.organizerId)}</span>
+              </PropertyItem>
+            </div>
+
             {/* Notes — above action items */}
             <div className="min-h-[200px] border-t border-gray-100 pt-5">
+              <div className="mb-3">
+                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">{ko ? '회의록' : 'Meeting Notes'}</span>
+              </div>
               <NotionBlockEditor
                 initialContent={notes}
                 onChange={setNotes}
@@ -551,7 +644,7 @@ export function MeetingDetailPage() {
                         )}
                         {item.assigneeId && <span className="text-[10px] text-gray-400">{getMemberName(item.assigneeId)}</span>}
                         {item.linkedTaskId ? (
-                          <button onClick={() => navigate(p(`/tasks/${item.linkedTaskId}`))} className="text-[10px] text-blue-500 hover:text-blue-700 flex items-center gap-0.5 hover:underline transition-colors"><Check size={9} /> {ko ? '태스크 보기' : 'View task'}</button>
+                          <button onClick={() => navigate(`/tasks/${item.linkedTaskId}`)} className="text-[10px] text-blue-500 hover:text-blue-700 flex items-center gap-0.5 hover:underline transition-colors"><Check size={9} /> {ko ? '태스크 보기' : 'View task'}</button>
                         ) : (
                           <button onClick={() => convertToTask(item)} className="text-[10px] text-gray-400 hover:text-blue-500 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                             <ArrowRightCircle size={10} /> {ko ? '태스크로 변환' : 'Convert to task'}
@@ -571,7 +664,7 @@ export function MeetingDetailPage() {
                 <input
                   value={newActionTitle}
                   onChange={e => setNewActionTitle(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && addActionItem()}
+                  onKeyDown={e => e.key === 'Enter' && !e.nativeEvent.isComposing && addActionItem()}
                   placeholder={ko ? '액션 아이템 추가...' : 'Add action item...'}
                   className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -602,6 +695,9 @@ export function MeetingDetailPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
 
       {/* Task Assignment Dialog */}
       {showAssignDialog && createPortal(
@@ -679,6 +775,6 @@ export function MeetingDetailPage() {
         </div>,
         document.body
       )}
-    </DetailPageShell>
+    </div>
   );
 }

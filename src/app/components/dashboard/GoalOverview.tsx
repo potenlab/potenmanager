@@ -454,7 +454,7 @@ export function GoalOverview() {
                     value={newGoalTitle}
                     onChange={(e) => setNewGoalTitle(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && newGoalTitle.trim()) handleAddGoal();
+                      if (e.key === "Enter" && !e.nativeEvent.isComposing && newGoalTitle.trim()) handleAddGoal();
                       if (e.key === "Escape") { setNewGoalTitle(""); setShowAddForm(false); }
                     }}
                     placeholder={language === "ko" ? "\uBAA9\uD45C\uB97C \uC785\uB825\uD558\uC138\uC694..." : "Type a goal..."}

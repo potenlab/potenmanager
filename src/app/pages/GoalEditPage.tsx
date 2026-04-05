@@ -94,7 +94,7 @@ function InlineField({
       onFocus={() => setFocused(true)}
       onBlur={() => { setFocused(false); commit(); }}
       onKeyDown={(e) => {
-        if (e.key === "Enter") { e.currentTarget.blur(); }
+        if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.currentTarget.blur(); }
         if (e.key === "Escape") { setText(savedRef.current); e.currentTarget.blur(); }
       }}
       placeholder={placeholder}
@@ -401,7 +401,7 @@ export function GoalEditPage() {
                         onChange={(e) => setAddValue(e.target.value)}
                         placeholder={ko ? cat.placeholderKo : cat.placeholderEn}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter") handleAddCategory(cat);
+                          if (e.key === "Enter" && !e.nativeEvent.isComposing) handleAddCategory(cat);
                           if (e.key === "Escape") { setAddingKey(null); setAddValue(""); }
                         }}
                         onBlur={() => {

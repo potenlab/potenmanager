@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router";
 import {
-  Calendar, Compass, Eye, Send, MessageSquare, Trophy,
-  CheckCircle2, Plus, ArrowRightCircle, Check, X,
+  ArrowLeft, Calendar, Compass, Eye, Send, MessageSquare, Trophy,
+  CheckCircle2, Plus, Trash2, ArrowRightCircle, Check, X,
   ChevronDown, Building2, User as UserIcon, DollarSign,
-  Percent, Tag, Users, Link2, ClipboardList,
+  Percent, Tag, FileText, Users, Clock, Link2, ClipboardList,
 } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
 import { useBizRadar, BizRadarItem, BizStage, BizType, BizCategory, ConnectionType, BizActionItem } from "../context/BizRadarContext";
@@ -18,12 +18,9 @@ import { TaskCategory } from "../../lib/mockData";
 import { TASK_CATEGORY_CONFIG, findBestAssignee } from "../../lib/jobRoles";
 import { InlineText } from "../components/detail/InlineText";
 import { InlineDropdown } from "../components/detail/InlineDropdown";
-import { AutoProperties } from "../components/detail/AutoProperties";
-import type { PropertyFieldConfig } from "../components/detail/PropertyConfig";
-import { DetailPageShell } from "../components/detail/DetailPageShell";
+import { PropertyItem } from "../components/detail/PropertyItem";
 import { usePortalPosition } from "../hooks/usePortalPosition";
 import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
-import { useOrgPath } from "../hooks/useOrgPath";
 
 const STAGE_CONFIG: Record<BizStage, { label: string; labelKo: string; icon: React.ReactNode; color: string }> = {
   discovered: { label: "Discovered", labelKo: "발굴", icon: <Compass size={14} />, color: "text-purple-600" },
@@ -118,7 +115,6 @@ export function BizRadarDetailPage() {
   const { itemId } = useParams<{ itemId: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const p = useOrgPath();
   const { language } = useLanguage();
   const ko = language === 'ko';
   const { getItem, addItem, updateItem, removeItem } = useBizRadar();
@@ -148,7 +144,7 @@ export function BizRadarDetailPage() {
         updatedAt: now,
       };
       addItem(newItem);
-      navigate(p(`/radar/${id}`), { replace: true });
+      navigate(`/radar/${id}`, { replace: true });
     }
   }, [itemId]);
 
@@ -176,7 +172,7 @@ export function BizRadarDetailPage() {
       <div className="h-full flex flex-col items-center justify-center gap-4 text-gray-400">
         <Compass size={40} className="text-gray-300" />
         <p>{ko ? '기회를 찾을 수 없습니다' : 'Opportunity not found'}</p>
-        <button onClick={() => navigate(p('/radar'))} className="text-sm text-blue-600 hover:underline">
+        <button onClick={() => navigate('/radar')} className="text-sm text-blue-600 hover:underline">
           {ko ? '비즈 레이더로' : 'Back to Biz Radar'}
         </button>
       </div>
@@ -261,89 +257,86 @@ export function BizRadarDetailPage() {
     if (!confirm(ko ? '이 기회를 삭제하시겠습니까?' : 'Delete this opportunity?')) return;
     moveToTrash({ id: item.id, type: 'radar', title: item.title, data: item, deletedAt: new Date().toISOString() });
     removeItem(item.id);
-    navigate(p('/radar'));
+    navigate('/radar');
   };
 
   const deadlineLocal = item.deadline ? new Date(item.deadline).toISOString().slice(0, 10) : '';
 
   return (
-    <>
-      <DetailPageShell
-        shareType="radar"
-        itemId={item.id}
-        currentUserId={currentUser.id}
-        backPath="/radar"
-        backLabel={ko ? '비즈 레이더' : 'Biz Radar'}
-        onDelete={handleDelete}
-        titlePrefix={
-          isConnection ? (
-            <div className="flex items-center gap-1.5 mb-1">
-              <Link2 size={14} className="text-purple-500" />
-              <span className="text-xs font-semibold text-purple-600">{ko ? '연결' : 'Connection'}</span>
-            </div>
-          ) : undefined
-        }
-        title={
-          <InlineText value={item.title} onChange={handleTitleChange}
-            placeholder={ko
-              ? (isConnection ? '연결 제목' : '기회 제목')
-              : (isConnection ? 'Connection Title' : 'Opportunity Title')}
-            className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight tracking-tight focus:ring-0 focus:bg-transparent hover:bg-transparent border-b-2 border-transparent focus:border-gray-200 rounded-none pb-0.5"
-            as="h1" />
-        }
-        collapsible={true}
-        defaultExpanded={true}
-        properties={
-          <AutoProperties fields={[
-            {
-              key: "stage",
-              type: "dropdown",
-              icon: <Compass size={14} />,
-              label: ko ? '단계' : 'Stage',
-              value: item.stage,
-              options: ['discovered', 'reviewing', 'proposal', 'negotiation', 'won', 'lost'],
-              onChange: handleStageChange,
-              renderValue: (v: string) => {
-                const cfg = STAGE_CONFIG[v as BizStage];
-                return <span className={cn("flex items-center gap-1.5 font-bold", cfg.color)}>{cfg.icon} {ko ? cfg.labelKo : cfg.label}</span>;
-              },
-              renderOption: (o: string) => {
-                const cfg = STAGE_CONFIG[o as BizStage];
-                return <span className={cn("flex items-center gap-2", cfg.color)}>{cfg.icon} {ko ? cfg.labelKo : cfg.label}</span>;
-              },
-            },
-            {
-              key: "type",
-              type: "custom",
-              icon: <Tag size={14} />,
-              label: ko ? '유형' : 'Type',
-              render: () => isConnection ? (
+    <div className="h-full overflow-y-auto bg-white scrollbar-hide">
+      <div className="max-w-6xl mx-auto py-4 sm:py-7 px-4 sm:px-8 pb-64">
+
+        {/* Navigation & Actions */}
+        <div className="flex items-center justify-between mb-6">
+          <button onClick={() => navigate('/radar')} className="flex items-center gap-2 text-gray-400 hover:text-gray-900 transition-colors text-sm group">
+            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+            {ko ? '비즈 레이더' : 'Biz Radar'}
+          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={handleDelete} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
+              <Trash2 size={18} />
+            </button>
+          </div>
+        </div>
+
+        <div className="max-w-3xl">
+          <div className="space-y-6">
+
+            {/* Category Badge */}
+            {isConnection && (
+              <div className="flex items-center gap-1.5 mb-1">
+                <Link2 size={14} className="text-purple-500" />
+                <span className="text-xs font-semibold text-purple-600">{ko ? '연결' : 'Connection'}</span>
+              </div>
+            )}
+
+            {/* Title */}
+            <InlineText value={item.title} onChange={handleTitleChange}
+              placeholder={ko
+                ? (isConnection ? '연결 제목' : '기회 제목')
+                : (isConnection ? 'Connection Title' : 'Opportunity Title')}
+              className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight tracking-tight focus:ring-0 focus:bg-transparent hover:bg-transparent border-b-2 border-transparent focus:border-gray-200 rounded-none pb-0.5"
+              as="h1" />
+
+            {/* Properties */}
+            <div className="bg-gray-50/50 rounded-2xl border border-gray-100 divide-y divide-gray-100 overflow-hidden">
+              <PropertyItem icon={<Compass size={14} />} label={ko ? '단계' : 'Stage'}>
                 <InlineDropdown
-                  value={item.connectionType || 'other'}
-                  options={['agent', 'distributor', 'supplier', 'partner', 'client', 'other'] as ConnectionType[]}
-                  onChange={handleConnectionTypeChange}
+                  value={item.stage}
+                  options={['discovered', 'reviewing', 'proposal', 'negotiation', 'won', 'lost'] as BizStage[]}
+                  onChange={handleStageChange}
                   renderValue={(v) => {
-                    const cfg = CONNECTION_TYPE_CONFIG[v];
-                    return <span className={cn("px-2 py-0.5 rounded-md font-bold", cfg?.bg, cfg?.color)}>{ko ? cfg?.labelKo : cfg?.label}</span>;
+                    const cfg = STAGE_CONFIG[v];
+                    return <span className={cn("flex items-center gap-1.5 font-bold", cfg.color)}>{cfg.icon} {ko ? cfg.labelKo : cfg.label}</span>;
                   }}
-                  renderOption={(o) => <span className={CONNECTION_TYPE_CONFIG[o]?.color}>{ko ? CONNECTION_TYPE_CONFIG[o]?.labelKo : CONNECTION_TYPE_CONFIG[o]?.label}</span>}
+                  renderOption={(o) => <span className={cn("flex items-center gap-2", STAGE_CONFIG[o].color)}>{STAGE_CONFIG[o].icon} {ko ? STAGE_CONFIG[o].labelKo : STAGE_CONFIG[o].label}</span>}
                 />
-              ) : (
-                <InlineDropdown
-                  value={item.type}
-                  options={['project', 'funding', 'partnership', 'investment', 'other'] as BizType[]}
-                  onChange={handleTypeChange}
-                  renderValue={(v) => <span className={cn("px-2 py-0.5 rounded-md font-bold", TYPE_CONFIG[v]?.bg, TYPE_CONFIG[v]?.color)}>{ko ? TYPE_CONFIG[v]?.labelKo : TYPE_CONFIG[v]?.label}</span>}
-                  renderOption={(o) => <span className={TYPE_CONFIG[o]?.color}>{ko ? TYPE_CONFIG[o]?.labelKo : TYPE_CONFIG[o]?.label}</span>}
-                />
-              ),
-            },
-            {
-              key: "value",
-              type: "custom",
-              icon: <DollarSign size={14} />,
-              label: ko ? '예상 가치' : 'Value',
-              render: () => (
+              </PropertyItem>
+
+              <PropertyItem icon={<Tag size={14} />} label={ko ? '유형' : 'Type'}>
+                {isConnection ? (
+                  <InlineDropdown
+                    value={item.connectionType || 'other'}
+                    options={['agent', 'distributor', 'supplier', 'partner', 'client', 'other'] as ConnectionType[]}
+                    onChange={handleConnectionTypeChange}
+                    renderValue={(v) => {
+                      const cfg = CONNECTION_TYPE_CONFIG[v];
+                      return <span className={cn("px-2 py-0.5 rounded-md font-bold", cfg.bg, cfg.color)}>{ko ? cfg.labelKo : cfg.label}</span>;
+                    }}
+                    renderOption={(o) => <span className={CONNECTION_TYPE_CONFIG[o].color}>{ko ? CONNECTION_TYPE_CONFIG[o].labelKo : CONNECTION_TYPE_CONFIG[o].label}</span>}
+                  />
+                ) : (
+                  <InlineDropdown
+                    value={item.type}
+                    options={['project', 'funding', 'partnership', 'investment', 'other'] as BizType[]}
+                    onChange={handleTypeChange}
+                    renderValue={(v) => <span className={cn("px-2 py-0.5 rounded-md font-bold", TYPE_CONFIG[v].bg, TYPE_CONFIG[v].color)}>{ko ? TYPE_CONFIG[v].labelKo : TYPE_CONFIG[v].label}</span>}
+                    renderOption={(o) => <span className={TYPE_CONFIG[o].color}>{ko ? TYPE_CONFIG[o].labelKo : TYPE_CONFIG[o].label}</span>}
+                  />
+                )}
+              </PropertyItem>
+
+              <PropertyItem icon={<DollarSign size={14} />} label={ko ? '예상 가치' : 'Value'}>
                 <input
                   value={valueInput}
                   onChange={(e) => setValueInput(e.target.value)}
@@ -351,14 +344,9 @@ export function BizRadarDetailPage() {
                   placeholder={ko ? '예: 50000000' : 'e.g. 50000000'}
                   className="px-2 py-1 rounded-md text-sm bg-transparent hover:bg-gray-100 focus:bg-gray-100 outline-none focus:ring-2 focus:ring-blue-100 transition-colors font-medium text-gray-700 placeholder-gray-300 w-full max-w-[200px]"
                 />
-              ),
-            },
-            {
-              key: "probability",
-              type: "custom",
-              icon: <Percent size={14} />,
-              label: ko ? '확률' : 'Probability',
-              render: () => (
+              </PropertyItem>
+
+              <PropertyItem icon={<Percent size={14} />} label={ko ? '확률' : 'Probability'}>
                 <div className="flex items-center gap-2">
                   <input
                     type="number" min={0} max={100}
@@ -375,56 +363,49 @@ export function BizRadarDetailPage() {
                     </span>
                   ) : null}
                 </div>
-              ),
-            },
-            {
-              key: "deadline",
-              type: "date",
-              icon: <Calendar size={14} />,
-              label: ko ? '마감일' : 'Deadline',
-              value: deadlineLocal,
-              onChange: handleDeadlineChange,
-            },
-            {
-              key: "assignee",
-              type: "custom",
-              icon: <UserIcon size={14} />,
-              label: ko ? '담당자' : 'Assignee',
-              render: () => <AssigneePicker selectedId={item.assigneeId} onChange={handleAssigneeChange} language={language} />,
-            },
-            {
-              key: "company",
-              type: "text",
-              icon: <Building2 size={14} />,
-              label: ko ? '거래처' : 'Company',
-              value: item.contactCompany || '',
-              onChange: handleContactCompanyChange,
-              placeholder: ko ? '회사명' : 'Company name',
-            },
-            {
-              key: "contact",
-              type: "text",
-              icon: <UserIcon size={14} />,
-              label: ko ? '담당자명' : 'Contact',
-              value: item.contactName || '',
-              onChange: handleContactNameChange,
-              placeholder: ko ? '상대방 담당자' : 'Contact person',
-            },
-            {
-              key: "source",
-              type: "text",
-              icon: <Compass size={14} />,
-              label: ko ? '출처' : 'Source',
-              value: item.source || '',
-              onChange: handleSourceChange,
-              placeholder: ko ? '예: 소개, 웹사이트, 박람회' : 'e.g. Referral, Website',
-            },
-            {
-              key: "tags",
-              type: "custom",
-              icon: <Tag size={14} />,
-              label: ko ? '태그' : 'Tags',
-              render: () => (
+              </PropertyItem>
+
+              <PropertyItem icon={<Calendar size={14} />} label={ko ? '마감일' : 'Deadline'}>
+                <input
+                  type="date"
+                  value={deadlineLocal}
+                  onChange={(e) => handleDeadlineChange(e.target.value)}
+                  className="px-2 py-1 rounded-md text-sm bg-transparent hover:bg-gray-100 focus:bg-gray-100 outline-none focus:ring-2 focus:ring-blue-100 transition-colors font-medium text-gray-700"
+                />
+              </PropertyItem>
+
+              <PropertyItem icon={<UserIcon size={14} />} label={ko ? '담당자' : 'Assignee'}>
+                <AssigneePicker selectedId={item.assigneeId} onChange={handleAssigneeChange} language={language} />
+              </PropertyItem>
+
+              <PropertyItem icon={<Building2 size={14} />} label={ko ? '거래처' : 'Company'}>
+                <input
+                  value={item.contactCompany || ''}
+                  onChange={(e) => handleContactCompanyChange(e.target.value)}
+                  placeholder={ko ? '회사명' : 'Company name'}
+                  className="px-2 py-1 rounded-md text-sm bg-transparent hover:bg-gray-100 focus:bg-gray-100 outline-none focus:ring-2 focus:ring-blue-100 transition-colors font-medium text-gray-700 placeholder-gray-300 w-full"
+                />
+              </PropertyItem>
+
+              <PropertyItem icon={<UserIcon size={14} />} label={ko ? '담당자명' : 'Contact'}>
+                <input
+                  value={item.contactName || ''}
+                  onChange={(e) => handleContactNameChange(e.target.value)}
+                  placeholder={ko ? '상대방 담당자' : 'Contact person'}
+                  className="px-2 py-1 rounded-md text-sm bg-transparent hover:bg-gray-100 focus:bg-gray-100 outline-none focus:ring-2 focus:ring-blue-100 transition-colors font-medium text-gray-700 placeholder-gray-300 w-full"
+                />
+              </PropertyItem>
+
+              <PropertyItem icon={<Compass size={14} />} label={ko ? '출처' : 'Source'}>
+                <input
+                  value={item.source || ''}
+                  onChange={(e) => handleSourceChange(e.target.value)}
+                  placeholder={ko ? '예: 소개, 웹사이트, 박람회' : 'e.g. Referral, Website'}
+                  className="px-2 py-1 rounded-md text-sm bg-transparent hover:bg-gray-100 focus:bg-gray-100 outline-none focus:ring-2 focus:ring-blue-100 transition-colors font-medium text-gray-700 placeholder-gray-300 w-full"
+                />
+              </PropertyItem>
+
+              <PropertyItem icon={<Tag size={14} />} label={ko ? '태그' : 'Tags'}>
                 <input
                   value={tagsInput}
                   onChange={(e) => setTagsInput(e.target.value)}
@@ -432,140 +413,140 @@ export function BizRadarDetailPage() {
                   placeholder={ko ? '쉼표로 구분' : 'Comma separated'}
                   className="px-2 py-1 rounded-md text-sm bg-transparent hover:bg-gray-100 focus:bg-gray-100 outline-none focus:ring-2 focus:ring-blue-100 transition-colors font-medium text-gray-700 placeholder-gray-300 w-full"
                 />
-              ),
-            },
-          ] as PropertyFieldConfig[]} />
-        }
-      >
-        {/* Action Items */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 px-1">
-            <CheckCircle2 size={14} className="text-gray-400" />
-            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
-              {ko ? '액션 아이템' : 'Action Items'}
-            </span>
-            <span className="text-[11px] text-gray-300 ml-auto mr-2">
-              {item.actionItems.filter(a => a.done).length}/{item.actionItems.length}
-            </span>
-            {canAssignTasks && unassignedItems.length > 0 && (
-              <button
-                onClick={() => setShowAssignDialog(true)}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
-              >
-                <ClipboardList size={12} />
-                {ko ? '업무 할당' : 'Assign Tasks'}
-                <span className="ml-0.5 bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded-full">{unassignedItems.length}</span>
-              </button>
-            )}
-          </div>
-
-          {item.actionItems.length > 0 && (
-            <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-blue-500 rounded-full transition-all duration-300"
-                style={{ width: `${item.actionItems.length > 0 ? (item.actionItems.filter(a => a.done).length / item.actionItems.length) * 100 : 0}%` }}
-              />
+              </PropertyItem>
             </div>
-          )}
 
-          <div className="space-y-0.5">
-            {item.actionItems.map(ai => (
-              <div key={ai.id} className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-gray-50 transition-colors group">
-                <button
-                  onClick={() => toggleActionDone(ai.id)}
-                  className={cn(
-                    "shrink-0 w-[18px] h-[18px] rounded border-2 flex items-center justify-center transition-all",
-                    ai.done ? "bg-blue-500 border-blue-500" : "border-gray-300 hover:border-gray-400"
-                  )}
-                >
-                  {ai.done && <Check size={12} className="text-white" strokeWidth={3} />}
-                </button>
-                <div className="flex-1 min-w-0">
-                  <p className={cn("text-sm", ai.done ? "text-gray-400 line-through" : "text-gray-700")}>{ai.title}</p>
-                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                    {ai.category && TASK_CATEGORY_CONFIG[ai.category] && (
-                      <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5", TASK_CATEGORY_CONFIG[ai.category].bg, TASK_CATEGORY_CONFIG[ai.category].color)}>
-                        {TASK_CATEGORY_CONFIG[ai.category].icon}
-                        {ko ? TASK_CATEGORY_CONFIG[ai.category].labelKo : TASK_CATEGORY_CONFIG[ai.category].label}
-                      </span>
-                    )}
-                    {ai.assigneeId && <span className="text-[10px] text-gray-400">{members.find(m => m.id === ai.assigneeId)?.name}</span>}
-                    {ai.linkedTaskId ? (
-                      <span className="text-[10px] text-blue-500 flex items-center gap-0.5"><Check size={9} /> {ko ? '태스크 연결됨' : 'Linked'}</span>
-                    ) : (
-                      <button onClick={() => convertToTask(ai)} className="text-[10px] text-gray-400 hover:text-blue-500 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <ArrowRightCircle size={10} /> {ko ? '태스크로 변환' : 'Convert to task'}
-                      </button>
-                    )}
-                  </div>
+            {/* Action Items */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 px-1">
+                <CheckCircle2 size={14} className="text-gray-400" />
+                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+                  {ko ? '액션 아이템' : 'Action Items'}
+                </span>
+                <span className="text-[11px] text-gray-300 ml-auto mr-2">
+                  {item.actionItems.filter(a => a.done).length}/{item.actionItems.length}
+                </span>
+                {canAssignTasks && unassignedItems.length > 0 && (
+                  <button
+                    onClick={() => setShowAssignDialog(true)}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                  >
+                    <ClipboardList size={12} />
+                    {ko ? '업무 할당' : 'Assign Tasks'}
+                    <span className="ml-0.5 bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded-full">{unassignedItems.length}</span>
+                  </button>
+                )}
+              </div>
+
+              {item.actionItems.length > 0 && (
+                <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                    style={{ width: `${item.actionItems.length > 0 ? (item.actionItems.filter(a => a.done).length / item.actionItems.length) * 100 : 0}%` }}
+                  />
                 </div>
-                <button onClick={() => removeActionItem(ai.id)} className="p-1 text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all shrink-0">
-                  <X size={14} />
+              )}
+
+              <div className="space-y-0.5">
+                {item.actionItems.map(ai => (
+                  <div key={ai.id} className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-gray-50 transition-colors group">
+                    <button
+                      onClick={() => toggleActionDone(ai.id)}
+                      className={cn(
+                        "shrink-0 w-[18px] h-[18px] rounded border-2 flex items-center justify-center transition-all",
+                        ai.done ? "bg-blue-500 border-blue-500" : "border-gray-300 hover:border-gray-400"
+                      )}
+                    >
+                      {ai.done && <Check size={12} className="text-white" strokeWidth={3} />}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <p className={cn("text-sm", ai.done ? "text-gray-400 line-through" : "text-gray-700")}>{ai.title}</p>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        {ai.category && TASK_CATEGORY_CONFIG[ai.category] && (
+                          <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5", TASK_CATEGORY_CONFIG[ai.category].bg, TASK_CATEGORY_CONFIG[ai.category].color)}>
+                            {TASK_CATEGORY_CONFIG[ai.category].icon}
+                            {ko ? TASK_CATEGORY_CONFIG[ai.category].labelKo : TASK_CATEGORY_CONFIG[ai.category].label}
+                          </span>
+                        )}
+                        {ai.assigneeId && <span className="text-[10px] text-gray-400">{members.find(m => m.id === ai.assigneeId)?.name}</span>}
+                        {ai.linkedTaskId ? (
+                          <span className="text-[10px] text-blue-500 flex items-center gap-0.5"><Check size={9} /> {ko ? '태스크 연결됨' : 'Linked'}</span>
+                        ) : (
+                          <button onClick={() => convertToTask(ai)} className="text-[10px] text-gray-400 hover:text-blue-500 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <ArrowRightCircle size={10} /> {ko ? '태스크로 변환' : 'Convert to task'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <button onClick={() => removeActionItem(ai.id)} className="p-1 text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all shrink-0">
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add action item */}
+              <div className="flex gap-2 px-2">
+                <input
+                  value={newActionTitle}
+                  onChange={e => setNewActionTitle(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && !e.nativeEvent.isComposing && addActionItem()}
+                  placeholder={ko ? '액션 아이템 추가...' : 'Add action item...'}
+                  className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <select
+                  value={newActionCategory}
+                  onChange={e => setNewActionCategory(e.target.value as TaskCategory | '')}
+                  className="px-2 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[90px]"
+                >
+                  <option value="">{ko ? '카테고리' : 'Category'}</option>
+                  {(Object.entries(TASK_CATEGORY_CONFIG) as [TaskCategory, typeof TASK_CATEGORY_CONFIG[TaskCategory]][]).map(([key, cfg]) => (
+                    <option key={key} value={key}>{ko ? cfg.labelKo : cfg.label}</option>
+                  ))}
+                </select>
+                <select
+                  value={newActionAssignee}
+                  onChange={e => setNewActionAssignee(e.target.value)}
+                  className="px-2 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[100px]"
+                >
+                  <option value="">{ko ? '담당자' : 'Assign'}</option>
+                  {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+                <button
+                  onClick={addActionItem}
+                  disabled={!newActionTitle.trim()}
+                  className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-30"
+                >
+                  <Plus size={14} />
                 </button>
               </div>
-            ))}
-          </div>
+            </div>
 
-          {/* Add action item */}
-          <div className="flex gap-2 px-2">
-            <input
-              value={newActionTitle}
-              onChange={e => setNewActionTitle(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && addActionItem()}
-              placeholder={ko ? '액션 아이템 추가...' : 'Add action item...'}
-              className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <select
-              value={newActionCategory}
-              onChange={e => setNewActionCategory(e.target.value as TaskCategory | '')}
-              className="px-2 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[90px]"
-            >
-              <option value="">{ko ? '카테고리' : 'Category'}</option>
-              {(Object.entries(TASK_CATEGORY_CONFIG) as [TaskCategory, typeof TASK_CATEGORY_CONFIG[TaskCategory]][]).map(([key, cfg]) => (
-                <option key={key} value={key}>{ko ? cfg.labelKo : cfg.label}</option>
-              ))}
-            </select>
-            <select
-              value={newActionAssignee}
-              onChange={e => setNewActionAssignee(e.target.value)}
-              className="px-2 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[100px]"
-            >
-              <option value="">{ko ? '담당자' : 'Assign'}</option>
-              {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-            </select>
-            <button
-              onClick={addActionItem}
-              disabled={!newActionTitle.trim()}
-              className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-30"
-            >
-              <Plus size={14} />
-            </button>
+            {/* Notes */}
+            <div className="min-h-[200px] border-t border-gray-100 pt-5">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">{ko ? '메모' : 'Notes'}</span>
+                <button
+                  onClick={saveNotes}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                    notesSaved ? "bg-emerald-50 text-emerald-600" : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                  )}
+                >
+                  {notesSaved ? (ko ? '저장됨!' : 'Saved!') : (ko ? '저장' : 'Save')}
+                </button>
+              </div>
+              <textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder={ko ? '기회에 대한 메모를 작성하세요...' : 'Write notes about this opportunity...'}
+                className="w-full text-sm text-gray-700 placeholder-gray-300 resize-none focus:outline-none bg-transparent leading-relaxed min-h-[200px]"
+              />
+              <UrlPreviewSection content={notes} language={language} />
+            </div>
           </div>
         </div>
-
-        {/* Notes */}
-        <div className="min-h-[200px] border-t border-gray-100 pt-5">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">{ko ? '메모' : 'Notes'}</span>
-            <button
-              onClick={saveNotes}
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
-                notesSaved ? "bg-emerald-50 text-emerald-600" : "bg-blue-50 text-blue-600 hover:bg-blue-100"
-              )}
-            >
-              {notesSaved ? (ko ? '저장됨!' : 'Saved!') : (ko ? '저장' : 'Save')}
-            </button>
-          </div>
-          <textarea
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-            placeholder={ko ? '기회에 대한 메모를 작성하세요...' : 'Write notes about this opportunity...'}
-            className="w-full text-sm text-gray-700 placeholder-gray-300 resize-none focus:outline-none bg-transparent leading-relaxed min-h-[200px]"
-          />
-          <UrlPreviewSection content={notes} language={language} />
-        </div>
-      </DetailPageShell>
+      </div>
 
       {/* Task Assignment Dialog */}
       {showAssignDialog && createPortal(
@@ -643,6 +624,6 @@ export function BizRadarDetailPage() {
         </div>,
         document.body
       )}
-    </>
+    </div>
   );
 }

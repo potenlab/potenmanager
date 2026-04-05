@@ -6,7 +6,7 @@ import {
   LayoutGrid, List as ListIcon, Users, MapPin,
   MoreHorizontal, CheckCircle2, Sun, Trash2, X, Check, Zap, ChevronDown, Pencil,
 } from "lucide-react";
-import { cn } from "../../lib/utils";
+import { cn, onKeys } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
 import { useMeetingContext, Meeting } from "../context/MeetingContext";
 import { useTeam } from "../context/TeamContext";
@@ -174,10 +174,7 @@ function MeetingColumn({
 
   const handleSubmit = () => { if (newTitle.trim()) { onAddMeeting(newTitle.trim(), columnKey); setNewTitle(''); } };
   const handleCancel = () => { setNewTitle(''); onCancelAdd?.(); };
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') { e.preventDefault(); handleSubmit(); }
-    else if (e.key === 'Escape') handleCancel();
-  };
+  const handleKeyDown = onKeys({ Enter: handleSubmit, Escape: handleCancel });
 
   const [{ isOver, canDrop }, dropRef] = useDrop<DragItem, void, { isOver: boolean; canDrop: boolean }>({
     accept: DRAG_TYPE,

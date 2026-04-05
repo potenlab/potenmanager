@@ -128,7 +128,7 @@ export function AttachmentSection({
                 placeholder={ko ? 'URL 붙여넣기 (예: Google Drive 링크)' : 'Paste URL (e.g. Google Drive link)'}
                 className="w-full text-sm px-3 py-2 rounded-lg border border-gray-200 outline-none focus:ring-2 focus:ring-blue-100"
                 autoFocus
-                onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setIsAdding(false); }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAdd(); if (e.key === 'Escape') setIsAdding(false); }}
               />
               <input
                 type="text"
@@ -136,7 +136,7 @@ export function AttachmentSection({
                 onChange={(e) => setNewTitle(e.target.value)}
                 placeholder={ko ? '제목 (선택 - 비우면 자동 생성)' : 'Title (optional)'}
                 className="w-full text-sm px-3 py-2 rounded-lg border border-gray-200 outline-none focus:ring-2 focus:ring-blue-100"
-                onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setIsAdding(false); }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAdd(); if (e.key === 'Escape') setIsAdding(false); }}
               />
               <div className="flex justify-end gap-2">
                 <button onClick={() => { setIsAdding(false); setNewUrl(''); setNewTitle(''); }} className="px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100 rounded-lg">

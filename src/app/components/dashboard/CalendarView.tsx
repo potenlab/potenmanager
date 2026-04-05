@@ -1034,7 +1034,7 @@ function QuickAddPopover({
   }, [onClose]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && value.trim()) {
+    if (e.key === "Enter" && value.trim() && !e.nativeEvent.isComposing) {
       e.preventDefault();
       onSubmit(value.trim());
     } else if (e.key === "Escape") {
