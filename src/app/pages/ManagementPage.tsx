@@ -1,14 +1,15 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router";
-import { useDrag, useDrop } from "react-dnd";
 import {
   FolderKanban, Palette, Plus, Trash2,
   Calendar as CalendarIcon, MoreHorizontal, X, Check,
-  Image as ImageIcon, Globe, GripVertical, Search, Edit3,
+  Image as ImageIcon, Globe, Search, Edit3, ArrowRight,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
 import { format } from "date-fns";
+import { useOrgPath } from "../hooks/useOrgPath";
 
 // ─── Types (exported for detail pages) ───────────────────────────
 export interface Project {
@@ -89,13 +90,7 @@ export function saveBrandAssets(assets: BrandAsset[]) {
   localStorage.setItem(STORAGE_KEY_BRAND, JSON.stringify(assets));
 }
 
-// ─── Kanban Data Model ──────────────────────────────────────────
-interface KanbanColumn {
-  id: string;
-  name: string;
-  order: number;
-}
-
+// Keep kanban exports for backward compatibility (used by detail pages)
 export interface KanbanCard {
   id: string;
   columnId: string;
@@ -107,344 +102,140 @@ export interface KanbanCard {
   order: number;
   createdAt: string;
 }
-
 export type BoardType = "projects" | "branding";
-
-function storageKey(board: BoardType, suffix: string) {
-  return `poten_mgmt_${board}_${suffix}`;
-}
-
-export function loadColumns(board: BoardType): KanbanColumn[] {
+export function loadColumns(board: BoardType) {
   try {
-    const s = localStorage.getItem(storageKey(board, "columns"));
+    const s = localStorage.getItem(`poten_mgmt_${board}_columns`);
     if (s) return JSON.parse(s);
   } catch {}
   return board === "projects"
-    ? [
-        { id: "col-planning", name: "기획", order: 0 },
-        { id: "col-progress", name: "진행 중", order: 1 },
-        { id: "col-done", name: "완료", order: 2 },
-      ]
-    : [
-        { id: "col-design", name: "디자인", order: 0 },
-        { id: "col-review", name: "검토", order: 1 },
-        { id: "col-approved", name: "승인", order: 2 },
-      ];
+    ? [{ id: "col-planning", name: "기획", order: 0 }, { id: "col-progress", name: "진행 중", order: 1 }, { id: "col-done", name: "완료", order: 2 }]
+    : [{ id: "col-design", name: "디자인", order: 0 }, { id: "col-review", name: "검토", order: 1 }, { id: "col-approved", name: "승인", order: 2 }];
 }
-
-function saveColumns(board: BoardType, cols: KanbanColumn[]) {
-  localStorage.setItem(storageKey(board, "columns"), JSON.stringify(cols));
-}
-
 export function loadCards(board: BoardType): KanbanCard[] {
-  try {
-    const s = localStorage.getItem(storageKey(board, "cards"));
-    if (s) return JSON.parse(s);
-  } catch {}
-  return [];
+  try { const s = localStorage.getItem(`poten_mgmt_${board}_cards`); if (s) return JSON.parse(s); } catch {} return [];
 }
-
 export function saveCards(board: BoardType, cards: KanbanCard[]) {
-  localStorage.setItem(storageKey(board, "cards"), JSON.stringify(cards));
+  localStorage.setItem(`poten_mgmt_${board}_cards`, JSON.stringify(cards));
 }
 
-// ─── Drag Types ─────────────────────────────────────────────────
-const CARD_DRAG = "MGMT_CARD";
-const COL_DRAG = "MGMT_COL";
+// ─── Status Pill ────────────────────────────────────────────────
+type ProjectStatus = Project["status"];
+const STATUSES: { id: ProjectStatus; labelKo: string; labelEn: string; color: string }[] = [
+  { id: "planning", labelKo: "기획 중", labelEn: "Planning", color: "bg-amber-50 text-amber-700 border-amber-200" },
+  { id: "active", labelKo: "진행 중", labelEn: "Active", color: "bg-blue-50 text-blue-700 border-blue-200" },
+  { id: "paused", labelKo: "일시 중지", labelEn: "Paused", color: "bg-gray-100 text-gray-600 border-gray-200" },
+  { id: "completed", labelKo: "완료", labelEn: "Completed", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+];
 
-interface CardDragItem { id: string; columnId: string; index: number; }
-interface ColDragItem { id: string; index: number; }
-
-// ─── Card Component (TaskCard style) ────────────────────────────
-function MgmtCard({
-  card, index, columnId, ko, board,
-  onDelete, onMove,
-}: {
-  card: KanbanCard; index: number; columnId: string; ko: boolean; board: BoardType;
-  onDelete: (id: string) => void;
-  onMove: (dragId: string, targetColId: string, targetIndex: number) => void;
-}) {
-  const navigate = useNavigate();
+function StatusPill({ currentStatus, onChange, ko }: { currentStatus: string; onChange: (s: ProjectStatus) => void; ko: boolean }) {
+  const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const current = STATUSES.find(s => s.id === currentStatus) || STATUSES[0];
 
-  const [{ isDragging }, drag] = useDrag<CardDragItem, void, { isDragging: boolean }>({
-    type: CARD_DRAG,
-    item: { id: card.id, columnId, index },
-    collect: (monitor) => ({ isDragging: monitor.isDragging() }),
-  });
-
-  const [, drop] = useDrop<CardDragItem>({
-    accept: CARD_DRAG,
-    hover(item) {
-      if (item.id === card.id) return;
-      onMove(item.id, columnId, index);
-      item.columnId = columnId;
-      item.index = index;
-    },
-  });
-
-  drag(drop(ref));
-
-  const detailPath = board === "projects"
-    ? `/projects/${card.id}`
-    : `/branding/${card.id}`;
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
+  }, [open]);
 
   return (
-    <div
-      ref={ref}
-      onClick={() => navigate(detailPath)}
-      className={cn(
-        "bg-white p-4 rounded-xl border shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group relative",
-        isDragging
-          ? "opacity-40 border-blue-300 shadow-lg scale-[0.97] ring-2 ring-blue-200"
-          : "border-gray-100"
+    <div ref={ref} className="relative">
+      <button onClick={() => setOpen(!open)}
+        className={cn("text-[11px] font-bold px-2.5 py-1 rounded-full border flex items-center gap-1 transition-colors", current.color)}>
+        {ko ? current.labelKo : current.labelEn} <ChevronDown size={10} />
+      </button>
+      {open && (
+        <div className="absolute top-8 left-0 z-30 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-32">
+          {STATUSES.map(s => (
+            <button key={s.id} onClick={() => { onChange(s.id); setOpen(false); }}
+              className={cn("w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 flex items-center gap-2",
+                s.id === currentStatus ? "font-bold" : "")}>
+              <span className={cn("w-2 h-2 rounded-full", s.color.split(" ")[0])} />
+              {ko ? s.labelKo : s.labelEn}
+            </button>
+          ))}
+        </div>
       )}
-    >
-      <div className="flex items-start gap-2 mb-2">
-        <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
-          {card.priority && (
-            <span className={cn(
-              "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
-              card.priority === 'high' ? "bg-red-50 text-red-600 border border-red-100" :
-              card.priority === 'medium' ? "bg-amber-50 text-amber-600 border border-amber-100" :
-              "bg-blue-50 text-blue-600 border border-blue-100"
-            )}>
-              {card.priority}
-            </span>
-          )}
-          {card.color && (
-            <div className="w-3 h-3 rounded-full shrink-0 border border-white shadow-sm" style={{ backgroundColor: card.color }} />
-          )}
-        </div>
-        <div className="relative shrink-0">
-          <button
-            onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
-            className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-          >
-            <MoreHorizontal size={16} />
-          </button>
-          {menuOpen && (
-            <div className="absolute right-0 top-7 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-24"
-              onMouseLeave={() => setMenuOpen(false)}>
-              <button
-                onClick={(e) => { e.stopPropagation(); setMenuOpen(false); navigate(detailPath); }}
-                className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-1.5"
-              >
-                <Edit3 size={10} /> {ko ? "수정" : "Edit"}
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete(card.id); }}
-                className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-1.5"
-              >
-                <Trash2 size={10} /> {ko ? "삭제" : "Delete"}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <h4 className="font-medium text-sm text-gray-900 mb-1 leading-snug">{card.title || (ko ? "제목 없음" : "Untitled")}</h4>
-      {card.description && (
-        <p className="text-xs text-gray-500 line-clamp-2 mb-3">{card.description}</p>
-      )}
-
-      <div className="flex items-center justify-between border-t border-gray-50 pt-3 mt-2">
-        <div className="flex items-center gap-2 text-xs text-gray-400">
-          {card.dueDate && (
-            <div className="flex items-center gap-1">
-              <CalendarIcon size={12} />
-              <span>{format(new Date(card.dueDate), "MMM d")}</span>
-            </div>
-          )}
-          {!card.dueDate && card.createdAt && (
-            <div className="flex items-center gap-1">
-              <CalendarIcon size={12} />
-              <span>{format(new Date(card.createdAt), "MMM d")}</span>
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
 
-// ─── Column Component (TaskColumn style) ────────────────────────
-function MgmtColumn({
-  column, cards, index, ko, board,
-  onAddCard, onDeleteCard, onMoveCard,
-  onRenameColumn, onDeleteColumn, onMoveColumn,
-}: {
-  column: KanbanColumn; cards: KanbanCard[]; index: number; ko: boolean; board: BoardType;
-  onAddCard: (columnId: string, title: string) => void;
-  onDeleteCard: (id: string) => void;
-  onMoveCard: (dragId: string, targetColId: string, targetIndex: number) => void;
-  onRenameColumn: (id: string, name: string) => void;
-  onDeleteColumn: (id: string) => void;
-  onMoveColumn: (fromIndex: number, toIndex: number) => void;
+// ─── Add Project Dialog ─────────────────────────────────────────
+function AddProjectDialog({ open, onClose, onSave, project, ko }: {
+  open: boolean; onClose: () => void; onSave: (p: Partial<Project>) => void; project?: Project | null; ko: boolean;
 }) {
-  const [isAdding, setIsAdding] = useState(false);
-  const [newTitle, setNewTitle] = useState("");
-  const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState(column.name);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const nameRef = useRef<HTMLInputElement>(null);
-  const colRef = useRef<HTMLDivElement>(null);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [status, setStatus] = useState<ProjectStatus>("planning");
+  const [client, setClient] = useState("");
+  const [budget, setBudget] = useState("");
+  const [category, setCategory] = useState<Project["category"]>("internal");
 
-  useEffect(() => { if (isAdding && inputRef.current) inputRef.current.focus(); }, [isAdding]);
-  useEffect(() => { if (isEditing && nameRef.current) nameRef.current.focus(); }, [isEditing]);
+  useEffect(() => {
+    if (!open) return;
+    setName(project?.name || "");
+    setDescription(project?.description || "");
+    setStatus(project?.status || "planning");
+    setClient(project?.client || "");
+    setBudget(project?.budget || "");
+    setCategory(project?.category || "internal");
+  }, [open, project]);
 
-  const handleAdd = () => {
-    if (newTitle.trim()) { onAddCard(column.id, newTitle.trim()); setNewTitle(""); }
-    setIsAdding(false);
-  };
-
-  const handleRename = () => {
-    if (editName.trim()) onRenameColumn(column.id, editName.trim());
-    setIsEditing(false);
-  };
-
-  // Column drag
-  const [{ isDragging: colDragging }, colDrag] = useDrag<ColDragItem, void, { isDragging: boolean }>({
-    type: COL_DRAG,
-    item: { id: column.id, index },
-    collect: (m) => ({ isDragging: m.isDragging() }),
-  });
-
-  const [, colDrop] = useDrop<ColDragItem>({
-    accept: COL_DRAG,
-    hover(item) {
-      if (item.id === column.id) return;
-      onMoveColumn(item.index, index);
-      item.index = index;
-    },
-  });
-
-  // Drop zone for cards
-  const [{ isOver, canDrop }, cardDrop] = useDrop<CardDragItem, void, { isOver: boolean; canDrop: boolean }>({
-    accept: CARD_DRAG,
-    canDrop: (item) => item.columnId !== column.id || item.index !== cards.length,
-    drop(item) {
-      onMoveCard(item.id, column.id, cards.length);
-    },
-    collect: (m) => ({ isOver: m.isOver(), canDrop: m.canDrop() }),
-  });
-
-  colDrag(colDrop(colRef));
+  if (!open) return null;
 
   return (
-    <div
-      ref={colRef}
-      className={cn(
-        "flex-1 flex flex-col rounded-2xl border p-4 transition-all duration-200 h-full min-w-[280px]",
-        colDragging ? "opacity-40 ring-2 ring-blue-200" :
-        isOver && canDrop
-          ? "bg-blue-50/80 border-blue-300 ring-2 ring-blue-200/50 shadow-lg"
-          : canDrop ? "bg-gray-50/50 border-gray-200 border-dashed" : "bg-gray-50/50 border-gray-100"
-      )}
-    >
-      {/* Column Header */}
-      <div className="flex items-center justify-between mb-4 px-1">
-        {isEditing ? (
-          <div className="flex items-center gap-1 flex-1">
-            <input
-              ref={nameRef}
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) handleRename(); if (e.key === "Escape") setIsEditing(false); }}
-              onBlur={handleRename}
-              className="text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg px-2 py-1 outline-none focus:ring-1 focus:ring-blue-200 flex-1"
-            />
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <GripVertical size={14} className="text-gray-300 cursor-grab shrink-0" />
-            <h3
-              onClick={() => { setEditName(column.name); setIsEditing(true); }}
-              className="font-semibold text-gray-700 text-sm truncate cursor-pointer hover:text-blue-600 transition-colors"
-            >
-              {column.name}
-            </h3>
-            <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full transition-colors",
-              isOver && canDrop ? "bg-blue-200 text-blue-700" : "bg-gray-200 text-gray-600"
-            )}>{cards.length}</span>
-          </div>
-        )}
-        <div className="flex items-center gap-0.5 shrink-0">
-          <button onClick={() => setIsAdding(true)} className="text-gray-400 hover:text-blue-600 p-1 rounded hover:bg-blue-50 transition-colors">
-            <Plus size={16} />
-          </button>
-          <button
-            onClick={() => {
-              if (cards.length > 0) {
-                if (!confirm(ko ? "이 칼럼의 카드도 함께 삭제됩니다. 계속하시겠습니까?" : "Cards in this column will also be deleted. Continue?")) return;
-              }
-              onDeleteColumn(column.id);
-            }}
-            className="text-gray-300 hover:text-red-500 p-1 rounded hover:bg-red-50 transition-colors"
-          >
-            <X size={14} />
-          </button>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 pt-6 pb-2">
+          <h2 className="text-lg font-bold">{project ? (ko ? "프로젝트 수정" : "Edit Project") : (ko ? "프로젝트 추가" : "Add Project")}</h2>
+          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"><X size={18} /></button>
         </div>
-      </div>
-
-      {/* Cards */}
-      <div
-        ref={cardDrop}
-        className="flex-1 overflow-y-auto space-y-3 pr-1 pb-3 custom-scrollbar min-h-[60px]"
-      >
-        {isAdding && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <input
-              ref={inputRef}
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); handleAdd(); }
-                if (e.key === "Escape") { setNewTitle(""); setIsAdding(false); }
-              }}
-              onBlur={() => { if (newTitle.trim()) handleAdd(); else { setNewTitle(""); setIsAdding(false); } }}
-              placeholder={ko ? "제목을 입력하세요..." : "Enter title..."}
-              className="w-full px-4 py-3 text-sm outline-none bg-transparent placeholder-gray-400 text-gray-900"
-            />
-            <div className="flex items-center px-3 py-2 bg-gray-50/80 border-t border-gray-100">
-              <span className="text-[10px] text-gray-400">{ko ? "Enter로 추가 · Esc로 취소" : "Enter to add · Esc to cancel"}</span>
+        <div className="px-6 py-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{ko ? "프로젝트명 *" : "Project Name *"}</label>
+            <input value={name} onChange={e => setName(e.target.value)} autoFocus placeholder={ko ? "예: 쇼핑몰 앱 개발" : "e.g. App Dev"}
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-blue-100" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{ko ? "설명" : "Description"}</label>
+            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder={ko ? "프로젝트 설명..." : "Description..."}
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-blue-100 resize-none" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{ko ? "상태" : "Status"}</label>
+              <select value={status} onChange={e => setStatus(e.target.value as ProjectStatus)}
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-blue-100">
+                {STATUSES.map(s => <option key={s.id} value={s.id}>{ko ? s.labelKo : s.labelEn}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{ko ? "분류" : "Category"}</label>
+              <select value={category} onChange={e => setCategory(e.target.value as Project["category"])}
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-blue-100">
+                {Object.entries(PROJECT_CATEGORY_CONFIG).map(([k, v]) => <option key={k} value={k}>{ko ? v.label : v.labelEn}</option>)}
+              </select>
             </div>
           </div>
-        )}
-
-        {cards.length === 0 && isOver && canDrop && (
-          <div className="border-2 border-dashed border-blue-300 rounded-xl p-6 text-center text-blue-500 text-xs font-medium animate-pulse">
-            {ko ? "여기에 놓으세요" : "Drop here"}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{ko ? "클라이언트" : "Client"}</label>
+              <input value={client} onChange={e => setClient(e.target.value)} placeholder={ko ? "클라이언트명" : "Client name"}
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-blue-100" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{ko ? "예산" : "Budget"}</label>
+              <input value={budget} onChange={e => setBudget(e.target.value)} placeholder={ko ? "예: 5,000,000원" : "e.g. $5,000"}
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-blue-100" />
+            </div>
           </div>
-        )}
-        {cards.length === 0 && !isOver && !isAdding && (
-          <button onClick={() => setIsAdding(true)}
-            className="w-full flex flex-col items-center justify-center py-8 text-gray-300 hover:text-blue-500 hover:bg-blue-50/50 rounded-xl transition-all cursor-pointer group">
-            <Plus size={20} className="mb-1.5 opacity-50 group-hover:opacity-100 transition-opacity" />
-            <p className="text-xs font-medium">{ko ? "카드를 추가해보세요" : "Add a card"}</p>
-          </button>
-        )}
-
-        {cards.map((card, i) => (
-          <MgmtCard
-            key={card.id}
-            card={card}
-            index={i}
-            columnId={column.id}
-            ko={ko}
-            board={board}
-            onDelete={onDeleteCard}
-            onMove={onMoveCard}
-          />
-        ))}
-
-        {!isAdding && cards.length > 0 && (
-          <button onClick={() => setIsAdding(true)}
-            className="w-full py-2.5 rounded-xl text-gray-400 text-sm hover:text-blue-600 hover:bg-gray-100/80 transition-all flex items-center gap-2 px-3">
-            <Plus size={14} /> <span>{ko ? "카드 추가" : "Add Card"}</span>
-          </button>
-        )}
+        </div>
+        <div className="px-6 pb-6 flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-100 rounded-xl">{ko ? "취소" : "Cancel"}</button>
+          <button onClick={() => { if (!name.trim()) return; onSave({ name: name.trim(), description: description.trim(), status, client: client.trim() || undefined, budget: budget.trim() || undefined, category }); onClose(); }}
+            className="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700">{project ? (ko ? "저장" : "Save") : (ko ? "추가" : "Add")}</button>
+        </div>
       </div>
     </div>
   );
@@ -454,189 +245,327 @@ function MgmtColumn({
 export function ManagementPage() {
   const { language } = useLanguage();
   const ko = language === "ko";
+  const navigate = useNavigate();
   const location = useLocation();
-  const board: BoardType = location.pathname.startsWith("/branding") ? "branding" : "projects";
+  const p = useOrgPath();
+  const board: BoardType = location.pathname.includes("/branding") ? "branding" : "projects";
 
-  const [columns, setColumns] = useState<KanbanColumn[]>(() => loadColumns(board));
-  const [cards, setCards] = useState<KanbanCard[]>(() => loadCards(board));
-  const [addingColumn, setAddingColumn] = useState(false);
-  const [newColName, setNewColName] = useState("");
+  const [projects, setProjects] = useState<Project[]>(() => loadProjects());
+  const [brandAssets, setBrandAssets] = useState<BrandAsset[]>(() => loadBrandAssets());
   const [searchQuery, setSearchQuery] = useState("");
-  const newColRef = useRef<HTMLInputElement>(null);
-
-  // Reload data when board changes
-  useEffect(() => {
-    setColumns(loadColumns(board));
-    setCards(loadCards(board));
-    setSearchQuery("");
-    setAddingColumn(false);
-  }, [board]);
-
-  useEffect(() => { if (addingColumn && newColRef.current) newColRef.current.focus(); }, [addingColumn]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
 
   // Persist
-  const persistColumns = useCallback((cols: KanbanColumn[]) => { setColumns(cols); saveColumns(board, cols); }, [board]);
-  const persistCards = useCallback((crds: KanbanCard[]) => { setCards(crds); saveCards(board, crds); }, [board]);
+  const persistProjects = useCallback((ps: Project[]) => { setProjects(ps); saveProjects(ps); }, []);
+  const persistBrand = useCallback((bs: BrandAsset[]) => { setBrandAssets(bs); saveBrandAssets(bs); }, []);
 
-  // Column operations
-  const handleAddColumn = () => {
-    if (!newColName.trim()) { setAddingColumn(false); return; }
-    const newCol: KanbanColumn = { id: `col-${Date.now()}`, name: newColName.trim(), order: columns.length };
-    persistColumns([...columns, newCol]);
-    setNewColName("");
-    setAddingColumn(false);
+  // Close menus on outside click
+  useEffect(() => {
+    if (!menuOpenId) return;
+    const h = () => setMenuOpenId(null);
+    document.addEventListener("click", h); return () => document.removeEventListener("click", h);
+  }, [menuOpenId]);
+
+  // ── Project operations ──
+  const handleAddProject = (data: Partial<Project>) => {
+    const newProject: Project = {
+      id: `proj-${Date.now()}`,
+      name: data.name || "",
+      description: data.description || "",
+      status: data.status || "planning",
+      color: PROJECT_COLORS[projects.length % PROJECT_COLORS.length],
+      memberIds: [],
+      createdAt: new Date().toISOString(),
+      client: data.client,
+      budget: data.budget,
+      category: data.category,
+    };
+    persistProjects([newProject, ...projects]);
   };
 
-  const handleRenameColumn = (id: string, name: string) => {
-    persistColumns(columns.map(c => c.id === id ? { ...c, name } : c));
+  const handleEditProject = (data: Partial<Project>) => {
+    if (!editingProject) return;
+    persistProjects(projects.map(p => p.id === editingProject.id ? { ...p, ...data } : p));
+    setEditingProject(null);
   };
 
-  const handleDeleteColumn = (id: string) => {
-    persistColumns(columns.filter(c => c.id !== id));
-    persistCards(cards.filter(c => c.columnId !== id));
+  const handleDeleteProject = (id: string) => {
+    if (!confirm(ko ? "삭제하시겠습니까?" : "Delete this project?")) return;
+    persistProjects(projects.filter(p => p.id !== id));
   };
 
-  const handleMoveColumn = (fromIndex: number, toIndex: number) => {
-    const next = [...columns];
-    const [moved] = next.splice(fromIndex, 1);
-    next.splice(toIndex, 0, moved);
-    next.forEach((c, i) => c.order = i);
-    persistColumns(next);
+  const handleStatusChange = (id: string, status: ProjectStatus) => {
+    persistProjects(projects.map(p => p.id === id ? { ...p, status } : p));
   };
 
-  // Card operations
-  const handleAddCard = (columnId: string, title: string) => {
-    const colCards = cards.filter(c => c.columnId === columnId);
-    const newCard: KanbanCard = {
-      id: `card-${Date.now()}`,
-      columnId,
-      title,
-      priority: "medium",
-      order: colCards.length,
+  // ── Brand operations ──
+  const handleAddBrand = () => {
+    const newAsset: BrandAsset = {
+      id: `brand-${Date.now()}`,
+      type: "logo",
+      name: ko ? "새 브랜드 자산" : "New Brand Asset",
+      value: "",
       createdAt: new Date().toISOString(),
     };
-    persistCards([...cards, newCard]);
+    persistBrand([newAsset, ...brandAssets]);
+    navigate(p(`/branding/${newAsset.id}`));
   };
 
-  const handleDeleteCard = (id: string) => {
-    if (!confirm(ko ? "삭제하시겠습니까?" : "Delete this card?")) return;
-    persistCards(cards.filter(c => c.id !== id));
+  const handleDeleteBrand = (id: string) => {
+    if (!confirm(ko ? "삭제하시겠습니까?" : "Delete this asset?")) return;
+    persistBrand(brandAssets.filter(b => b.id !== id));
   };
 
-  const handleMoveCard = (dragId: string, targetColId: string, targetIndex: number) => {
-    const next = [...cards];
-    const cardIndex = next.findIndex(c => c.id === dragId);
-    if (cardIndex === -1) return;
-    const [moved] = next.splice(cardIndex, 1);
-    moved.columnId = targetColId;
-    const colCards = next.filter(c => c.columnId === targetColId);
-    const otherCards = next.filter(c => c.columnId !== targetColId);
-    colCards.splice(Math.min(targetIndex, colCards.length), 0, moved);
-    colCards.forEach((c, i) => c.order = i);
-    persistCards([...otherCards, ...colCards]);
-  };
-
-  const sortedColumns = useMemo(() => [...columns].sort((a, b) => a.order - b.order), [columns]);
-
-  const filteredCards = useMemo(() => {
-    if (!searchQuery.trim()) return cards;
+  // ── Filtered data ──
+  const filteredProjects = useMemo(() => {
+    if (!searchQuery.trim()) return projects;
     const q = searchQuery.toLowerCase();
-    return cards.filter(c => c.title.toLowerCase().includes(q) || c.description?.toLowerCase().includes(q));
-  }, [cards, searchQuery]);
+    return projects.filter(p => p.name.toLowerCase().includes(q) || p.client?.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q));
+  }, [projects, searchQuery]);
 
-  return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <header className="mb-4 shrink-0 space-y-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+  const filteredBrand = useMemo(() => {
+    if (!searchQuery.trim()) return brandAssets;
+    const q = searchQuery.toLowerCase();
+    return brandAssets.filter(b => b.name.toLowerCase().includes(q) || b.description?.toLowerCase().includes(q));
+  }, [brandAssets, searchQuery]);
+
+  // ── Projects View ──
+  if (board === "projects") {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">
-              {board === "projects" ? (
-                <><FolderKanban className="inline-block mr-2 -mt-0.5" size={22} />{ko ? "프로젝트" : "Projects"}</>
-              ) : (
-                <><Palette className="inline-block mr-2 -mt-0.5" size={22} />{ko ? "브랜딩" : "Branding"}</>
-              )}
+            <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <FolderKanban size={22} className="text-blue-600" />
+              {ko ? "프로젝트" : "Projects"}
             </h1>
-            <p className="text-gray-500 text-xs sm:text-sm">
-              {board === "projects"
-                ? (ko ? "칼럼을 자유롭게 커스텀하고 프로젝트를 관리합니다" : "Customize columns and manage projects")
-                : (ko ? "칼럼을 자유롭게 커스텀하고 브랜드 자산을 관리합니다" : "Customize columns and manage brand assets")}
+            <p className="text-sm text-gray-500 mt-1">
+              {ko ? `전체 ${projects.length}개 · 진행 중 ${projects.filter(p => p.status === "active").length}개` : `Total ${projects.length} · Active ${projects.filter(p => p.status === "active").length}`}
             </p>
           </div>
+          <button onClick={() => { setEditingProject(null); setDialogOpen(true); }}
+            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-colors">
+            <Plus size={16} /> {ko ? "프로젝트 추가" : "Add Project"}
+          </button>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center">
-          <div className="flex-1 sm:max-w-md">
-            <div className="flex items-center w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-400 transition-all shadow-sm">
-              <Search className="text-gray-400 mr-2 shrink-0" size={18} />
-              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={ko ? "검색..." : "Search..."}
-                className="w-full text-sm outline-none bg-transparent placeholder-gray-400 text-gray-900" />
+        {/* Status Summary */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">
+          {STATUSES.map(status => (
+            <div key={status.id} className="bg-white rounded-xl border border-gray-200 p-3 text-center">
+              <p className="text-lg font-bold text-gray-900">{projects.filter(p => p.status === status.id).length}</p>
+              <p className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-full inline-block mt-1", status.color)}>{ko ? status.labelKo : status.labelEn}</p>
             </div>
-          </div>
+          ))}
         </div>
-      </header>
 
-      {/* Kanban Board */}
-      <div className="flex-1 overflow-x-auto pb-4">
-        <div className="flex gap-4 h-full items-stretch">
-          {sortedColumns.map((col, i) => {
-            const colCards = filteredCards
-              .filter(c => c.columnId === col.id)
-              .sort((a, b) => a.order - b.order);
-            return (
-              <MgmtColumn
-                key={col.id}
-                column={col}
-                cards={colCards}
-                index={i}
-                ko={ko}
-                board={board}
-                onAddCard={handleAddCard}
-                onDeleteCard={handleDeleteCard}
-                onMoveCard={handleMoveCard}
-                onRenameColumn={handleRenameColumn}
-                onDeleteColumn={handleDeleteColumn}
-                onMoveColumn={handleMoveColumn}
-              />
-            );
-          })}
+        {/* Search */}
+        <div className="relative mb-4">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder={ko ? "프로젝트 검색..." : "Search projects..."}
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-blue-100" />
+        </div>
 
-          {/* Add Column */}
-          {addingColumn ? (
-            <div className="min-w-[280px] shrink-0 bg-gray-50 rounded-2xl border border-gray-200 p-4 h-fit">
-              <input
-                ref={newColRef}
-                value={newColName}
-                onChange={(e) => setNewColName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.nativeEvent.isComposing) handleAddColumn();
-                  if (e.key === "Escape") { setNewColName(""); setAddingColumn(false); }
-                }}
-                onBlur={handleAddColumn}
-                placeholder={ko ? "칼럼 이름..." : "Column name..."}
-                className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-100"
-              />
-              <div className="flex gap-2 mt-2">
-                <button onClick={handleAddColumn} className="flex-1 text-xs font-medium px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-1">
-                  <Check size={12} /> {ko ? "추가" : "Add"}
-                </button>
-                <button onClick={() => { setNewColName(""); setAddingColumn(false); }} className="text-xs px-3 py-1.5 text-gray-500 hover:bg-gray-100 rounded-lg">
-                  {ko ? "취소" : "Cancel"}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => setAddingColumn(true)}
-              className="min-w-[280px] shrink-0 py-8 rounded-2xl border-2 border-dashed border-gray-200 hover:border-blue-300 text-gray-400 hover:text-blue-500 text-sm font-medium transition-all flex items-center justify-center gap-2 h-fit"
-            >
-              <Plus size={16} />
-              {ko ? "칼럼 추가" : "Add Column"}
+        {/* Table */}
+        {filteredProjects.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
+            <FolderKanban size={28} className="text-gray-300 mx-auto mb-3" />
+            <h3 className="text-base font-semibold text-gray-900 mb-1">{ko ? "아직 프로젝트가 없습니다" : "No projects yet"}</h3>
+            <button onClick={() => { setEditingProject(null); setDialogOpen(true); }}
+              className="mt-3 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700">
+              <Plus size={14} className="inline mr-1" />{ko ? "프로젝트 추가" : "Add Project"}
             </button>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl border border-gray-200">
+            <table className="w-full text-left table-fixed">
+              <thead>
+                <tr className="bg-gray-50/50 border-b border-gray-100">
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[4%]">No.</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[25%]">{ko ? "프로젝트명" : "Project"}</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[12%]">{ko ? "상태" : "Status"}</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[12%] hidden md:table-cell">{ko ? "분류" : "Category"}</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[15%] hidden sm:table-cell">{ko ? "클라이언트" : "Client"}</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[12%] hidden md:table-cell">{ko ? "예산" : "Budget"}</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[10%] hidden lg:table-cell">{ko ? "생성일" : "Created"}</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[6%] text-center">{ko ? "상세" : "Detail"}</th>
+                  <th className="px-4 py-3 w-[4%]"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredProjects.map((project, idx) => (
+                  <tr key={project.id} onClick={() => navigate(p(`/projects/${project.id}`))}
+                    className="hover:bg-blue-50/30 transition-colors group cursor-pointer">
+                    <td className="px-4 py-3.5 text-xs text-gray-400 font-mono">{idx + 1}</td>
+                    <td className="px-4 py-3.5">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: project.color }} />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{project.name}</p>
+                          {project.description && <p className="text-xs text-gray-400 truncate">{project.description}</p>}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
+                      <StatusPill currentStatus={project.status} onChange={(s) => handleStatusChange(project.id, s)} ko={ko} />
+                    </td>
+                    <td className="px-4 py-3.5 hidden md:table-cell">
+                      {project.category && (
+                        <span className="text-xs text-gray-500">{ko ? PROJECT_CATEGORY_CONFIG[project.category]?.label : PROJECT_CATEGORY_CONFIG[project.category]?.labelEn}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3.5 hidden sm:table-cell text-sm text-gray-600 truncate">{project.client || "-"}</td>
+                    <td className="px-4 py-3.5 hidden md:table-cell text-sm text-gray-600">{project.budget || "-"}</td>
+                    <td className="px-4 py-3.5 hidden lg:table-cell text-xs text-gray-400">
+                      {project.createdAt ? format(new Date(project.createdAt), "MMM d") : "-"}
+                    </td>
+                    <td className="px-4 py-3.5 text-center">
+                      <ArrowRight size={14} className="text-gray-400 mx-auto" />
+                    </td>
+                    <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
+                      <div className="relative">
+                        <button onClick={() => setMenuOpenId(menuOpenId === project.id ? null : project.id)}
+                          className="p-1 text-gray-300 hover:text-gray-600 rounded-lg hover:bg-gray-100 opacity-0 group-hover:opacity-100 transition-all">
+                          <MoreHorizontal size={16} />
+                        </button>
+                        {menuOpenId === project.id && (
+                          <div className="absolute right-0 top-8 z-30 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-28">
+                            <button onClick={() => { setEditingProject(project); setDialogOpen(true); setMenuOpenId(null); }}
+                              className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-1.5">
+                              <Edit3 size={10} /> {ko ? "수정" : "Edit"}
+                            </button>
+                            <button onClick={() => { handleDeleteProject(project.id); setMenuOpenId(null); }}
+                              className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-1.5">
+                              <Trash2 size={10} /> {ko ? "삭제" : "Delete"}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <AddProjectDialog open={dialogOpen} onClose={() => { setDialogOpen(false); setEditingProject(null); }}
+          onSave={editingProject ? handleEditProject : handleAddProject} project={editingProject} ko={ko} />
       </div>
+    );
+  }
+
+  // ── Branding View ──
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <Palette size={22} className="text-purple-600" />
+            {ko ? "브랜딩" : "Branding"}
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {ko ? `전체 ${brandAssets.length}개` : `Total ${brandAssets.length}`}
+          </p>
+        </div>
+        <button onClick={handleAddBrand}
+          className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-xl hover:bg-purple-700 transition-colors">
+          <Plus size={16} /> {ko ? "자산 추가" : "Add Asset"}
+        </button>
+      </div>
+
+      {/* Type Summary */}
+      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-6">
+        {Object.entries(BRAND_TYPE_CONFIG).map(([key, config]) => (
+          <div key={key} className="bg-white rounded-xl border border-gray-200 p-3 text-center">
+            <p className="text-lg font-bold text-gray-900">{brandAssets.filter(b => b.type === key).length}</p>
+            <p className="text-[10px] font-medium text-gray-500 mt-1">{ko ? config.label : config.labelEn}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Search */}
+      <div className="relative mb-4">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder={ko ? "브랜드 자산 검색..." : "Search brand assets..."}
+          className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-purple-100" />
+      </div>
+
+      {/* Table */}
+      {filteredBrand.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
+          <Palette size={28} className="text-gray-300 mx-auto mb-3" />
+          <h3 className="text-base font-semibold text-gray-900 mb-1">{ko ? "아직 브랜드 자산이 없습니다" : "No brand assets yet"}</h3>
+          <button onClick={handleAddBrand}
+            className="mt-3 px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-xl hover:bg-purple-700">
+            <Plus size={14} className="inline mr-1" />{ko ? "자산 추가" : "Add Asset"}
+          </button>
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-gray-200">
+          <table className="w-full text-left table-fixed">
+            <thead>
+              <tr className="bg-gray-50/50 border-b border-gray-100">
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[4%]">No.</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[30%]">{ko ? "이름" : "Name"}</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[15%]">{ko ? "유형" : "Type"}</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[25%] hidden sm:table-cell">{ko ? "설명" : "Description"}</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[12%] hidden md:table-cell">{ko ? "생성일" : "Created"}</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[6%] text-center">{ko ? "상세" : "Detail"}</th>
+                <th className="px-4 py-3 w-[4%]"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filteredBrand.map((asset, idx) => {
+                const typeConfig = BRAND_TYPE_CONFIG[asset.type] || BRAND_TYPE_CONFIG.logo;
+                return (
+                  <tr key={asset.id} onClick={() => navigate(p(`/branding/${asset.id}`))}
+                    className="hover:bg-purple-50/30 transition-colors group cursor-pointer">
+                    <td className="px-4 py-3.5 text-xs text-gray-400 font-mono">{idx + 1}</td>
+                    <td className="px-4 py-3.5">
+                      <p className="text-sm font-medium text-gray-900 truncate">{asset.name}</p>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span className="text-xs text-gray-500 flex items-center gap-1.5">
+                        {typeConfig.icon} {ko ? typeConfig.label : typeConfig.labelEn}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5 hidden sm:table-cell text-xs text-gray-500 truncate">{asset.description || "-"}</td>
+                    <td className="px-4 py-3.5 hidden md:table-cell text-xs text-gray-400">
+                      {asset.createdAt ? format(new Date(asset.createdAt), "MMM d") : "-"}
+                    </td>
+                    <td className="px-4 py-3.5 text-center">
+                      <ArrowRight size={14} className="text-gray-400 mx-auto" />
+                    </td>
+                    <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
+                      <div className="relative">
+                        <button onClick={() => setMenuOpenId(menuOpenId === asset.id ? null : asset.id)}
+                          className="p-1 text-gray-300 hover:text-gray-600 rounded-lg hover:bg-gray-100 opacity-0 group-hover:opacity-100 transition-all">
+                          <MoreHorizontal size={16} />
+                        </button>
+                        {menuOpenId === asset.id && (
+                          <div className="absolute right-0 top-8 z-30 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-28">
+                            <button onClick={() => { navigate(p(`/branding/${asset.id}`)); setMenuOpenId(null); }}
+                              className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-1.5">
+                              <Edit3 size={10} /> {ko ? "수정" : "Edit"}
+                            </button>
+                            <button onClick={() => { handleDeleteBrand(asset.id); setMenuOpenId(null); }}
+                              className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-1.5">
+                              <Trash2 size={10} /> {ko ? "삭제" : "Delete"}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
