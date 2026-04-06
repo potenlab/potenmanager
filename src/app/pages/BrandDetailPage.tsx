@@ -23,6 +23,7 @@ import { useOrgPath } from "../hooks/useOrgPath";
 import {
   BrandAsset,
   loadBrandAssets, saveBrandAssets, loadCards, saveCards, loadColumns,
+  getAllPlatforms, getPlatformLabel,
 } from "./ManagementPage";
 
 const BRAND_PLATFORMS = [
@@ -236,15 +237,7 @@ function BrandSecondaryProperties({ item, onUpdate, ko }: DetailSectionProps<Bra
 }
 
 function BrandProperties({ item, onUpdate, ko }: DetailSectionProps<BrandAsset>) {
-  const CHANNEL_PLATFORMS = [
-    { id: "instagram", label: "Instagram" },
-    { id: "youtube", label: "YouTube" },
-    { id: "tiktok", label: "TikTok" },
-    { id: "thread", label: "Threads" },
-    { id: "website", label: ko ? "홈페이지" : "Website" },
-    { id: "blog", label: ko ? "블로그" : "Blog" },
-    { id: "other", label: ko ? "기타" : "Other" },
-  ];
+  const platforms = getAllPlatforms();
 
   return (
     <AutoProperties fields={[
@@ -254,10 +247,10 @@ function BrandProperties({ item, onUpdate, ko }: DetailSectionProps<BrandAsset>)
         icon: <Monitor size={14} />,
         label: ko ? "플랫폼" : "Platform",
         value: item.type || "other",
-        options: CHANNEL_PLATFORMS.map(p => p.id),
+        options: platforms,
         onChange: (v: string) => onUpdate({ type: v }),
-        renderValue: (v: string) => <span className="text-sm text-gray-700">{CHANNEL_PLATFORMS.find(p => p.id === v)?.label || v}</span>,
-        renderOption: (v: string) => <span>{CHANNEL_PLATFORMS.find(p => p.id === v)?.label || v}</span>,
+        renderValue: (v: string) => <span className="text-sm text-gray-700">{getPlatformLabel(v)}</span>,
+        renderOption: (v: string) => <span>{getPlatformLabel(v)}</span>,
       },
     ] as PropertyFieldConfig[]} />
   );

@@ -67,6 +67,7 @@ export const BRAND_TYPE_CONFIG = {
   thread: { label: "Threads", labelEn: "Threads", icon: <Globe size={14} /> },
   website: { label: "홈페이지", labelEn: "Website", icon: <Globe size={14} /> },
   blog: { label: "블로그", labelEn: "Blog", icon: <Globe size={14} /> },
+  tistory: { label: "티스토리", labelEn: "Tistory", icon: <Globe size={14} /> },
   other: { label: "기타", labelEn: "Other", icon: <Globe size={14} /> },
   // Legacy keys for backward compatibility
   logo: { label: "로고", labelEn: "Logo", icon: <ImageIcon size={14} /> },
@@ -75,6 +76,28 @@ export const BRAND_TYPE_CONFIG = {
   guideline: { label: "가이드라인", labelEn: "Guideline", icon: <Globe size={14} /> },
   template: { label: "템플릿", labelEn: "Template", icon: <FolderKanban size={14} /> },
 };
+
+// ─── Custom Channel Platforms ───────────────────────────────────
+const STORAGE_KEY_CUSTOM_PLATFORMS = "poten_custom_channel_platforms";
+
+export const DEFAULT_PLATFORMS = ["instagram", "youtube", "tiktok", "thread", "website", "blog", "tistory"] as const;
+
+export function loadCustomPlatforms(): string[] {
+  try { const s = localStorage.getItem(STORAGE_KEY_CUSTOM_PLATFORMS); return s ? JSON.parse(s) : []; } catch { return []; }
+}
+export function saveCustomPlatforms(platforms: string[]) {
+  localStorage.setItem(STORAGE_KEY_CUSTOM_PLATFORMS, JSON.stringify(platforms));
+}
+
+export function getAllPlatforms(): string[] {
+  return [...DEFAULT_PLATFORMS, ...loadCustomPlatforms(), "other"];
+}
+
+export function getPlatformLabel(id: string): string {
+  const config = BRAND_TYPE_CONFIG[id as keyof typeof BRAND_TYPE_CONFIG];
+  if (config) return config.label;
+  return id; // custom platform — name is the id
+}
 
 export const STORAGE_KEY_PROJECTS = "poten_management_projects";
 export const STORAGE_KEY_BRAND = "poten_management_brand";
@@ -468,7 +491,29 @@ export function ManagementPage() {
   }
 
   // ── Channel Management View ──
-  const CHANNEL_TYPES = ["instagram", "youtube", "tiktok", "thread", "website", "blog", "other"] as const;
+  const [customPlatforms, setCustomPlatforms] = useState<string[]>(() => loadCustomPlatforms());
+  const [addingPlatform, setAddingPlatform] = useState(false);
+  const [newPlatformName, setNewPlatformName] = useState("");
+  const platformInputRef = useRef<HTMLInputElement>(null);
+  const allPlatforms = [...DEFAULT_PLATFORMS, ...customPlatforms, "other"];
+
+  useEffect(() => { if (addingPlatform && platformInputRef.current) platformInputRef.current.focus(); }, [addingPlatform]);
+
+  const handleAddPlatform = () => {
+    const name = newPlatformName.trim();
+    if (!name || allPlatforms.includes(name)) { setAddingPlatform(false); setNewPlatformName(""); return; }
+    const updated = [...customPlatforms, name];
+    setCustomPlatforms(updated);
+    saveCustomPlatforms(updated);
+    setNewPlatformName("");
+    setAddingPlatform(false);
+  };
+
+  const handleRemovePlatform = (name: string) => {
+    const updated = customPlatforms.filter(p => p !== name);
+    setCustomPlatforms(updated);
+    saveCustomPlatforms(updated);
+  };
 
   return (
     <div>
@@ -489,16 +534,34 @@ export function ManagementPage() {
       </div>
 
       {/* Channel Summary */}
-      <div className="grid grid-cols-4 sm:grid-cols-7 gap-2 mb-6">
-        {CHANNEL_TYPES.map(key => {
-          const config = BRAND_TYPE_CONFIG[key];
-          return (
-            <div key={key} className="bg-white rounded-xl border border-gray-200 p-3 text-center">
-              <p className="text-lg font-bold text-gray-900">{brandAssets.filter(b => b.type === key).length}</p>
-              <p className="text-[10px] font-medium text-gray-500 mt-1">{ko ? config.label : config.labelEn}</p>
-            </div>
-          );
-        })}
+      <div className="flex flex-wrap gap-2 mb-6">
+        {allPlatforms.map(key => (
+          <div key={key} className="bg-white rounded-xl border border-gray-200 p-3 text-center min-w-[80px] relative group">
+            <p className="text-lg font-bold text-gray-900">{brandAssets.filter(b => b.type === key).length}</p>
+            <p className="text-[10px] font-medium text-gray-500 mt-1">{getPlatformLabel(key)}</p>
+            {customPlatforms.includes(key) && (
+              <button onClick={() => handleRemovePlatform(key)}
+                className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <X size={8} />
+              </button>
+            )}
+          </div>
+        ))}
+        {addingPlatform ? (
+          <div className="bg-white rounded-xl border border-purple-300 p-3 min-w-[100px]">
+            <input ref={platformInputRef} value={newPlatformName} onChange={e => setNewPlatformName(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && !e.nativeEvent.isComposing) handleAddPlatform(); if (e.key === "Escape") { setAddingPlatform(false); setNewPlatformName(""); } }}
+              onBlur={handleAddPlatform}
+              placeholder={ko ? "플랫폼명" : "Name"}
+              className="w-full text-xs text-center outline-none bg-transparent" />
+          </div>
+        ) : (
+          <button onClick={() => setAddingPlatform(true)}
+            className="bg-white rounded-xl border-2 border-dashed border-gray-200 hover:border-purple-300 p-3 min-w-[80px] text-gray-400 hover:text-purple-500 transition-colors flex flex-col items-center justify-center">
+            <Plus size={16} />
+            <p className="text-[10px] font-medium mt-1">{ko ? "추가" : "Add"}</p>
+          </button>
+        )}
       </div>
 
       {/* Search */}
