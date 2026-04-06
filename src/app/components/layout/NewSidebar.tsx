@@ -310,72 +310,32 @@ export function NewSidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-5 scrollbar-hide">
-        {/* Personal Section (always visible) */}
+        {/* ── 개인 Section ── */}
         <div>
           <p className="px-2 mb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
             {ko ? "개인" : "Personal"}
           </p>
           <div className="space-y-0.5">
-            {/* 내 업무 */}
-            <NavLink
-              to={p("/tasks")}
-              className={cn(
-                "flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
-                isActive("/tasks")
-                  ? "bg-gray-200/70 text-gray-900 font-semibold"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-              )}
-            >
+            <NavLink to={p("/tasks")} className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100", isActive("/tasks") ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}>
               <div className="shrink-0 text-gray-500"><CheckSquare size={16} /></div>
               <span>{ko ? "내 업무" : "My Tasks"}</span>
             </NavLink>
-
-            {/* 캘린더 — no submenu */}
-            <NavLink
-              to="/calendar"
-              className={cn(
-                "flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
-                isActive("/calendar")
-                  ? "bg-gray-200/70 text-gray-900 font-semibold"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-              )}
-            >
+            <NavLink to="/calendar" className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100", isActive("/calendar") ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}>
               <div className="shrink-0 text-gray-500"><Calendar size={16} /></div>
               <span>{ko ? "캘린더" : "Calendar"}</span>
             </NavLink>
-
-            {/* 자료실 */}
-            <NavLink
-              to={p("/library")}
-              className={cn(
-                "flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
-                isActive("/library")
-                  ? "bg-gray-200/70 text-gray-900 font-semibold"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-              )}
-            >
+            <NavLink to={p("/library")} className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100", isActive("/library") ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}>
               <div className="shrink-0 text-gray-500"><BookMarked size={16} /></div>
               <span>{ko ? "자료실" : "Library"}</span>
             </NavLink>
-
           </div>
-
-          {/* Enabled tool items (always shown) */}
+          {/* Enabled tool items under personal */}
           {enabledTools.filter(t => TOOL_NAV_ITEMS[t]).length > 0 && (
             <div className="mt-2 space-y-0.5">
               {enabledTools.filter(t => TOOL_NAV_ITEMS[t]).map(toolId => {
                 const item = TOOL_NAV_ITEMS[toolId];
                 return (
-                  <NavLink
-                    key={item.id}
-                    to={item.to}
-                    className={cn(
-                      "flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
-                      isActive(item.to)
-                        ? "bg-gray-200/70 text-gray-900 font-semibold"
-                        : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                    )}
-                  >
+                  <NavLink key={item.id} to={item.to} className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100", isActive(item.to) ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}>
                     <div className="shrink-0 text-gray-500">{item.icon}</div>
                     <span>{item.label}</span>
                   </NavLink>
@@ -385,138 +345,69 @@ export function NewSidebar() {
           )}
         </div>
 
-        {/* Org Section (only when org mode) */}
-        {!isPersonal && currentOrg && (
-          <div>
-            <p className="px-2 mb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-              {currentOrg.name}
-            </p>
-            <div className="space-y-0.5">
-              {/* Org items (all draggable) */}
-              {orgItems.map((item) => (
-                <DraggableNavItem key={item.id} id={item.id} groupId="org" moveItem={(fromId, toId) => moveItem("org", fromId, toId)}>
-                  {item.id === 'sales' ? (
-                    <>
-                      <button
-                        onClick={() => { setSalesExpanded(!salesExpanded); navigate(p("/sales")); }}
-                        className={cn(
-                          "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
-                          isActive(p("/sales"))
-                            ? "bg-gray-200/70 text-gray-900 font-semibold"
-                            : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                        )}
-                      >
-                        <div className="shrink-0 text-gray-500">{item.icon}</div>
-                        <span className="flex-1 text-left">{item.label}</span>
-                        {salesExpanded ? <ChevronDown size={12} className="text-gray-400" /> : <ChevronRight size={12} className="text-gray-400" />}
-                      </button>
-                      {salesExpanded && (
-                        <div className="ml-7 mt-0.5 space-y-0.5">
-                          <NavLink to={p("/sales/clients")} className={() => cn(
-                            "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
-                            location.pathname.includes("/sales/clients")
-                              ? "bg-gray-200/70 text-gray-900 font-semibold"
-                              : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
-                          )}>
-                            <Users size={13} />
-                            {ko ? "클라이언트 관리" : "Clients"}
-                          </NavLink>
-                          <NavLink to={p("/sales/estimates")} className={() => cn(
-                            "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
-                            location.pathname.includes("/sales/estimates")
-                              ? "bg-gray-200/70 text-gray-900 font-semibold"
-                              : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
-                          )}>
-                            <FileText size={13} />
-                            {ko ? "견적서/계약" : "Estimates"}
-                          </NavLink>
-                        </div>
-                      )}
-                    </>
-                  ) : item.id === 'team' ? (
-                    <>
-                      <button
-                        onClick={() => { setTeamExpanded(!teamExpanded); navigate(item.to); }}
-                        className={cn(
-                          "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
-                          isActive(item.to)
-                            ? "bg-gray-200/70 text-gray-900 font-semibold"
-                            : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                        )}
-                      >
-                        <div className="shrink-0 text-gray-500">{item.icon}</div>
-                        <span className="flex-1 text-left">{item.label}</span>
-                        <ChevronDown size={14} className={cn("text-gray-400 transition-transform", !teamExpanded && "-rotate-90")} />
-                      </button>
-                      {teamExpanded && members.length > 0 && (
-                        <div className="ml-4 mt-0.5 space-y-0.5">
-                          {members.map(m => {
-                            const att = todayAttendance.find((a: any) => a.userId === m.id);
-                            const status = att?.currentStatus || (att?.checkOut ? 'off' : att?.checkIn ? 'working' : null);
-                            return (
-                              <div key={m.id} className="flex items-center gap-2 px-2 py-1 rounded-md text-[13px] text-gray-500">
-                                <div className={cn("w-2 h-2 rounded-full shrink-0",
-                                  status === 'working' ? "bg-green-500" :
-                                  status === 'break' ? "bg-amber-400" :
-                                  status === 'off' ? "bg-gray-300" : "bg-gray-200"
-                                )} />
-                                <span className="truncate">{m.name || m.email?.split('@')[0]}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <NavLink
-                      to={item.to}
-                      className={cn(
-                        "flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
-                        isActive(item.to)
-                          ? "bg-gray-200/70 text-gray-900 font-semibold"
-                          : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                      )}
-                    >
+        {/* ── Categories as top-level sections (same level as 개인) ── */}
+        {!isPersonal && currentOrg && categories
+          .filter(cat => cat.memberIds.includes(user?.id || ""))
+          .map(cat => (
+          <div key={cat.id}>
+            <div className="flex items-center justify-between px-2 mb-1 group/cat-header">
+              <button
+                onClick={() => toggleCategoryExpand(cat.id)}
+                className="flex items-center gap-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider hover:text-gray-600 transition-colors"
+              >
+                <span>{cat.name}</span>
+                <ChevronDown size={10} className={cn("transition-transform", !expandedCategories.has(cat.id) && "-rotate-90")} />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setCategoryMenuId(categoryMenuId === cat.id ? null : cat.id); }}
+                className="p-0.5 text-gray-300 hover:text-gray-600 rounded opacity-0 group-hover/cat-header:opacity-100 transition-opacity"
+              >
+                <MoreHorizontal size={12} />
+              </button>
+            </div>
+            {/* Category context menu */}
+            {categoryMenuId === cat.id && (
+              <div className="mx-2 mb-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 min-w-[120px]">
+                <button onClick={() => { setEditingCategory(cat); setCategoryName(cat.name); setCategoryMembers(cat.memberIds); setCategoryTools(cat.toolIds); setShowCategoryForm(true); setCategoryMenuId(null); }}
+                  className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Edit2 size={12} /> {ko ? "수정" : "Edit"}</button>
+                <button onClick={() => deleteCategory(cat.id)}
+                  className="w-full text-left px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2"><Trash2 size={12} /> {ko ? "삭제" : "Delete"}</button>
+              </div>
+            )}
+            {/* Tool sub-items */}
+            {expandedCategories.has(cat.id) && (
+              <div className="space-y-0.5">
+                {cat.toolIds.length > 0 ? cat.toolIds.filter(t => TOOL_NAV_ITEMS[t]).map(toolId => {
+                  const item = TOOL_NAV_ITEMS[toolId];
+                  return (
+                    <NavLink key={toolId} to={item.to} className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100", isActive(item.to) ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}>
                       <div className="shrink-0 text-gray-500">{item.icon}</div>
                       <span>{item.label}</span>
                     </NavLink>
-                  )}
-                </DraggableNavItem>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Tools */}
-        <div>
-          <NavLink
-            to="/tools"
-            className={cn(
-              "flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
-              isActive("/tools")
-                ? "bg-gray-200/70 text-gray-900 font-semibold"
-                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  );
+                }) : (
+                  <p className="px-2 py-1 text-[12px] text-gray-400 italic">
+                    {ko ? "도구를 추가해주세요" : "No tools assigned"}
+                  </p>
+                )}
+              </div>
             )}
-          >
-            <div className="shrink-0 text-gray-500"><Wrench size={16} /></div>
-            <span>{ko ? "도구" : "Tools"}</span>
-          </NavLink>
-        </div>
+          </div>
+        ))}
 
-        {/* ── Categories (접근 권한 그룹 + 도구 모음) ── */}
+        {/* Category add button (inline, below categories) */}
         {!isPersonal && currentOrg && (
-          <div className="mt-2">
-            <div className="flex items-center justify-between px-2 mb-1">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{ko ? "카테고리" : "Categories"}</span>
+          <div>
+            {!showCategoryForm && (
               <button onClick={() => { setShowCategoryForm(true); setEditingCategory(null); setCategoryName(""); setCategoryMembers([]); setCategoryTools([]); }}
-                className="p-0.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors">
+                className="flex items-center gap-2 px-2 py-1.5 text-[12px] text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors w-full">
                 <Plus size={14} />
+                <span>{ko ? "카테고리 추가" : "Add category"}</span>
               </button>
-            </div>
-
+            )}
             {/* Category form */}
             {showCategoryForm && (
-              <div className="mx-2 mb-2 p-3 bg-white border border-blue-200 rounded-xl shadow-sm">
+              <div className="p-3 bg-white border border-blue-200 rounded-xl shadow-sm">
                 <input
                   autoFocus
                   value={categoryName}
@@ -525,7 +416,6 @@ export function NewSidebar() {
                   placeholder={ko ? "카테고리 이름 (예: A부서, 마케팅팀)" : "Category name"}
                   className="w-full px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-blue-300 mb-2"
                 />
-                {/* Tool selection */}
                 <p className="text-[10px] text-gray-400 font-medium mb-1">{ko ? "도구 선택" : "Select tools"}</p>
                 <div className="max-h-[100px] overflow-y-auto space-y-1 mb-2">
                   {Object.entries(TOOL_NAV_ITEMS).map(([toolId, item]) => (
@@ -538,7 +428,6 @@ export function NewSidebar() {
                     </label>
                   ))}
                 </div>
-                {/* Member selection */}
                 <p className="text-[10px] text-gray-400 font-medium mb-1">{ko ? "멤버 선택" : "Select members"}</p>
                 <div className="max-h-[120px] overflow-y-auto space-y-1 mb-2">
                   {teamMembers.map(m => (
@@ -557,73 +446,6 @@ export function NewSidebar() {
                 </div>
               </div>
             )}
-
-            {/* Category list — expandable groups with tool sub-items */}
-            {categories
-              .filter(cat => cat.memberIds.includes(user?.id || ""))
-              .map(cat => (
-              <div key={cat.id} className="relative group/cat">
-                <button
-                  onClick={() => toggleCategoryExpand(cat.id)}
-                  className={cn(
-                    "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
-                    expandedCategories.has(cat.id)
-                      ? "bg-gray-200/70 text-gray-900 font-semibold"
-                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                  )}
-                >
-                  <div className="shrink-0 text-gray-500"><Layers size={16} /></div>
-                  <span className="truncate flex-1 text-left">{cat.name}</span>
-                  <span className="text-[10px] text-gray-400 mr-1">{cat.memberIds.length}</span>
-                  <ChevronDown size={12} className={cn("text-gray-400 transition-transform shrink-0", !expandedCategories.has(cat.id) && "-rotate-90")} />
-                </button>
-
-                {/* Context menu button */}
-                <button
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCategoryMenuId(categoryMenuId === cat.id ? null : cat.id); }}
-                  className="absolute right-7 top-1/2 -translate-y-1/2 p-1 text-gray-300 hover:text-gray-600 rounded opacity-0 group-hover/cat:opacity-100 transition-opacity"
-                >
-                  <MoreHorizontal size={14} />
-                </button>
-                {categoryMenuId === cat.id && (
-                  <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 min-w-[120px]">
-                    <button onClick={() => { setEditingCategory(cat); setCategoryName(cat.name); setCategoryMembers(cat.memberIds); setCategoryTools(cat.toolIds); setShowCategoryForm(true); setCategoryMenuId(null); }}
-                      className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Edit2 size={12} /> {ko ? "수정" : "Edit"}</button>
-                    <button onClick={() => deleteCategory(cat.id)}
-                      className="w-full text-left px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2"><Trash2 size={12} /> {ko ? "삭제" : "Delete"}</button>
-                  </div>
-                )}
-
-                {/* Expanded: show assigned tools as sub-items */}
-                {expandedCategories.has(cat.id) && cat.toolIds.length > 0 && (
-                  <div className="ml-4 mt-0.5 space-y-0.5">
-                    {cat.toolIds.filter(t => TOOL_NAV_ITEMS[t]).map(toolId => {
-                      const item = TOOL_NAV_ITEMS[toolId];
-                      return (
-                        <NavLink
-                          key={toolId}
-                          to={item.to}
-                          className={cn(
-                            "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
-                            isActive(item.to)
-                              ? "bg-gray-200/70 text-gray-900 font-semibold"
-                              : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
-                          )}
-                        >
-                          <div className="shrink-0">{item.icon}</div>
-                          <span>{item.label}</span>
-                        </NavLink>
-                      );
-                    })}
-                  </div>
-                )}
-                {expandedCategories.has(cat.id) && cat.toolIds.length === 0 && (
-                  <p className="ml-7 px-2 py-1 text-[12px] text-gray-400 italic">
-                    {ko ? "도구를 추가해주세요" : "No tools assigned"}
-                  </p>
-                )}
-              </div>
-            ))}
           </div>
         )}
 
@@ -641,8 +463,54 @@ export function NewSidebar() {
         )}
       </nav>
 
-      {/* Bottom: Profile & Settings */}
+      {/* ── Bottom area ── */}
       <div className="border-t border-gray-200 px-3 py-3 space-y-1">
+        {/* Org section: team */}
+        {!isPersonal && currentOrg && (
+          <div className="mb-2">
+            <p className="px-2 mb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+              {currentOrg.name}
+            </p>
+            <button
+              onClick={() => { setTeamExpanded(!teamExpanded); navigate(p("/team")); }}
+              className={cn(
+                "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
+                isActive(p("/team"))
+                  ? "bg-gray-200/70 text-gray-900 font-semibold"
+                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+              )}
+            >
+              <div className="shrink-0 text-gray-500"><Users size={16} /></div>
+              <span className="flex-1 text-left">{ko ? "팀" : "Team"}</span>
+              <ChevronDown size={14} className={cn("text-gray-400 transition-transform", !teamExpanded && "-rotate-90")} />
+            </button>
+            {teamExpanded && members.length > 0 && (
+              <div className="ml-4 mt-0.5 space-y-0.5">
+                {members.map(m => {
+                  const att = todayAttendance.find((a: any) => a.userId === m.id);
+                  const status = att?.currentStatus || (att?.checkOut ? 'off' : att?.checkIn ? 'working' : null);
+                  return (
+                    <div key={m.id} className="flex items-center gap-2 px-2 py-1 rounded-md text-[13px] text-gray-500">
+                      <div className={cn("w-2 h-2 rounded-full shrink-0",
+                        status === 'working' ? "bg-green-500" :
+                        status === 'break' ? "bg-amber-400" :
+                        status === 'off' ? "bg-gray-300" : "bg-gray-200"
+                      )} />
+                      <span className="truncate">{m.name || m.email?.split('@')[0]}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 도구 — just above settings */}
+        <NavLink to="/tools" className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all", isActive("/tools") ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-500 hover:bg-gray-100 hover:text-gray-700")}>
+          <Wrench size={16} />
+          {ko ? "도구" : "Tools"}
+        </NavLink>
+
         {/* User Profile */}
         {user && (
           <NavLink to="/mypage" className="flex items-center gap-2.5 px-2 py-2 mb-1 rounded-lg hover:bg-gray-100 transition-all cursor-pointer group">
@@ -659,15 +527,7 @@ export function NewSidebar() {
             </div>
           </NavLink>
         )}
-        <NavLink
-          to="/settings"
-          className={cn(
-            "flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all",
-            isActive("/settings")
-              ? "bg-gray-200/70 text-gray-900 font-semibold"
-              : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-          )}
-        >
+        <NavLink to="/settings" className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all", isActive("/settings") ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-500 hover:bg-gray-100 hover:text-gray-700")}>
           <Settings size={16} />
           {ko ? "설정" : "Settings"}
         </NavLink>
