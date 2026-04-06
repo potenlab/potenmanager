@@ -61,8 +61,16 @@ export const PROJECT_COLORS = [
 ];
 
 export const BRAND_TYPE_CONFIG = {
+  instagram: { label: "Instagram", labelEn: "Instagram", icon: <Globe size={14} /> },
+  youtube: { label: "YouTube", labelEn: "YouTube", icon: <Globe size={14} /> },
+  tiktok: { label: "TikTok", labelEn: "TikTok", icon: <Globe size={14} /> },
+  thread: { label: "Threads", labelEn: "Threads", icon: <Globe size={14} /> },
+  website: { label: "홈페이지", labelEn: "Website", icon: <Globe size={14} /> },
+  blog: { label: "블로그", labelEn: "Blog", icon: <Globe size={14} /> },
+  other: { label: "기타", labelEn: "Other", icon: <Globe size={14} /> },
+  // Legacy keys for backward compatibility
   logo: { label: "로고", labelEn: "Logo", icon: <ImageIcon size={14} /> },
-  color: { label: "브랜드 컬러", labelEn: "Brand Color", icon: <Palette size={14} /> },
+  color: { label: "컬러", labelEn: "Color", icon: <Palette size={14} /> },
   font: { label: "폰트", labelEn: "Font", icon: <span className="text-xs font-bold">Aa</span> },
   guideline: { label: "가이드라인", labelEn: "Guideline", icon: <Globe size={14} /> },
   template: { label: "템플릿", labelEn: "Template", icon: <FolderKanban size={14} /> },
@@ -304,12 +312,14 @@ export function ManagementPage() {
   const handleAddBrand = () => {
     const newAsset: BrandAsset = {
       id: `brand-${Date.now()}`,
-      type: "logo",
-      name: ko ? "새 브랜드 자산" : "New Brand Asset",
+      type: "instagram",
+      name: ko ? "새 채널" : "New Channel",
       value: "",
       createdAt: new Date().toISOString(),
     };
-    persistBrand([newAsset, ...brandAssets]);
+    const updated = [newAsset, ...brandAssets];
+    setBrandAssets(updated);
+    saveBrandAssets(updated);
     navigate(p(`/branding/${newAsset.id}`));
   };
 
@@ -457,39 +467,44 @@ export function ManagementPage() {
     );
   }
 
-  // ── Branding View ──
+  // ── Channel Management View ──
+  const CHANNEL_TYPES = ["instagram", "youtube", "tiktok", "thread", "website", "blog", "other"] as const;
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
             <Palette size={22} className="text-purple-600" />
-            {ko ? "브랜딩" : "Branding"}
+            {ko ? "채널관리" : "Channels"}
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            {ko ? `전체 ${brandAssets.length}개` : `Total ${brandAssets.length}`}
+            {ko ? `운영 중 ${brandAssets.length}개 채널` : `${brandAssets.length} channels`}
           </p>
         </div>
         <button onClick={handleAddBrand}
           className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-xl hover:bg-purple-700 transition-colors">
-          <Plus size={16} /> {ko ? "자산 추가" : "Add Asset"}
+          <Plus size={16} /> {ko ? "채널 추가" : "Add Channel"}
         </button>
       </div>
 
-      {/* Type Summary */}
-      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-6">
-        {Object.entries(BRAND_TYPE_CONFIG).map(([key, config]) => (
-          <div key={key} className="bg-white rounded-xl border border-gray-200 p-3 text-center">
-            <p className="text-lg font-bold text-gray-900">{brandAssets.filter(b => b.type === key).length}</p>
-            <p className="text-[10px] font-medium text-gray-500 mt-1">{ko ? config.label : config.labelEn}</p>
-          </div>
-        ))}
+      {/* Channel Summary */}
+      <div className="grid grid-cols-4 sm:grid-cols-7 gap-2 mb-6">
+        {CHANNEL_TYPES.map(key => {
+          const config = BRAND_TYPE_CONFIG[key];
+          return (
+            <div key={key} className="bg-white rounded-xl border border-gray-200 p-3 text-center">
+              <p className="text-lg font-bold text-gray-900">{brandAssets.filter(b => b.type === key).length}</p>
+              <p className="text-[10px] font-medium text-gray-500 mt-1">{ko ? config.label : config.labelEn}</p>
+            </div>
+          );
+        })}
       </div>
 
       {/* Search */}
       <div className="relative mb-4">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder={ko ? "브랜드 자산 검색..." : "Search brand assets..."}
+        <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder={ko ? "채널 검색..." : "Search channels..."}
           className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-purple-100" />
       </div>
 
@@ -497,10 +512,10 @@ export function ManagementPage() {
       {filteredBrand.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
           <Palette size={28} className="text-gray-300 mx-auto mb-3" />
-          <h3 className="text-base font-semibold text-gray-900 mb-1">{ko ? "아직 브랜드 자산이 없습니다" : "No brand assets yet"}</h3>
+          <h3 className="text-base font-semibold text-gray-900 mb-1">{ko ? "아직 채널이 없습니다" : "No channels yet"}</h3>
           <button onClick={handleAddBrand}
             className="mt-3 px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-xl hover:bg-purple-700">
-            <Plus size={14} className="inline mr-1" />{ko ? "자산 추가" : "Add Asset"}
+            <Plus size={14} className="inline mr-1" />{ko ? "채널 추가" : "Add Channel"}
           </button>
         </div>
       ) : (
@@ -509,8 +524,8 @@ export function ManagementPage() {
             <thead>
               <tr className="bg-gray-50/50 border-b border-gray-100">
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[4%]">No.</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[30%]">{ko ? "이름" : "Name"}</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[15%]">{ko ? "유형" : "Type"}</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[30%]">{ko ? "채널명" : "Channel"}</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[15%]">{ko ? "플랫폼" : "Platform"}</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[25%] hidden sm:table-cell">{ko ? "설명" : "Description"}</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[12%] hidden md:table-cell">{ko ? "생성일" : "Created"}</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[6%] text-center">{ko ? "상세" : "Detail"}</th>
@@ -519,7 +534,7 @@ export function ManagementPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filteredBrand.map((asset, idx) => {
-                const typeConfig = BRAND_TYPE_CONFIG[asset.type] || BRAND_TYPE_CONFIG.logo;
+                const typeConfig = BRAND_TYPE_CONFIG[asset.type] || BRAND_TYPE_CONFIG.other;
                 return (
                   <tr key={asset.id} onClick={() => navigate(p(`/branding/${asset.id}`))}
                     className="hover:bg-purple-50/30 transition-colors group cursor-pointer">

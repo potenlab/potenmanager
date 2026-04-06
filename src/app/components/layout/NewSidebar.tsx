@@ -2,7 +2,7 @@
  * NewSidebar — 개인/조직 모드 대응 사이드바
  *
  * 개인 모드: 내 업무, 캘린더, 자료실, 프로젝트, 도구
- * 조직 모드: + 팀, 브랜딩, 비즈레이더
+ * 조직 모드: + 팀, 채널관리, 비즈레이더
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -309,7 +309,7 @@ export function NewSidebar() {
   // Tool items that can be dynamically added to sidebar
   const TOOL_NAV_ITEMS: Record<string, NavItem> = {
     projects: { id: "projects", to: p("/projects"), icon: <FolderKanban size={16} />, label: ko ? "프로젝트" : "Projects" },
-    branding: { id: "branding", to: p("/branding"), icon: <Palette size={16} />, label: ko ? "브랜딩" : "Branding" },
+    branding: { id: "branding", to: p("/branding"), icon: <Palette size={16} />, label: ko ? "채널관리" : "Channels" },
     sales: { id: "sales", to: p("/sales"), icon: <DollarSign size={16} />, label: ko ? "고객관리" : "Clients" },
     "biz-radar": { id: "biz-radar", to: p("/radar"), icon: <BarChart3 size={16} />, label: ko ? "비즈 레이더" : "Biz Radar" },
     finance: { id: "finance", to: p("/finance"), icon: <BarChart3 size={16} />, label: ko ? "재무 관리" : "Finance" },

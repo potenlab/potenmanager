@@ -23,7 +23,8 @@ export function OrgSlugGuard() {
   if (isLoading) return null;
 
   // If slug doesn't match any org, go to personal dashboard
-  if (orgSlug) {
+  // But only redirect if orgs are loaded (length > 0) to avoid race conditions
+  if (orgSlug && orgs.length > 0) {
     const known = orgs.some((o) => o.org.slug === orgSlug);
     if (!known) return <Navigate to="/dashboard" replace />;
   }
