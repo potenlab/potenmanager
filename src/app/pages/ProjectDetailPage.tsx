@@ -25,7 +25,7 @@ import { DetailPageShell } from "../components/detail/DetailPageShell";
 import { useOrgPath } from "../hooks/useOrgPath";
 import {
   Project, PROJECT_STATUS_CONFIG, PROJECT_COLORS, PROJECT_CATEGORY_CONFIG,
-  loadProjects, saveProjects, syncProjectsFromServer, loadCards, saveCards, loadColumns,
+  loadProjects, saveProjects, loadCards, saveCards, loadColumns,
 } from "./ManagementPage";
 
 // ─── Member Picker (same style as task detail) ─────────────────────
@@ -450,9 +450,7 @@ export function ProjectDetailPage() {
   // Sync projects from server on mount
   useEffect(() => {
     if (localStorage.getItem('poten_demo_mode') === 'true') return;
-    syncProjectsFromServer().then((merged) => {
-      setProjects(merged);
-    });
+    setProjects(loadProjects());
   }, []);
 
   // Create new project on mount if "new"

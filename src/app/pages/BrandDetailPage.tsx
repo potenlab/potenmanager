@@ -23,9 +23,20 @@ import { useTeam } from "../context/TeamContext";
 import { useOrgPath } from "../hooks/useOrgPath";
 import {
   BrandAsset,
-  loadBrandAssets, saveBrandAssets, syncBrandAssetsFromServer, loadCards, saveCards, loadColumns,
-  BRAND_PLATFORMS,
+  loadBrandAssets, saveBrandAssets, loadCards, saveCards, loadColumns,
 } from "./ManagementPage";
+
+const BRAND_PLATFORMS = [
+  { id: "instagram", label: "Instagram", icon: "" },
+  { id: "facebook", label: "Facebook", icon: "" },
+  { id: "youtube", label: "YouTube", icon: "" },
+  { id: "tiktok", label: "TikTok", icon: "" },
+  { id: "twitter", label: "Twitter/X", icon: "" },
+  { id: "linkedin", label: "LinkedIn", icon: "" },
+  { id: "blog", label: "Blog", icon: "" },
+  { id: "website", label: "Website", icon: "" },
+  { id: "other", label: "Other", icon: "" },
+];
 
 // ─── Helpers ───────────────────────────────────────────────────────
 
@@ -76,7 +87,7 @@ function useBrandData(id: string | undefined) {
   // Sync from server on mount
   useEffect(() => {
     if (isDemo()) return;
-    syncBrandAssetsFromServer().then((merged) => setAssets(merged));
+    setAssets(loadBrandAssets());
   }, []);
 
   useEffect(() => {

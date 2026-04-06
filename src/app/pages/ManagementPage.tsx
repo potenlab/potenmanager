@@ -144,7 +144,7 @@ export function loadCards(board: BoardType): KanbanCard[] {
   return [];
 }
 
-function saveCards(board: BoardType, cards: KanbanCard[]) {
+export function saveCards(board: BoardType, cards: KanbanCard[]) {
   localStorage.setItem(storageKey(board, "cards"), JSON.stringify(cards));
 }
 
