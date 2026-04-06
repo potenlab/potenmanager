@@ -700,7 +700,19 @@ export const api = {
   },
   createClient: async (client: any) => {
     const uid = await getUid();
-    const orgId = getActiveOrgId();
+    let orgId = getActiveOrgId();
+    // Fallback: resolve org from URL slug if localStorage is empty
+    if (!orgId) {
+      const slug = window.location.pathname.split('/')[1];
+      if (slug) {
+        const { data: org } = await supabase.from('pm_orgs').select('id').eq('slug', slug).single();
+        if (org?.id) {
+          orgId = org.id;
+          localStorage.setItem('pm_active_org_id', orgId);
+        }
+      }
+    }
+    if (!orgId) throw new Error('No active organization');
     const row = toSnake(client);
     row.created_by = uid;
     row.org_id = orgId;

@@ -972,7 +972,7 @@ export function SalesPage() {
     document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
   }, []);
 
-  const handleAddClient = async (d: Partial<Client>) => { const c = await api.createClient(d); setClients(p => [c, ...p]); };
+  const handleAddClient = async (d: Partial<Client>) => { try { const c = await api.createClient(d); setClients(p => [c, ...p]); } catch (e) { console.error('Failed to create client:', e); } };
   const handleEditClient = async (d: Partial<Client>) => { if (!editingClient) return; const u = await api.updateClient(editingClient.id, d); setClients(p => p.map(c => c.id === editingClient.id ? u : c)); setEditingClient(null); };
   const handleDeleteClient = async (id: string) => { await api.deleteClient(id); setClients(p => p.filter(c => c.id !== id)); setMenuOpenId(null); };
   const handleStageChange = async (id: string, stage: string) => { const u = await api.updateClient(id, { stage }); setClients(p => p.map(c => c.id === id ? u : c)); if (selectedClient?.id === id) setSelectedClient(u); };
