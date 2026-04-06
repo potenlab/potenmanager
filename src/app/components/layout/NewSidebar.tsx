@@ -307,13 +307,6 @@ export function NewSidebar() {
   const slug = currentOrg?.slug;
   const p = (path: string) => isPersonal ? path : `/${slug}${path}`;
 
-  // ── Menu structure ──
-  const personalItemsDef: NavItem[] = [
-    { id: "tasks", to: p("/tasks"), icon: <CheckSquare size={16} />, label: ko ? "내 업무" : "My Tasks" },
-    { id: "calendar", to: p("/calendar"), icon: <Calendar size={16} />, label: ko ? "캘린더" : "Calendar" },
-    { id: "library", to: p("/library"), icon: <BookMarked size={16} />, label: ko ? "자료실" : "Library" },
-  ];
-
   // Tool items that can be dynamically added to sidebar
   const TOOL_NAV_ITEMS: Record<string, NavItem> = {
     projects: { id: "projects", to: p("/projects"), icon: <FolderKanban size={16} />, label: ko ? "프로젝트" : "Projects" },
@@ -322,6 +315,13 @@ export function NewSidebar() {
     "biz-radar": { id: "biz-radar", to: p("/radar"), icon: <BarChart3 size={16} />, label: ko ? "비즈 레이더" : "Biz Radar" },
     finance: { id: "finance", to: p("/finance"), icon: <BarChart3 size={16} />, label: ko ? "재무 관리" : "Finance" },
   };
+
+  // ── Menu structure ──
+  const personalItemsDef: NavItem[] = [
+    { id: "tasks", to: p("/tasks"), icon: <CheckSquare size={16} />, label: ko ? "내 업무" : "My Tasks" },
+    { id: "calendar", to: p("/calendar"), icon: <Calendar size={16} />, label: ko ? "캘린더" : "Calendar" },
+    { id: "library", to: p("/library"), icon: <BookMarked size={16} />, label: ko ? "자료실" : "Library" },
+  ];
 
   const orgItemsDef: NavItem[] = [
     // Only team is always shown in org mode
