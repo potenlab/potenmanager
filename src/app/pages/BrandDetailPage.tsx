@@ -255,10 +255,10 @@ function BrandProperties({ item, onUpdate, ko }: DetailSectionProps<BrandAsset>)
         icon: <Monitor size={14} />,
         label: ko ? "플랫폼" : "Platform",
         value: item.type || "other",
-        options: CHANNEL_PLATFORMS.map(p => ({ value: p.id, label: p.label })),
-        onChange: (v) => onUpdate({ type: v }),
+        options: CHANNEL_PLATFORMS.map(p => p.id),
+        onChange: (v: string) => onUpdate({ type: v }),
         renderValue: (v: string) => <span className="text-sm text-gray-700">{CHANNEL_PLATFORMS.find(p => p.id === v)?.label || v}</span>,
-        renderOption: (opt: { value: string; label: string }) => <span>{opt.label}</span>,
+        renderOption: (v: string) => <span>{CHANNEL_PLATFORMS.find(p => p.id === v)?.label || v}</span>,
       },
     ] as PropertyFieldConfig[]} />
   );
