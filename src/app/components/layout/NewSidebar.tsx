@@ -42,6 +42,7 @@ interface NavGroup {
 
 // ─── Drag & Drop for sidebar menu reordering ──────────────────
 const SIDEBAR_DND_TYPE = "SIDEBAR_NAV_ITEM";
+const TOOL_DND_TYPE = "SIDEBAR_TOOL_ITEM";
 const NAV_ORDER_KEY = "pm_sidebar_nav_order";
 
 function loadNavOrder(): Record<string, string[]> {
@@ -79,6 +80,48 @@ function DraggableNavItem({ id, groupId, moveItem, children }: {
   drag(drop(ref));
   return (
     <div ref={ref} className={cn("cursor-grab active:cursor-grabbing", isDragging && "opacity-40")}>
+      {children}
+    </div>
+  );
+}
+
+// ─── Draggable tool item (cross-section) ──────────────────
+function DraggableToolItem({ toolId, fromSection, children }: {
+  toolId: string; fromSection: string; children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [{ isDragging }, drag] = useDrag({
+    type: TOOL_DND_TYPE,
+    item: { toolId, fromSection },
+    collect: (monitor) => ({ isDragging: monitor.isDragging() }),
+  });
+  drag(ref);
+  return (
+    <div ref={ref} className={cn("cursor-grab active:cursor-grabbing", isDragging && "opacity-40")}>
+      {children}
+    </div>
+  );
+}
+
+// ─── Drop zone for a section that accepts tools ──────────────────
+function SectionDropZone({ sectionId, onDropTool, children }: {
+  sectionId: string;
+  onDropTool: (toolId: string, fromSection: string, toSection: string) => void;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [{ isOver }, drop] = useDrop({
+    accept: TOOL_DND_TYPE,
+    drop(item: { toolId: string; fromSection: string }) {
+      if (item.fromSection !== sectionId) {
+        onDropTool(item.toolId, item.fromSection, sectionId);
+      }
+    },
+    collect: (monitor) => ({ isOver: monitor.isOver() }),
+  });
+  drop(ref);
+  return (
+    <div ref={ref} className={cn(isOver && "bg-blue-50/50 rounded-lg transition-colors")}>
       {children}
     </div>
   );
@@ -168,6 +211,32 @@ export function NewSidebar() {
     setCategories(p => p.filter(c => c.id !== id));
     setCategoryMenuId(null);
   };
+
+  // ── Move tool between sections (cross-section DnD) ──
+  const moveToolToSection = useCallback(async (toolId: string, fromSection: string, toSection: string) => {
+    // Remove from old category
+    if (fromSection !== "personal") {
+      const oldCat = categories.find(c => c.id === fromSection);
+      if (oldCat) {
+        const newToolIds = oldCat.toolIds.filter(t => t !== toolId);
+        await supabase.from("pm_categories").update({ tool_ids: newToolIds }).eq("id", fromSection);
+        setCategories(p => p.map(c => c.id === fromSection ? { ...c, toolIds: newToolIds } : c));
+      }
+    }
+    // Add to new category
+    if (toSection !== "personal") {
+      const newCat = categories.find(c => c.id === toSection);
+      if (newCat && !newCat.toolIds.includes(toolId)) {
+        const newToolIds = [...newCat.toolIds, toolId];
+        await supabase.from("pm_categories").update({ tool_ids: newToolIds }).eq("id", toSection);
+        setCategories(p => p.map(c => c.id === toSection ? { ...c, toolIds: newToolIds } : c));
+      }
+    }
+  }, [categories]);
+
+  // Tools in any category → excluded from personal display
+  const toolsInCategories = new Set(categories.flatMap(c => c.toolIds));
+  const personalToolIds = enabledTools.filter(t => TOOL_NAV_ITEMS[t] && !toolsInCategories.has(t));
 
   // Load team members + attendance for sidebar
   useEffect(() => {
@@ -361,38 +430,44 @@ export function NewSidebar() {
           if (sectionId === "personal") {
             return (
               <DraggableNavItem key="personal" id="personal" groupId="sections" moveItem={(f, t) => moveSectionItem(f, t)}>
-                <div>
-                  <p className="px-2 mb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                    {ko ? "개인" : "Personal"}
-                  </p>
-                  <div className="space-y-0.5">
-                    <NavLink to={p("/tasks")} className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100", isActive("/tasks") ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}>
-                      <div className="shrink-0 text-gray-500"><CheckSquare size={16} /></div>
-                      <span>{ko ? "내 업무" : "My Tasks"}</span>
-                    </NavLink>
-                    <NavLink to="/calendar" className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100", isActive("/calendar") ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}>
-                      <div className="shrink-0 text-gray-500"><Calendar size={16} /></div>
-                      <span>{ko ? "캘린더" : "Calendar"}</span>
-                    </NavLink>
-                    <NavLink to={p("/library")} className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100", isActive("/library") ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}>
-                      <div className="shrink-0 text-gray-500"><BookMarked size={16} /></div>
-                      <span>{ko ? "자료실" : "Library"}</span>
-                    </NavLink>
-                  </div>
-                  {enabledTools.filter(t => TOOL_NAV_ITEMS[t]).length > 0 && (
-                    <div className="mt-2 space-y-0.5">
-                      {enabledTools.filter(t => TOOL_NAV_ITEMS[t]).map(toolId => {
-                        const item = TOOL_NAV_ITEMS[toolId];
-                        return (
-                          <NavLink key={item.id} to={item.to} className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100", isActive(item.to) ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}>
-                            <div className="shrink-0 text-gray-500">{item.icon}</div>
-                            <span>{item.label}</span>
-                          </NavLink>
-                        );
-                      })}
+                <SectionDropZone sectionId="personal" onDropTool={moveToolToSection}>
+                  <div>
+                    <p className="px-2 mb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                      {ko ? "개인" : "Personal"}
+                    </p>
+                    <div className="space-y-0.5">
+                      {/* Fixed items */}
+                      <NavLink to={p("/tasks")} className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100", isActive("/tasks") ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}>
+                        <div className="shrink-0 text-gray-500"><CheckSquare size={16} /></div>
+                        <span>{ko ? "내 업무" : "My Tasks"}</span>
+                      </NavLink>
+                      <NavLink to="/calendar" className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100", isActive("/calendar") ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}>
+                        <div className="shrink-0 text-gray-500"><Calendar size={16} /></div>
+                        <span>{ko ? "캘린더" : "Calendar"}</span>
+                      </NavLink>
+                      <NavLink to={p("/library")} className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100", isActive("/library") ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}>
+                        <div className="shrink-0 text-gray-500"><BookMarked size={16} /></div>
+                        <span>{ko ? "자료실" : "Library"}</span>
+                      </NavLink>
                     </div>
-                  )}
-                </div>
+                    {/* Draggable tool items (not in any category) */}
+                    {personalToolIds.length > 0 && (
+                      <div className="mt-2 space-y-0.5">
+                        {personalToolIds.map(toolId => {
+                          const item = TOOL_NAV_ITEMS[toolId];
+                          return (
+                            <DraggableToolItem key={toolId} toolId={toolId} fromSection="personal">
+                              <NavLink to={item.to} className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100", isActive(item.to) ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}>
+                                <div className="shrink-0 text-gray-500">{item.icon}</div>
+                                <span>{item.label}</span>
+                              </NavLink>
+                            </DraggableToolItem>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </SectionDropZone>
               </DraggableNavItem>
             );
           }
@@ -401,48 +476,52 @@ export function NewSidebar() {
           if (!cat) return null;
           return (
             <DraggableNavItem key={cat.id} id={cat.id} groupId="sections" moveItem={(f, t) => moveSectionItem(f, t)}>
-              <div>
-                <div className="flex items-center justify-between px-2 mb-1 group/cat-header">
-                  <button
-                    onClick={() => toggleCategoryExpand(cat.id)}
-                    className="flex items-center gap-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider hover:text-gray-600 transition-colors"
-                  >
-                    <span>{cat.name}</span>
-                    <ChevronDown size={10} className={cn("transition-transform", !expandedCategories.has(cat.id) && "-rotate-90")} />
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setCategoryMenuId(categoryMenuId === cat.id ? null : cat.id); }}
-                    className="p-0.5 text-gray-300 hover:text-gray-600 rounded opacity-0 group-hover/cat-header:opacity-100 transition-opacity"
-                  >
-                    <MoreHorizontal size={12} />
-                  </button>
+              <SectionDropZone sectionId={cat.id} onDropTool={moveToolToSection}>
+                <div>
+                  <div className="flex items-center justify-between px-2 mb-1 group/cat-header">
+                    <button
+                      onClick={() => toggleCategoryExpand(cat.id)}
+                      className="flex items-center gap-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider hover:text-gray-600 transition-colors"
+                    >
+                      <span>{cat.name}</span>
+                      <ChevronDown size={10} className={cn("transition-transform", !expandedCategories.has(cat.id) && "-rotate-90")} />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setCategoryMenuId(categoryMenuId === cat.id ? null : cat.id); }}
+                      className="p-0.5 text-gray-300 hover:text-gray-600 rounded opacity-0 group-hover/cat-header:opacity-100 transition-opacity"
+                    >
+                      <MoreHorizontal size={12} />
+                    </button>
+                  </div>
+                  {categoryMenuId === cat.id && (
+                    <div className="mx-2 mb-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 min-w-[120px]">
+                      <button onClick={() => { setEditingCategory(cat); setCategoryName(cat.name); setCategoryMembers(cat.memberIds); setCategoryTools(cat.toolIds); setShowCategoryForm(true); setCategoryMenuId(null); }}
+                        className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Edit2 size={12} /> {ko ? "수정" : "Edit"}</button>
+                      <button onClick={() => deleteCategory(cat.id)}
+                        className="w-full text-left px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2"><Trash2 size={12} /> {ko ? "삭제" : "Delete"}</button>
+                    </div>
+                  )}
+                  {expandedCategories.has(cat.id) && (
+                    <div className="space-y-0.5">
+                      {cat.toolIds.length > 0 ? cat.toolIds.filter(t => TOOL_NAV_ITEMS[t]).map(toolId => {
+                        const item = TOOL_NAV_ITEMS[toolId];
+                        return (
+                          <DraggableToolItem key={toolId} toolId={toolId} fromSection={cat.id}>
+                            <NavLink to={item.to} className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100", isActive(item.to) ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}>
+                              <div className="shrink-0 text-gray-500">{item.icon}</div>
+                              <span>{item.label}</span>
+                            </NavLink>
+                          </DraggableToolItem>
+                        );
+                      }) : (
+                        <p className="px-2 py-1 text-[12px] text-gray-400 italic">
+                          {ko ? "도구를 드래그해서 추가하세요" : "Drag tools here"}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
-                {categoryMenuId === cat.id && (
-                  <div className="mx-2 mb-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 min-w-[120px]">
-                    <button onClick={() => { setEditingCategory(cat); setCategoryName(cat.name); setCategoryMembers(cat.memberIds); setCategoryTools(cat.toolIds); setShowCategoryForm(true); setCategoryMenuId(null); }}
-                      className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Edit2 size={12} /> {ko ? "수정" : "Edit"}</button>
-                    <button onClick={() => deleteCategory(cat.id)}
-                      className="w-full text-left px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2"><Trash2 size={12} /> {ko ? "삭제" : "Delete"}</button>
-                  </div>
-                )}
-                {expandedCategories.has(cat.id) && (
-                  <div className="space-y-0.5">
-                    {cat.toolIds.length > 0 ? cat.toolIds.filter(t => TOOL_NAV_ITEMS[t]).map(toolId => {
-                      const item = TOOL_NAV_ITEMS[toolId];
-                      return (
-                        <NavLink key={toolId} to={item.to} className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100", isActive(item.to) ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}>
-                          <div className="shrink-0 text-gray-500">{item.icon}</div>
-                          <span>{item.label}</span>
-                        </NavLink>
-                      );
-                    }) : (
-                      <p className="px-2 py-1 text-[12px] text-gray-400 italic">
-                        {ko ? "도구를 추가해주세요" : "No tools assigned"}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
+              </SectionDropZone>
             </DraggableNavItem>
           );
         })}
