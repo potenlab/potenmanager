@@ -102,13 +102,15 @@ export function NewSidebar() {
   const [enabledTools, setEnabledTools] = useState<string[]>(() => getEnabledTools());
 
   // ── Categories ──
-  interface Category { id: string; name: string; memberIds: string[]; orgId: string; }
+  interface Category { id: string; name: string; memberIds: string[]; toolIds: string[]; orgId: string; }
   const [categories, setCategories] = useState<Category[]>([]);
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [categoryName, setCategoryName] = useState("");
   const [categoryMembers, setCategoryMembers] = useState<string[]>([]);
+  const [categoryTools, setCategoryTools] = useState<string[]>([]);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [categoryMenuId, setCategoryMenuId] = useState<string | null>(null);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
   const { members: teamMembers } = useTeam();
 
@@ -117,20 +119,28 @@ export function NewSidebar() {
     if (!currentOrg) { setCategories([]); return; }
     supabase.from("pm_categories").select("*").eq("org_id", currentOrg.id)
       .then(({ data }) => {
-        if (data) setCategories(data.map((r: any) => ({ id: r.id, name: r.name, memberIds: r.member_ids || [], orgId: r.org_id })));
+        if (data) setCategories(data.map((r: any) => ({ id: r.id, name: r.name, memberIds: r.member_ids || [], toolIds: r.tool_ids || [], orgId: r.org_id })));
       });
   }, [currentOrg]);
 
   const saveCategory = async () => {
     if (!categoryName.trim() || !currentOrg) return;
     if (editingCategory) {
-      const { data } = await supabase.from("pm_categories").update({ name: categoryName.trim(), member_ids: categoryMembers }).eq("id", editingCategory.id).select().single();
-      if (data) setCategories(p => p.map(c => c.id === editingCategory.id ? { id: data.id, name: data.name, memberIds: data.member_ids || [], orgId: data.org_id } : c));
+      const { data } = await supabase.from("pm_categories").update({ name: categoryName.trim(), member_ids: categoryMembers, tool_ids: categoryTools }).eq("id", editingCategory.id).select().single();
+      if (data) setCategories(p => p.map(c => c.id === editingCategory.id ? { id: data.id, name: data.name, memberIds: data.member_ids || [], toolIds: data.tool_ids || [], orgId: data.org_id } : c));
     } else {
-      const { data } = await supabase.from("pm_categories").insert({ name: categoryName.trim(), member_ids: categoryMembers, org_id: currentOrg.id, created_by: user?.id }).select().single();
-      if (data) setCategories(p => [...p, { id: data.id, name: data.name, memberIds: data.member_ids || [], orgId: data.org_id }]);
+      const { data } = await supabase.from("pm_categories").insert({ name: categoryName.trim(), member_ids: categoryMembers, tool_ids: categoryTools, org_id: currentOrg.id, created_by: user?.id }).select().single();
+      if (data) setCategories(p => [...p, { id: data.id, name: data.name, memberIds: data.member_ids || [], toolIds: data.tool_ids || [], orgId: data.org_id }]);
     }
-    setCategoryName(""); setCategoryMembers([]); setShowCategoryForm(false); setEditingCategory(null);
+    setCategoryName(""); setCategoryMembers([]); setCategoryTools([]); setShowCategoryForm(false); setEditingCategory(null);
+  };
+
+  const toggleCategoryExpand = (id: string) => {
+    setExpandedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   };
 
   const deleteCategory = async (id: string) => {
@@ -493,12 +503,12 @@ export function NewSidebar() {
           </NavLink>
         </div>
 
-        {/* ── Categories ── */}
+        {/* ── Categories (접근 권한 그룹 + 도구 모음) ── */}
         {!isPersonal && currentOrg && (
           <div className="mt-2">
             <div className="flex items-center justify-between px-2 mb-1">
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{ko ? "카테고리" : "Categories"}</span>
-              <button onClick={() => { setShowCategoryForm(true); setEditingCategory(null); setCategoryName(""); setCategoryMembers([]); }}
+              <button onClick={() => { setShowCategoryForm(true); setEditingCategory(null); setCategoryName(""); setCategoryMembers([]); setCategoryTools([]); }}
                 className="p-0.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors">
                 <Plus size={14} />
               </button>
@@ -511,10 +521,23 @@ export function NewSidebar() {
                   autoFocus
                   value={categoryName}
                   onChange={e => setCategoryName(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter") saveCategory(); if (e.key === "Escape") setShowCategoryForm(false); }}
-                  placeholder={ko ? "카테고리 이름" : "Category name"}
+                  onKeyDown={e => { if (e.key === "Escape") setShowCategoryForm(false); }}
+                  placeholder={ko ? "카테고리 이름 (예: A부서, 마케팅팀)" : "Category name"}
                   className="w-full px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-blue-300 mb-2"
                 />
+                {/* Tool selection */}
+                <p className="text-[10px] text-gray-400 font-medium mb-1">{ko ? "도구 선택" : "Select tools"}</p>
+                <div className="max-h-[100px] overflow-y-auto space-y-1 mb-2">
+                  {Object.entries(TOOL_NAV_ITEMS).map(([toolId, item]) => (
+                    <label key={toolId} className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-gray-50 cursor-pointer text-sm">
+                      <input type="checkbox" checked={categoryTools.includes(toolId)}
+                        onChange={e => setCategoryTools(e.target.checked ? [...categoryTools, toolId] : categoryTools.filter(id => id !== toolId))}
+                        className="rounded border-gray-300" />
+                      <div className="shrink-0 text-gray-500">{item.icon}</div>
+                      <span className="text-gray-700 truncate">{item.label}</span>
+                    </label>
+                  ))}
+                </div>
                 {/* Member selection */}
                 <p className="text-[10px] text-gray-400 font-medium mb-1">{ko ? "멤버 선택" : "Select members"}</p>
                 <div className="max-h-[120px] overflow-y-auto space-y-1 mb-2">
@@ -535,35 +558,69 @@ export function NewSidebar() {
               </div>
             )}
 
-            {/* Category list */}
-            {categories.map(cat => (
-              <div key={cat.id} className="relative group">
-                <NavLink
-                  to={p(`/category/${cat.id}`)}
+            {/* Category list — expandable groups with tool sub-items */}
+            {categories
+              .filter(cat => cat.memberIds.includes(user?.id || ""))
+              .map(cat => (
+              <div key={cat.id} className="relative group/cat">
+                <button
+                  onClick={() => toggleCategoryExpand(cat.id)}
                   className={cn(
-                    "flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
-                    isActive(`/category/${cat.id}`)
+                    "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
+                    expandedCategories.has(cat.id)
                       ? "bg-gray-200/70 text-gray-900 font-semibold"
                       : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                   )}
                 >
                   <div className="shrink-0 text-gray-500"><Layers size={16} /></div>
-                  <span className="truncate flex-1">{cat.name}</span>
-                  <span className="text-[10px] text-gray-400">{cat.memberIds.length}</span>
-                </NavLink>
+                  <span className="truncate flex-1 text-left">{cat.name}</span>
+                  <span className="text-[10px] text-gray-400 mr-1">{cat.memberIds.length}</span>
+                  <ChevronDown size={12} className={cn("text-gray-400 transition-transform shrink-0", !expandedCategories.has(cat.id) && "-rotate-90")} />
+                </button>
+
+                {/* Context menu button */}
                 <button
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCategoryMenuId(categoryMenuId === cat.id ? null : cat.id); }}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-gray-300 hover:text-gray-600 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute right-7 top-1/2 -translate-y-1/2 p-1 text-gray-300 hover:text-gray-600 rounded opacity-0 group-hover/cat:opacity-100 transition-opacity"
                 >
                   <MoreHorizontal size={14} />
                 </button>
                 {categoryMenuId === cat.id && (
                   <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 min-w-[120px]">
-                    <button onClick={() => { setEditingCategory(cat); setCategoryName(cat.name); setCategoryMembers(cat.memberIds); setShowCategoryForm(true); setCategoryMenuId(null); }}
+                    <button onClick={() => { setEditingCategory(cat); setCategoryName(cat.name); setCategoryMembers(cat.memberIds); setCategoryTools(cat.toolIds); setShowCategoryForm(true); setCategoryMenuId(null); }}
                       className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Edit2 size={12} /> {ko ? "수정" : "Edit"}</button>
                     <button onClick={() => deleteCategory(cat.id)}
                       className="w-full text-left px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2"><Trash2 size={12} /> {ko ? "삭제" : "Delete"}</button>
                   </div>
+                )}
+
+                {/* Expanded: show assigned tools as sub-items */}
+                {expandedCategories.has(cat.id) && cat.toolIds.length > 0 && (
+                  <div className="ml-4 mt-0.5 space-y-0.5">
+                    {cat.toolIds.filter(t => TOOL_NAV_ITEMS[t]).map(toolId => {
+                      const item = TOOL_NAV_ITEMS[toolId];
+                      return (
+                        <NavLink
+                          key={toolId}
+                          to={item.to}
+                          className={cn(
+                            "flex items-center gap-2 px-2 py-1 rounded-md text-[13px] transition-all",
+                            isActive(item.to)
+                              ? "bg-gray-200/70 text-gray-900 font-semibold"
+                              : "text-gray-500 hover:bg-gray-200/50 hover:text-gray-700"
+                          )}
+                        >
+                          <div className="shrink-0">{item.icon}</div>
+                          <span>{item.label}</span>
+                        </NavLink>
+                      );
+                    })}
+                  </div>
+                )}
+                {expandedCategories.has(cat.id) && cat.toolIds.length === 0 && (
+                  <p className="ml-7 px-2 py-1 text-[12px] text-gray-400 italic">
+                    {ko ? "도구를 추가해주세요" : "No tools assigned"}
+                  </p>
                 )}
               </div>
             ))}
