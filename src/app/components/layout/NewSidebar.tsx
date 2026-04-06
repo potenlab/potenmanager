@@ -236,7 +236,6 @@ export function NewSidebar() {
 
   // Tools in any category → excluded from personal display
   const toolsInCategories = new Set(categories.flatMap(c => c.toolIds));
-  const personalToolIds = enabledTools.filter(t => TOOL_NAV_ITEMS[t] && !toolsInCategories.has(t));
 
   // Load team members + attendance for sidebar
   useEffect(() => {
@@ -315,6 +314,8 @@ export function NewSidebar() {
     "biz-radar": { id: "biz-radar", to: p("/radar"), icon: <BarChart3 size={16} />, label: ko ? "비즈 레이더" : "Biz Radar" },
     finance: { id: "finance", to: p("/finance"), icon: <BarChart3 size={16} />, label: ko ? "재무 관리" : "Finance" },
   };
+
+  const personalToolIds = enabledTools.filter(t => TOOL_NAV_ITEMS[t] && !toolsInCategories.has(t));
 
   // ── Menu structure ──
   const personalItemsDef: NavItem[] = [
