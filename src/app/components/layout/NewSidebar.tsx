@@ -112,6 +112,26 @@ export function NewSidebar() {
   const [categoryMenuId, setCategoryMenuId] = useState<string | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
+  // ── Section ordering (개인 + categories) ──
+  const SECTION_ORDER_KEY = "pm_sidebar_section_order";
+  const loadSectionOrder = useCallback((): string[] => {
+    try { return JSON.parse(localStorage.getItem(SECTION_ORDER_KEY) || '[]'); } catch { return []; }
+  }, []);
+  const [sectionOrder, setSectionOrder] = useState<string[]>(() => loadSectionOrder());
+
+  const moveSectionItem = useCallback((fromId: string, toId: string) => {
+    setSectionOrder(prev => {
+      const items = [...prev];
+      const fromIdx = items.indexOf(fromId);
+      const toIdx = items.indexOf(toId);
+      if (fromIdx === -1 || toIdx === -1) return prev;
+      items.splice(fromIdx, 1);
+      items.splice(toIdx, 0, fromId);
+      localStorage.setItem(SECTION_ORDER_KEY, JSON.stringify(items));
+      return items;
+    });
+  }, []);
+
   const { members: teamMembers } = useTeam();
 
   // Load categories
@@ -185,6 +205,32 @@ export function NewSidebar() {
   }, []);
 
   const members = sidebarMembers;
+
+  // Compute ordered sections: "personal" + visible category IDs
+  const visibleCategories = (!isPersonal && currentOrg)
+    ? categories.filter(cat => cat.memberIds.includes(user?.id || ""))
+    : [];
+  const allSectionIds = ["personal", ...visibleCategories.map(c => c.id)];
+
+  // Sync section order when categories change
+  useEffect(() => {
+    setSectionOrder(prev => {
+      const known = prev.filter(id => allSectionIds.includes(id));
+      const missing = allSectionIds.filter(id => !known.includes(id));
+      const merged = [...known, ...missing];
+      localStorage.setItem(SECTION_ORDER_KEY, JSON.stringify(merged));
+      return merged;
+    });
+  }, [categories.length, isPersonal, currentOrg?.id, user?.id]);
+
+  const orderedSectionIds = sectionOrder.length > 0
+    ? sectionOrder.filter(id => allSectionIds.includes(id))
+    : allSectionIds;
+  // Add any missing
+  const finalSectionIds = [
+    ...orderedSectionIds,
+    ...allSectionIds.filter(id => !orderedSectionIds.includes(id)),
+  ];
 
   if (isMobile) return null;
 
@@ -310,90 +356,96 @@ export function NewSidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-5 scrollbar-hide">
-        {/* ── 개인 Section ── */}
-        <div>
-          <p className="px-2 mb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-            {ko ? "개인" : "Personal"}
-          </p>
-          <div className="space-y-0.5">
-            <NavLink to={p("/tasks")} className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100", isActive("/tasks") ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}>
-              <div className="shrink-0 text-gray-500"><CheckSquare size={16} /></div>
-              <span>{ko ? "내 업무" : "My Tasks"}</span>
-            </NavLink>
-            <NavLink to="/calendar" className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100", isActive("/calendar") ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}>
-              <div className="shrink-0 text-gray-500"><Calendar size={16} /></div>
-              <span>{ko ? "캘린더" : "Calendar"}</span>
-            </NavLink>
-            <NavLink to={p("/library")} className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100", isActive("/library") ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}>
-              <div className="shrink-0 text-gray-500"><BookMarked size={16} /></div>
-              <span>{ko ? "자료실" : "Library"}</span>
-            </NavLink>
-          </div>
-          {/* Enabled tool items under personal */}
-          {enabledTools.filter(t => TOOL_NAV_ITEMS[t]).length > 0 && (
-            <div className="mt-2 space-y-0.5">
-              {enabledTools.filter(t => TOOL_NAV_ITEMS[t]).map(toolId => {
-                const item = TOOL_NAV_ITEMS[toolId];
-                return (
-                  <NavLink key={item.id} to={item.to} className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100", isActive(item.to) ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}>
-                    <div className="shrink-0 text-gray-500">{item.icon}</div>
-                    <span>{item.label}</span>
-                  </NavLink>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* ── Categories as top-level sections (same level as 개인) ── */}
-        {!isPersonal && currentOrg && categories
-          .filter(cat => cat.memberIds.includes(user?.id || ""))
-          .map(cat => (
-          <div key={cat.id}>
-            <div className="flex items-center justify-between px-2 mb-1 group/cat-header">
-              <button
-                onClick={() => toggleCategoryExpand(cat.id)}
-                className="flex items-center gap-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider hover:text-gray-600 transition-colors"
-              >
-                <span>{cat.name}</span>
-                <ChevronDown size={10} className={cn("transition-transform", !expandedCategories.has(cat.id) && "-rotate-90")} />
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); setCategoryMenuId(categoryMenuId === cat.id ? null : cat.id); }}
-                className="p-0.5 text-gray-300 hover:text-gray-600 rounded opacity-0 group-hover/cat-header:opacity-100 transition-opacity"
-              >
-                <MoreHorizontal size={12} />
-              </button>
-            </div>
-            {/* Category context menu */}
-            {categoryMenuId === cat.id && (
-              <div className="mx-2 mb-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 min-w-[120px]">
-                <button onClick={() => { setEditingCategory(cat); setCategoryName(cat.name); setCategoryMembers(cat.memberIds); setCategoryTools(cat.toolIds); setShowCategoryForm(true); setCategoryMenuId(null); }}
-                  className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Edit2 size={12} /> {ko ? "수정" : "Edit"}</button>
-                <button onClick={() => deleteCategory(cat.id)}
-                  className="w-full text-left px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2"><Trash2 size={12} /> {ko ? "삭제" : "Delete"}</button>
-              </div>
-            )}
-            {/* Tool sub-items */}
-            {expandedCategories.has(cat.id) && (
-              <div className="space-y-0.5">
-                {cat.toolIds.length > 0 ? cat.toolIds.filter(t => TOOL_NAV_ITEMS[t]).map(toolId => {
-                  const item = TOOL_NAV_ITEMS[toolId];
-                  return (
-                    <NavLink key={toolId} to={item.to} className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100", isActive(item.to) ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}>
-                      <div className="shrink-0 text-gray-500">{item.icon}</div>
-                      <span>{item.label}</span>
-                    </NavLink>
-                  );
-                }) : (
-                  <p className="px-2 py-1 text-[12px] text-gray-400 italic">
-                    {ko ? "도구를 추가해주세요" : "No tools assigned"}
+        {/* ── Sections: 개인 + categories, draggable to reorder ── */}
+        {finalSectionIds.map(sectionId => {
+          if (sectionId === "personal") {
+            return (
+              <DraggableNavItem key="personal" id="personal" groupId="sections" moveItem={(f, t) => moveSectionItem(f, t)}>
+                <div>
+                  <p className="px-2 mb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                    {ko ? "개인" : "Personal"}
                   </p>
+                  <div className="space-y-0.5">
+                    <NavLink to={p("/tasks")} className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100", isActive("/tasks") ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}>
+                      <div className="shrink-0 text-gray-500"><CheckSquare size={16} /></div>
+                      <span>{ko ? "내 업무" : "My Tasks"}</span>
+                    </NavLink>
+                    <NavLink to="/calendar" className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100", isActive("/calendar") ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}>
+                      <div className="shrink-0 text-gray-500"><Calendar size={16} /></div>
+                      <span>{ko ? "캘린더" : "Calendar"}</span>
+                    </NavLink>
+                    <NavLink to={p("/library")} className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100", isActive("/library") ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}>
+                      <div className="shrink-0 text-gray-500"><BookMarked size={16} /></div>
+                      <span>{ko ? "자료실" : "Library"}</span>
+                    </NavLink>
+                  </div>
+                  {enabledTools.filter(t => TOOL_NAV_ITEMS[t]).length > 0 && (
+                    <div className="mt-2 space-y-0.5">
+                      {enabledTools.filter(t => TOOL_NAV_ITEMS[t]).map(toolId => {
+                        const item = TOOL_NAV_ITEMS[toolId];
+                        return (
+                          <NavLink key={item.id} to={item.to} className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100", isActive(item.to) ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}>
+                            <div className="shrink-0 text-gray-500">{item.icon}</div>
+                            <span>{item.label}</span>
+                          </NavLink>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </DraggableNavItem>
+            );
+          }
+          // Category section
+          const cat = visibleCategories.find(c => c.id === sectionId);
+          if (!cat) return null;
+          return (
+            <DraggableNavItem key={cat.id} id={cat.id} groupId="sections" moveItem={(f, t) => moveSectionItem(f, t)}>
+              <div>
+                <div className="flex items-center justify-between px-2 mb-1 group/cat-header">
+                  <button
+                    onClick={() => toggleCategoryExpand(cat.id)}
+                    className="flex items-center gap-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider hover:text-gray-600 transition-colors"
+                  >
+                    <span>{cat.name}</span>
+                    <ChevronDown size={10} className={cn("transition-transform", !expandedCategories.has(cat.id) && "-rotate-90")} />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setCategoryMenuId(categoryMenuId === cat.id ? null : cat.id); }}
+                    className="p-0.5 text-gray-300 hover:text-gray-600 rounded opacity-0 group-hover/cat-header:opacity-100 transition-opacity"
+                  >
+                    <MoreHorizontal size={12} />
+                  </button>
+                </div>
+                {categoryMenuId === cat.id && (
+                  <div className="mx-2 mb-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 min-w-[120px]">
+                    <button onClick={() => { setEditingCategory(cat); setCategoryName(cat.name); setCategoryMembers(cat.memberIds); setCategoryTools(cat.toolIds); setShowCategoryForm(true); setCategoryMenuId(null); }}
+                      className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Edit2 size={12} /> {ko ? "수정" : "Edit"}</button>
+                    <button onClick={() => deleteCategory(cat.id)}
+                      className="w-full text-left px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2"><Trash2 size={12} /> {ko ? "삭제" : "Delete"}</button>
+                  </div>
+                )}
+                {expandedCategories.has(cat.id) && (
+                  <div className="space-y-0.5">
+                    {cat.toolIds.length > 0 ? cat.toolIds.filter(t => TOOL_NAV_ITEMS[t]).map(toolId => {
+                      const item = TOOL_NAV_ITEMS[toolId];
+                      return (
+                        <NavLink key={toolId} to={item.to} className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100", isActive(item.to) ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900")}>
+                          <div className="shrink-0 text-gray-500">{item.icon}</div>
+                          <span>{item.label}</span>
+                        </NavLink>
+                      );
+                    }) : (
+                      <p className="px-2 py-1 text-[12px] text-gray-400 italic">
+                        {ko ? "도구를 추가해주세요" : "No tools assigned"}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
-          </div>
-        ))}
+            </DraggableNavItem>
+          );
+        })}
 
         {/* Category add button (inline, below categories) */}
         {!isPersonal && currentOrg && (
