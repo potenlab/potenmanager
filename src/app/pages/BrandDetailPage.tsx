@@ -14,7 +14,6 @@ import { AutoProperties } from "../components/detail/AutoProperties";
 import { createDetailPage } from "../components/detail/createDetailPage";
 import type { DetailSectionProps } from "../components/detail/createDetailPage";
 import type { PropertyFieldConfig } from "../components/detail/PropertyConfig";
-import { AIStrategyPanel } from "../components/AIStrategyPanel";
 import { PAGE_TYPES } from "../components/detail/pageTypes";
 import { api } from "../../lib/api";
 import { useRealtimeBroadcast } from "../../lib/realtimeSync";
@@ -563,12 +562,6 @@ function BrandBody({ item, onUpdate, ko, language }: DetailSectionProps<BrandAss
         />
         <UrlPreviewSection content={notes} language={language} />
       </div>
-      <AIStrategyPanel
-        name={item.name}
-        description={item.description}
-        type="brand"
-        context={{ category: item.category, url: item.url }}
-      />
     </>
   );
 }
