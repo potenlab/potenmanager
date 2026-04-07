@@ -546,7 +546,7 @@ function BrandBody({ item, onUpdate, ko, language }: DetailSectionProps<BrandAss
           parentType="brand"
           parentId={item.id}
         />
-        <UrlPreviewSection content={notes} language={language} />
+        {item.url && <div className="mt-3"><UrlPreviewSection content={item.url} language={language} /></div>}
       </div>
     </>
   );
