@@ -214,28 +214,6 @@ function BrandTitle() {
 
 // ─── Properties ────────────────────────────────────────────────────
 
-function BrandSecondaryProperties({ item, onUpdate, ko }: DetailSectionProps<BrandAsset>) {
-  return (
-    <AutoProperties fields={[
-      {
-        key: "url",
-        type: "text",
-        icon: <Link2 size={14} />,
-        label: "URL",
-        value: item.url || "",
-        onChange: (v) => onUpdate({ url: v }),
-        placeholder: "https://...",
-        mono: true,
-        suffix: item.url ? (
-          <a href={item.url.startsWith("http") ? item.url : `https://${item.url}`} target="_blank" rel="noopener noreferrer" className="shrink-0 text-xs text-blue-500 hover:text-blue-700 font-medium">
-            {ko ? "열기" : "Open"}
-          </a>
-        ) : undefined,
-      },
-    ] as PropertyFieldConfig[]} />
-  );
-}
-
 function BrandProperties({ item, onUpdate, ko }: DetailSectionProps<BrandAsset>) {
   const platforms = getAllPlatforms();
 
@@ -251,6 +229,21 @@ function BrandProperties({ item, onUpdate, ko }: DetailSectionProps<BrandAsset>)
         onChange: (v: string) => onUpdate({ type: v }),
         renderValue: (v: string) => <span className="text-sm text-gray-700">{getPlatformLabel(v)}</span>,
         renderOption: (v: string) => <span>{getPlatformLabel(v)}</span>,
+      },
+      {
+        key: "url",
+        type: "text",
+        icon: <Link2 size={14} />,
+        label: "URL",
+        value: item.url || "",
+        onChange: (v) => onUpdate({ url: v }),
+        placeholder: "https://...",
+        mono: true,
+        suffix: item.url ? (
+          <a href={item.url.startsWith("http") ? item.url : `https://${item.url}`} target="_blank" rel="noopener noreferrer" className="shrink-0 text-xs text-blue-500 hover:text-blue-700 font-medium">
+            {ko ? "열기" : "Open"}
+          </a>
+        ) : undefined,
       },
     ] as PropertyFieldConfig[]} />
   );
@@ -567,7 +560,6 @@ export const BrandDetailPage = createDetailPage<BrandAsset>({
   TitlePrefixComponent: BrandTitlePrefix,
   TitleComponent: BrandTitle,
   PropertiesComponent: BrandProperties,
-  SecondaryPropertiesComponent: BrandSecondaryProperties,
   BodyComponent: BrandBody,
   getBreadcrumbs: (item, ko) => [{ label: item.name || (ko ? "새 채널" : "New Channel") }],
   collapsible: true,
