@@ -4,7 +4,7 @@ import {
   FolderKanban, Palette, Plus, Trash2,
   Calendar as CalendarIcon, MoreHorizontal, X, Check,
   Image as ImageIcon, Globe, Search, Edit3,
-  ChevronDown,
+  ChevronDown, Upload,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useLanguage } from "../context/LanguageContext";
@@ -60,14 +60,25 @@ export const PROJECT_COLORS = [
   "#06B6D4", "#F97316", "#EF4444", "#6366F1", "#14B8A6",
 ];
 
-export const BRAND_TYPE_CONFIG = {
-  instagram: { label: "Instagram", labelEn: "Instagram", icon: <Globe size={14} /> },
-  youtube: { label: "YouTube", labelEn: "YouTube", icon: <Globe size={14} /> },
-  tiktok: { label: "TikTok", labelEn: "TikTok", icon: <Globe size={14} /> },
-  thread: { label: "Threads", labelEn: "Threads", icon: <Globe size={14} /> },
-  website: { label: "홈페이지", labelEn: "Website", icon: <Globe size={14} /> },
-  blog: { label: "블로그", labelEn: "Blog", icon: <Globe size={14} /> },
-  tistory: { label: "티스토리", labelEn: "Tistory", icon: <Globe size={14} /> },
+// Platform SVG icons (inline for fast rendering)
+const PlatformSvg = {
+  instagram: (s = 14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><rect x="2" y="2" width="20" height="20" rx="5" stroke="currentColor" strokeWidth="2"/><circle cx="12" cy="12" r="5" stroke="currentColor" strokeWidth="2"/><circle cx="17.5" cy="6.5" r="1.5" fill="currentColor"/></svg>,
+  youtube: (s = 14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.9 31.9 0 0 0 0 12a31.9 31.9 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1c.3-1.9.5-3.8.5-5.8s-.2-3.9-.5-5.8zM9.5 15.6V8.4l6.3 3.6-6.3 3.6z"/></svg>,
+  tiktok: (s = 14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor"><path d="M19.3 6.5a4.5 4.5 0 0 1-3.3-1.4A4.5 4.5 0 0 1 14.8 2h-3.3v13.5a2.8 2.8 0 1 1-2-2.7V9.4a6.2 6.2 0 1 0 5.3 6.1V9.8a7.8 7.8 0 0 0 4.5 1.4V7.9a4.5 4.5 0 0 1-1-.4v0z"/></svg>,
+  thread: (s = 14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor"><path d="M17.4 10.5c-.1 0-.2-.1-.3-.1a5.3 5.3 0 0 0-2.4-2.8 5.8 5.8 0 0 0-3.2-.8c-2.2 0-3.7 1-4.6 2.1l1.6 1.2c.6-.8 1.6-1.4 3-1.4a3.5 3.5 0 0 1 2 .5 3.1 3.1 0 0 1 1.3 1.5 5 5 0 0 0-2.3-.4c-2.7 0-4.8 1.5-4.8 3.8 0 2.2 1.9 3.6 4.1 3.6a4.4 4.4 0 0 0 3.4-1.5 5 5 0 0 0 .8-1.7c.3 1.1.4 2.4.4 2.4h2.2s-.2-1.8-.6-3.2c.3-1.1.3-2.2.1-3.2zM12.5 15.7c-1.1 0-2-.5-2-1.5s.9-1.6 2.3-1.6a6 6 0 0 1 1.7.2 3.3 3.3 0 0 1-2 2.9z"/></svg>,
+  website: (s = 14) => <Globe size={s} />,
+  blog: (s = 14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M7 8h10M7 12h6"/></svg>,
+  tistory: (s = 14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="12" r="2.5"/><circle cx="12" cy="19" r="2.5"/></svg>,
+};
+
+export const BRAND_TYPE_CONFIG: Record<string, { label: string; labelEn: string; icon: React.ReactNode }> = {
+  instagram: { label: "Instagram", labelEn: "Instagram", icon: PlatformSvg.instagram() },
+  youtube: { label: "YouTube", labelEn: "YouTube", icon: PlatformSvg.youtube() },
+  tiktok: { label: "TikTok", labelEn: "TikTok", icon: PlatformSvg.tiktok() },
+  thread: { label: "Threads", labelEn: "Threads", icon: PlatformSvg.thread() },
+  website: { label: "홈페이지", labelEn: "Website", icon: PlatformSvg.website() },
+  blog: { label: "블로그", labelEn: "Blog", icon: PlatformSvg.blog() },
+  tistory: { label: "티스토리", labelEn: "Tistory", icon: PlatformSvg.tistory() },
   other: { label: "기타", labelEn: "Other", icon: <Globe size={14} /> },
   // Legacy keys for backward compatibility
   logo: { label: "로고", labelEn: "Logo", icon: <ImageIcon size={14} /> },
@@ -77,20 +88,51 @@ export const BRAND_TYPE_CONFIG = {
   template: { label: "템플릿", labelEn: "Template", icon: <FolderKanban size={14} /> },
 };
 
+// Render platform icon (built-in or custom uploaded)
+function PlatformIcon({ id, size = 14 }: { id: string; size?: number }) {
+  const config = BRAND_TYPE_CONFIG[id];
+  if (config) {
+    // Use SVG function if available for proper sizing
+    const svgFn = PlatformSvg[id as keyof typeof PlatformSvg];
+    if (svgFn) return <>{svgFn(size)}</>;
+    return <>{config.icon}</>;
+  }
+  // Custom platform — check for uploaded icon
+  const iconUrl = getCustomPlatformIcon(id);
+  if (iconUrl) return <img src={iconUrl} alt="" className="rounded" style={{ width: size, height: size, objectFit: "contain" }} />;
+  return null;
+}
+
 // ─── Custom Channel Platforms ───────────────────────────────────
 const STORAGE_KEY_CUSTOM_PLATFORMS = "poten_custom_channel_platforms";
 
 export const DEFAULT_PLATFORMS = ["instagram", "youtube", "tiktok", "thread", "website", "blog", "tistory"] as const;
 
-export function loadCustomPlatforms(): string[] {
-  try { const s = localStorage.getItem(STORAGE_KEY_CUSTOM_PLATFORMS); return s ? JSON.parse(s) : []; } catch { return []; }
+export interface CustomPlatform { name: string; icon?: string; }
+
+export function loadCustomPlatforms(): CustomPlatform[] {
+  try {
+    const s = localStorage.getItem(STORAGE_KEY_CUSTOM_PLATFORMS);
+    if (!s) return [];
+    const parsed = JSON.parse(s);
+    // Backward compat: old format was string[]
+    if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === "string") {
+      return parsed.map((name: string) => ({ name }));
+    }
+    return parsed;
+  } catch { return []; }
 }
-export function saveCustomPlatforms(platforms: string[]) {
+export function saveCustomPlatforms(platforms: CustomPlatform[]) {
   localStorage.setItem(STORAGE_KEY_CUSTOM_PLATFORMS, JSON.stringify(platforms));
 }
 
 export function getAllPlatforms(): string[] {
-  return [...DEFAULT_PLATFORMS, ...loadCustomPlatforms(), "other"];
+  return [...DEFAULT_PLATFORMS, ...loadCustomPlatforms().map(p => p.name), "other"];
+}
+
+export function getCustomPlatformIcon(id: string): string | undefined {
+  const platforms = loadCustomPlatforms();
+  return platforms.find(p => p.name === id)?.icon;
 }
 
 export function getPlatformLabel(id: string): string {
@@ -509,26 +551,38 @@ export function ManagementPage() {
   }
 
   // ── Channel Management View ──
-  const [customPlatforms, setCustomPlatforms] = useState<string[]>(() => loadCustomPlatforms());
+  const [customPlatforms, setCustomPlatforms] = useState<CustomPlatform[]>(() => loadCustomPlatforms());
   const [addingPlatform, setAddingPlatform] = useState(false);
   const [newPlatformName, setNewPlatformName] = useState("");
+  const [newPlatformIcon, setNewPlatformIcon] = useState("");
   const platformInputRef = useRef<HTMLInputElement>(null);
-  const allPlatforms = [...DEFAULT_PLATFORMS, ...customPlatforms, "other"];
+  const platformIconRef = useRef<HTMLInputElement>(null);
+  const allPlatforms = [...DEFAULT_PLATFORMS, ...customPlatforms.map(p => p.name), "other"];
 
   useEffect(() => { if (addingPlatform && platformInputRef.current) platformInputRef.current.focus(); }, [addingPlatform]);
 
   const handleAddPlatform = () => {
     const name = newPlatformName.trim();
-    if (!name || allPlatforms.includes(name)) { setAddingPlatform(false); setNewPlatformName(""); return; }
-    const updated = [...customPlatforms, name];
+    if (!name || allPlatforms.includes(name)) { setAddingPlatform(false); setNewPlatformName(""); setNewPlatformIcon(""); return; }
+    const updated = [...customPlatforms, { name, icon: newPlatformIcon || undefined }];
     setCustomPlatforms(updated);
     saveCustomPlatforms(updated);
     setNewPlatformName("");
+    setNewPlatformIcon("");
     setAddingPlatform(false);
   };
 
+  const handlePlatformIconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 200 * 1024) { alert(ko ? "아이콘은 200KB 이하만 가능합니다" : "Icon must be under 200KB"); return; }
+    const reader = new FileReader();
+    reader.onload = () => setNewPlatformIcon(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
   const handleRemovePlatform = (name: string) => {
-    const updated = customPlatforms.filter(p => p !== name);
+    const updated = customPlatforms.filter(p => p.name !== name);
     setCustomPlatforms(updated);
     saveCustomPlatforms(updated);
   };
@@ -555,9 +609,12 @@ export function ManagementPage() {
       <div className="flex flex-wrap gap-2 mb-6">
         {allPlatforms.map(key => (
           <div key={key} className="bg-white rounded-xl border border-gray-200 p-3 text-center min-w-[80px] relative group">
+            <div className="flex justify-center mb-1 text-gray-500">
+              <PlatformIcon id={key} size={18} />
+            </div>
             <p className="text-lg font-bold text-gray-900">{brandAssets.filter(b => b.type === key).length}</p>
             <p className="text-[10px] font-medium text-gray-500 mt-1">{getPlatformLabel(key)}</p>
-            {customPlatforms.includes(key) && (
+            {customPlatforms.some(p => p.name === key) && (
               <button onClick={() => handleRemovePlatform(key)}
                 className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                 <X size={8} />
@@ -566,10 +623,18 @@ export function ManagementPage() {
           </div>
         ))}
         {addingPlatform ? (
-          <div className="bg-white rounded-xl border border-purple-300 p-3 min-w-[100px]">
+          <div className="bg-white rounded-xl border border-purple-300 p-3 min-w-[120px] flex flex-col items-center gap-2">
+            <input type="file" ref={platformIconRef} accept="image/*" className="hidden" onChange={handlePlatformIconUpload} />
+            <button onClick={() => platformIconRef.current?.click()}
+              className="w-10 h-10 rounded-lg border-2 border-dashed border-gray-300 hover:border-purple-400 flex items-center justify-center text-gray-400 hover:text-purple-500 transition-colors overflow-hidden">
+              {newPlatformIcon ? (
+                <img src={newPlatformIcon} alt="" className="w-full h-full object-contain" />
+              ) : (
+                <Upload size={14} />
+              )}
+            </button>
             <input ref={platformInputRef} value={newPlatformName} onChange={e => setNewPlatformName(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter" && !e.nativeEvent.isComposing) handleAddPlatform(); if (e.key === "Escape") { setAddingPlatform(false); setNewPlatformName(""); } }}
-              onBlur={handleAddPlatform}
+              onKeyDown={e => { if (e.key === "Enter" && !e.nativeEvent.isComposing) handleAddPlatform(); if (e.key === "Escape") { setAddingPlatform(false); setNewPlatformName(""); setNewPlatformIcon(""); } }}
               placeholder={ko ? "플랫폼명" : "Name"}
               className="w-full text-xs text-center outline-none bg-transparent" />
           </div>
@@ -625,7 +690,7 @@ export function ManagementPage() {
                     </td>
                     <td className="px-4 py-3.5">
                       <span className="text-xs text-gray-500 flex items-center gap-1.5">
-                        {typeConfig.icon} {ko ? typeConfig.label : typeConfig.labelEn}
+                        <PlatformIcon id={asset.type} size={14} /> {ko ? (typeConfig?.label || asset.type) : (typeConfig?.labelEn || asset.type)}
                       </span>
                     </td>
                     <td className="px-4 py-3.5 hidden sm:table-cell text-xs text-gray-500 truncate">{asset.description || "-"}</td>
