@@ -340,6 +340,16 @@ export function ManagementPage() {
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number; type: "project" | "brand" } | null>(null);
 
+  // Channel state (must be before any early return to satisfy React hook rules)
+  const [customPlatforms, setCustomPlatforms] = useState<CustomPlatform[]>(() => loadCustomPlatforms());
+  const [addingPlatform, setAddingPlatform] = useState(false);
+  const [newPlatformName, setNewPlatformName] = useState("");
+  const [newPlatformIcon, setNewPlatformIcon] = useState("");
+  const platformInputRef = useRef<HTMLInputElement>(null);
+  const platformIconRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { if (addingPlatform && platformInputRef.current) platformInputRef.current.focus(); }, [addingPlatform]);
+
   // Persist
   const persistProjects = useCallback((ps: Project[]) => { setProjects(ps); saveProjects(ps); }, []);
   const persistBrand = useCallback((bs: BrandAsset[]) => { setBrandAssets(bs); saveBrandAssets(bs); }, []);
@@ -560,15 +570,7 @@ export function ManagementPage() {
   }
 
   // ── Channel Management View ──
-  const [customPlatforms, setCustomPlatforms] = useState<CustomPlatform[]>(() => loadCustomPlatforms());
-  const [addingPlatform, setAddingPlatform] = useState(false);
-  const [newPlatformName, setNewPlatformName] = useState("");
-  const [newPlatformIcon, setNewPlatformIcon] = useState("");
-  const platformInputRef = useRef<HTMLInputElement>(null);
-  const platformIconRef = useRef<HTMLInputElement>(null);
   const allPlatforms = [...DEFAULT_PLATFORMS, ...customPlatforms.map(p => p.name), "other"];
-
-  useEffect(() => { if (addingPlatform && platformInputRef.current) platformInputRef.current.focus(); }, [addingPlatform]);
 
   const handleAddPlatform = () => {
     const name = newPlatformName.trim();
