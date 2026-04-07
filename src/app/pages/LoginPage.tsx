@@ -78,28 +78,21 @@ export function LoginPage() {
       const keysToRemove = Object.keys(localStorage).filter(k => k.startsWith('poten_') || k.startsWith('pm_'));
       keysToRemove.forEach(k => localStorage.removeItem(k));
 
-      // Call demo setup Edge Function
-      const res = await fetch('https://slereezbgubofcrqnkip.supabase.co/functions/v1/pm-demo/setup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNsZXJlZXpiZ3Vib2ZjcnFua2lwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5ODcyNzIsImV4cCI6MjA3NzU2MzI3Mn0.KhELTC5FTGtsC5YeZ-OvEn7q6J1fanYUuVj95-xH0Wc' },
-        body: JSON.stringify({ industry: industry || 'startup' }),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.message || 'Demo setup failed');
-
-      // Sign in with the created demo account
-      if (data.orgId) {
-        localStorage.setItem('pm_active_org_id', data.orgId);
-        localStorage.setItem('poten_active_org_id', data.orgId);
-      }
+      // Set demo org + skip onboarding
+      localStorage.setItem('pm_active_org_id', '00000000-0000-0000-0000-000000000001');
+      localStorage.setItem('poten_active_org_id', '00000000-0000-0000-0000-000000000001');
       localStorage.setItem('poten_demo_mode', 'true');
+      localStorage.setItem('poten_onboarding_complete', 'true');
 
-      const result = await signInWithEmail(data.email, data.password);
+      // Sign in directly with demo credentials
+      const result = await signInWithEmail('demo@potenlab.com', 'demo1234');
       if (result.error) {
-        setError(ko ? '데모 계정 로그인에 실패했습니다.' : 'Demo login failed.');
+        console.error('[Demo login error]', result.error);
+        setError(ko ? `데모 로그인 실패: ${result.error}` : `Demo login failed: ${result.error}`);
       }
-    } catch {
-      setError(ko ? '데모 계정 설정에 실패했습니다.' : 'Demo setup failed.');
+    } catch (err: any) {
+      console.error('[Demo setup error]', err);
+      setError(ko ? `데모 설정 실패: ${err?.message || err}` : `Demo setup failed: ${err?.message || err}`);
     }
     setDemoLoading(false);
     setSelectedIndustry(null);

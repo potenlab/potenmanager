@@ -56,6 +56,8 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useTaskContext } from "../../context/TaskContext";
 import { useMeetingContext, Meeting } from "../../context/MeetingContext";
 import { usePermission } from "../../context/PermissionContext";
+import { useTimeline, type TimelineMilestone } from "../../context/TimelineContext";
+import { useActionItems, type ActionItemRecord } from "../../context/ActionItemContext";
 import { useDrag, useDrop } from "react-dnd";
 import { createPortal } from "react-dom";
 import { useOrgPath } from "../../hooks/useOrgPath";
@@ -476,6 +478,8 @@ function DroppableDayCell({
   isTodayDate,
   dayTasks,
   dayMeetings,
+  dayMilestones = [],
+  dayActionItems = [],
   viewMode,
   language,
   selectedIds,
@@ -501,6 +505,8 @@ function DroppableDayCell({
   isTodayDate: boolean;
   dayTasks: { task: Task | null; position: "single" | "start" | "middle" | "end" }[];
   dayMeetings: Meeting[];
+  dayMilestones?: TimelineMilestone[];
+  dayActionItems?: ActionItemRecord[];
   viewMode: ViewMode;
   language: string;
   selectedIds: Set<string>;
@@ -651,6 +657,32 @@ function DroppableDayCell({
                   onClick={() => onMeetingClick(meeting.id)}
                   onContextMenu={onMeetingContextMenu ? (x, y) => onMeetingContextMenu(meeting, x, y) : undefined}
                 />
+              ))}
+
+              {/* 2b) Milestones */}
+              {dayMilestones.map((m) => (
+                <div key={`ms-${m.id}`} className={cn(
+                  "mx-1.5 flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium truncate",
+                  m.status === 'completed' ? "bg-green-50 text-green-600 line-through opacity-60" :
+                  m.status === 'in_progress' ? "bg-purple-50 text-purple-700" :
+                  "bg-violet-50 text-violet-600"
+                )}>
+                  <span className="text-[8px]">&#9670;</span>
+                  <span className="truncate">{m.milestone}</span>
+                </div>
+              ))}
+
+              {/* 2c) Action item deadlines */}
+              {dayActionItems.map((a) => (
+                <div key={`ai-${a.id}`} className={cn(
+                  "mx-1.5 flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] truncate",
+                  a.status === 'completed' ? "bg-green-50 text-green-500 line-through opacity-60" :
+                  a.status === 'in_progress' ? "bg-orange-50 text-orange-600" :
+                  "bg-amber-50 text-amber-600"
+                )}>
+                  <span className="text-[8px]">&#9744;</span>
+                  <span className="truncate">{a.task}</span>
+                </div>
               ))}
 
               {/* 3) Single-day tasks */}
@@ -1100,6 +1132,8 @@ export function CalendarView({ taskFilter, colorMode = 'status', categoryFilter,
     return result;
   }, [allContextTasks, taskFilter, categoryFilter, colorMode]);
   const { meetings, addMeeting, updateMeeting, removeMeeting } = useMeetingContext();
+  const { milestones } = useTimeline();
+  const { actionItems } = useActionItems();
   const { can, members: teamMembers, currentUser } = usePermission();
 
   // Calendar edit permission: can edit any = full drag, can edit own = own tasks only
@@ -1486,7 +1520,7 @@ export function CalendarView({ taskFilter, colorMode = 'status', categoryFilter,
         const existing = meetings.filter(m => m.title === baseTitle || m.title.match(new RegExp(`^${baseTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\(\\d+\\)$`)));
         const nextNum = existing.length;
         addMeeting({
-          id: `mt-${Date.now()}`,
+          id: crypto.randomUUID(),
           title: `${baseTitle} (${nextNum})`,
           date: newDate.toISOString(),
           duration: meeting.duration || 60,
@@ -2217,6 +2251,9 @@ export function CalendarView({ taskFilter, colorMode = 'status', categoryFilter,
               if (colorMode !== 'category' && categoryFilter && categoryFilter.size > 0 && !categoryFilter.has('meeting')) return false;
               return true;
             });
+            const dayKey = format(day, "yyyy-MM-dd");
+            const dayMilestones = milestones.filter(m => m.targetDate === dayKey);
+            const dayActionItemsFiltered = actionItems.filter(a => a.deadline === dayKey);
 
             return (
               <DroppableDayCell
@@ -2226,6 +2263,8 @@ export function CalendarView({ taskFilter, colorMode = 'status', categoryFilter,
                 isTodayDate={isTodayDate}
                 dayTasks={dayTasks}
                 dayMeetings={dayMeetings}
+                dayMilestones={dayMilestones}
+                dayActionItems={dayActionItemsFiltered}
                 viewMode={viewMode}
                 language={language}
                 selectedIds={selectedIds}
@@ -2252,7 +2291,7 @@ export function CalendarView({ taskFilter, colorMode = 'status', categoryFilter,
                   navigate(p(`/tasks/${newId}`));
                 }}
                 onAddMeeting={(d) => {
-                  const id = `mt-${Date.now()}`;
+                  const id = crypto.randomUUID();
                   const meetingDate = new Date(d);
                   meetingDate.setHours(10, 0, 0, 0);
                   addMeeting({
@@ -2506,7 +2545,7 @@ export function CalendarView({ taskFilter, colorMode = 'status', categoryFilter,
             className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-purple-50 transition-colors"
             onClick={() => {
               const d = newCtxMenu.day;
-              const id = `mt-${Date.now()}`;
+              const id = crypto.randomUUID();
               const meetingDate = new Date(d);
               meetingDate.setHours(10, 0, 0, 0);
               addMeeting({

@@ -13,6 +13,7 @@ import {
   Users, Palette, Radar, Crown,
   Wrench, ChevronDown, ChevronRight, Plus, Building2,
   User, Settings, Zap, LogOut, DollarSign, FileText, BarChart3, PenTool,
+  Diamond, ListChecks, Bot,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { useWorkspace } from "../../context/WorkspaceContext";
@@ -436,6 +437,41 @@ export function NewSidebar() {
                   )}
                 </DraggableNavItem>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Auto PM */}
+        {!isPersonal && currentOrg && (
+          <div>
+            <p className="px-2 mb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+              Auto PM
+            </p>
+            <div className="space-y-0.5">
+              <NavLink
+                to={p("/ai-chat")}
+                className={cn(
+                  "flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
+                  isActive(p("/ai-chat"))
+                    ? "bg-gray-200/70 text-gray-900 font-semibold"
+                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                )}
+              >
+                <div className="shrink-0 text-indigo-500"><Bot size={16} /></div>
+                <span>{ko ? "AI 채팅" : "AI Chat"}</span>
+              </NavLink>
+              <NavLink
+                to={p("/auto-pm-settings")}
+                className={cn(
+                  "flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all duration-100",
+                  isActive(p("/auto-pm-settings"))
+                    ? "bg-gray-200/70 text-gray-900 font-semibold"
+                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                )}
+              >
+                <div className="shrink-0 text-gray-500"><Settings size={16} /></div>
+                <span>{ko ? "설정" : "Settings"}</span>
+              </NavLink>
             </div>
           </div>
         )}

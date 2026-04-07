@@ -227,3 +227,53 @@ export interface Opportunity {
   aiScore: number;
   date: string;
 }
+
+// ─── Auto PM Types ──────────────────────────────────────────────────
+
+export interface TimelineMilestone {
+  id: string;
+  orgId: string;
+  projectId: string;
+  meetingId?: string;
+  milestone: string;
+  targetDate: string;
+  priority: 'high' | 'medium' | 'low';
+  status: 'pending' | 'in_progress' | 'completed';
+  notes?: string;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ActionItemRecord {
+  id: string;
+  orgId: string;
+  projectId?: string;
+  meetingId?: string;
+  task: string;
+  assigneeId?: string;
+  deadline?: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  linkedTaskId?: string;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AIChatSession {
+  id: string;
+  orgId: string;
+  projectId: string;
+  userId: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AIChatMessage {
+  id: string;
+  sessionId: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+}

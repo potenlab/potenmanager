@@ -23,6 +23,7 @@ import { AutoProperties } from "../components/detail/AutoProperties";
 import type { PropertyFieldConfig } from "../components/detail/PropertyConfig";
 import { DateTimeProperty } from "../components/detail/DateTimeProperty";
 import { useOrgPath } from "../hooks/useOrgPath";
+import { MeetingTranscriptProcessor } from "../components/project/MeetingTranscriptProcessor";
 
 type MeetingStatus = Meeting['status'];
 type MeetingType = Meeting['type'];
@@ -223,7 +224,7 @@ export function MeetingDetailPage() {
   useEffect(() => {
     if (meetingId === 'new' && !createdRef.current) {
       createdRef.current = true;
-      const id = `mt-${Date.now()}`;
+      const id = crypto.randomUUID();
       const now = new Date();
       const meetingDate = new Date();
       meetingDate.setHours(now.getHours() + 1, 0, 0, 0);
@@ -248,6 +249,7 @@ export function MeetingDetailPage() {
 
   const meeting = getMeeting(meetingId || '');
   const [notes, setNotes] = useState(meeting?.notes || '');
+  const [editorKey, setEditorKey] = useState(0);
   // Notes auto-save via useEffect below
   const [newActionTitle, setNewActionTitle] = useState('');
   const [newActionAssignee, setNewActionAssignee] = useState('');
@@ -268,6 +270,8 @@ export function MeetingDetailPage() {
     }, 800);
     return () => { if (notesTimerRef.current) clearTimeout(notesTimerRef.current); };
   }, [notes]);
+
+  const getMemberName = (id: string) => members.find(m => m.id === id)?.name || id;
 
   if (meetingId === 'new') {
     return (
@@ -295,8 +299,6 @@ export function MeetingDetailPage() {
       </div>
     );
   }
-
-  const getMemberName = (id: string) => members.find(m => m.id === id)?.name || id;
 
   const handleTitleChange = (v: string) => updateMeeting(meeting.id, { title: v });
 
@@ -486,6 +488,7 @@ export function MeetingDetailPage() {
             {/* Notes — above action items */}
             <div className="min-h-[200px] border-t border-gray-100 pt-5">
               <NotionBlockEditor
+                key={editorKey}
                 initialContent={notes}
                 onChange={setNotes}
                 placeholder={ko ? '/ 를 입력하여 블록 유형 선택...' : 'Type / to select block type...'}
@@ -496,6 +499,25 @@ export function MeetingDetailPage() {
 
               <UrlPreviewSection content={notes} language={language} />
             </div>
+
+            {/* Transcript Processing (Auto PM) */}
+            <MeetingTranscriptProcessor
+              meetingId={meeting.id}
+              onProcessed={({ notes: newNotes, title }) => {
+                // Update notes/description in the editor
+                if (newNotes) {
+                  setNotes(newNotes);
+                  setEditorKey(k => k + 1);
+                  updateMeeting(meeting.id, { notes: newNotes });
+                }
+                // Update title if extracted
+                if (title && !meeting.title) {
+                  updateMeeting(meeting.id, { title });
+                }
+                // Refresh meeting from server to get latest data
+                fetchMeetingById(meeting.id);
+              }}
+            />
 
             {/* Action Items — below notes */}
             <div className="space-y-3 border-t border-gray-100 pt-5">

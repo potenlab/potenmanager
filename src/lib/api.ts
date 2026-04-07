@@ -544,7 +544,7 @@ export const api = {
     return (data || []).map(toCamel);
   },
   getMeetingById: async (id: string) => {
-    const { data } = await supabase.from('pm_meetings').select('*').eq('id', id).single();
+    const { data } = await supabase.from('pm_meetings').select('*').eq('id', id).maybeSingle();
     return data ? toCamel(data) : null;
   },
   createMeeting: async (meeting: any) => {
@@ -553,14 +553,15 @@ export const api = {
     const row = toSnake(meeting);
     row.created_by = uid;
     row.org_id = orgId;
-    const { data, error } = await supabase.from('pm_meetings').insert(row).select().single();
+    // Use upsert to handle case where meeting was already created
+    const { data, error } = await supabase.from('pm_meetings').upsert(row, { onConflict: 'id' }).select().maybeSingle();
     if (error) throw error;
-    return toCamel(data);
+    return data ? toCamel(data) : toCamel(row);
   },
   updateMeeting: async (id: string, updates: any) => {
-    const { data, error } = await supabase.from('pm_meetings').update(toSnake(updates)).eq('id', id).select().single();
+    const { data, error } = await supabase.from('pm_meetings').update(toSnake(updates)).eq('id', id).select().maybeSingle();
     if (error) throw error;
-    return toCamel(data);
+    return data ? toCamel(data) : toCamel(updates);
   },
   deleteMeeting: async (id: string) => {
     await supabase.from('pm_meetings').delete().eq('id', id);
@@ -869,6 +870,109 @@ export const api = {
   },
   updateAttendance: async (id: string, updates: any) => {
     const { data, error } = await supabase.from('pm_attendance').update(toSnake(updates)).eq('id', id).select().single();
+    if (error) throw error;
+    return toCamel(data);
+  },
+
+  // ── Timelines (Auto PM) ──
+  getTimelines: async () => {
+    const orgId = getActiveOrgId();
+    if (!orgId) return [];
+    const { data, error } = await supabase.from('pm_timelines').select('*').eq('org_id', orgId).order('target_date');
+    if (error) throw error;
+    return (data || []).map(toCamel);
+  },
+  getProjectTimelines: async (projectId: string) => {
+    const { data, error } = await supabase.from('pm_timelines').select('*').eq('project_id', projectId).order('target_date');
+    if (error) throw error;
+    return (data || []).map(toCamel);
+  },
+  createTimeline: async (timeline: any) => {
+    const uid = await getUid();
+    const orgId = getActiveOrgId();
+    const row = toSnake(timeline);
+    row.created_by = uid;
+    row.org_id = orgId;
+    const { data, error } = await supabase.from('pm_timelines').insert(row).select().single();
+    if (error) throw error;
+    return toCamel(data);
+  },
+  updateTimeline: async (id: string, updates: any) => {
+    const { data, error } = await supabase.from('pm_timelines').update(toSnake(updates)).eq('id', id).select().single();
+    if (error) throw error;
+    return toCamel(data);
+  },
+  deleteTimeline: async (id: string) => {
+    await supabase.from('pm_timelines').delete().eq('id', id);
+    return { success: true };
+  },
+
+  // ── Action Items (Auto PM) ──
+  getActionItems: async () => {
+    const orgId = getActiveOrgId();
+    if (!orgId) return [];
+    const { data, error } = await supabase.from('pm_action_items').select('*').eq('org_id', orgId).order('deadline');
+    if (error) throw error;
+    return (data || []).map(toCamel);
+  },
+  getProjectActionItems: async (projectId: string) => {
+    const { data, error } = await supabase.from('pm_action_items').select('*').eq('project_id', projectId).order('deadline');
+    if (error) throw error;
+    return (data || []).map(toCamel);
+  },
+  getMeetingActionItems: async (meetingId: string) => {
+    const { data, error } = await supabase.from('pm_action_items').select('*').eq('meeting_id', meetingId).order('deadline');
+    if (error) throw error;
+    return (data || []).map(toCamel);
+  },
+  createActionItem: async (item: any) => {
+    const uid = await getUid();
+    const orgId = getActiveOrgId();
+    const row = toSnake(item);
+    row.created_by = uid;
+    row.org_id = orgId;
+    const { data, error } = await supabase.from('pm_action_items').insert(row).select().single();
+    if (error) throw error;
+    return toCamel(data);
+  },
+  updateActionItem: async (id: string, updates: any) => {
+    const { data, error } = await supabase.from('pm_action_items').update(toSnake(updates)).eq('id', id).select().single();
+    if (error) throw error;
+    return toCamel(data);
+  },
+  deleteActionItem: async (id: string) => {
+    await supabase.from('pm_action_items').delete().eq('id', id);
+    return { success: true };
+  },
+
+  // ── AI Chat (Auto PM) ──
+  getAIChatSessions: async (projectId: string) => {
+    const { data, error } = await supabase.from('pm_ai_chat_sessions').select('*').eq('project_id', projectId).order('updated_at', { ascending: false });
+    if (error) throw error;
+    return (data || []).map(toCamel);
+  },
+  createAIChatSession: async (session: any) => {
+    const uid = await getUid();
+    const orgId = getActiveOrgId();
+    const row = toSnake(session);
+    row.user_id = uid;
+    row.org_id = orgId;
+    const { data, error } = await supabase.from('pm_ai_chat_sessions').insert(row).select().single();
+    if (error) throw error;
+    return toCamel(data);
+  },
+  deleteAIChatSession: async (id: string) => {
+    await supabase.from('pm_ai_chat_sessions').delete().eq('id', id);
+    return { success: true };
+  },
+  getAIChatMessages: async (sessionId: string) => {
+    const { data, error } = await supabase.from('pm_ai_chat_messages').select('*').eq('session_id', sessionId).order('created_at');
+    if (error) throw error;
+    return (data || []).map(toCamel);
+  },
+  createAIChatMessage: async (message: any) => {
+    const row = toSnake(message);
+    const { data, error } = await supabase.from('pm_ai_chat_messages').insert(row).select().single();
     if (error) throw error;
     return toCamel(data);
   },

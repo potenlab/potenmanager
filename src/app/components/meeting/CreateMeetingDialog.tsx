@@ -54,7 +54,7 @@ export function CreateMeetingDialog({ open, onOpenChange, editMeeting }: Props) 
       });
     } else {
       const meeting: Meeting = {
-        id: `mt-${Date.now()}`,
+        id: crypto.randomUUID(),
         title: title.trim(),
         date: new Date(date).toISOString(),
         duration,

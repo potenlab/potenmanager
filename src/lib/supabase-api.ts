@@ -98,6 +98,60 @@ export interface PmMeeting {
   created_by: string;
   created_at: string;
   updated_at: string;
+  // Auto PM fields
+  transcript?: string;
+  summary?: string;
+  key_decisions?: any[];
+  participants?: any[];
+  processed_at?: string;
+}
+
+export interface PmTimeline {
+  id: string;
+  org_id: string;
+  project_id: string;
+  meeting_id?: string;
+  milestone: string;
+  target_date: string;
+  priority: 'high' | 'medium' | 'low';
+  status: 'pending' | 'in_progress' | 'completed';
+  notes?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PmActionItem {
+  id: string;
+  org_id: string;
+  project_id?: string;
+  meeting_id?: string;
+  task: string;
+  assignee_id?: string;
+  deadline?: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  linked_task_id?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PmAIChatSession {
+  id: string;
+  org_id: string;
+  project_id: string;
+  user_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PmAIChatMessage {
+  id: string;
+  session_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: string;
 }
 
 // ─── Helper ─────────────────────────────────────────────────────
@@ -593,5 +647,159 @@ export const pmApi = {
       .order("sort_order");
     if (error) throw error;
     return data || [];
+  },
+
+  // ── Timelines (Auto PM) ──
+  async getTimelines(orgId: string): Promise<PmTimeline[]> {
+    const { data, error } = await supabase
+      .from("pm_timelines")
+      .select("*")
+      .eq("org_id", orgId)
+      .order("target_date");
+    if (error) throw error;
+    return data || [];
+  },
+
+  async getProjectTimelines(projectId: string): Promise<PmTimeline[]> {
+    const { data, error } = await supabase
+      .from("pm_timelines")
+      .select("*")
+      .eq("project_id", projectId)
+      .order("target_date");
+    if (error) throw error;
+    return data || [];
+  },
+
+  async createTimeline(timeline: Partial<PmTimeline>): Promise<PmTimeline> {
+    const uid = await getUid();
+    const { data, error } = await supabase
+      .from("pm_timelines")
+      .insert({ ...timeline, created_by: uid })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  async updateTimeline(id: string, updates: Partial<PmTimeline>): Promise<PmTimeline> {
+    const { data, error } = await supabase
+      .from("pm_timelines")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  async deleteTimeline(id: string) {
+    const { error } = await supabase.from("pm_timelines").delete().eq("id", id);
+    if (error) throw error;
+  },
+
+  // ── Action Items (Auto PM) ──
+  async getActionItems(orgId: string): Promise<PmActionItem[]> {
+    const { data, error } = await supabase
+      .from("pm_action_items")
+      .select("*")
+      .eq("org_id", orgId)
+      .order("deadline");
+    if (error) throw error;
+    return data || [];
+  },
+
+  async getProjectActionItems(projectId: string): Promise<PmActionItem[]> {
+    const { data, error } = await supabase
+      .from("pm_action_items")
+      .select("*")
+      .eq("project_id", projectId)
+      .order("deadline");
+    if (error) throw error;
+    return data || [];
+  },
+
+  async getMeetingActionItems(meetingId: string): Promise<PmActionItem[]> {
+    const { data, error } = await supabase
+      .from("pm_action_items")
+      .select("*")
+      .eq("meeting_id", meetingId)
+      .order("deadline");
+    if (error) throw error;
+    return data || [];
+  },
+
+  async createActionItem(item: Partial<PmActionItem>): Promise<PmActionItem> {
+    const uid = await getUid();
+    const { data, error } = await supabase
+      .from("pm_action_items")
+      .insert({ ...item, created_by: uid })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  async updateActionItem(id: string, updates: Partial<PmActionItem>): Promise<PmActionItem> {
+    const { data, error } = await supabase
+      .from("pm_action_items")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  async deleteActionItem(id: string) {
+    const { error } = await supabase.from("pm_action_items").delete().eq("id", id);
+    if (error) throw error;
+  },
+
+  // ── AI Chat Sessions (Auto PM) ──
+  async getAIChatSessions(projectId: string): Promise<PmAIChatSession[]> {
+    const { data, error } = await supabase
+      .from("pm_ai_chat_sessions")
+      .select("*")
+      .eq("project_id", projectId)
+      .order("updated_at", { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+
+  async createAIChatSession(session: Partial<PmAIChatSession>): Promise<PmAIChatSession> {
+    const uid = await getUid();
+    const { data, error } = await supabase
+      .from("pm_ai_chat_sessions")
+      .insert({ ...session, user_id: uid })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  async deleteAIChatSession(id: string) {
+    const { error } = await supabase.from("pm_ai_chat_sessions").delete().eq("id", id);
+    if (error) throw error;
+  },
+
+  // ── AI Chat Messages (Auto PM) ──
+  async getAIChatMessages(sessionId: string): Promise<PmAIChatMessage[]> {
+    const { data, error } = await supabase
+      .from("pm_ai_chat_messages")
+      .select("*")
+      .eq("session_id", sessionId)
+      .order("created_at");
+    if (error) throw error;
+    return data || [];
+  },
+
+  async createAIChatMessage(message: Partial<PmAIChatMessage>): Promise<PmAIChatMessage> {
+    const { data, error } = await supabase
+      .from("pm_ai_chat_messages")
+      .insert(message)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
   },
 };

@@ -19,8 +19,15 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Claude Code
-.claude/
+# Python
+__pycache__/
+*.pyc
+
+# Claude Code (keep settings.local.json private, track skills/agents)
+.claude/settings.local.json
+
+# Auto PM workspace data (local only)
+data/
 
 # Logs
 *.log

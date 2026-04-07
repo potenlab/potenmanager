@@ -27,6 +27,9 @@ import {
   SquarePen,
   Plus,
   Crown,
+  Diamond,
+  ListChecks,
+  Bot,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { getUserColor } from "../../../lib/mockData";
@@ -56,6 +59,7 @@ const DEFAULT_GROUPS: NavGroup[] = [
   { id: "work", labelKo: "업무", labelEn: "Work", itemIds: ["tasks", "calendar"] },
   { id: "content", labelKo: "콘텐츠", labelEn: "Content", itemIds: ["projects", "branding", "library"] },
   { id: "tools", labelKo: "도구", labelEn: "Tools", itemIds: ["chat", "meetings", "radar"] },
+  { id: "autopm", labelKo: "Auto PM", labelEn: "Auto PM", itemIds: ["timelines", "action-items", "ai-chat"] },
   { id: "people", labelKo: "팀", labelEn: "Team", itemIds: ["team"] },
 ];
 
@@ -266,6 +270,9 @@ export function Sidebar() {
     meetings: { to: p("/meetings"), icon: <Video size={16} />, label: ko ? "회의/미팅" : "Meetings" },
     radar: { to: p("/radar"), icon: <Radar size={16} />, label: ko ? "비즈 레이더" : "Biz Radar" },
     chat: { to: p("/chat"), icon: <MessageCircle size={16} />, label: ko ? "채팅" : "Chat" },
+    timelines: { to: p("/timelines"), icon: <Diamond size={16} />, label: ko ? "타임라인" : "Timelines" },
+    "action-items": { to: p("/action-items"), icon: <ListChecks size={16} />, label: ko ? "액션 아이템" : "Action Items" },
+    "ai-chat": { to: p("/ai-chat"), icon: <Bot size={16} />, label: ko ? "AI 채팅" : "AI Chat" },
     team: { to: p("/team"), icon: <Users size={16} />, label: ko ? "팀" : "Team" },
   };
 

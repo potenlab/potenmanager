@@ -598,7 +598,7 @@ export function MeetingContent({ embedded = false }: { embedded?: boolean } = {}
     else if (column === 'upcoming') { meetingDate = new Date(); meetingDate.setDate(meetingDate.getDate() + 1); meetingDate.setHours(10, 0, 0, 0); }
     else { meetingDate = new Date(); status = 'completed'; }
     addMeeting({
-      id: `mt-${Date.now()}`, title, date: meetingDate.toISOString(), duration: 60, type: 'other', status,
+      id: crypto.randomUUID(), title, date: meetingDate.toISOString(), duration: 60, type: 'other', status,
       attendeeIds: [currentUser.id], organizerId: currentUser.id, notes: '', actionItems: [],
       createdAt: now.toISOString(), updatedAt: now.toISOString(),
     });

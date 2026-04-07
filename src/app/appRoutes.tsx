@@ -70,6 +70,10 @@ const ToolsPage = lazyRetry(() => import("./pages/ToolsPage"), "ToolsPage");
 const BrainstormPage = lazyRetry(() => import("./pages/BrainstormPage"), "BrainstormPage");
 const SalesPage = lazy(() => import("./pages/SalesPage").then(m => ({ default: m.SalesPage })));
 const RevenuePage = lazy(() => import("./pages/RevenuePage").then(m => ({ default: m.RevenuePage })));
+const TimelinesPage = lazyRetry(() => import("./pages/TimelinesPage"), "TimelinesPage");
+const ActionItemsPage = lazyRetry(() => import("./pages/ActionItemsPage"), "ActionItemsPage");
+const AIChatPage = lazyRetry(() => import("./pages/AIChatPage"), "AIChatPage");
+const AutoPMSettingsPage = lazyRetry(() => import("./pages/AutoPMSettingsPage"), "AutoPMSettingsPage");
 
 /** All app pages – shared between the /:orgSlug layout and the legacy fallback */
 const APP_PAGES = [
@@ -120,6 +124,10 @@ const APP_PAGES = [
   { path: "sales/estimates", Component: SalesPage },
   { path: "sales/revenue", Component: SalesPage },
   { path: "revenue", Component: RevenuePage },
+  { path: "timelines", Component: TimelinesPage },
+  { path: "action-items", Component: ActionItemsPage },
+  { path: "ai-chat", Component: AIChatPage },
+  { path: "auto-pm-settings", Component: AutoPMSettingsPage },
   { path: "*", Component: DashboardPage },
 ];
 

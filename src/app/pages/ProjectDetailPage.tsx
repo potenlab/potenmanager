@@ -23,6 +23,9 @@ import type { PropertyFieldConfig } from "../components/detail/PropertyConfig";
 import { AIStrategyPanel } from "../components/AIStrategyPanel";
 import { DetailPageShell } from "../components/detail/DetailPageShell";
 import { useOrgPath } from "../hooks/useOrgPath";
+import { ProjectTimeline } from "../components/project/ProjectTimeline";
+import { ProjectActionItems } from "../components/project/ProjectActionItems";
+import { ProjectAIChat } from "../components/project/ProjectAIChat";
 import {
   Project, PROJECT_STATUS_CONFIG, PROJECT_COLORS, PROJECT_CATEGORY_CONFIG,
   loadProjects, saveProjects, syncProjectsFromServer, loadCards, saveCards, loadColumns,
@@ -827,6 +830,19 @@ export function ProjectDetailPage() {
 
         <UrlPreviewSection content={notes} language={language} />
       </div>
+
+      {/* Timeline & Action Items */}
+      {currentId && org?.id && (
+        <div className="border-t border-gray-100 mt-4">
+          <ProjectTimeline projectId={currentId} orgId={org.id} />
+          <div className="border-t border-gray-100">
+            <ProjectActionItems projectId={currentId} orgId={org.id} />
+          </div>
+          <div className="border-t border-gray-100">
+            <ProjectAIChat projectId={currentId} orgId={org.id} />
+          </div>
+        </div>
+      )}
 
       {/* AI Strategy */}
       <AIStrategyPanel
