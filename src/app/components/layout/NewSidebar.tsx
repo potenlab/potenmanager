@@ -154,6 +154,8 @@ export function NewSidebar() {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [categoryMenuId, setCategoryMenuId] = useState<string | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [renamingCategoryId, setRenamingCategoryId] = useState<string | null>(null);
+  const [renamingCategoryName, setRenamingCategoryName] = useState("");
 
   // ── Section ordering (개인 + categories) ──
   const SECTION_ORDER_KEY = "pm_sidebar_section_order";
@@ -211,6 +213,14 @@ export function NewSidebar() {
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
+  };
+
+  const renameCategory = async (id: string) => {
+    const trimmed = renamingCategoryName.trim();
+    if (!trimmed) { setRenamingCategoryId(null); return; }
+    await supabase.from("pm_categories").update({ name: trimmed }).eq("id", id);
+    setCategories(p => p.map(c => c.id === id ? { ...c, name: trimmed } : c));
+    setRenamingCategoryId(null);
   };
 
   const deleteCategory = async (id: string) => {
@@ -487,13 +497,26 @@ export function NewSidebar() {
               <SectionDropZone sectionId={cat.id} onDropTool={moveToolToSection}>
                 <div>
                   <div className="flex items-center justify-between px-2 mb-1 group/cat-header">
-                    <button
-                      onClick={() => toggleCategoryExpand(cat.id)}
-                      className="flex items-center gap-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider hover:text-gray-600 transition-colors"
-                    >
-                      <span>{cat.name}</span>
-                      <ChevronDown size={10} className={cn("transition-transform", !expandedCategories.has(cat.id) && "-rotate-90")} />
-                    </button>
+                    {renamingCategoryId === cat.id ? (
+                      <input
+                        autoFocus
+                        value={renamingCategoryName}
+                        onChange={e => setRenamingCategoryName(e.target.value)}
+                        onBlur={() => renameCategory(cat.id)}
+                        onKeyDown={e => { if (e.key === "Enter") renameCategory(cat.id); if (e.key === "Escape") setRenamingCategoryId(null); }}
+                        className="text-[10px] font-bold text-gray-600 uppercase tracking-wider bg-white border border-blue-300 rounded px-1 py-0.5 outline-none w-24"
+                        onClick={e => e.stopPropagation()}
+                      />
+                    ) : (
+                      <button
+                        onClick={() => toggleCategoryExpand(cat.id)}
+                        onDoubleClick={(e) => { e.stopPropagation(); setRenamingCategoryId(cat.id); setRenamingCategoryName(cat.name); }}
+                        className="flex items-center gap-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider hover:text-gray-600 transition-colors"
+                      >
+                        <span>{cat.name}</span>
+                        <ChevronDown size={10} className={cn("transition-transform", !expandedCategories.has(cat.id) && "-rotate-90")} />
+                      </button>
+                    )}
                     <button
                       onClick={(e) => { e.stopPropagation(); setCategoryMenuId(categoryMenuId === cat.id ? null : cat.id); }}
                       className="p-0.5 text-gray-300 hover:text-gray-600 rounded opacity-0 group-hover/cat-header:opacity-100 transition-opacity"

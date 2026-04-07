@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router";
 import {
   FolderKanban, Palette, Plus, Trash2,
   Calendar as CalendarIcon, MoreHorizontal, X, Check,
-  Image as ImageIcon, Globe, Search, Edit3, ArrowRight,
+  Image as ImageIcon, Globe, Search, Edit3,
   ChevronDown,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -287,6 +287,7 @@ export function ManagementPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number; type: "project" | "brand" } | null>(null);
 
   // Persist
   const persistProjects = useCallback((ps: Project[]) => { setProjects(ps); saveProjects(ps); }, []);
@@ -294,10 +295,10 @@ export function ManagementPage() {
 
   // Close menus on outside click
   useEffect(() => {
-    if (!menuOpenId) return;
-    const h = () => setMenuOpenId(null);
+    if (!menuOpenId && !contextMenu) return;
+    const h = () => { setMenuOpenId(null); setContextMenu(null); };
     document.addEventListener("click", h); return () => document.removeEventListener("click", h);
-  }, [menuOpenId]);
+  }, [menuOpenId, contextMenu]);
 
   // ── Project operations ──
   const handleAddProject = (data: Partial<Project>) => {
@@ -423,13 +424,13 @@ export function ManagementPage() {
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[15%] hidden sm:table-cell">{ko ? "클라이언트" : "Client"}</th>
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[12%] hidden md:table-cell">{ko ? "예산" : "Budget"}</th>
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[10%] hidden lg:table-cell">{ko ? "생성일" : "Created"}</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[6%] text-center">{ko ? "상세" : "Detail"}</th>
                   <th className="px-4 py-3 w-[4%]"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filteredProjects.map((project, idx) => (
                   <tr key={project.id} onClick={() => navigate(p(`/projects/${project.id}`))}
+                    onContextMenu={e => { e.preventDefault(); setContextMenu({ id: project.id, x: e.clientX, y: e.clientY, type: "project" }); }}
                     className="hover:bg-blue-50/30 transition-colors group cursor-pointer">
                     <td className="px-4 py-3.5 text-xs text-gray-400 font-mono">{idx + 1}</td>
                     <td className="px-4 py-3.5">
@@ -453,9 +454,6 @@ export function ManagementPage() {
                     <td className="px-4 py-3.5 hidden md:table-cell text-sm text-gray-600">{project.budget || "-"}</td>
                     <td className="px-4 py-3.5 hidden lg:table-cell text-xs text-gray-400">
                       {project.createdAt ? format(new Date(project.createdAt), "MMM d") : "-"}
-                    </td>
-                    <td className="px-4 py-3.5 text-center">
-                      <ArrowRight size={14} className="text-gray-400 mx-auto" />
                     </td>
                     <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
                       <div className="relative">
@@ -486,6 +484,26 @@ export function ManagementPage() {
 
         <AddProjectDialog open={dialogOpen} onClose={() => { setDialogOpen(false); setEditingProject(null); }}
           onSave={editingProject ? handleEditProject : handleAddProject} project={editingProject} ko={ko} />
+
+        {/* Right-click context menu */}
+        {contextMenu && contextMenu.type === "project" && (() => {
+          const proj = projects.find(p2 => p2.id === contextMenu.id);
+          if (!proj) return null;
+          return (
+            <div className="fixed z-50 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-32"
+              style={{ left: contextMenu.x, top: contextMenu.y }}
+              onClick={e => e.stopPropagation()}>
+              <button onClick={() => { setEditingProject(proj); setDialogOpen(true); setContextMenu(null); }}
+                className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-1.5">
+                <Edit3 size={10} /> {ko ? "수정" : "Edit"}
+              </button>
+              <button onClick={() => { handleDeleteProject(proj.id); setContextMenu(null); }}
+                className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-1.5">
+                <Trash2 size={10} /> {ko ? "삭제" : "Delete"}
+              </button>
+            </div>
+          );
+        })()}
       </div>
     );
   }
@@ -591,7 +609,6 @@ export function ManagementPage() {
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[15%]">{ko ? "플랫폼" : "Platform"}</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[25%] hidden sm:table-cell">{ko ? "설명" : "Description"}</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[12%] hidden md:table-cell">{ko ? "생성일" : "Created"}</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[6%] text-center">{ko ? "상세" : "Detail"}</th>
                 <th className="px-4 py-3 w-[4%]"></th>
               </tr>
             </thead>
@@ -600,6 +617,7 @@ export function ManagementPage() {
                 const typeConfig = BRAND_TYPE_CONFIG[asset.type] || BRAND_TYPE_CONFIG.other;
                 return (
                   <tr key={asset.id} onClick={() => navigate(p(`/branding/${asset.id}`))}
+                    onContextMenu={e => { e.preventDefault(); setContextMenu({ id: asset.id, x: e.clientX, y: e.clientY, type: "brand" }); }}
                     className="hover:bg-purple-50/30 transition-colors group cursor-pointer">
                     <td className="px-4 py-3.5 text-xs text-gray-400 font-mono">{idx + 1}</td>
                     <td className="px-4 py-3.5">
@@ -613,9 +631,6 @@ export function ManagementPage() {
                     <td className="px-4 py-3.5 hidden sm:table-cell text-xs text-gray-500 truncate">{asset.description || "-"}</td>
                     <td className="px-4 py-3.5 hidden md:table-cell text-xs text-gray-400">
                       {asset.createdAt ? format(new Date(asset.createdAt), "MMM d") : "-"}
-                    </td>
-                    <td className="px-4 py-3.5 text-center">
-                      <ArrowRight size={14} className="text-gray-400 mx-auto" />
                     </td>
                     <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
                       <div className="relative">
@@ -644,6 +659,26 @@ export function ManagementPage() {
           </table>
         </div>
       )}
+
+      {/* Right-click context menu for channels */}
+      {contextMenu && contextMenu.type === "brand" && (() => {
+        const asset = brandAssets.find(a => a.id === contextMenu.id);
+        if (!asset) return null;
+        return (
+          <div className="fixed z-50 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-32"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+            onClick={e => e.stopPropagation()}>
+            <button onClick={() => { navigate(p(`/branding/${asset.id}`)); setContextMenu(null); }}
+              className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-1.5">
+              <Edit3 size={10} /> {ko ? "수정" : "Edit"}
+            </button>
+            <button onClick={() => { handleDeleteBrand(asset.id); setContextMenu(null); }}
+              className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-1.5">
+              <Trash2 size={10} /> {ko ? "삭제" : "Delete"}
+            </button>
+          </div>
+        );
+      })()}
     </div>
   );
 }
