@@ -1268,9 +1268,9 @@ export function SalesPage() {
                 <table className="w-full text-left table-fixed">
                   <thead><tr className="bg-gray-50/50 border-b border-gray-100">
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[4%]">No.</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[14%]">{ko ? "프로젝트명" : "Project"}</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[8%] hidden md:table-cell">{ko ? "계약일" : "Date"}</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[10%]">{ko ? "단계" : "Stage"}</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[13%]">{ko ? "프로젝트명" : "Project"}</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[11%] hidden md:table-cell">{ko ? "계약일" : "Date"}</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[8%]">{ko ? "단계" : "Stage"}</th>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[10%] hidden sm:table-cell">{ko ? "합계" : "Total"}</th>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[10%] hidden md:table-cell">{ko ? "선금" : "Advance"}</th>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-[10%] hidden md:table-cell">{ko ? "중도금" : "Interim"}</th>
