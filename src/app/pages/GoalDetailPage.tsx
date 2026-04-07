@@ -26,7 +26,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { usePermission } from "../context/PermissionContext";
 import { useGoalContext } from "../context/GoalContext";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
-import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
+
 import { NotionDateRangePicker } from "../components/NotionDateRangePicker";
 import { TaskRecommendationPanel } from "../components/tasks/TaskRecommendationPanel";
 import { useState, useRef, useEffect } from "react";
@@ -487,7 +487,6 @@ export function GoalDetailPage() {
                 parentId={goalId}
               />
 
-              <UrlPreviewSection content="" language={language} />
             </div>
           </div>
         </div>

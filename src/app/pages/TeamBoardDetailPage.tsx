@@ -29,7 +29,7 @@ import { InlineText } from "../components/detail/InlineText";
 import { InlineDropdown } from "../components/detail/InlineDropdown";
 import { PropertyItem } from "../components/detail/PropertyItem";
 import { AttachmentSection, getAttachmentIcon } from "../components/detail/AttachmentSection";
-import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
+
 import { useOrgPath } from "../hooks/useOrgPath";
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -366,8 +366,6 @@ export function TeamBoardDetailPage() {
                   parentId={itemId}
                 />
 
-                {/* URL previews auto-detected from content */}
-                <UrlPreviewSection content={description} language={language} />
 
                 {/* Inline attached files */}
                 {attachments.length > 0 && (

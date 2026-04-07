@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
-import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
+
 import { InlineText } from "../components/detail/InlineText";
 import { EmojiPicker } from "../components/EmojiPicker";
 import { getSubPage, updateSubPage, deleteSubPage, syncSubPagesFromServer, type SubPage } from "../../lib/subPages";
@@ -105,7 +105,6 @@ export function SubPageDetailPage() {
                 parentId={page.id}
               />
 
-              <UrlPreviewSection content={page.content || ""} language={language} />
             </div>
           </div>
         </div>

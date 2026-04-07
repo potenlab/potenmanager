@@ -20,7 +20,7 @@ import { InlineText } from "../components/detail/InlineText";
 import { InlineDropdown } from "../components/detail/InlineDropdown";
 import { PropertyItem } from "../components/detail/PropertyItem";
 import { usePortalPosition } from "../hooks/usePortalPosition";
-import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
+
 
 const STAGE_CONFIG: Record<BizStage, { label: string; labelKo: string; icon: React.ReactNode; color: string }> = {
   discovered: { label: "Discovered", labelKo: "발굴", icon: <Compass size={14} />, color: "text-purple-600" },
@@ -542,7 +542,7 @@ export function BizRadarDetailPage() {
                 placeholder={ko ? '기회에 대한 메모를 작성하세요...' : 'Write notes about this opportunity...'}
                 className="w-full text-sm text-gray-700 placeholder-gray-300 resize-none focus:outline-none bg-transparent leading-relaxed min-h-[200px]"
               />
-              <UrlPreviewSection content={notes} language={language} />
+
             </div>
           </div>
         </div>

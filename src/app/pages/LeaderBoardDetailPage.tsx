@@ -7,7 +7,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { usePermission } from "../context/PermissionContext";
 import { useInvite } from "../context/InviteContext";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
-import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
+
 import { InlineText } from "../components/detail/InlineText";
 import { AutoProperties } from "../components/detail/AutoProperties";
 import type { PropertyFieldConfig } from "../components/detail/PropertyConfig";
@@ -322,7 +322,7 @@ export function LeaderBoardDetailPage() {
           placeholder={ko ? "내용을 작성하세요..." : "Write content..."}
         />
       </div>
-      <UrlPreviewSection text={content} />
+
     </DetailPageShell>
   );
 }

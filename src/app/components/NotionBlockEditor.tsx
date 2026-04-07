@@ -73,6 +73,8 @@ function parseBlockLine(line: string): { type: BlockType; content: string } {
   if (line.startsWith("# ")) return { type: "h1", content: line.slice(2) };
   if (/^\d+\.\s/.test(line)) return { type: "numbered", content: line.replace(/^\d+\.\s/, "") };
   if (line.startsWith("- ")) return { type: "bullet", content: line.slice(2) };
+  // Auto-detect bare URLs as bookmark blocks
+  if (URL_ONLY_REGEX.test(line.trim())) return { type: "bookmark", content: line.trim() };
   return { type: "text", content: line };
 }
 
@@ -171,6 +173,9 @@ export function NotionBlockEditor({
   const lastClickedIdx = useRef<number | null>(null);
   const dragStartIdx = useRef<number | null>(null);
   const isDragging = useRef(false);
+  const [gripDragIdx, setGripDragIdx] = useState<number | null>(null);
+  const [gripDropIdx, setGripDropIdx] = useState<number | null>(null);
+  const [selectionDragging, setSelectionDragging] = useState(false);
   const blockRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const pendingFocusIdx = useRef<number | null>(null);
   const isComposingRef = useRef(false);
@@ -212,18 +217,33 @@ export function NotionBlockEditor({
 
   const ko = language === "ko";
 
+  // Sync blocks → parent onChange
+  const prevTextRef = useRef(seed);
+
+  // Re-parse when seed changes externally (e.g., async data load)
+  const prevSeedRef = useRef(seed);
+  useEffect(() => {
+    const trimmedSeed = seed.replace(/\n*$/, "");
+    if (trimmedSeed !== prevSeedRef.current && trimmedSeed !== prevTextRef.current) {
+      prevSeedRef.current = trimmedSeed;
+      const newBlocks = parseBlocks(seed);
+      setBlocks(newBlocks);
+      prevTextRef.current = seed;
+    }
+  }, [seed]);
+
   // Close slash menu on unmount (prevents portal orphan on navigation)
   useEffect(() => {
     return () => { setSlashMenu(null); };
   }, []);
 
-  // Sync blocks → parent onChange
-  const prevTextRef = useRef(seed);
   useEffect(() => {
     const text = blocks.map(serializeBlock).join("\n");
-    if (text !== prevTextRef.current) {
-      prevTextRef.current = text;
-      onChangeRef.current(text);
+    // Trim trailing empty lines for storage, but keep prevTextRef as full version
+    const trimmed = text.replace(/\n*$/, "");
+    if (trimmed !== prevTextRef.current) {
+      prevTextRef.current = trimmed;
+      onChangeRef.current(trimmed);
     }
   }, [blocks]);
 
@@ -578,7 +598,7 @@ export function NotionBlockEditor({
     }
 
     // Ctrl+C / Ctrl+X: copy / cut selected blocks
-    if ((e.key === "c" || e.key === "x") && (e.ctrlKey || e.metaKey) && selectedIds.size > 1) {
+    if ((e.key === "c" || e.key === "x") && (e.ctrlKey || e.metaKey) && selectedIds.size >= 1) {
       e.preventDefault();
       const selected = blocks.filter((b) => selectedIds.has(b.id));
       const plain = selected.map(serializeBlock).join("\n");
@@ -591,6 +611,8 @@ export function NotionBlockEditor({
           case "bullet": return `<ul><li>${c}</li></ul>`;
           case "numbered": return `<ol><li>${c}</li></ol>`;
           case "divider": return `<hr>`;
+          case "bookmark": return `<p>[bookmark:${c}]</p>`;
+          case "page": return `<p>[page:${c}]</p>`;
           default: return `<p>${c}</p>`;
         }
       }).join("\n");
@@ -828,14 +850,14 @@ export function NotionBlockEditor({
       selectRange(lastClickedIdx.current, idx);
       window.getSelection()?.removeAllRanges();
     } else if (!e.shiftKey) {
-      if (selectedIds.size > 0) {
+      if (selectedIds.size > 0 && !selectedIds.has(blocks[idx]?.id)) {
         clearSelection();
       }
       lastClickedIdx.current = idx;
       dragStartIdx.current = idx;
-      isDragging.current = false; // becomes true only when entering another block
+      isDragging.current = false;
     }
-  }, [readOnly, selectedIds, selectRange, clearSelection]);
+  }, [readOnly, selectedIds, blocks, selectRange, clearSelection]);
 
   const handleBlockMouseEnter = useCallback((idx: number) => {
     if (readOnly) return;
@@ -912,6 +934,8 @@ export function NotionBlockEditor({
           case "bullet": return `<ul><li>${c}</li></ul>`;
           case "numbered": return `<ol><li>${c}</li></ol>`;
           case "divider": return `<hr>`;
+          case "bookmark": return `<p>[bookmark:${c}]</p>`;
+          case "page": return `<p>[page:${c}]</p>`;
           default: return `<p>${c}</p>`;
         }
       }).join("\n");
@@ -964,17 +988,69 @@ export function NotionBlockEditor({
   }, [selectedIds, blocks, deleteSelectedBlocks, pushUndo, undo, redo]);
 
   return (
-    <div ref={wrapperRef} className="space-y-0 outline-none" tabIndex={-1} onKeyDown={handleWrapperKeyDown}>
+    <div ref={wrapperRef} className="space-y-0 outline-none pb-[680px]" tabIndex={-1} onKeyDown={handleWrapperKeyDown}>
       {blocks.map((block, idx) => (
         <div
           key={block.id}
+          draggable={selectedIds.has(block.id) && selectedIds.size >= 1 && !readOnly}
           className={cn(
             "group/block relative flex items-start",
-            selectedIds.has(block.id) && "bg-blue-50 rounded-[4px]"
+            selectedIds.has(block.id) && "bg-blue-50 rounded-[4px]",
+            (gripDragIdx !== null || selectionDragging) && gripDropIdx === idx && !selectedIds.has(block.id) && "border-t-2 border-blue-400",
+            gripDragIdx === idx && "opacity-40",
+            selectionDragging && selectedIds.has(block.id) && "opacity-40"
           )}
+          onDragStart={(e) => {
+            if (selectedIds.has(block.id) && selectedIds.size >= 1) {
+              setSelectionDragging(true);
+              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.setData("text/plain", "selection");
+            }
+          }}
+          onDragEnd={() => { setSelectionDragging(false); setGripDragIdx(null); setGripDropIdx(null); }}
           onMouseDown={(e) => handleBlockMouseDown(e, idx)}
           onMouseEnter={() => handleBlockMouseEnter(idx)}
           onMouseLeave={() => setHoveredIdx(null)}
+          onDragOver={(e) => {
+            const isDrag = gripDragIdx !== null || selectionDragging;
+            if (!isDrag) return;
+            // Don't allow drop on self (single drag) or on selected blocks
+            if (gripDragIdx !== null && gripDragIdx === idx) return;
+            if (selectionDragging && selectedIds.has(block.id)) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            setGripDropIdx(idx);
+          }}
+          onDragLeave={() => { if (gripDropIdx === idx) setGripDropIdx(null); }}
+          onDrop={(e) => {
+            e.preventDefault();
+            if (selectionDragging && selectedIds.size >= 1 && !selectedIds.has(block.id)) {
+              // Move selected blocks to this position
+              pushUndo();
+              setBlocks(prev => {
+                const selected = prev.filter(b => selectedIds.has(b.id));
+                const remaining = prev.filter(b => !selectedIds.has(b.id));
+                const dropAt = remaining.findIndex(b => b.id === block.id);
+                remaining.splice(dropAt, 0, ...selected);
+                return remaining;
+              });
+              setSelectionDragging(false);
+              setGripDropIdx(null);
+              setSelectedIds(new Set());
+              return;
+            }
+            if (gripDragIdx === null || gripDragIdx === idx) return;
+            pushUndo();
+            setBlocks(prev => {
+              const next = [...prev];
+              const [moved] = next.splice(gripDragIdx, 1);
+              const targetIdx = gripDragIdx < idx ? idx - 1 : idx;
+              next.splice(targetIdx, 0, moved);
+              return next;
+            });
+            setGripDragIdx(null);
+            setGripDropIdx(null);
+          }}
         >
           {/* Left handle area */}
           {!readOnly && (
@@ -992,7 +1068,16 @@ export function NotionBlockEditor({
               >
                 <Plus size={14} />
               </button>
-              <div className="text-gray-300 cursor-grab active:cursor-grabbing p-0.5">
+              <div
+                draggable
+                onDragStart={(e) => {
+                  setGripDragIdx(idx);
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", String(idx));
+                }}
+                onDragEnd={() => { setGripDragIdx(null); setGripDropIdx(null); }}
+                className="text-gray-300 cursor-grab active:cursor-grabbing p-0.5"
+              >
                 <GripVertical size={14} />
               </div>
             </div>
@@ -1035,7 +1120,14 @@ export function NotionBlockEditor({
             </button>
           ) : block.type === "bookmark" ? (
             <div
-              className="flex-1 cursor-pointer"
+              className="flex-1 cursor-grab active:cursor-grabbing"
+              draggable
+              onDragStart={(e) => {
+                setGripDragIdx(idx);
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/plain", String(idx));
+              }}
+              onDragEnd={() => { setGripDragIdx(null); setGripDropIdx(null); }}
               onClick={(e) => {
                 if (readOnly) return;
                 if (e.shiftKey && lastClickedIdx.current !== null) {
@@ -1187,7 +1279,12 @@ export function NotionBlockEditor({
       {slashMenu && filteredSlashItems.length > 0 && createPortal(
         <div
           className="fixed bg-white border border-gray-200 rounded-xl shadow-xl z-[9999] w-[220px] py-1.5 max-h-[300px] overflow-y-auto"
-          style={{ top: slashMenu.pos.top, left: slashMenu.pos.left }}
+          style={{
+            left: slashMenu.pos.left,
+            ...(slashMenu.pos.top + 320 > window.innerHeight
+              ? { bottom: window.innerHeight - slashMenu.pos.top + 8 }
+              : { top: slashMenu.pos.top }),
+          }}
           onMouseDown={(e) => e.preventDefault()}
         >
           <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
@@ -1196,6 +1293,7 @@ export function NotionBlockEditor({
           {filteredSlashItems.map((item, i) => (
             <button
               key={item.type}
+              ref={(el) => { if (el && i === slashMenu.selectedIdx) el.scrollIntoView({ block: "nearest" }); }}
               onClick={() => selectSlashItem(item)}
               className={cn(
                 "w-full px-3 py-2 flex items-center gap-3 text-left transition-colors",

@@ -12,7 +12,7 @@ import { useLibrary, LibraryItem } from "../context/LibraryContext";
 import { useTeam } from "../context/TeamContext";
 import { useTrash } from "../context/TrashContext";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
-import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
+
 import { ARCHIVE_CATEGORIES, isPredefinedCategory } from "./LibraryPage";
 import { InlineText } from "../components/detail/InlineText";
 import { PropertyItem } from "../components/detail/PropertyItem";
@@ -279,43 +279,6 @@ export function LibraryDetailPage() {
               </AnimatePresence>
             </div>
 
-            {/* OG Preview Card (auto-detected URL) */}
-            {item.url && item.ogMetadata && (item.ogMetadata.ogTitle || item.ogMetadata.ogImage) && (
-              <div className="rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm">
-                {item.ogMetadata.ogImage && (
-                  <div className="h-48 bg-gray-100 overflow-hidden">
-                    <img src={item.ogMetadata.ogImage} alt="" className="w-full h-full object-cover" />
-                  </div>
-                )}
-                <div className="p-4">
-                  {item.ogMetadata.ogSiteName && (
-                    <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider mb-1">
-                      {item.ogMetadata.ogSiteName}
-                    </p>
-                  )}
-                  {item.ogMetadata.ogTitle && (
-                    <p className="text-sm font-semibold text-gray-900 mb-1">{item.ogMetadata.ogTitle}</p>
-                  )}
-                  {item.ogMetadata.ogDescription && (
-                    <p className="text-xs text-gray-500 line-clamp-2">{item.ogMetadata.ogDescription}</p>
-                  )}
-                  {item.url && (
-                    <a href={item.url} target="_blank" rel="noopener noreferrer"
-                      className="mt-2 text-xs text-blue-600 hover:text-blue-700 underline underline-offset-2 truncate block">
-                      {item.url}
-                    </a>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* OG loading indicator */}
-            {ogLoading && (
-              <div className="flex items-center gap-2 text-sm text-blue-500 px-1">
-                <Loader2 size={14} className="animate-spin" />
-                {ko ? '미리보기 불러오는 중...' : 'Loading preview...'}
-              </div>
-            )}
 
             {/* Content — NotionBlockEditor (paste URL here to auto-detect) */}
             <div className="min-h-[200px] border-t border-gray-100 pt-5">
@@ -327,7 +290,6 @@ export function LibraryDetailPage() {
                 parentId={item.id}
               />
 
-              <UrlPreviewSection content={item.description || ''} language={language} />
             </div>
 
           </div>

@@ -51,7 +51,7 @@ import type { PropertyFieldConfig } from "../components/detail/PropertyConfig";
 import { usePortalPosition } from "../hooks/usePortalPosition";
 import { DetailPageShell } from "../components/detail/DetailPageShell";
 import { AttachmentSection, getAttachmentIcon } from "../components/detail/AttachmentSection";
-import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
+
 import { EmojiPicker } from "../components/EmojiPicker";
 import { useOrgPath } from "../hooks/useOrgPath";
 
@@ -680,8 +680,6 @@ export function TaskDetailPage() {
           parentId={taskId}
         />
 
-        {/* URL previews auto-detected from content */}
-        <UrlPreviewSection content={description} language={language} />
 
         {/* Inline attached files */}
         {attachments.length > 0 && (

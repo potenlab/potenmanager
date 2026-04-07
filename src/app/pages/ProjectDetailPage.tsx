@@ -16,7 +16,7 @@ import { usePermission } from "../context/PermissionContext";
 import { useInvite } from "../context/InviteContext";
 import { usePortalPosition } from "../hooks/usePortalPosition";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
-import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
+
 import { InlineText } from "../components/detail/InlineText";
 import { AutoProperties } from "../components/detail/AutoProperties";
 import type { PropertyFieldConfig } from "../components/detail/PropertyConfig";
@@ -822,7 +822,6 @@ export function ProjectDetailPage() {
           parentId={currentId}
         />
 
-        <UrlPreviewSection content={notes} language={language} />
       </div>
 
     </DetailPageShell>
