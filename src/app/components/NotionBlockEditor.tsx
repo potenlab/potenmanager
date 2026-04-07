@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback, KeyboardEvent } from "react";
 import { useNavigate } from "react-router";
 import { cn } from "../../lib/utils";
-import { GripVertical, Plus, Trash2, Type, Heading1, Heading2, Heading3, List, ListOrdered, Minus, FileText, ArrowRight } from "lucide-react";
+import { GripVertical, Plus, Trash2, Type, Heading1, Heading2, Heading3, List, ListOrdered, Minus, FileText, ArrowRight, ExternalLink, Link2 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { createSubPage, getSubPage } from "../../lib/subPages";
+import { useUrlPreviews } from "./detail/UrlPreviewCard";
 
-type BlockType = "text" | "h1" | "h2" | "h3" | "bullet" | "numbered" | "divider" | "page";
+type BlockType = "text" | "h1" | "h2" | "h3" | "bullet" | "numbered" | "divider" | "page" | "bookmark";
 
 interface Block {
   id: string;
@@ -22,6 +23,7 @@ const BLOCK_TYPE_STYLES: Record<BlockType, string> = {
   numbered: "text-[15px] text-gray-700 leading-relaxed min-h-[28px] py-[3px]",
   divider: "min-h-[1px] py-[3px]",
   page: "min-h-[40px] py-[3px]",
+  bookmark: "min-h-[40px] py-[3px]",
 };
 
 interface SlashMenuItem {
@@ -42,6 +44,7 @@ const SLASH_MENU_ITEMS: SlashMenuItem[] = [
   { type: "numbered", label: "Numbered List", labelKo: "번호 매기기", desc: "Ordered list", descKo: "순서 있는 목록", icon: <ListOrdered size={16} /> },
   { type: "divider", label: "Divider", labelKo: "구분선", desc: "Horizontal line", descKo: "수평선", icon: <Minus size={16} /> },
   { type: "page", label: "Page", labelKo: "페이지", desc: "Embed a sub-page", descKo: "하위 페이지 만들기", icon: <FileText size={16} /> },
+  { type: "bookmark", label: "Bookmark", labelKo: "북마크", desc: "Embed a link preview", descKo: "링크 미리보기", icon: <Link2 size={16} /> },
 ];
 
 // Markdown-like serialization: # H1, ## H2, ### H3, - bullet, 1. numbered, --- divider
@@ -54,11 +57,14 @@ function serializeBlock(b: Block): string {
     case "numbered": return `1. ${b.content}`;
     case "divider": return "---";
     case "page": return `[page:${b.content}]`;
+    case "bookmark": return `[bookmark:${b.content}]`;
     default: return b.content;
   }
 }
 
 function parseBlockLine(line: string): { type: BlockType; content: string } {
+  const bookmarkMatch = line.match(/^\[bookmark:([^\]]+)\]$/);
+  if (bookmarkMatch) return { type: "bookmark", content: bookmarkMatch[1] };
   const pageMatch = line.match(/^\[page:([^\]]+)\]$/);
   if (pageMatch) return { type: "page", content: pageMatch[1] };
   if (line === "---") return { type: "divider", content: "" };
@@ -80,6 +86,56 @@ function parseBlocks(value?: string): Block[] {
 
 function genId() {
   return Math.random().toString(36).slice(2, 10);
+}
+
+const URL_ONLY_REGEX = /^https?:\/\/[^\s]+$/;
+
+function BookmarkBlockView({ url }: { url: string }) {
+  const { previews, loading } = useUrlPreviews(url);
+  const data = previews.get(url);
+  let domain = "";
+  try { domain = new URL(url).hostname.replace("www.", ""); } catch { /* ignore */ }
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={e => e.stopPropagation()}
+      className="flex-1 block rounded-lg border border-gray-200 overflow-hidden bg-white hover:bg-gray-50 transition-colors"
+    >
+      <div className="flex h-[88px]">
+        <div className="flex-1 min-w-0 p-3 flex flex-col overflow-hidden">
+          {data?.ogTitle ? (
+            <p className="text-[13px] font-medium text-gray-900 leading-snug line-clamp-1">{data.ogTitle}</p>
+          ) : (
+            <p className="text-[13px] font-medium text-gray-500 leading-snug line-clamp-1">{domain || url}</p>
+          )}
+          {data?.ogDescription && (
+            <p className="text-[11px] text-gray-400 line-clamp-2 mt-0.5 leading-relaxed">{data.ogDescription}</p>
+          )}
+          <div className="flex items-center gap-1.5 mt-auto text-[11px] text-gray-400">
+            {data?.favicon ? (
+              <img src={data.favicon} alt="" className="w-3.5 h-3.5 rounded-sm shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            ) : (
+              <ExternalLink size={11} />
+            )}
+            <span className="truncate">{url}</span>
+          </div>
+        </div>
+        {data?.ogImage && (
+          <div className="w-[130px] shrink-0 border-l border-gray-200">
+            <img src={data.ogImage} alt="" className="w-full h-full object-cover" />
+          </div>
+        )}
+        {loading && !data && (
+          <div className="w-[130px] shrink-0 border-l border-gray-100 bg-gray-50 flex items-center justify-center">
+            <div className="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
+      </div>
+    </a>
+  );
 }
 
 function readText(el: HTMLElement): string {
@@ -977,6 +1033,22 @@ export function NotionBlockEditor({
               </span>
               <ArrowRight size={14} className="ml-auto text-gray-300 group-hover/page:text-gray-500 shrink-0" />
             </button>
+          ) : block.type === "bookmark" ? (
+            <div
+              className="flex-1 cursor-pointer"
+              onClick={(e) => {
+                if (readOnly) return;
+                if (e.shiftKey && lastClickedIdx.current !== null) {
+                  selectRange(lastClickedIdx.current, idx);
+                } else {
+                  setSelectedIds(new Set([block.id]));
+                  lastClickedIdx.current = idx;
+                }
+                wrapperRef.current?.focus();
+              }}
+            >
+              <BookmarkBlockView url={block.content} />
+            </div>
           ) : block.type === "divider" ? (
             <div
               className="flex-1 py-3 px-1 cursor-pointer"
@@ -1025,9 +1097,14 @@ export function NotionBlockEditor({
                 if (!readOnly) {
                   const el = blockRefs.current.get(block.id);
                   if (el) {
-                    const text = readText(el);
+                    const text = readText(el).trim();
                     if (text !== block.content) {
-                      updateBlock(block.id, text);
+                      // Auto-convert URL-only text to bookmark block
+                      if (block.type === "text" && URL_ONLY_REGEX.test(text)) {
+                        setBlocks(prev => prev.map(b => b.id === block.id ? { ...b, type: "bookmark" as BlockType, content: text } : b));
+                      } else {
+                        updateBlock(block.id, text);
+                      }
                     }
                   }
                 }

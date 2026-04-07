@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { NotionBlockEditor } from "../components/NotionBlockEditor";
-import { UrlPreviewSection } from "../components/detail/UrlPreviewCard";
 import { InlineText } from "../components/detail/InlineText";
 import { AutoProperties } from "../components/detail/AutoProperties";
 import { createDetailPage } from "../components/detail/createDetailPage";
@@ -546,7 +545,6 @@ function BrandBody({ item, onUpdate, ko, language }: DetailSectionProps<BrandAss
           parentType="brand"
           parentId={item.id}
         />
-        {item.url && <div className="mt-3"><UrlPreviewSection content={item.url} language={language} /></div>}
       </div>
     </>
   );
