@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import {
-  Radar, Sparkles, FileText, Clock, BarChart3, MessageSquare,
+  Sparkles, FileText, Clock, BarChart3, MessageSquare,
   Image, Calculator, Zap, ChevronLeft, Check, Plus, FolderKanban, Palette, DollarSign,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -61,19 +61,6 @@ const TOOLS: Tool[] = [
     descEn: "Manage clients, estimates, and payments in one place.",
     detailKo: "클라이언트 파이프라인, 견적서 작성, 대금 추적을 통합 관리합니다. Excel/CSV 대량 업로드도 지원합니다.",
     detailEn: "Unified management of client pipeline, estimates, and payment tracking. Supports Excel/CSV bulk upload.",
-    status: "active",
-    category: "page",
-  },
-  {
-    id: "biz-radar",
-    icon: <Radar size={28} />,
-    color: "bg-blue-100 text-blue-600",
-    titleKo: "비즈 레이더",
-    titleEn: "Biz Radar",
-    descKo: "영업 파이프라인과 비즈니스 기회를 추적하고 관리하세요.",
-    descEn: "Track and manage your sales pipeline and business opportunities.",
-    detailKo: "클라이언트 발굴부터 계약 체결까지 전체 영업 파이프라인을 시각적으로 관리합니다. 단계별 확률, 예상 매출, 담당자 배정 등을 한눈에 파악할 수 있습니다.",
-    detailEn: "Visually manage your entire sales pipeline from discovery to closing. Track stage probabilities, expected revenue, and assignees at a glance.",
     status: "active",
     category: "page",
   },
