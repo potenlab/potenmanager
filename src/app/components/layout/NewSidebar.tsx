@@ -145,7 +145,7 @@ export function NewSidebar() {
   const [enabledTools, setEnabledTools] = useState<string[]>(() => getEnabledTools());
 
   // ── Categories ──
-  interface Category { id: string; name: string; memberIds: string[]; toolIds: string[]; orgId: string; }
+  interface Category { id: string; name: string; memberIds: string[]; toolIds: string[]; orgId: string | null; }
   const [categories, setCategories] = useState<Category[]>([]);
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [categoryName, setCategoryName] = useState("");
@@ -177,22 +177,29 @@ export function NewSidebar() {
 
   const { members: teamMembers } = useTeam();
 
-  // Load categories
+  // Load categories (org or personal)
   useEffect(() => {
-    if (!currentOrg) { setCategories([]); return; }
-    supabase.from("pm_categories").select("*").eq("org_id", currentOrg.id)
-      .then(({ data }) => {
-        if (data) setCategories(data.map((r: any) => ({ id: r.id, name: r.name, memberIds: r.member_ids || [], toolIds: r.tool_ids || [], orgId: r.org_id })));
-      });
-  }, [currentOrg]);
+    if (!user?.id) { setCategories([]); return; }
+    let query = supabase.from("pm_categories").select("*");
+    if (currentOrg) {
+      query = query.eq("org_id", currentOrg.id);
+    } else {
+      query = query.is("org_id", null).eq("created_by", user.id);
+    }
+    query.then(({ data }) => {
+      if (data) setCategories(data.map((r: any) => ({ id: r.id, name: r.name, memberIds: r.member_ids || [], toolIds: r.tool_ids || [], orgId: r.org_id })));
+    });
+  }, [currentOrg, user?.id]);
 
   const saveCategory = async () => {
-    if (!categoryName.trim() || !currentOrg) return;
+    if (!categoryName.trim() || !user?.id) return;
     if (editingCategory) {
-      const { data } = await supabase.from("pm_categories").update({ name: categoryName.trim(), member_ids: categoryMembers, tool_ids: categoryTools }).eq("id", editingCategory.id).select().single();
+      const { data, error } = await supabase.from("pm_categories").update({ name: categoryName.trim(), member_ids: categoryMembers, tool_ids: categoryTools }).eq("id", editingCategory.id).select().single();
+      if (error) { console.error("카테고리 수정 실패:", error); alert(`카테고리 수정 실패: ${error.message}`); return; }
       if (data) setCategories(p => p.map(c => c.id === editingCategory.id ? { id: data.id, name: data.name, memberIds: data.member_ids || [], toolIds: data.tool_ids || [], orgId: data.org_id } : c));
     } else {
-      const { data } = await supabase.from("pm_categories").insert({ name: categoryName.trim(), member_ids: categoryMembers, tool_ids: categoryTools, org_id: currentOrg.id, created_by: user?.id }).select().single();
+      const { data, error } = await supabase.from("pm_categories").insert({ name: categoryName.trim(), member_ids: categoryMembers, tool_ids: categoryTools, org_id: currentOrg?.id || null, created_by: user.id }).select().single();
+      if (error) { console.error("카테고리 생성 실패:", JSON.stringify(error)); alert(`카테고리 생성 실패: ${error.message || error.code || JSON.stringify(error)}`); return; }
       if (data) setCategories(p => [...p, { id: data.id, name: data.name, memberIds: data.member_ids || [], toolIds: data.tool_ids || [], orgId: data.org_id }]);
     }
     setCategoryName(""); setCategoryMembers([]); setCategoryTools([]); setShowCategoryForm(false); setEditingCategory(null);
@@ -275,9 +282,9 @@ export function NewSidebar() {
   const members = sidebarMembers;
 
   // Compute ordered sections: "personal" + visible category IDs
-  const visibleCategories = (!isPersonal && currentOrg)
+  const visibleCategories = currentOrg
     ? categories.filter(cat => cat.memberIds.includes(user?.id || ""))
-    : [];
+    : categories;
   const allSectionIds = ["personal", ...visibleCategories.map(c => c.id)];
 
   // Sync section order when categories change
@@ -528,58 +535,60 @@ export function NewSidebar() {
         })}
 
         {/* Category add button (inline, below categories) */}
-        {!isPersonal && currentOrg && (
-          <div>
-            {!showCategoryForm && (
-              <button onClick={() => { setShowCategoryForm(true); setEditingCategory(null); setCategoryName(""); setCategoryMembers([]); setCategoryTools([]); }}
-                className="flex items-center gap-2 px-2 py-1.5 text-[12px] text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors w-full">
-                <Plus size={14} />
-                <span>{ko ? "카테고리 추가" : "Add category"}</span>
-              </button>
-            )}
-            {/* Category form */}
-            {showCategoryForm && (
-              <div className="p-3 bg-white border border-blue-200 rounded-xl shadow-sm">
-                <input
-                  autoFocus
-                  value={categoryName}
-                  onChange={e => setCategoryName(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Escape") setShowCategoryForm(false); }}
-                  placeholder={ko ? "카테고리 이름 (예: A부서, 마케팅팀)" : "Category name"}
-                  className="w-full px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-blue-300 mb-2"
-                />
-                <p className="text-[10px] text-gray-400 font-medium mb-1">{ko ? "도구 선택" : "Select tools"}</p>
-                <div className="max-h-[100px] overflow-y-auto space-y-1 mb-2">
-                  {Object.entries(TOOL_NAV_ITEMS).map(([toolId, item]) => (
-                    <label key={toolId} className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-gray-50 cursor-pointer text-sm">
-                      <input type="checkbox" checked={categoryTools.includes(toolId)}
-                        onChange={e => setCategoryTools(e.target.checked ? [...categoryTools, toolId] : categoryTools.filter(id => id !== toolId))}
-                        className="rounded border-gray-300" />
-                      <div className="shrink-0 text-gray-500">{item.icon}</div>
-                      <span className="text-gray-700 truncate">{item.label}</span>
-                    </label>
-                  ))}
-                </div>
-                <p className="text-[10px] text-gray-400 font-medium mb-1">{ko ? "멤버 선택" : "Select members"}</p>
-                <div className="max-h-[120px] overflow-y-auto space-y-1 mb-2">
-                  {teamMembers.map(m => (
-                    <label key={m.id} className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-gray-50 cursor-pointer text-sm">
-                      <input type="checkbox" checked={categoryMembers.includes(m.id)}
-                        onChange={e => setCategoryMembers(e.target.checked ? [...categoryMembers, m.id] : categoryMembers.filter(id => id !== m.id))}
-                        className="rounded border-gray-300" />
-                      <img src={m.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${m.name}`} alt="" className="w-5 h-5 rounded-full" />
-                      <span className="text-gray-700 truncate">{m.name}</span>
-                    </label>
-                  ))}
-                </div>
-                <div className="flex gap-1.5 justify-end">
-                  <button onClick={() => setShowCategoryForm(false)} className="px-2.5 py-1 text-xs text-gray-500 hover:bg-gray-100 rounded-lg">{ko ? "취소" : "Cancel"}</button>
-                  <button onClick={saveCategory} className="px-2.5 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg">{ko ? "저장" : "Save"}</button>
-                </div>
+        <div>
+          {!showCategoryForm && (
+            <button onClick={() => { setShowCategoryForm(true); setEditingCategory(null); setCategoryName(""); setCategoryMembers([]); setCategoryTools([]); }}
+              className="flex items-center gap-2 px-2 py-1.5 text-[12px] text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors w-full">
+              <Plus size={14} />
+              <span>{ko ? "카테고리 추가" : "Add category"}</span>
+            </button>
+          )}
+          {/* Category form */}
+          {showCategoryForm && (
+            <div className="p-3 bg-white border border-blue-200 rounded-xl shadow-sm">
+              <input
+                autoFocus
+                value={categoryName}
+                onChange={e => setCategoryName(e.target.value)}
+                onKeyDown={e => { if (e.key === "Escape") setShowCategoryForm(false); }}
+                placeholder={ko ? (currentOrg ? "카테고리 이름 (예: A부서, 마케팅팀)" : "카테고리 이름 (예: 업무, 개인)") : "Category name"}
+                className="w-full px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-blue-300 mb-2"
+              />
+              <p className="text-[10px] text-gray-400 font-medium mb-1">{ko ? "도구 선택" : "Select tools"}</p>
+              <div className="max-h-[100px] overflow-y-auto space-y-1 mb-2">
+                {Object.entries(TOOL_NAV_ITEMS).map(([toolId, item]) => (
+                  <label key={toolId} className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-gray-50 cursor-pointer text-sm">
+                    <input type="checkbox" checked={categoryTools.includes(toolId)}
+                      onChange={e => setCategoryTools(e.target.checked ? [...categoryTools, toolId] : categoryTools.filter(id => id !== toolId))}
+                      className="rounded border-gray-300" />
+                    <div className="shrink-0 text-gray-500">{item.icon}</div>
+                    <span className="text-gray-700 truncate">{item.label}</span>
+                  </label>
+                ))}
               </div>
-            )}
-          </div>
-        )}
+              {currentOrg && (
+                <>
+                  <p className="text-[10px] text-gray-400 font-medium mb-1">{ko ? "멤버 선택" : "Select members"}</p>
+                  <div className="max-h-[120px] overflow-y-auto space-y-1 mb-2">
+                    {teamMembers.map(m => (
+                      <label key={m.id} className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-gray-50 cursor-pointer text-sm">
+                        <input type="checkbox" checked={categoryMembers.includes(m.id)}
+                          onChange={e => setCategoryMembers(e.target.checked ? [...categoryMembers, m.id] : categoryMembers.filter(id => id !== m.id))}
+                          className="rounded border-gray-300" />
+                        <img src={m.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${m.name}`} alt="" className="w-5 h-5 rounded-full" />
+                        <span className="text-gray-700 truncate">{m.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </>
+              )}
+              <div className="flex gap-1.5 justify-end">
+                <button onClick={() => setShowCategoryForm(false)} className="px-2.5 py-1 text-xs text-gray-500 hover:bg-gray-100 rounded-lg">{ko ? "취소" : "Cancel"}</button>
+                <button onClick={saveCategory} className="px-2.5 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg">{ko ? "저장" : "Save"}</button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Upgrade to Org (personal mode only) */}
         {isPersonal && orgs.length === 0 && (
