@@ -153,7 +153,7 @@ export function NewSidebar() {
   const [categoryTools, setCategoryTools] = useState<string[]>([]);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [categoryMenuId, setCategoryMenuId] = useState<string | null>(null);
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [expandedCategories, setExpandedCategories] = useState<Set<string> | null>(null);
   const [renamingCategoryId, setRenamingCategoryId] = useState<string | null>(null);
   const [renamingCategoryName, setRenamingCategoryName] = useState("");
 
@@ -189,7 +189,12 @@ export function NewSidebar() {
       query = query.is("org_id", null).eq("created_by", user.id);
     }
     query.then(({ data }) => {
-      if (data) setCategories(data.map((r: any) => ({ id: r.id, name: r.name, memberIds: r.member_ids || [], toolIds: r.tool_ids || [], orgId: r.org_id })));
+      if (data) {
+        const cats = data.map((r: any) => ({ id: r.id, name: r.name, memberIds: r.member_ids || [], toolIds: r.tool_ids || [], orgId: r.org_id }));
+        setCategories(cats);
+        // Default: all categories expanded
+        setExpandedCategories(prev => prev === null ? new Set(cats.map((c: any) => c.id)) : prev);
+      }
     });
   }, [currentOrg, user?.id]);
 
@@ -202,14 +207,17 @@ export function NewSidebar() {
     } else {
       const { data, error } = await supabase.from("pm_categories").insert({ name: categoryName.trim(), member_ids: categoryMembers, tool_ids: categoryTools, org_id: currentOrg?.id || null, created_by: user.id }).select().single();
       if (error) { console.error("카테고리 생성 실패:", JSON.stringify(error)); alert(`카테고리 생성 실패: ${error.message || error.code || JSON.stringify(error)}`); return; }
-      if (data) setCategories(p => [...p, { id: data.id, name: data.name, memberIds: data.member_ids || [], toolIds: data.tool_ids || [], orgId: data.org_id }]);
+      if (data) {
+        setCategories(p => [...p, { id: data.id, name: data.name, memberIds: data.member_ids || [], toolIds: data.tool_ids || [], orgId: data.org_id }]);
+        setExpandedCategories(prev => new Set([...(prev || []), data.id]));
+      }
     }
     setCategoryName(""); setCategoryMembers([]); setCategoryTools([]); setShowCategoryForm(false); setEditingCategory(null);
   };
 
   const toggleCategoryExpand = (id: string) => {
     setExpandedCategories(prev => {
-      const next = new Set(prev);
+      const next = new Set(prev || []);
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
@@ -514,7 +522,7 @@ export function NewSidebar() {
                         className="flex items-center gap-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider hover:text-gray-600 transition-colors"
                       >
                         <span>{cat.name}</span>
-                        <ChevronDown size={10} className={cn("transition-transform", !expandedCategories.has(cat.id) && "-rotate-90")} />
+                        <ChevronDown size={10} className={cn("transition-transform", !expandedCategories?.has(cat.id) && "-rotate-90")} />
                       </button>
                     )}
                     <button
@@ -532,7 +540,7 @@ export function NewSidebar() {
                         className="w-full text-left px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2"><Trash2 size={12} /> {ko ? "삭제" : "Delete"}</button>
                     </div>
                   )}
-                  {expandedCategories.has(cat.id) && (
+                  {expandedCategories?.has(cat.id) && (
                     <div className="space-y-0.5">
                       {cat.toolIds.length > 0 ? cat.toolIds.filter(t => TOOL_NAV_ITEMS[t]).map(toolId => {
                         const item = TOOL_NAV_ITEMS[toolId];
@@ -669,12 +677,6 @@ export function NewSidebar() {
           </div>
         )}
 
-        {/* 도구 — just above settings */}
-        <NavLink to="/tools" className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all", isActive("/tools") ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-500 hover:bg-gray-100 hover:text-gray-700")}>
-          <Wrench size={16} />
-          {ko ? "도구" : "Tools"}
-        </NavLink>
-
         {/* User Profile */}
         {user && (
           <NavLink to="/mypage" className="flex items-center gap-2.5 px-2 py-2 mb-1 rounded-lg hover:bg-gray-100 transition-all cursor-pointer group">
@@ -691,6 +693,12 @@ export function NewSidebar() {
             </div>
           </NavLink>
         )}
+
+        {/* 도구 */}
+        <NavLink to="/tools" className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all", isActive("/tools") ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-500 hover:bg-gray-100 hover:text-gray-700")}>
+          <Wrench size={16} />
+          {ko ? "도구" : "Tools"}
+        </NavLink>
         <NavLink to="/settings" className={cn("flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[14px] transition-all", isActive("/settings") ? "bg-gray-200/70 text-gray-900 font-semibold" : "text-gray-500 hover:bg-gray-100 hover:text-gray-700")}>
           <Settings size={16} />
           {ko ? "설정" : "Settings"}
