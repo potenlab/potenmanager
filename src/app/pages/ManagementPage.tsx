@@ -60,15 +60,26 @@ export const PROJECT_COLORS = [
   "#06B6D4", "#F97316", "#EF4444", "#6366F1", "#14B8A6",
 ];
 
-// Platform SVG icons (inline for fast rendering)
+// Platform SVG icons with brand colors
+const PLATFORM_COLORS: Record<string, string> = {
+  instagram: "#E4405F",
+  youtube: "#FF0000",
+  tiktok: "#000000",
+  thread: "#000000",
+  website: "#3B82F6",
+  blog: "#10B981",
+  tistory: "#FF5A4A",
+  other: "#9CA3AF",
+};
+
 const PlatformSvg = {
-  instagram: (s = 14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><rect x="2" y="2" width="20" height="20" rx="5" stroke="currentColor" strokeWidth="2"/><circle cx="12" cy="12" r="5" stroke="currentColor" strokeWidth="2"/><circle cx="17.5" cy="6.5" r="1.5" fill="currentColor"/></svg>,
-  youtube: (s = 14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.9 31.9 0 0 0 0 12a31.9 31.9 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1c.3-1.9.5-3.8.5-5.8s-.2-3.9-.5-5.8zM9.5 15.6V8.4l6.3 3.6-6.3 3.6z"/></svg>,
-  tiktok: (s = 14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor"><path d="M19.3 6.5a4.5 4.5 0 0 1-3.3-1.4A4.5 4.5 0 0 1 14.8 2h-3.3v13.5a2.8 2.8 0 1 1-2-2.7V9.4a6.2 6.2 0 1 0 5.3 6.1V9.8a7.8 7.8 0 0 0 4.5 1.4V7.9a4.5 4.5 0 0 1-1-.4v0z"/></svg>,
-  thread: (s = 14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor"><path d="M17.4 10.5c-.1 0-.2-.1-.3-.1a5.3 5.3 0 0 0-2.4-2.8 5.8 5.8 0 0 0-3.2-.8c-2.2 0-3.7 1-4.6 2.1l1.6 1.2c.6-.8 1.6-1.4 3-1.4a3.5 3.5 0 0 1 2 .5 3.1 3.1 0 0 1 1.3 1.5 5 5 0 0 0-2.3-.4c-2.7 0-4.8 1.5-4.8 3.8 0 2.2 1.9 3.6 4.1 3.6a4.4 4.4 0 0 0 3.4-1.5 5 5 0 0 0 .8-1.7c.3 1.1.4 2.4.4 2.4h2.2s-.2-1.8-.6-3.2c.3-1.1.3-2.2.1-3.2zM12.5 15.7c-1.1 0-2-.5-2-1.5s.9-1.6 2.3-1.6a6 6 0 0 1 1.7.2 3.3 3.3 0 0 1-2 2.9z"/></svg>,
-  website: (s = 14) => <Globe size={s} />,
-  blog: (s = 14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M7 8h10M7 12h6"/></svg>,
-  tistory: (s = 14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="12" r="2.5"/><circle cx="12" cy="19" r="2.5"/></svg>,
+  instagram: (s = 14, color = PLATFORM_COLORS.instagram) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" style={{ color }}><rect x="2" y="2" width="20" height="20" rx="5" stroke="currentColor" strokeWidth="2"/><circle cx="12" cy="12" r="5" stroke="currentColor" strokeWidth="2"/><circle cx="17.5" cy="6.5" r="1.5" fill="currentColor"/></svg>,
+  youtube: (s = 14, color = PLATFORM_COLORS.youtube) => <svg width={s} height={s} viewBox="0 0 24 24" fill={color}><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.9 31.9 0 0 0 0 12a31.9 31.9 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1c.3-1.9.5-3.8.5-5.8s-.2-3.9-.5-5.8zM9.5 15.6V8.4l6.3 3.6-6.3 3.6z"/></svg>,
+  tiktok: (s = 14, color = PLATFORM_COLORS.tiktok) => <svg width={s} height={s} viewBox="0 0 24 24" fill={color}><path d="M19.3 6.5a4.5 4.5 0 0 1-3.3-1.4A4.5 4.5 0 0 1 14.8 2h-3.3v13.5a2.8 2.8 0 1 1-2-2.7V9.4a6.2 6.2 0 1 0 5.3 6.1V9.8a7.8 7.8 0 0 0 4.5 1.4V7.9a4.5 4.5 0 0 1-1-.4v0z"/></svg>,
+  thread: (s = 14, color = PLATFORM_COLORS.thread) => <svg width={s} height={s} viewBox="0 0 24 24" fill={color}><path d="M17.4 10.5c-.1 0-.2-.1-.3-.1a5.3 5.3 0 0 0-2.4-2.8 5.8 5.8 0 0 0-3.2-.8c-2.2 0-3.7 1-4.6 2.1l1.6 1.2c.6-.8 1.6-1.4 3-1.4a3.5 3.5 0 0 1 2 .5 3.1 3.1 0 0 1 1.3 1.5 5 5 0 0 0-2.3-.4c-2.7 0-4.8 1.5-4.8 3.8 0 2.2 1.9 3.6 4.1 3.6a4.4 4.4 0 0 0 3.4-1.5 5 5 0 0 0 .8-1.7c.3 1.1.4 2.4.4 2.4h2.2s-.2-1.8-.6-3.2c.3-1.1.3-2.2.1-3.2zM12.5 15.7c-1.1 0-2-.5-2-1.5s.9-1.6 2.3-1.6a6 6 0 0 1 1.7.2 3.3 3.3 0 0 1-2 2.9z"/></svg>,
+  website: (s = 14, color = PLATFORM_COLORS.website) => <Globe size={s} style={{ color }} />,
+  blog: (s = 14, color = PLATFORM_COLORS.blog) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M7 8h10M7 12h6"/></svg>,
+  tistory: (s = 14, color = PLATFORM_COLORS.tistory) => <svg width={s} height={s} viewBox="0 0 24 24" fill={color}><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="12" r="2.5"/><circle cx="12" cy="19" r="2.5"/></svg>,
 };
 
 export const BRAND_TYPE_CONFIG: Record<string, { label: string; labelEn: string; icon: React.ReactNode }> = {
@@ -79,7 +90,7 @@ export const BRAND_TYPE_CONFIG: Record<string, { label: string; labelEn: string;
   website: { label: "홈페이지", labelEn: "Website", icon: PlatformSvg.website() },
   blog: { label: "블로그", labelEn: "Blog", icon: PlatformSvg.blog() },
   tistory: { label: "티스토리", labelEn: "Tistory", icon: PlatformSvg.tistory() },
-  other: { label: "기타", labelEn: "Other", icon: <Globe size={14} /> },
+  other: { label: "기타", labelEn: "Other", icon: <Globe size={14} className="text-gray-400" /> },
   // Legacy keys for backward compatibility
   logo: { label: "로고", labelEn: "Logo", icon: <ImageIcon size={14} /> },
   color: { label: "컬러", labelEn: "Color", icon: <Palette size={14} /> },
@@ -90,13 +101,11 @@ export const BRAND_TYPE_CONFIG: Record<string, { label: string; labelEn: string;
 
 // Render platform icon (built-in or custom uploaded)
 function PlatformIcon({ id, size = 14 }: { id: string; size?: number }) {
+  // Built-in platform with colored SVG
+  const svgFn = PlatformSvg[id as keyof typeof PlatformSvg];
+  if (svgFn) return <>{svgFn(size)}</>;
   const config = BRAND_TYPE_CONFIG[id];
-  if (config) {
-    // Use SVG function if available for proper sizing
-    const svgFn = PlatformSvg[id as keyof typeof PlatformSvg];
-    if (svgFn) return <>{svgFn(size)}</>;
-    return <>{config.icon}</>;
-  }
+  if (config) return <>{config.icon}</>;
   // Custom platform — check for uploaded icon
   const iconUrl = getCustomPlatformIcon(id);
   if (iconUrl) return <img src={iconUrl} alt="" className="rounded" style={{ width: size, height: size, objectFit: "contain" }} />;
@@ -608,12 +617,12 @@ export function ManagementPage() {
       {/* Channel Summary */}
       <div className="flex flex-wrap gap-2 mb-6">
         {allPlatforms.map(key => (
-          <div key={key} className="bg-white rounded-xl border border-gray-200 p-3 text-center min-w-[80px] relative group">
-            <div className="flex justify-center mb-1 text-gray-500">
-              <PlatformIcon id={key} size={18} />
-            </div>
+          <div key={key} className="bg-white rounded-xl border border-gray-200 px-3 py-2.5 min-w-[80px] relative group flex flex-col items-center">
             <p className="text-lg font-bold text-gray-900">{brandAssets.filter(b => b.type === key).length}</p>
-            <p className="text-[10px] font-medium text-gray-500 mt-1">{getPlatformLabel(key)}</p>
+            <div className="flex items-center gap-1 mt-0.5">
+              <PlatformIcon id={key} size={14} />
+              <p className="text-[10px] font-medium text-gray-500">{getPlatformLabel(key)}</p>
+            </div>
             {customPlatforms.some(p => p.name === key) && (
               <button onClick={() => handleRemovePlatform(key)}
                 className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
